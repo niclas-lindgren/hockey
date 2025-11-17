@@ -489,28 +489,69 @@ def find_available_weekends(
         if weekend_date in ice_hall_dates:
             exclusion_reasons['ice_hall'] += 1
             excluded = True
-            reason = "Ice hall tournament"
             # Find tournament name
             for date, name in ice_hall_tournaments:
                 if date == weekend_date:
-                    reason = f"Ice hall: {name[:50]}"
+                    reason = f"Ice hall tournament: {name[:60]}"
                     break
+            if not reason:
+                reason = "Ice hall tournament"
         elif weekend_date in ball_hall_dates:
             exclusion_reasons['ball_hall'] += 1
             excluded = True
-            reason = "Ball hall event"
+            # Find ball hall event details
+            for date, name, dur in ball_hall_long_events:
+                if date == weekend_date:
+                    reason = f"Ball hall: {name[:40]} ({dur:.1f}h)"
+                    break
+            if not reason:
+                reason = "Ball hall event"
         elif weekend_date in team_conflicts:
             exclusion_reasons['team_conflict'] += 1
             excluded = True
-            reason = "Team conflict"
+            # Find which team and event
+            for event in ice_hall_events:
+                event_date_str = event.get('date')
+                if event_date_str:
+                    try:
+                        for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
+                            try:
+                                event_date = datetime.strptime(event_date_str, date_format).date()
+                                if event_date == weekend_date:
+                                    event_name = event.get('name', '').lower()
+                                    for team in team_names:
+                                        if team.lower() in event_name:
+                                            reason = f"Team conflict: {event.get('name', '')[:50]}"
+                                            break
+                                    if reason:
+                                        break
+                                break
+                            except ValueError:
+                                continue
+                    except:
+                        continue
+                if reason:
+                    break
+            if not reason:
+                reason = "Team schedule conflict"
         elif weekend_date in holiday_weeks:
             exclusion_reasons['holiday_week'] += 1
             excluded = True
-            reason = "Holiday week"
+            # Find which holiday
+            no_holidays = holidays.Norway()
+            current = weekend_date - timedelta(days=weekend_date.weekday())
+            for i in range(7):
+                check_date = current + timedelta(days=i)
+                if check_date in no_holidays:
+                    holiday_name = no_holidays.get(check_date)
+                    reason = f"Holiday week: {holiday_name}"
+                    break
+            if not reason:
+                reason = "Holiday week"
         elif weekend_date in excel_dates:
             exclusion_reasons['excel'] += 1
             excluded = True
-            reason = "Excel exclusion"
+            reason = "Excel exclusion list"
 
         if excluded:
             excluded_details.append((weekend_date, reason))
