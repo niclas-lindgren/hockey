@@ -164,6 +164,48 @@ def parse_outlook_calendar_text(text: str) -> List[Dict]:
         if len(parts) >= 4:
             event_name = parts[0]
 
+            # Extract time information (HH:MM AM/PM to HH:MM AM/PM or HH:MM to HH:MM)
+            time_part = parts[1] if len(parts) > 1 else ''
+            start_time = None
+            end_time = None
+            duration_hours = 0
+
+            # Try AM/PM format first
+            time_match = re.search(r'(\d{1,2}):(\d{2})\s*(AM|PM)\s+to\s+(\d{1,2}):(\d{2})\s*(AM|PM)', time_part, re.IGNORECASE)
+            if time_match:
+                start_hour, start_min, start_period, end_hour, end_min, end_period = time_match.groups()
+                start_hour, start_min, end_hour, end_min = map(int, [start_hour, start_min, end_hour, end_min])
+
+                # Convert to 24-hour format
+                if start_period.upper() == 'PM' and start_hour != 12:
+                    start_hour += 12
+                elif start_period.upper() == 'AM' and start_hour == 12:
+                    start_hour = 0
+
+                if end_period.upper() == 'PM' and end_hour != 12:
+                    end_hour += 12
+                elif end_period.upper() == 'AM' and end_hour == 12:
+                    end_hour = 0
+
+                start_time = start_hour + start_min / 60.0
+                end_time = end_hour + end_min / 60.0
+
+                # Handle events that cross midnight
+                if end_time < start_time:
+                    end_time += 24
+                duration_hours = end_time - start_time
+            else:
+                # Try 24-hour format
+                time_match = re.search(r'(\d{1,2}):(\d{2})\s+to\s+(\d{1,2}):(\d{2})', time_part)
+                if time_match:
+                    start_hour, start_min, end_hour, end_min = map(int, time_match.groups())
+                    start_time = start_hour + start_min / 60.0
+                    end_time = end_hour + end_min / 60.0
+                    # Handle events that cross midnight
+                    if end_time < start_time:
+                        end_time += 24
+                    duration_hours = end_time - start_time
+
             # Find date components in the remaining parts
             # Look for month name and year
             found_date = None
@@ -200,7 +242,8 @@ def parse_outlook_calendar_text(text: str) -> List[Dict]:
                 events.append({
                     'date': found_date.strftime('%d.%m.%Y'),
                     'name': event_name,
-                    'datetime': found_date
+                    'datetime': found_date,
+                    'duration_hours': duration_hours
                 })
 
     # Deduplicate events
@@ -301,6 +344,39 @@ def filter_team_conflicts(events: List[Dict], team_names: List[str]) -> Set[date
     return conflict_dates
 
 
+def is_tournament_event(event_name: str) -> bool:
+    """Check if an event name indicates a tournament or major event."""
+    event_name_lower = event_name.lower()
+
+    # Tournament/competition keywords (Norwegian and English)
+    tournament_keywords = [
+        'turnering', 'tournament', 'cup', 'mesterskap', 'championship',
+        'series', 'serie', 'finale', 'final', 'semifinale', 'playoff',
+        'kvalifisering', 'qualifying', 'region', 'nm ', 'nasjonalt',
+        'national', 'landsdel', 'krets'
+    ]
+
+    # Events that are NOT tournaments (exclude these)
+    non_tournament_keywords = [
+        'trening', 'practice', 'åpen ishall', 'open ice', 'reklag',
+        'rek.lag', 'hockeytrim', 'pensjonist', 'helgevakt', 'duty',
+        'is vedlikehold', 'maintenance', 'stengt', 'closed'
+    ]
+
+    # First check if it's explicitly NOT a tournament
+    for keyword in non_tournament_keywords:
+        if keyword in event_name_lower:
+            return False
+
+    # Then check if it contains tournament keywords
+    for keyword in tournament_keywords:
+        if keyword in event_name_lower:
+            return True
+
+    # If no keywords match, default to False (don't block the date)
+    return False
+
+
 def find_available_weekends(
     start_date: datetime,
     end_date: datetime,
@@ -315,30 +391,77 @@ def find_available_weekends(
     holiday_weeks = get_norwegian_holidays(start_date, end_date)
     team_conflicts = filter_team_conflicts(ice_hall_events, team_names)
 
-    # Extract all ice hall and ball hall dates
+    # Extract tournament dates from ice hall (not all events, only tournaments)
     ice_hall_dates = set()
+    ice_hall_tournaments = []
     for event in ice_hall_events:
-        date_str = event.get('date')
-        if date_str:
-            for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
-                try:
-                    date = datetime.strptime(date_str, date_format)
-                    ice_hall_dates.add(date.date())
-                    break
-                except ValueError:
-                    continue
+        event_name = event.get('name', '')
+        # Only consider actual tournaments as conflicts
+        if is_tournament_event(event_name):
+            date_str = event.get('date')
+            if date_str:
+                for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
+                    try:
+                        date = datetime.strptime(date_str, date_format)
+                        ice_hall_dates.add(date.date())
+                        ice_hall_tournaments.append((date.date(), event_name))
+                        break
+                    except ValueError:
+                        continue
 
+    # Print found tournaments for debugging
+    if ice_hall_tournaments:
+        print(f"\nFound {len(set([d for d, _ in ice_hall_tournaments]))} tournament dates in ice hall:", flush=True)
+        # Group by date and show unique dates
+        tournament_by_date = {}
+        for date, name in ice_hall_tournaments:
+            if date not in tournament_by_date:
+                tournament_by_date[date] = []
+            tournament_by_date[date].append(name)
+
+        for date in sorted(tournament_by_date.keys())[:10]:  # Show first 10
+            names = ', '.join(set(tournament_by_date[date]))
+            print(f"  {date.strftime('%Y-%m-%d')}: {names[:80]}", flush=True)
+        if len(tournament_by_date) > 10:
+            print(f"  ... and {len(tournament_by_date) - 10} more dates", flush=True)
+    else:
+        print("\nNo tournaments found in ice hall calendar", flush=True)
+
+    # Extract ball hall dates (only events longer than 2 hours)
     ball_hall_dates = set()
+    ball_hall_long_events = []
     for event in ball_hall_events:
-        date_str = event.get('date')
-        if date_str:
-            for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
-                try:
-                    date = datetime.strptime(date_str, date_format)
-                    ball_hall_dates.add(date.date())
-                    break
-                except ValueError:
-                    continue
+        duration = event.get('duration_hours', 0)
+        # Only count events longer than 2 hours as conflicts
+        if duration > 2.0:
+            date_str = event.get('date')
+            if date_str:
+                for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
+                    try:
+                        date = datetime.strptime(date_str, date_format)
+                        ball_hall_dates.add(date.date())
+                        ball_hall_long_events.append((date.date(), event.get('name', ''), duration))
+                        break
+                    except ValueError:
+                        continue
+
+    # Print found long ball hall events for debugging
+    if ball_hall_long_events:
+        print(f"Found {len(set([d for d, _, _ in ball_hall_long_events]))} ball hall events >2 hours:", flush=True)
+        # Group by date
+        events_by_date = {}
+        for date, name, dur in ball_hall_long_events:
+            if date not in events_by_date:
+                events_by_date[date] = []
+            events_by_date[date].append((name, dur))
+
+        for date in sorted(events_by_date.keys())[:10]:  # Show first 10
+            for name, dur in events_by_date[date]:
+                print(f"  {date.strftime('%Y-%m-%d')}: {name[:50]} ({dur:.1f}h)", flush=True)
+        if len(events_by_date) > 10:
+            print(f"  ... and {len(events_by_date) - 10} more dates", flush=True)
+    else:
+        print("No ball hall events >2 hours found", flush=True)
 
     # Generate all weekend dates in range
     weekends = []
@@ -357,33 +480,47 @@ def find_available_weekends(
         'holiday_week': 0,
         'excel': 0
     }
+    excluded_details = []
 
     for weekend_date in weekends:
         excluded = False
+        reason = None
 
         if weekend_date in ice_hall_dates:
             exclusion_reasons['ice_hall'] += 1
             excluded = True
+            reason = "Ice hall tournament"
+            # Find tournament name
+            for date, name in ice_hall_tournaments:
+                if date == weekend_date:
+                    reason = f"Ice hall: {name[:50]}"
+                    break
         elif weekend_date in ball_hall_dates:
             exclusion_reasons['ball_hall'] += 1
             excluded = True
+            reason = "Ball hall event"
         elif weekend_date in team_conflicts:
             exclusion_reasons['team_conflict'] += 1
             excluded = True
+            reason = "Team conflict"
         elif weekend_date in holiday_weeks:
             exclusion_reasons['holiday_week'] += 1
             excluded = True
+            reason = "Holiday week"
         elif weekend_date in excel_dates:
             exclusion_reasons['excel'] += 1
             excluded = True
+            reason = "Excel exclusion"
 
-        if not excluded:
+        if excluded:
+            excluded_details.append((weekend_date, reason))
+        else:
             available.append(weekend_date)
 
-    return available, exclusion_reasons
+    return available, exclusion_reasons, excluded_details
 
 
-def format_output(available_dates: List[datetime], exclusion_reasons: Dict, total_weekends: int):
+def format_output(available_dates: List[datetime], exclusion_reasons: Dict, total_weekends: int, excluded_details: List[Tuple] = None):
     """Format and display available dates and statistics."""
     print("\n" + "="*60)
     print("AVAILABLE WEEKEND DATES FOR TOURNAMENT")
@@ -404,12 +541,23 @@ def format_output(available_dates: List[datetime], exclusion_reasons: Dict, tota
     print(f"Available: {len(available_dates)}")
     print(f"Excluded: {total_weekends - len(available_dates)}")
     print(f"\nExclusion breakdown:")
-    print(f"  Ice hall conflicts: {exclusion_reasons['ice_hall']}")
+    print(f"  Ice hall tournaments: {exclusion_reasons['ice_hall']}")
     print(f"  Ball hall (wardrobe unavailable): {exclusion_reasons['ball_hall']}")
     print(f"  Team schedule conflicts: {exclusion_reasons['team_conflict']}")
     print(f"  Holiday weeks: {exclusion_reasons['holiday_week']}")
     print(f"  Excel-provided exclusions: {exclusion_reasons['excel']}")
+
+    if excluded_details and len(excluded_details) <= 30:
+        print("\n" + "-"*60)
+        print("EXCLUDED WEEKENDS DETAIL")
+        print("-"*60)
+        for date, reason in sorted(excluded_details):
+            print(f"  {date.strftime('%Y-%m-%d')} ({date.strftime('%a')}): {reason}")
+
     print("="*60 + "\n")
+    print("Note: Only tournaments/competitions count as ice hall conflicts.")
+    print("Regular practices, open hours, and maintenance are ignored.")
+    print("Ball hall events only count as conflicts if they exceed 2 hours.\n")
 
 
 def main():
@@ -469,7 +617,7 @@ Examples:
 
     # Find available weekends
     print("Analyzing conflicts and finding available dates...", flush=True)
-    available_dates, exclusion_reasons = find_available_weekends(
+    available_dates, exclusion_reasons, excluded_details = find_available_weekends(
         start_date, end_date,
         ice_hall_events, ball_hall_events,
         excel_dates, team_names
@@ -481,7 +629,7 @@ Examples:
                         if (start_date + timedelta(days=d)).weekday() in [5, 6])
 
     # Output results
-    format_output(available_dates, exclusion_reasons, total_weekends)
+    format_output(available_dates, exclusion_reasons, total_weekends, excluded_details)
 
 
 if __name__ == '__main__':
