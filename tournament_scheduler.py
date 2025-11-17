@@ -14,9 +14,22 @@ import holidays
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 
 
-def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: int = 3) -> List[Dict]:
+def scrape_calendar_with_playwright(url: str, calendar_type: str, start_date: datetime, end_date: datetime) -> List[Dict]:
     """Scrape Outlook calendar using Playwright to handle JavaScript rendering."""
     events = []
+
+    # Calculate how many months to scrape
+    current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    start_month = start_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    end_month = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Calculate months to navigate forward from current month to start month
+    months_to_start = ((start_month.year - current_month.year) * 12 +
+                       (start_month.month - current_month.month))
+
+    # Calculate total months to scrape from start to end
+    months_to_scrape = ((end_month.year - start_month.year) * 12 +
+                        (end_month.month - start_month.month)) + 1
 
     try:
         with sync_playwright() as p:
@@ -47,13 +60,37 @@ def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: 
             print(f"  Accessing calendar iframe...", flush=True)
             iframe.wait_for_timeout(3000)
 
-            # Scrape current month and next few months
-            print(f"  Scraping {months_ahead} months of events...", flush=True)
-            for month_offset in range(months_ahead):
+            # Navigate to start month if needed
+            if months_to_start > 0:
+                print(f"  Navigating to start month ({start_month.strftime('%B %Y')})...", flush=True)
+                for _ in range(months_to_start):
+                    try:
+                        next_button = iframe.query_selector('button[aria-label*="Go to next month"]')
+                        if next_button:
+                            next_button.click()
+                            iframe.wait_for_timeout(1000)
+                    except Exception as e:
+                        print(f"  Warning: Could not navigate to start month: {e}", flush=True)
+                        break
+            elif months_to_start < 0:
+                print(f"  Navigating to start month ({start_month.strftime('%B %Y')})...", flush=True)
+                for _ in range(abs(months_to_start)):
+                    try:
+                        prev_button = iframe.query_selector('button[aria-label*="Go to previous month"]')
+                        if prev_button:
+                            prev_button.click()
+                            iframe.wait_for_timeout(1000)
+                    except Exception as e:
+                        print(f"  Warning: Could not navigate to start month: {e}", flush=True)
+                        break
+
+            # Scrape from start month to end month
+            print(f"  Scraping {months_to_scrape} months of events ({start_month.strftime('%b %Y')} to {end_month.strftime('%b %Y')})...", flush=True)
+            for month_offset in range(months_to_scrape):
                 # Wait for content to load
                 iframe.wait_for_timeout(1000)
                 if month_offset > 0:
-                    print(f"    Month {month_offset + 1}/{months_ahead}...", flush=True)
+                    print(f"    Month {month_offset + 1}/{months_to_scrape}...", flush=True)
 
                 # Extract HTML content from calendar (includes aria-labels)
                 page_content = iframe.content()
@@ -63,7 +100,7 @@ def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: 
                 events.extend(month_events)
 
                 # Click "next month" button to navigate forward
-                if month_offset < months_ahead - 1:
+                if month_offset < months_to_scrape - 1:
                     try:
                         # Find the "Go to next month" button
                         next_button = iframe.query_selector('button[aria-label*="Go to next month"]')
@@ -178,16 +215,16 @@ def parse_outlook_calendar_text(text: str) -> List[Dict]:
     return unique_events
 
 
-def scrape_ice_hall_calendar() -> List[Dict]:
+def scrape_ice_hall_calendar(start_date: datetime, end_date: datetime) -> List[Dict]:
     """Scrape ice hall calendar to extract hockey tournament events."""
     url = "https://kongsberghallen.no/webkalender/ishall/"
-    return scrape_calendar_with_playwright(url, "ice hall")
+    return scrape_calendar_with_playwright(url, "ice hall", start_date, end_date)
 
 
-def scrape_ball_hall_calendar() -> List[Dict]:
+def scrape_ball_hall_calendar(start_date: datetime, end_date: datetime) -> List[Dict]:
     """Scrape ball hall calendar to identify wardrobe unavailability."""
     url = "https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/"
-    return scrape_calendar_with_playwright(url, "ball hall")
+    return scrape_calendar_with_playwright(url, "ball hall", start_date, end_date)
 
 
 def parse_excel_schedule(file_path: str) -> Set[datetime]:
@@ -421,8 +458,8 @@ Examples:
         print(f"Filtering conflicts for teams: {', '.join(team_names)}")
     print("\nScraping calendars (this may take 30-60 seconds)...\n")
 
-    ice_hall_events = scrape_ice_hall_calendar()
-    ball_hall_events = scrape_ball_hall_calendar()
+    ice_hall_events = scrape_ice_hall_calendar(start_date, end_date)
+    ball_hall_events = scrape_ball_hall_calendar(start_date, end_date)
 
     # Parse Excel if provided
     excel_dates = set()

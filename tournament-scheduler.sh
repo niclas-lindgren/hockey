@@ -25,7 +25,7 @@ Examples:
   $0 --excel-file tournaments.xlsx --start-date 2025-03-01
 
   # Full example with all options
-  $0 --teams "U10,U14" --excel-file /Users/niclas/private/hockey/existing_schedule/U10_ETTER_JUL_Klar_-_Kongsberg_Sandefjord.xlsx --start-date 2026-01-01 --end-date 2026-02-31
+  $0 --teams "U9,U10,U14" --excel-file /Users/niclas/private/hockey/existing_schedule/U10_ETTER_JUL_Klar_-_Kongsberg_Sandefjord.xlsx --start-date 2026-01-01 --end-date 2026-02-28
 
 EOF
     exit 0
