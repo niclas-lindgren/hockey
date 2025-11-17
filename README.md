@@ -24,26 +24,36 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+3. Install Playwright browsers:
+```bash
+playwright install chromium
+```
+
 ## Usage
 
-Basic usage:
+Using the shell script (recommended):
+```bash
+./tournament-scheduler.sh --start-date 2025-01-01 --end-date 2025-06-30
+```
+
+Or run directly with Python:
 ```bash
 python tournament_scheduler.py --start-date 2025-01-01 --end-date 2025-06-30
 ```
 
 Filter by team names:
 ```bash
-python tournament_scheduler.py --teams "Vikings,Bears,Eagles" --start-date 2025-01-01
+./tournament-scheduler.sh --teams "Vikings,Bears,Eagles" --start-date 2025-01-01
 ```
 
 Include Excel file with existing tournaments:
 ```bash
-python tournament_scheduler.py --excel-file existing_tournaments.xlsx --teams "Vikings"
+./tournament-scheduler.sh --excel-file existing_tournaments.xlsx --teams "Vikings"
 ```
 
 Full example:
 ```bash
-python tournament_scheduler.py \
+./tournament-scheduler.sh \
   --teams "Team A,Team B,Team C" \
   --excel-file tournaments.xlsx \
   --start-date 2025-01-01 \
@@ -90,11 +100,12 @@ The script outputs:
 - beautifulsoup4
 - openpyxl
 - holidays
+- playwright (with chromium browser installed)
 
 ## Notes
 
 - The script only suggests weekend dates (Saturday and Sunday)
 - Weeks containing Norwegian public holidays are automatically excluded
-- **Known Limitation**: kongsberghallen.no calendars use JavaScript-loaded Outlook calendars that cannot be scraped with simple HTTP requests. Manual calendar verification is currently required.
+- The script uses Playwright to scrape JavaScript-rendered Outlook calendars
+- Calendar scraping requires Playwright browsers to be installed (run: `playwright install chromium`)
 - If calendar scraping fails, the script continues with available data sources
-- For accurate results, include all known conflicts in an Excel file until headless browser support is added

@@ -29,9 +29,9 @@ def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: 
             # Wait for iframe to load
             page.wait_for_timeout(2000)
 
-            iframe_element = page.query_selector('iframe.responsive-iframe')
+            iframe_element = page.query_selector('iframe')
             if not iframe_element:
-                print(f"Warning: Could not access {calendar_type} iframe")
+                print(f"Warning: Could not find {calendar_type} iframe")
                 browser.close()
                 return events
 
@@ -49,8 +49,8 @@ def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: 
                 # Wait for content to load
                 iframe.wait_for_timeout(1000)
 
-                # Extract visible text from calendar
-                page_content = iframe.inner_text('body')
+                # Extract HTML content from calendar (includes aria-labels)
+                page_content = iframe.content()
 
                 # Parse events from this month
                 month_events = parse_outlook_calendar_text(page_content)
@@ -93,73 +93,71 @@ def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: 
 
 
 def parse_outlook_calendar_text(text: str) -> List[Dict]:
-    """Parse event data from Outlook calendar text content."""
+    """Parse event data from Outlook calendar text content using aria-labels."""
     events = []
-    lines = text.split('\n')
 
-    # Common Norwegian date patterns
-    date_patterns = [
-        r'(\d{1,2})\.(\d{1,2})\.(\d{4})',  # DD.MM.YYYY
-        r'(\d{1,2})/(\d{1,2})/(\d{4})',    # DD/MM/YYYY
-        r'(\d{4})-(\d{1,2})-(\d{1,2})',    # YYYY-MM-DD
-    ]
-
-    # Norwegian month names
+    # Norwegian month names for parsing
     months_no = {
+        'january': 1, 'february': 2, 'march': 3, 'april': 4,
+        'may': 5, 'june': 6, 'july': 7, 'august': 8,
+        'september': 9, 'october': 10, 'november': 11, 'december': 12,
         'januar': 1, 'februar': 2, 'mars': 3, 'april': 4,
         'mai': 5, 'juni': 6, 'juli': 7, 'august': 8,
         'september': 9, 'oktober': 10, 'november': 11, 'desember': 12
     }
 
-    current_date = None
+    # Parse aria-label attributes which contain: "Event Name, HH:MM to HH:MM, Weekday, Month DD, YYYY"
+    aria_pattern = r'aria-label="([^"]+)"'
+    matches = re.findall(aria_pattern, text)
 
-    for line in lines:
-        line = line.strip()
-        if not line:
+    for aria_label in matches:
+        # Skip if it's not an event (e.g., navigation elements)
+        if 'Go to' in aria_label or 'Print' in aria_label or 'Month' in aria_label:
             continue
 
-        # Try to find date in line
-        found_date = None
+        # Parse format: "Event Name, HH:MM to HH:MM, Weekday, Month DD, YYYY"
+        parts = [p.strip() for p in aria_label.split(',')]
 
-        # Check numeric date patterns
-        for pattern in date_patterns:
-            match = re.search(pattern, line)
-            if match:
-                try:
-                    if pattern.startswith(r'\d{4}'):  # YYYY-MM-DD
-                        year, month, day = match.groups()
-                    else:  # DD.MM.YYYY or DD/MM/YYYY
-                        day, month, year = match.groups()
-                    found_date = datetime(int(year), int(month), int(day))
+        if len(parts) >= 4:
+            event_name = parts[0]
+
+            # Find date components in the remaining parts
+            # Look for month name and year
+            found_date = None
+            for i, part in enumerate(parts):
+                # Check for month names
+                for month_name, month_num in months_no.items():
+                    if month_name in part.lower():
+                        # Extract day and year from surrounding parts
+                        # Expected format: "Month DD" and "YYYY" in different parts
+                        day_match = re.search(r'\b(\d{1,2})\b', part)
+                        year_match = None
+
+                        # Look for year in current part or next parts
+                        for j in range(i, min(i+2, len(parts))):
+                            year_match = re.search(r'\b(20\d{2})\b', parts[j])
+                            if year_match:
+                                break
+
+                        if day_match and year_match:
+                            try:
+                                found_date = datetime(
+                                    int(year_match.group(1)),
+                                    month_num,
+                                    int(day_match.group(1))
+                                )
+                                break
+                            except ValueError:
+                                continue
+
+                if found_date:
                     break
-                except ValueError:
-                    continue
 
-        # Check for Norwegian month names
-        if not found_date:
-            for month_name, month_num in months_no.items():
-                if month_name in line.lower():
-                    # Try to extract day and year
-                    day_match = re.search(r'\b(\d{1,2})\s+' + month_name, line.lower())
-                    year_match = re.search(r'\b(20\d{2})\b', line)
-                    if day_match and year_match:
-                        try:
-                            found_date = datetime(int(year_match.group(1)), month_num, int(day_match.group(1)))
-                            break
-                        except ValueError:
-                            continue
-
-        if found_date:
-            current_date = found_date
-
-        # If we have a current date and this line looks like an event name
-        if current_date and line and len(line) > 3:
-            # Skip lines that are just dates or times
-            if not re.match(r'^[\d\s\.:/-]+$', line):
+            if found_date and event_name:
                 events.append({
-                    'date': current_date.strftime('%d.%m.%Y'),
-                    'name': line,
-                    'datetime': current_date
+                    'date': found_date.strftime('%d.%m.%Y'),
+                    'name': event_name,
+                    'datetime': found_date
                 })
 
     # Deduplicate events

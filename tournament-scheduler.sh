@@ -1,0 +1,14 @@
+#!/bin/bash
+# Tournament Scheduler Runner
+# Activates virtual environment and runs the tournament scheduler
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+if [ ! -d "venv" ]; then
+    echo "Error: Virtual environment not found. Run: python3 -m venv venv && venv/bin/pip install -r requirements.txt"
+    exit 1
+fi
+
+source venv/bin/activate
+python tournament_scheduler.py "$@"
