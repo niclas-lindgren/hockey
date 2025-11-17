@@ -20,13 +20,15 @@ def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: 
 
     try:
         with sync_playwright() as p:
+            print(f"  Launching browser for {calendar_type}...", flush=True)
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
 
-            print(f"Loading {calendar_type} calendar...")
+            print(f"  Loading {calendar_type} calendar page...", flush=True)
             page.goto(url, timeout=30000)
 
             # Wait for iframe to load
+            print(f"  Waiting for calendar to render...", flush=True)
             page.wait_for_timeout(2000)
 
             iframe_element = page.query_selector('iframe')
@@ -42,12 +44,16 @@ def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: 
                 return events
 
             # Wait for calendar to load
+            print(f"  Accessing calendar iframe...", flush=True)
             iframe.wait_for_timeout(3000)
 
             # Scrape current month and next few months
+            print(f"  Scraping {months_ahead} months of events...", flush=True)
             for month_offset in range(months_ahead):
                 # Wait for content to load
                 iframe.wait_for_timeout(1000)
+                if month_offset > 0:
+                    print(f"    Month {month_offset + 1}/{months_ahead}...", flush=True)
 
                 # Extract HTML content from calendar (includes aria-labels)
                 page_content = iframe.content()
@@ -84,10 +90,10 @@ def scrape_calendar_with_playwright(url: str, calendar_type: str, months_ahead: 
                 seen.add(key)
                 unique_events.append(event)
 
-        print(f"Scraped {len(unique_events)} events from {calendar_type} calendar")
+        print(f"  ✓ Scraped {len(unique_events)} events from {calendar_type} calendar\n", flush=True)
 
     except Exception as e:
-        print(f"Warning: Failed to scrape {calendar_type} calendar: {e}", file=sys.stderr)
+        print(f"  ✗ Failed to scrape {calendar_type} calendar: {e}\n", file=sys.stderr, flush=True)
 
     return unique_events
 
@@ -206,13 +212,13 @@ def parse_excel_schedule(file_path: str) -> Set[datetime]:
                         except (ValueError, AttributeError):
                             continue
 
-        print(f"Parsed {len(dates)} dates from Excel file")
+        print(f"  ✓ Parsed {len(dates)} dates from Excel file\n", flush=True)
 
     except FileNotFoundError:
-        print(f"Error: Excel file not found: {file_path}", file=sys.stderr)
+        print(f"  ✗ Excel file not found: {file_path}\n", file=sys.stderr, flush=True)
         sys.exit(1)
     except Exception as e:
-        print(f"Error: Failed to parse Excel file: {e}", file=sys.stderr)
+        print(f"  ✗ Failed to parse Excel file: {e}\n", file=sys.stderr, flush=True)
         sys.exit(1)
 
     return dates
@@ -407,22 +413,31 @@ Examples:
     team_names = [t.strip() for t in args.teams.split(',') if t.strip()]
 
     # Scrape calendars
-    print("Scraping calendars...")
+    print("=" * 60)
+    print("TOURNAMENT SCHEDULER")
+    print("=" * 60)
+    print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+    if team_names:
+        print(f"Filtering conflicts for teams: {', '.join(team_names)}")
+    print("\nScraping calendars (this may take 30-60 seconds)...\n")
+
     ice_hall_events = scrape_ice_hall_calendar()
     ball_hall_events = scrape_ball_hall_calendar()
 
     # Parse Excel if provided
     excel_dates = set()
     if args.excel_file:
+        print(f"Reading Excel file: {args.excel_file}")
         excel_dates = parse_excel_schedule(args.excel_file)
 
     # Find available weekends
-    print("\nAnalyzing dates...")
+    print("Analyzing conflicts and finding available dates...", flush=True)
     available_dates, exclusion_reasons = find_available_weekends(
         start_date, end_date,
         ice_hall_events, ball_hall_events,
         excel_dates, team_names
     )
+    print("✓ Analysis complete\n", flush=True)
 
     # Calculate total weekends
     total_weekends = sum(1 for d in range((end_date - start_date).days + 1)

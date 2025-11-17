@@ -31,33 +31,38 @@ playwright install chromium
 
 ## Usage
 
-Using the shell script (recommended):
+Show help and examples:
+```bash
+./tournament-scheduler.sh --help
+```
+
+Basic usage:
 ```bash
 ./tournament-scheduler.sh --start-date 2025-01-01 --end-date 2025-06-30
 ```
 
-Or run directly with Python:
+Filter by team names to exclude their scheduled dates:
 ```bash
-python tournament_scheduler.py --start-date 2025-01-01 --end-date 2025-06-30
-```
-
-Filter by team names:
-```bash
-./tournament-scheduler.sh --teams "Vikings,Bears,Eagles" --start-date 2025-01-01
+./tournament-scheduler.sh --teams "Kongsberg,Drammen,Oslo" --start-date 2025-01-01 --end-date 2025-12-31
 ```
 
 Include Excel file with existing tournaments:
 ```bash
-./tournament-scheduler.sh --excel-file existing_tournaments.xlsx --teams "Vikings"
+./tournament-scheduler.sh --excel-file existing_tournaments.xlsx --start-date 2025-03-01
 ```
 
-Full example:
+Full example with all options:
 ```bash
 ./tournament-scheduler.sh \
   --teams "Team A,Team B,Team C" \
   --excel-file tournaments.xlsx \
   --start-date 2025-01-01 \
   --end-date 2025-12-31
+```
+
+Or run directly with Python:
+```bash
+python tournament_scheduler.py --start-date 2025-01-01 --end-date 2025-06-30
 ```
 
 ## Command-Line Options
