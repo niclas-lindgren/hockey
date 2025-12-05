@@ -12,6 +12,7 @@ from typing import List, Dict, Set, Optional, Tuple
 import openpyxl
 import holidays
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+from tournament_scheduler.utils.date_parser import DateParser
 
 
 def scrape_calendar_with_playwright(url: str, calendar_type: str, start_date: datetime, end_date: datetime) -> List[Dict]:
@@ -280,17 +281,9 @@ def parse_excel_schedule(file_path: str) -> Set[datetime]:
 
         for row in ws.iter_rows(min_row=1, values_only=True):
             for cell in row:
-                if isinstance(cell, datetime):
-                    dates.add(cell.date())
-                elif isinstance(cell, str):
-                    # Try parsing string dates
-                    for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
-                        try:
-                            date = datetime.strptime(cell.strip(), date_format)
-                            dates.add(date.date())
-                            break
-                        except (ValueError, AttributeError):
-                            continue
+                parsed = DateParser.parse_datetime_cell(cell)
+                if parsed:
+                    dates.add(parsed.date())
 
         print(f"  ✓ Parsed {len(dates)} dates from Excel file\n", flush=True)
 
@@ -333,13 +326,9 @@ def filter_team_conflicts(events: List[Dict], team_names: List[str]) -> Set[date
                 # Parse date from event
                 date_str = event.get('date')
                 if date_str:
-                    for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
-                        try:
-                            date = datetime.strptime(date_str, date_format)
-                            conflict_dates.add(date.date())
-                            break
-                        except ValueError:
-                            continue
+                    parsed = DateParser.parse(date_str)
+                    if parsed:
+                        conflict_dates.add(parsed.date())
 
     return conflict_dates
 
@@ -400,14 +389,10 @@ def find_available_weekends(
         if is_tournament_event(event_name):
             date_str = event.get('date')
             if date_str:
-                for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
-                    try:
-                        date = datetime.strptime(date_str, date_format)
-                        ice_hall_dates.add(date.date())
-                        ice_hall_tournaments.append((date.date(), event_name))
-                        break
-                    except ValueError:
-                        continue
+                parsed = DateParser.parse(date_str)
+                if parsed:
+                    ice_hall_dates.add(parsed.date())
+                    ice_hall_tournaments.append((parsed.date(), event_name))
 
     # Print found tournaments for debugging
     if ice_hall_tournaments:
@@ -436,14 +421,10 @@ def find_available_weekends(
         if duration > 2.0:
             date_str = event.get('date')
             if date_str:
-                for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
-                    try:
-                        date = datetime.strptime(date_str, date_format)
-                        ball_hall_dates.add(date.date())
-                        ball_hall_long_events.append((date.date(), event.get('name', ''), duration))
-                        break
-                    except ValueError:
-                        continue
+                parsed = DateParser.parse(date_str)
+                if parsed:
+                    ball_hall_dates.add(parsed.date())
+                    ball_hall_long_events.append((parsed.date(), event.get('name', ''), duration))
 
     # Print found long ball hall events for debugging
     if ball_hall_long_events:
@@ -513,25 +494,15 @@ def find_available_weekends(
             for event in ice_hall_events:
                 event_date_str = event.get('date')
                 if event_date_str:
-                    try:
-                        for date_format in ['%d.%m.%Y', '%d/%m/%Y', '%Y-%m-%d']:
-                            try:
-                                event_date = datetime.strptime(event_date_str, date_format).date()
-                                if event_date == weekend_date:
-                                    event_name = event.get('name', '').lower()
-                                    for team in team_names:
-                                        if team.lower() in event_name:
-                                            reason = f"Team conflict: {event.get('name', '')[:50]}"
-                                            break
-                                    if reason:
-                                        break
+                    parsed = DateParser.parse(event_date_str)
+                    if parsed and parsed.date() == weekend_date:
+                        event_name = event.get('name', '').lower()
+                        for team in team_names:
+                            if team.lower() in event_name:
+                                reason = f"Team conflict: {event.get('name', '')[:50]}"
                                 break
-                            except ValueError:
-                                continue
-                    except:
-                        continue
-                if reason:
-                    break
+                        if reason:
+                            break
             if not reason:
                 reason = "Team schedule conflict"
         elif weekend_date in holiday_weeks:
@@ -621,56 +592,191 @@ Examples:
                         help='Start date (YYYY-MM-DD), default: today')
     parser.add_argument('--end-date', type=str,
                         help='End date (YYYY-MM-DD), default: 6 months from start')
+    parser.add_argument('--reschedule', type=str,
+                        help='Reschedule tournament from this date (YYYY-MM-DD). Requires --excel-file.')
 
     args = parser.parse_args()
 
+    # Validate reschedule parameters
+    if args.reschedule and not args.excel_file:
+        print("Error: Excel file is required when using --reschedule", file=sys.stderr)
+        print("Usage: --reschedule 2026-01-17 --excel-file schedule.xlsx", file=sys.stderr)
+        sys.exit(1)
+
     # Parse dates
     if args.start_date:
-        start_date = datetime.strptime(args.start_date, '%Y-%m-%d')
+        start_date = DateParser.parse(args.start_date)
+        if not start_date:
+            print(f"Error: Invalid start date format '{args.start_date}'. Use YYYY-MM-DD format.")
+            sys.exit(1)
     else:
         start_date = datetime.now()
 
     if args.end_date:
-        end_date = datetime.strptime(args.end_date, '%Y-%m-%d')
+        end_date = DateParser.parse(args.end_date)
+        if not end_date:
+            print(f"Error: Invalid end date format '{args.end_date}'. Use YYYY-MM-DD format.")
+            sys.exit(1)
     else:
         end_date = start_date + timedelta(days=180)  # 6 months
 
-    # Parse team names
-    team_names = [t.strip() for t in args.teams.split(',') if t.strip()]
+    # Check if rescheduling mode
+    if args.reschedule:
+        # Rescheduling mode
+        reschedule_date = DateParser.parse(args.reschedule)
+        if not reschedule_date:
+            print(f"Error: Invalid reschedule date format '{args.reschedule}'.", file=sys.stderr)
+            print("Use YYYY-MM-DD format, e.g.: --reschedule 2026-01-17", file=sys.stderr)
+            sys.exit(1)
 
-    # Scrape calendars
-    print("=" * 60)
-    print("TOURNAMENT SCHEDULER")
-    print("=" * 60)
-    print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
-    if team_names:
-        print(f"Filtering conflicts for teams: {', '.join(team_names)}")
-    print("\nScraping calendars (this may take 30-60 seconds)...\n")
+        # Import new architecture components
+        from tournament_scheduler.scheduler import TournamentScheduler
+        from tournament_scheduler.data_sources.calendar_scraper import CalendarScraper
+        from tournament_scheduler.data_sources.ice_hall_calendar import IceHallCalendar
+        from tournament_scheduler.data_sources.ball_hall_calendar import BallHallCalendar
+        from tournament_scheduler.conflict_checkers.holiday_checker import HolidayConflictChecker
+        from tournament_scheduler.conflict_checkers.tournament_checker import TournamentConflictChecker
+        from tournament_scheduler.conflict_checkers.ball_hall_checker import BallHallConflictChecker
+        from tournament_scheduler.conflict_checkers.team_availability_checker import TeamAvailabilityChecker
+        from tournament_scheduler.conflict_checkers.excel_checker import ExcelConflictChecker
 
-    ice_hall_events = scrape_ice_hall_calendar(start_date, end_date)
-    ball_hall_events = scrape_ball_hall_calendar(start_date, end_date)
+        print("=" * 60)
+        print("TOURNAMENT RESCHEDULER")
+        print("=" * 60)
+        print(f"Original tournament date: {reschedule_date.strftime('%Y-%m-%d')}")
+        print(f"Search range for alternatives: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        print(f"\nExtracting tournament details from Excel file...")
+        print("(Will scrape calendars after team extraction)\n")
 
-    # Parse Excel if provided
-    excel_dates = set()
-    if args.excel_file:
-        print(f"Reading Excel file: {args.excel_file}")
-        excel_dates = parse_excel_schedule(args.excel_file)
+        # Import Excel reader
+        from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
 
-    # Find available weekends
-    print("Analyzing conflicts and finding available dates...", flush=True)
-    available_dates, exclusion_reasons, excluded_details = find_available_weekends(
-        start_date, end_date,
-        ice_hall_events, ball_hall_events,
-        excel_dates, team_names
-    )
-    print("✓ Analysis complete\n", flush=True)
+        # Extract tournament info first (prints debug details)
+        print("Analyzing Excel file...")
+        excel_reader = ExcelTournamentReader(args.excel_file, DateParser())
+        tournament_info = excel_reader.get_tournament_info(reschedule_date.date())
 
-    # Calculate total weekends
-    total_weekends = sum(1 for d in range((end_date - start_date).days + 1)
-                        if (start_date + timedelta(days=d)).weekday() in [5, 6])
+        print("\nNow scraping calendars to check team availability (30-60 seconds)...\n")
 
-    # Output results
-    format_output(available_dates, exclusion_reasons, total_weekends, excluded_details)
+        # Initialize components
+        scraper = CalendarScraper()
+        ice_hall = IceHallCalendar("https://kongsberghallen.no/webkalender/ishall/", scraper)
+        ball_hall = BallHallCalendar("https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/", scraper)
+
+        # Fetch ALL ice hall events first (unfiltered)
+        print("Fetching all ice hall events...")
+        all_ice_hall_events = scraper.scrape_calendar(
+            "https://kongsberghallen.no/webkalender/ishall/",
+            "ice hall",
+            start_date,
+            end_date
+        )
+
+        # Fetch ball hall events (already filtered for >2 hours)
+        ball_hall_events = ball_hall.fetch_events(start_date, end_date)
+
+        # Combine all events for team checker
+        all_events_for_teams = all_ice_hall_events + ball_hall_events
+        print(f"  Total events for team checking: {len(all_events_for_teams)} ({len(all_ice_hall_events)} ice hall + {len(ball_hall_events)} ball hall)\n")
+
+        # Initialize conflict checkers
+        holiday_checker = HolidayConflictChecker()
+        tournament_checker = TournamentConflictChecker(ice_hall)  # Will filter internally
+        ball_hall_checker = BallHallConflictChecker(ball_hall)
+        team_checker = TeamAvailabilityChecker(all_events_for_teams)
+        excel_checker = ExcelConflictChecker(set())  # Will be set in scheduler
+
+        checkers = [holiday_checker, tournament_checker, ball_hall_checker, team_checker]
+
+        # Initialize scheduler
+        scheduler = TournamentScheduler(
+            calendar_sources=[ice_hall, ball_hall],
+            conflict_checkers=checkers,
+            date_parser=DateParser()
+        )
+
+        # Get all tournament dates to exclude
+        all_tournament_dates = excel_reader.get_all_tournament_dates()
+        excel_dates = all_tournament_dates - {reschedule_date.date()}
+
+        # Find available dates when all teams are free (pass ALL events for context)
+        result = scheduler.find_available_dates(
+            start_date=start_date,
+            end_date=end_date,
+            team_names=tournament_info.teams,
+            excel_dates=excel_dates,
+            calendar_events=all_events_for_teams  # Pass all events (not just tournaments)
+        )
+        result.tournament_info = tournament_info
+
+        # Format output
+        print("\n" + "="*60)
+        print("RESCHEDULING RESULTS")
+        print("="*60)
+
+        print(f"\nSearched: {result.total_weekends_checked} weekend dates")
+        print(f"Available: {len(result.available_dates)} dates when ALL teams are free")
+        print(f"Blocked: {len(result.excluded_dates)} dates with conflicts")
+
+        if result.exclusion_breakdown:
+            print(f"\nReasons for blocked dates:")
+            for checker_name, count in sorted(result.exclusion_breakdown.items()):
+                if checker_name != 'ball_hall_warning' and count > 0:
+                    print(f"  • {checker_name.replace('_', ' ').title()}: {count} dates")
+
+        if result.available_dates:
+            print(f"\n{'='*60}")
+            print(f"✓ AVAILABLE DATES (all {len(tournament_info.teams)} teams free):")
+            print(f"{'='*60}")
+            for d in sorted(result.available_dates):
+                day_name = d.strftime('%A')
+                print(f"  {d.strftime('%Y-%m-%d')} ({day_name})")
+        else:
+            print(f"\n{'='*60}")
+            print("✗ NO AVAILABLE DATES FOUND")
+            print(f"{'='*60}")
+            print("  All dates have conflicts. Try:")
+            print("  • Expanding the date range (--start-date / --end-date)")
+            print("  • Checking if team schedules can be adjusted")
+
+        print("\n" + "="*60 + "\n")
+
+    else:
+        # Original scheduling mode
+        team_names = [t.strip() for t in args.teams.split(',') if t.strip()]
+
+        print("=" * 60)
+        print("TOURNAMENT SCHEDULER")
+        print("=" * 60)
+        print(f"Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+        if team_names:
+            print(f"Filtering conflicts for teams: {', '.join(team_names)}")
+        print("\nScraping calendars (this may take 30-60 seconds)...\n")
+
+        ice_hall_events = scrape_ice_hall_calendar(start_date, end_date)
+        ball_hall_events = scrape_ball_hall_calendar(start_date, end_date)
+
+        # Parse Excel if provided
+        excel_dates = set()
+        if args.excel_file:
+            print(f"Reading Excel file: {args.excel_file}")
+            excel_dates = parse_excel_schedule(args.excel_file)
+
+        # Find available weekends
+        print("Analyzing conflicts and finding available dates...", flush=True)
+        available_dates, exclusion_reasons, excluded_details = find_available_weekends(
+            start_date, end_date,
+            ice_hall_events, ball_hall_events,
+            excel_dates, team_names
+        )
+        print("✓ Analysis complete\n", flush=True)
+
+        # Calculate total weekends
+        total_weekends = sum(1 for d in range((end_date - start_date).days + 1)
+                            if (start_date + timedelta(days=d)).weekday() in [5, 6])
+
+        # Output results
+        format_output(available_dates, exclusion_reasons, total_weekends, excluded_details)
 
 
 if __name__ == '__main__':

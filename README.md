@@ -10,6 +10,7 @@ Find optimal weekend dates for hockey tournaments by analyzing conflicts from mu
 - Excludes Norwegian public holiday weeks
 - Supports Excel files with existing tournament dates
 - Weekend-only suggestions (Saturday and Sunday)
+- **NEW: Reschedule existing tournaments** - Find alternative dates when all teams are available
 
 ## Installation
 
@@ -60,6 +61,15 @@ Full example with all options:
   --end-date 2025-12-31
 ```
 
+Reschedule an existing tournament:
+```bash
+./tournament-scheduler.sh \
+  --reschedule 2026-01-17 \
+  --excel-file existing_schedule/tournament_schedule.xlsx \
+  --start-date 2026-02-01 \
+  --end-date 2026-06-30
+```
+
 Or run directly with Python:
 ```bash
 python tournament_scheduler.py --start-date 2025-01-01 --end-date 2025-06-30
@@ -71,6 +81,16 @@ python tournament_scheduler.py --start-date 2025-01-01 --end-date 2025-06-30
 - `--excel-file` - Path to Excel file containing existing tournament dates
 - `--start-date` - Start date in YYYY-MM-DD format (default: today)
 - `--end-date` - End date in YYYY-MM-DD format (default: 6 months from start)
+- `--reschedule` - Reschedule tournament from this date in YYYY-MM-DD format (requires --excel-file)
+
+### Rescheduling Mode
+
+When using `--reschedule`, the system will:
+1. Extract all teams participating in the tournament on the specified date from the Excel file
+2. Search for alternative weekend dates in the specified range
+3. Check that ALL teams are available on each candidate date
+4. Apply all standard conflict checks (ice hall, ball hall, holidays, other tournaments)
+5. Return only dates when all teams are free and no other conflicts exist
 
 ## Excel File Format
 

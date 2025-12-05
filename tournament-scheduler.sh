@@ -13,6 +13,8 @@ Options:
   --end-date DATE         End date (YYYY-MM-DD), default: 6 months from start
   --teams TEAMS           Comma-separated team names to exclude conflicts
   --excel-file FILE       Excel file with existing tournament dates to exclude
+  --reschedule DATE       Reschedule tournament from this date (YYYY-MM-DD)
+                          Requires --excel-file. Finds dates when all teams are available.
 
 Examples:
   # Find available dates for next 6 months
@@ -23,6 +25,9 @@ Examples:
 
   # Use Excel file with existing tournaments
   $0 --excel-file tournaments.xlsx --start-date 2025-03-01
+
+  # Reschedule a tournament to find alternative dates
+  $0 --reschedule 2026-01-17 --excel-file existing_schedule/schedule.xlsx --start-date 2026-02-01 --end-date 2026-06-30
 
   # Full example with all options
   $0 --teams "U9,U10,U14" --excel-file /Users/niclas/private/hockey/existing_schedule/U10_ETTER_JUL_Klar_-_Kongsberg_Sandefjord.xlsx --start-date 2026-01-01 --end-date 2026-02-28
