@@ -42,7 +42,7 @@ class TimeSlotChecker(ConflictChecker):
         """
         excluded_dates = set()
         reasons = {}
-        available_slots = {}  # Store available time slots for dates
+        self.available_slots = {}  # Store available time slots for dates (make it instance variable)
 
         print(f"\nChecking time slot availability (need {self.min_duration_hours}h between {self._format_time(self.earliest_start)}-{self._format_time(self.latest_start)})...")
 
@@ -55,7 +55,7 @@ class TimeSlotChecker(ConflictChecker):
                 conflicts_found.append(check_date)
             else:
                 # Store the available slots for this date
-                available_slots[check_date] = slots
+                self.available_slots[check_date] = slots
 
         if conflicts_found:
             print(f"\n⚠️  TIME SLOT CONFLICTS ({len(conflicts_found)} dates blocked):")
@@ -70,21 +70,26 @@ class TimeSlotChecker(ConflictChecker):
         else:
             print(f"  ✓ All {len(dates)} dates have available time slots")
 
-        # Print available time slots for dates that passed
-        available_dates = [d for d in dates if d not in excluded_dates]
-        if available_dates:
-            print(f"\n📅 AVAILABLE TIME SLOTS:")
-            for check_date in sorted(available_dates)[:15]:
-                slots_str = ", ".join([f"{s[0]}-{s[1]}" for s in available_slots.get(check_date, [])])
-                print(f"  {check_date.strftime('%Y-%m-%d')} ({check_date.strftime('%a')}): {slots_str}")
-            if len(available_dates) > 15:
-                print(f"  ... and {len(available_dates) - 15} more dates")
-
         return ConflictResult(
             excluded_dates=excluded_dates,
             reasons=reasons,
             checker_name=self.get_checker_name()
         )
+
+    def get_suggested_slot(self, check_date: date) -> str:
+        """Get suggested (earliest) time slot for a date.
+
+        Args:
+            check_date: Date to get suggested slot for
+
+        Returns:
+            Formatted time slot string (e.g., "11:00-13:30") or empty string
+        """
+        slots = self.available_slots.get(check_date, [])
+        if slots:
+            # Return the earliest slot (first one)
+            return f"{slots[0][0]}-{slots[0][1]}"
+        return ""
 
     def get_checker_name(self) -> str:
         """Get checker name."""

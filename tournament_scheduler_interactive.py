@@ -15,6 +15,7 @@ from tournament_scheduler.conflict_checkers.ball_hall_checker import BallHallCon
 from tournament_scheduler.conflict_checkers.team_availability_checker import TeamAvailabilityChecker
 from tournament_scheduler.conflict_checkers.timeslot_checker import TimeSlotChecker
 from tournament_scheduler.conflict_checkers.excel_checker import ExcelConflictChecker
+from tournament_scheduler.conflict_checkers.excel_team_checker import ExcelTeamConflictChecker
 from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
 from tournament_scheduler.utils.date_parser import DateParser
 
@@ -296,8 +297,11 @@ def main():
         excel_reader = ExcelTournamentReader(excel_file, DateParser())
         tournament_info = excel_reader.get_tournament_info(tournament_date.date())
 
-        # Team checker with all events
+        # Team checker with all events from calendars
         checkers.append(TeamAvailabilityChecker(all_events_for_teams))
+
+        # Excel team checker - checks if teams have other games in the Excel file
+        checkers.append(ExcelTeamConflictChecker(excel_file, tournament_info.teams, DateParser()))
 
         # Get all tournament dates to exclude
         all_tournament_dates = excel_reader.get_all_tournament_dates()
@@ -341,6 +345,15 @@ def main():
             calendar_events=all_events_for_teams
         )
 
+    # Find timeslot checker for suggested slots and excel team checker for warnings
+    timeslot_checker = None
+    excel_team_checker = None
+    for checker in checkers:
+        if isinstance(checker, TimeSlotChecker):
+            timeslot_checker = checker
+        if isinstance(checker, ExcelTeamConflictChecker):
+            excel_team_checker = checker
+
     # Display results
     print("\n" + "=" * 60)
     print("RESULTS")
@@ -363,9 +376,44 @@ def main():
         else:
             print(f"✓ AVAILABLE DATES:")
         print(f"{'=' * 60}")
+
+        # Show dates with suggested time slots and warnings
         for d in sorted(result.available_dates):
             day_name = d.strftime('%A')
-            print(f"  {d.strftime('%Y-%m-%d')} ({day_name})")
+
+            # Build the display string
+            display_str = f"  {d.strftime('%Y-%m-%d')} ({day_name})"
+
+            # Add suggested time slot if available
+            if timeslot_checker:
+                suggested_slot = timeslot_checker.get_suggested_slot(d)
+                if suggested_slot:
+                    display_str += f" - Suggested: {suggested_slot}"
+
+            # Check for weekend warnings
+            has_warning = False
+            if excel_team_checker and d in excel_team_checker.weekend_warnings:
+                has_warning = True
+                display_str += " ⚠️  WEEKEND CONFLICT"
+
+            print(display_str)
+
+            # Show warning details indented below the date
+            if has_warning:
+                warning_teams = excel_team_checker.weekend_warnings[d]
+                for team, event, conflict_date in warning_teams:
+                    print(f"      → {team} plays {conflict_date.strftime('%a %b %d')}: {event[:45]}")
+
+        # Show detailed time slots if timeslot checker exists
+        if timeslot_checker and len(result.available_dates) <= 15:
+            print(f"\n{'─' * 60}")
+            print("DETAILED TIME SLOT AVAILABILITY:")
+            print(f"{'─' * 60}")
+            for d in sorted(result.available_dates):
+                slots = timeslot_checker.available_slots.get(d, [])
+                if len(slots) > 1:
+                    slots_str = ", ".join([f"{s[0]}-{s[1]}" for s in slots])
+                    print(f"  {d.strftime('%Y-%m-%d')}: {slots_str}")
     else:
         print(f"\n{'=' * 60}")
         print("✗ NO AVAILABLE DATES FOUND")
