@@ -106,8 +106,13 @@ class HolidayConflictChecker(ConflictChecker):
             Dict mapping weekend dates to holiday names
         """
         weekends_before = {}
+
+        # Extend search to 10 days after end_date to catch holidays just outside range
+        # This ensures we block weekends before holidays that start right after our range
+        extended_end = end_date + timedelta(days=10)
+
         current = start_date
-        while current <= end_date:
+        while current <= extended_end:
             if current.date() in self.holidays:
                 holiday_name = self.holidays.get(current.date())
                 # Find the preceding Saturday and Sunday
@@ -120,10 +125,10 @@ class HolidayConflictChecker(ConflictChecker):
                     saturday = current - timedelta(days=days_since_monday + 2)
                     sunday = current - timedelta(days=days_since_monday + 1)
 
-                    # Only add if within our date range and actually weekend days
-                    if saturday.weekday() == 5:  # Saturday
+                    # Only add weekends that fall within our ACTUAL search range
+                    if saturday.weekday() == 5 and start_date.date() <= saturday.date() <= end_date.date():
                         weekends_before[saturday.date()] = holiday_name
-                    if sunday.weekday() == 6:  # Sunday
+                    if sunday.weekday() == 6 and start_date.date() <= sunday.date() <= end_date.date():
                         weekends_before[sunday.date()] = holiday_name
             current += timedelta(days=1)
         return weekends_before

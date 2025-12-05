@@ -32,6 +32,35 @@ class CalendarDataSource(ABC):
         pass
 
 
+class CalendarScraper(ABC):
+    """Abstract base class for calendar scrapers.
+
+    Different calendar systems (Outlook, Google Calendar, etc.) require
+    different scraping strategies. Each implementation handles its specific format.
+    """
+
+    @abstractmethod
+    def scrape_calendar(
+        self,
+        url: str,
+        calendar_name: str,
+        start_date: datetime,
+        end_date: datetime
+    ) -> List[CalendarEvent]:
+        """Scrape calendar events from a URL.
+
+        Args:
+            url: Calendar URL to scrape
+            calendar_name: Display name for this calendar
+            start_date: Start of date range
+            end_date: End of date range
+
+        Returns:
+            List of CalendarEvent objects
+        """
+        pass
+
+
 class ConflictChecker(ABC):
     """Abstract base class for conflict checkers."""
 

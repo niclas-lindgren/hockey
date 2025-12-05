@@ -5,7 +5,8 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from tournament_scheduler.scheduler import TournamentScheduler
-from tournament_scheduler.data_sources.calendar_scraper import CalendarScraper
+from tournament_scheduler.data_sources.calendar_scraper import OutlookCalendarScraper
+from tournament_scheduler.data_sources.google_calendar_scraper import GoogleCalendarScraper
 from tournament_scheduler.data_sources.ice_hall_calendar import IceHallCalendar
 from tournament_scheduler.data_sources.ball_hall_calendar import BallHallCalendar
 from tournament_scheduler.conflict_checkers.holiday_checker import HolidayConflictChecker
@@ -221,44 +222,45 @@ def main():
     print("=" * 60)
 
     # Initialize components
-    scraper = CalendarScraper()
+    outlook_scraper = OutlookCalendarScraper()
+    google_scraper = GoogleCalendarScraper()
     calendar_sources = []
     all_events_for_teams = []
 
-    # Kongsberg ice hall
+    # Kongsberg ice hall (Outlook calendar)
     if check_kongsberg_ice:
         print("\nFetching Kongsberg ice hall events...")
-        kongsberg_ice = IceHallCalendar("https://kongsberghallen.no/webkalender/ishall/", scraper)
+        kongsberg_ice = IceHallCalendar("https://kongsberghallen.no/webkalender/ishall/", outlook_scraper)
         calendar_sources.append(kongsberg_ice)
 
         # Fetch ALL events (unfiltered) for team checking
-        ice_events = scraper.scrape_calendar(
+        ice_events = outlook_scraper.scrape_calendar(
             "https://kongsberghallen.no/webkalender/ishall/",
-            "ice hall",
+            "Kongsberg ice hall",
             start_date,
             end_date
         )
         all_events_for_teams.extend(ice_events)
 
-    # Kongsberg ball hall
+    # Kongsberg ball hall (Outlook calendar)
     if check_kongsberg_ball:
         print("\nFetching Kongsberg ball hall events...")
         kongsberg_ball = BallHallCalendar(
             "https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/",
-            scraper
+            outlook_scraper
         )
         calendar_sources.append(kongsberg_ball)
 
         ball_events = kongsberg_ball.fetch_events(start_date, end_date)
         all_events_for_teams.extend(ball_events)
 
-    # Skien ice hall
+    # Skien ice hall (Google Calendar)
     if check_skien_ice:
         print("\nFetching Skien ice hall events...")
-        skien_ice = IceHallCalendar("https://skienishockey.no/kalender-isbooking/", scraper)
+        skien_ice = IceHallCalendar("https://skienishockey.no/kalender-isbooking/", google_scraper)
         calendar_sources.append(skien_ice)
 
-        skien_events = scraper.scrape_calendar(
+        skien_events = google_scraper.scrape_calendar(
             "https://skienishockey.no/kalender-isbooking/",
             "Skien ice hall",
             start_date,
@@ -276,14 +278,14 @@ def main():
 
     # Tournament checker for Kongsberg ice hall
     if check_kongsberg_ice:
-        kongsberg_ice = IceHallCalendar("https://kongsberghallen.no/webkalender/ishall/", scraper)
+        kongsberg_ice = IceHallCalendar("https://kongsberghallen.no/webkalender/ishall/", outlook_scraper)
         checkers.append(TournamentConflictChecker(kongsberg_ice))
 
     # Ball hall checker (warnings only)
     if check_kongsberg_ball:
         kongsberg_ball = BallHallCalendar(
             "https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/",
-            scraper
+            outlook_scraper
         )
         checkers.append(BallHallConflictChecker(kongsberg_ball))
 

@@ -6,9 +6,10 @@ from datetime import datetime
 from typing import List
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 from tournament_scheduler.models import CalendarEvent
+from tournament_scheduler.interfaces import CalendarScraper as BaseCalendarScraper
 
 
-class CalendarScraper:
+class OutlookCalendarScraper(BaseCalendarScraper):
     """Handles scraping of Outlook calendars using Playwright."""
 
     def __init__(self):
@@ -241,3 +242,7 @@ class CalendarScraper:
                 unique_events.append(event)
 
         return unique_events
+
+
+# Backward compatibility alias
+CalendarScraper = OutlookCalendarScraper
