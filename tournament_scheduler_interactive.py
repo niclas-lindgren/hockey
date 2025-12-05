@@ -6,13 +6,14 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.data_sources.calendar_scraper import OutlookCalendarScraper
-from tournament_scheduler.data_sources.google_calendar_scraper import GoogleCalendarScraper
+from tournament_scheduler.data_sources.ical_scraper import ICalScraper
 from tournament_scheduler.data_sources.ice_hall_calendar import IceHallCalendar
 from tournament_scheduler.data_sources.ball_hall_calendar import BallHallCalendar
 from tournament_scheduler.conflict_checkers.holiday_checker import HolidayConflictChecker
 from tournament_scheduler.conflict_checkers.tournament_checker import TournamentConflictChecker
 from tournament_scheduler.conflict_checkers.ball_hall_checker import BallHallConflictChecker
 from tournament_scheduler.conflict_checkers.team_availability_checker import TeamAvailabilityChecker
+from tournament_scheduler.conflict_checkers.timeslot_checker import TimeSlotChecker
 from tournament_scheduler.conflict_checkers.excel_checker import ExcelConflictChecker
 from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
 from tournament_scheduler.utils.date_parser import DateParser
@@ -223,7 +224,7 @@ def main():
 
     # Initialize components
     outlook_scraper = OutlookCalendarScraper()
-    google_scraper = GoogleCalendarScraper()
+    skien_scraper = ICalScraper('istiderskienhockey@gmail.com')
     calendar_sources = []
     all_events_for_teams = []
 
@@ -254,13 +255,13 @@ def main():
         ball_events = kongsberg_ball.fetch_events(start_date, end_date)
         all_events_for_teams.extend(ball_events)
 
-    # Skien ice hall (Google Calendar)
+    # Skien ice hall (Google Calendar via iCal)
     if check_skien_ice:
         print("\nFetching Skien ice hall events...")
-        skien_ice = IceHallCalendar("https://skienishockey.no/kalender-isbooking/", google_scraper)
+        skien_ice = IceHallCalendar("https://skienishockey.no/kalender-isbooking/", skien_scraper)
         calendar_sources.append(skien_ice)
 
-        skien_events = google_scraper.scrape_calendar(
+        skien_events = skien_scraper.scrape_calendar(
             "https://skienishockey.no/kalender-isbooking/",
             "Skien ice hall",
             start_date,
@@ -304,6 +305,15 @@ def main():
     else:
         tournament_info = None
         excel_dates = set()
+
+    # Add time slot checker if we have events
+    if all_events_for_teams:
+        checkers.append(TimeSlotChecker(
+            all_events_for_teams,
+            min_duration_hours=2.5,
+            earliest_start="11:00",
+            latest_start="14:00"
+        ))
 
     # Initialize scheduler
     scheduler = TournamentScheduler(

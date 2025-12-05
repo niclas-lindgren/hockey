@@ -18,6 +18,11 @@ Options:
   --reschedule DATE       Reschedule tournament from this date (YYYY-MM-DD)
                           Requires --excel-file. Finds dates when all teams are available.
 
+Debug Mode:
+  # Inspect calendar bookings (use ./debug-calendar.sh)
+  ./debug-calendar.sh skien_ice --date 2026-03-07
+  ./debug-calendar.sh kongsberg_ice --start 2026-03-01 --end 2026-03-31
+
 Interactive Mode:
   # Run without arguments for guided prompts
   $0
