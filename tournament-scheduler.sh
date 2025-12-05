@@ -6,7 +6,9 @@ show_help() {
     cat << EOF
 Tournament Scheduler - Find available weekend dates for hockey tournaments
 
-Usage: $0 [OPTIONS]
+Usage:
+  $0                       Run in interactive mode (guided questions)
+  $0 [OPTIONS]            Run with command-line options
 
 Options:
   --start-date DATE       Start date (YYYY-MM-DD), default: today
@@ -16,7 +18,11 @@ Options:
   --reschedule DATE       Reschedule tournament from this date (YYYY-MM-DD)
                           Requires --excel-file. Finds dates when all teams are available.
 
-Examples:
+Interactive Mode:
+  # Run without arguments for guided prompts
+  $0
+
+Command-line Examples:
   # Find available dates for next 6 months
   $0 --start-date 2025-01-01 --end-date 2025-06-30
 
@@ -50,4 +56,10 @@ if [ ! -d "venv" ]; then
 fi
 
 source venv/bin/activate
-python tournament_scheduler.py "$@"
+
+# If no arguments, run interactive mode
+if [ $# -eq 0 ]; then
+    python tournament_scheduler_interactive.py
+else
+    python tournament_scheduler.py "$@"
+fi
