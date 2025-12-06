@@ -378,8 +378,13 @@ def main():
         print(f"{'=' * 60}")
 
         # Show dates with suggested time slots and warnings
+        day_names_no = {
+            'Monday': 'Mandag', 'Tuesday': 'Tirsdag', 'Wednesday': 'Onsdag',
+            'Thursday': 'Torsdag', 'Friday': 'Fredag', 'Saturday': 'Lørdag', 'Sunday': 'Søndag'
+        }
         for d in sorted(result.available_dates):
-            day_name = d.strftime('%A')
+            day_name_en = d.strftime('%A')
+            day_name = day_names_no.get(day_name_en, day_name_en)
 
             # Build the display string
             display_str = f"  {d.strftime('%Y-%m-%d')} ({day_name})"
@@ -388,21 +393,33 @@ def main():
             if timeslot_checker:
                 suggested_slot = timeslot_checker.get_suggested_slot(d)
                 if suggested_slot:
-                    display_str += f" - Suggested: {suggested_slot}"
+                    display_str += f" - Foreslått: {suggested_slot}"
 
             # Check for weekend warnings
             has_warning = False
             if excel_team_checker and d in excel_team_checker.weekend_warnings:
                 has_warning = True
-                display_str += " ⚠️  WEEKEND CONFLICT"
+                display_str += " ⚠️  HELGE-KONFLIKT"
 
             print(display_str)
 
             # Show warning details indented below the date
             if has_warning:
                 warning_teams = excel_team_checker.weekend_warnings[d]
+                # Map day names to Norwegian
+                day_map = {'Mon': 'Man', 'Tue': 'Tir', 'Wed': 'Ons', 'Thu': 'Tor',
+                          'Fri': 'Fre', 'Sat': 'Lør', 'Sun': 'Søn'}
+                month_map = {'Jan': 'jan', 'Feb': 'feb', 'Mar': 'mar', 'Apr': 'apr',
+                            'May': 'mai', 'Jun': 'jun', 'Jul': 'jul', 'Aug': 'aug',
+                            'Sep': 'sep', 'Oct': 'okt', 'Nov': 'nov', 'Dec': 'des'}
                 for team, event, conflict_date in warning_teams:
-                    print(f"      → {team} plays {conflict_date.strftime('%a %b %d')}: {event[:45]}")
+                    eng_date = conflict_date.strftime('%a %b %d')
+                    nor_date = eng_date
+                    for eng, nor in day_map.items():
+                        nor_date = nor_date.replace(eng, nor)
+                    for eng, nor in month_map.items():
+                        nor_date = nor_date.replace(eng, nor)
+                    print(f"      → {team} spiller {nor_date}: {event[:45]}")
 
         # Show detailed time slots if timeslot checker exists
         if timeslot_checker and len(result.available_dates) <= 15:

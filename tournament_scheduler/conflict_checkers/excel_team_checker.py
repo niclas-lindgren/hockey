@@ -46,7 +46,7 @@ class ExcelTeamConflictChecker(ConflictChecker):
                 checker_name=self.get_checker_name()
             )
 
-        print(f"\nChecking Excel file for team conflicts ({len(self.tournament_teams)} teams)...")
+        print(f"\nSjekker Excel-fil for lag-konflikter ({len(self.tournament_teams)} lag)...")
 
         # Scan Excel file for team mentions with event details
         team_events = self._find_team_events_in_excel()
@@ -65,8 +65,8 @@ class ExcelTeamConflictChecker(ConflictChecker):
                 excluded_dates.add(check_date)
                 team_list = ', '.join(conflicting_teams[:2])
                 if len(conflicting_teams) > 2:
-                    team_list += f" and {len(conflicting_teams) - 2} more"
-                reasons[check_date] = f"Excel: {team_list} have other games"
+                    team_list += f" og {len(conflicting_teams) - 2} til"
+                reasons[check_date] = f"Excel: {team_list} spiller andre kamper"
                 same_day_conflicts.append((check_date, conflicting_teams))
             else:
                 # Check for same-weekend conflicts (these warn but don't block)
@@ -83,25 +83,25 @@ class ExcelTeamConflictChecker(ConflictChecker):
                         weekend_conflicts.append((check_date, warning_teams))
 
         if same_day_conflicts:
-            print(f"\n⚠️  EXCEL SAME-DAY CONFLICTS ({len(same_day_conflicts)} dates blocked):")
+            print(f"\n⚠️  SAMME DAG-KONFLIKTER I EXCEL ({len(same_day_conflicts)} datoer blokkert):")
             for check_date, teams in same_day_conflicts[:10]:
                 teams_str = ', '.join(teams[:3])
                 if len(teams) > 3:
-                    teams_str += f" +{len(teams) - 3} more"
+                    teams_str += f" +{len(teams) - 3} til"
                 print(f"  - {check_date.strftime('%Y-%m-%d')}: {teams_str}")
             if len(same_day_conflicts) > 10:
-                print(f"  ... and {len(same_day_conflicts) - 10} more dates")
+                print(f"  ... og {len(same_day_conflicts) - 10} datoer til")
 
         if weekend_conflicts:
-            print(f"\n⚠️  WEEKEND CONFLICTS (same weekend, different day - {len(weekend_conflicts)} warnings):")
+            print(f"\n⚠️  HELGE-KONFLIKTER (samme helg, ulik dag - {len(weekend_conflicts)} advarsler):")
             for check_date, warning_teams in weekend_conflicts[:10]:
                 for team, event, conflict_date in warning_teams[:2]:
-                    print(f"  - {check_date.strftime('%Y-%m-%d')}: {team} plays {conflict_date.strftime('%Y-%m-%d')} - {event[:50]}")
+                    print(f"  - {check_date.strftime('%Y-%m-%d')}: {team} spiller {conflict_date.strftime('%Y-%m-%d')} - {event[:50]}")
             if len(weekend_conflicts) > 10:
-                print(f"  ... and {len(weekend_conflicts) - 10} more warnings")
+                print(f"  ... og {len(weekend_conflicts) - 10} advarsler til")
 
         if not same_day_conflicts and not weekend_conflicts:
-            print(f"  ✓ No team conflicts found in Excel file")
+            print(f"  ✓ Ingen lag-konflikter funnet i Excel-fil")
 
         return ConflictResult(
             excluded_dates=excluded_dates,
@@ -129,29 +129,50 @@ class ExcelTeamConflictChecker(ConflictChecker):
             wb = openpyxl.load_workbook(self.excel_file, data_only=True)
             ws = wb.active
 
-            # Scan all cells for dates and team names
+            # Track current tournament context
+            current_tournament_num = None
+            current_location = None
             current_date = None
-            current_event = "Unknown event"
 
-            for row_idx, row in enumerate(ws.iter_rows(min_row=1, values_only=True), start=1):
-                # Check for dates in this row
-                date_found = False
+            all_rows = list(ws.iter_rows(min_row=1, values_only=True))
+
+            for row_idx, row in enumerate(all_rows, start=1):
+                # Check each cell in the row for headers
+                for cell_idx, cell in enumerate(row):
+                    if cell and isinstance(cell, str):
+                        cell_str = str(cell).strip()
+                        cell_lower = cell_str.lower()
+
+                        # Look for tournament number header row
+                        if 'turnering nr' in cell_lower:
+                            current_tournament_num = cell_str
+                            current_location = None
+                            current_date = None
+
+                            # Find column index of "Arrangør" or "Arrangør:"
+                            arranger_col_idx = None
+                            for i, header_cell in enumerate(row):
+                                if header_cell and isinstance(header_cell, str):
+                                    if header_cell.strip().lower().startswith('arrangør'):
+                                        arranger_col_idx = i
+                                        break
+
+                            # Get location from next row at the same column
+                            if arranger_col_idx is not None and row_idx < len(all_rows):
+                                next_row = all_rows[row_idx]  # row_idx is 1-based, list is 0-based
+                                if arranger_col_idx < len(next_row):
+                                    location_cell = next_row[arranger_col_idx]
+                                    if location_cell and str(location_cell).strip():
+                                        current_location = str(location_cell).strip()
+
+                # Check for date in this row
                 for cell in row:
                     parsed = self.date_parser.parse_datetime_cell(cell)
                     if parsed:
                         current_date = parsed.date()
-                        date_found = True
-                        # Try to find event name in the same row
-                        for other_cell in row:
-                            if other_cell and isinstance(other_cell, str) and len(str(other_cell).strip()) > 5:
-                                potential_event = str(other_cell).strip()
-                                # Look for location/venue info
-                                if any(keyword in potential_event.lower() for keyword in ['hall', 'arena', 'forum', 'turnering', 'tournament']):
-                                    current_event = potential_event
-                                    break
                         break
 
-                # Check for team names in this row
+                # After processing the row, check for team names if we have a date
                 if current_date:
                     for cell in row:
                         if cell and isinstance(cell, str):
@@ -160,14 +181,22 @@ class ExcelTeamConflictChecker(ConflictChecker):
                             # Check each team
                             for team in self.tournament_teams:
                                 if self._team_matches(team, cell_str):
+                                    # Build event name from available context
+                                    if current_location:
+                                        event_name = current_location
+                                    elif current_tournament_num:
+                                        event_name = current_tournament_num
+                                    else:
+                                        event_name = "Ukjent turnering"
+
                                     # Store event name with the date
                                     if current_date not in team_events[team]:
-                                        team_events[team][current_date] = current_event
+                                        team_events[team][current_date] = event_name
 
             wb.close()
 
         except Exception as e:
-            print(f"  Warning: Could not scan Excel file for team events: {e}")
+            print(f"  Advarsel: Kunne ikke skanne Excel-fil for lag-konflikter: {e}")
 
         return team_events
 
