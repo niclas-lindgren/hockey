@@ -4,13 +4,30 @@ Find optimal weekend dates for hockey tournaments by analyzing conflicts from mu
 
 ## Features
 
-- Scrapes Kongsberg Hall ice hall calendar for hockey tournament conflicts
-- Scrapes Kongsberg Hall ball hall calendar for wardrobe unavailability
-- Filters dates based on specific team schedules
-- Excludes Norwegian public holiday weeks
-- Supports Excel files with existing tournament dates
+### Core Functionality
+- **Interactive Mode** - User-friendly guided interface (Norwegian language)
+- **Search History** - Save and reuse previous searches
+- Reschedule existing tournaments - Find alternative dates when all teams are available
+- Find dates for new tournaments
 - Weekend-only suggestions (Saturday and Sunday)
-- **NEW: Reschedule existing tournaments** - Find alternative dates when all teams are available
+
+### Calendar Integration
+- **Kongsberg ice hall** - Local tournament conflicts
+- **Kongsberg ball hall** - Wardrobe availability (warnings only)
+- **Skien ice hall** - External team conflicts (via Google Calendar iCal feed)
+
+### Smart Conflict Detection
+- Team availability across multiple calendars
+- Norwegian public holidays (excludes weekends before holidays)
+- Excel-based tournament schedules
+- Same-day conflicts (blocks dates)
+- Same-weekend conflicts (warnings with details)
+
+### Time Slot Analysis
+- Suggests earliest available start times (11:00-14:00 window)
+- Requires minimum 2.5 hours for tournaments
+- Shows all available time slots for each date
+- Considers existing bookings from all calendars
 
 ## Installation
 
@@ -32,6 +49,40 @@ playwright install chromium
 
 ## Usage
 
+### Interactive Mode (Recommended)
+
+The interactive mode provides a user-friendly guided experience:
+
+```bash
+./venv/bin/python3 tournament_scheduler_interactive.py
+```
+
+Features:
+- **Norwegian language interface** - All prompts and output in Norwegian
+- **Guided workflow** - Step-by-step questions for all parameters
+- **Search history** - Automatically saves searches
+  - Reuse previous searches without re-entering parameters
+  - Browse up to 20 most recent searches
+  - History stored in `~/.hockey_scheduler_history.json`
+- **Smart defaults** - Suggests reasonable date ranges
+- **Multiple calendar selection** - Choose which calendars to check
+- **Detailed results** with:
+  - Suggested time slots (earliest available)
+  - Weekend conflict warnings
+  - Team-specific conflict details
+
+Example workflow:
+1. Choose: Reschedule tournament or find new dates
+2. Enter date range (defaults to 6 months)
+3. If rescheduling: Provide Excel file and tournament date
+4. Select calendars to check (Kongsberg ice/ball, Skien ice)
+5. View results with suggested times and warnings
+6. Search automatically saved to history
+
+### Command-Line Mode
+
+For automation or scripting, use the command-line interface:
+
 Show help and examples:
 ```bash
 ./tournament-scheduler.sh --help
@@ -40,25 +91,6 @@ Show help and examples:
 Basic usage:
 ```bash
 ./tournament-scheduler.sh --start-date 2025-01-01 --end-date 2025-06-30
-```
-
-Filter by team names to exclude their scheduled dates:
-```bash
-./tournament-scheduler.sh --teams "Kongsberg,Drammen,Oslo" --start-date 2025-01-01 --end-date 2025-12-31
-```
-
-Include Excel file with existing tournaments:
-```bash
-./tournament-scheduler.sh --excel-file existing_tournaments.xlsx --start-date 2025-03-01
-```
-
-Full example with all options:
-```bash
-./tournament-scheduler.sh \
-  --teams "Team A,Team B,Team C" \
-  --excel-file tournaments.xlsx \
-  --start-date 2025-01-01 \
-  --end-date 2025-12-31
 ```
 
 Reschedule an existing tournament:
@@ -70,9 +102,9 @@ Reschedule an existing tournament:
   --end-date 2026-06-30
 ```
 
-Or run directly with Python:
+Filter by team names:
 ```bash
-python tournament_scheduler.py --start-date 2025-01-01 --end-date 2025-06-30
+./tournament-scheduler.sh --teams "Kongsberg,Drammen,Oslo" --start-date 2025-01-01
 ```
 
 ## Command-Line Options
@@ -108,7 +140,53 @@ Example structure:
 
 ## Output
 
-The script outputs:
+### Interactive Mode Output
+
+Example output with all features:
+
+```
+============================================================
+RESULTAT
+============================================================
+
+Søkte: 10 helgedatoer
+Ledige: 7 datoer
+Blokkert: 3 datoer med konflikter
+
+Grunner for blokkerte datoer:
+  • Excel Team Conflict: 2 datoer
+  • Holiday: 1 datoer
+
+============================================================
+✓ LEDIGE DATOER (alle 6 lag ledige):
+============================================================
+  2026-03-01 (Søndag) - Foreslått: 11:00-13:30 ⚠️  HELGE-KONFLIKT
+      → Jar 6 spiller Lør feb 28: Frisk Asker - Askerhallen
+      → Skien spiller Lør feb 28: Frisk Asker - Askerhallen
+  2026-03-07 (Lørdag) - Foreslått: 11:00-13:30
+  2026-03-08 (Søndag) - Foreslått: 14:00-16:30
+  2026-03-15 (Søndag) - Foreslått: 14:00-16:30 ⚠️  HELGE-KONFLIKT
+      → Sandefjord spiller Lør mar 14: Ringerike - Schjongshallen
+
+────────────────────────────────────────────────────────────
+DETALJERT TIDSPUNKT-TILGJENGELIGHET:
+────────────────────────────────────────────────────────────
+  2026-03-08: 14:00-16:30, 15:00-17:30
+```
+
+**Output includes:**
+- **Summary statistics** - Total searched, available, blocked dates
+- **Exclusion breakdown** - Reasons for blocked dates
+- **Available dates** with:
+  - Norwegian day names (Lørdag, Søndag)
+  - **Suggested time slot** - Earliest possible start time
+  - **Weekend conflict warnings** (⚠️) - Teams playing same weekend
+  - Team-specific details showing venue and date
+- **Detailed time slots** - All available time windows for each date
+
+### Command-Line Mode Output
+
+Traditional output format:
 - List of available weekend dates in chronological order
 - Summary statistics (total weekends checked, available, excluded)
 - Breakdown of exclusion reasons:
@@ -118,6 +196,36 @@ The script outputs:
   - Norwegian public holiday weeks
   - Excel-provided exclusions
 
+## Search History
+
+The interactive mode automatically saves all searches to `~/.hockey_scheduler_history.json`.
+
+**Features:**
+- Stores last 50 searches
+- Browse and rerun previous searches
+- Shows search summary with key parameters
+- Includes timestamp for each search
+
+**History format:**
+```json
+{
+  "is_reschedule": true,
+  "start_date": "2026-03-01",
+  "end_date": "2026-03-15",
+  "excel_file": "/path/to/schedule.xlsx",
+  "tournament_date": "2026-01-31",
+  "check_kongsberg_ice": false,
+  "check_kongsberg_ball": false,
+  "check_skien_ice": true,
+  "timestamp": "2025-12-06T11:32:16"
+}
+```
+
+To clear history:
+```bash
+rm ~/.hockey_scheduler_history.json
+```
+
 ## Requirements
 
 - Python 3.7+
@@ -126,11 +234,18 @@ The script outputs:
 - openpyxl
 - holidays
 - playwright (with chromium browser installed)
+- icalendar
+- recurring-ical-events
 
 ## Notes
 
-- The script only suggests weekend dates (Saturday and Sunday)
-- Weeks containing Norwegian public holidays are automatically excluded
-- The script uses Playwright to scrape JavaScript-rendered Outlook calendars
-- Calendar scraping requires Playwright browsers to be installed (run: `playwright install chromium`)
+- **Interactive mode** uses Norwegian language for all prompts and output
+- **Weekend-only** - Only suggests Saturday and Sunday dates
+- **Holiday exclusion** - Automatically excludes weekends before Norwegian public holidays
+- **Multiple calendars**:
+  - Kongsberg ice hall: Playwright-based Outlook calendar scraper
+  - Kongsberg ball hall: Playwright-based Outlook calendar scraper
+  - Skien ice hall: Google Calendar iCal feed (no browser required)
+- **Time slot analysis** - Requires 2.5 hours minimum, suggests 11:00-14:00 window
+- **Weekend warnings** - Same-weekend conflicts don't block dates, just warn
 - If calendar scraping fails, the script continues with available data sources
