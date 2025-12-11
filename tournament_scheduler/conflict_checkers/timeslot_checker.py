@@ -15,7 +15,7 @@ class TimeSlotChecker(ConflictChecker):
         calendar_events: List,
         min_duration_hours: float = 2.5,
         earliest_start: str = "11:00",
-        latest_start: str = "14:00"
+        latest_start: str = "15:00"
     ):
         """Initialize time slot checker.
 

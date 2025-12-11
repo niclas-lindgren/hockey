@@ -225,10 +225,17 @@ class OutlookCalendarScraper(BaseCalendarScraper):
                     break
 
             if found_date and event_name:
+                # Apply start_time to datetime if parsed
+                event_datetime = found_date
+                if start_time is not None:
+                    hours = int(start_time)
+                    minutes = int((start_time - hours) * 60)
+                    event_datetime = found_date.replace(hour=hours, minute=minutes)
+
                 events.append(CalendarEvent(
                     date=found_date.strftime('%d.%m.%Y'),
                     name=event_name,
-                    datetime=found_date,
+                    datetime=event_datetime,
                     duration_hours=duration_hours
                 ))
 
