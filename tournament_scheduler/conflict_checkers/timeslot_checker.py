@@ -44,7 +44,7 @@ class TimeSlotChecker(ConflictChecker):
         reasons = {}
         self.available_slots = {}  # Store available time slots for dates (make it instance variable)
 
-        print(f"\nChecking time slot availability (need {self.min_duration_hours}h between {self._format_time(self.earliest_start)}-{self._format_time(self.latest_start)})...")
+        print(f"\nChecking time slot availability (need {self.min_duration_hours}h, starting between {self._format_time(self.earliest_start)}-{self._format_time(self.latest_start)})...")
 
         conflicts_found = []
         for check_date in dates:
@@ -149,18 +149,25 @@ class TimeSlotChecker(ConflictChecker):
                 gap_end = busy_ranges[i + 1][0]
                 gap_duration = gap_end - gap_start
 
-                if gap_start >= earliest_minutes and gap_start <= latest_start_minutes and gap_duration >= min_duration_minutes:
+                # Can we start within the allowed window and have min_duration free?
+                earliest_possible_start = max(gap_start, earliest_minutes)
+                latest_possible_start = min(gap_end - min_duration_minutes, latest_start_minutes)
+
+                if earliest_possible_start <= latest_possible_start:
                     available_slots.append((
-                        self._minutes_to_time(gap_start),
-                        self._minutes_to_time(gap_start + min_duration_minutes)
+                        self._minutes_to_time(earliest_possible_start),
+                        self._minutes_to_time(earliest_possible_start + min_duration_minutes)
                     ))
 
             # Check after last event
             last_busy_end = busy_ranges[-1][1]
-            if last_busy_end >= earliest_minutes and last_busy_end <= latest_start_minutes:
+            earliest_possible_start = max(last_busy_end, earliest_minutes)
+
+            # Can we start by latest_start and have min_duration free?
+            if earliest_possible_start <= latest_start_minutes:
                 available_slots.append((
-                    self._minutes_to_time(last_busy_end),
-                    self._minutes_to_time(last_busy_end + min_duration_minutes)
+                    self._minutes_to_time(earliest_possible_start),
+                    self._minutes_to_time(earliest_possible_start + min_duration_minutes)
                 ))
         else:
             # No events - entire window is available

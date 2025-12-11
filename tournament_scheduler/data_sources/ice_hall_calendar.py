@@ -23,7 +23,8 @@ class IceHallCalendar(CalendarDataSource):
             'turnering', 'tournament', 'cup', 'mesterskap', 'championship',
             'series', 'serie', 'finale', 'final', 'semifinale', 'playoff',
             'kvalifisering', 'qualifying', 'region', 'nm ', 'nasjonalt',
-            'national', 'landsdel', 'krets'
+            'national', 'landsdel', 'krets', 'kamp', 'ef ', 'ju', 'u8', 'u9', 'u10',
+            'u11', 'u12', 'u13', 'u14', 'u15', 'u16', 'u17', 'u18'
         ]
         self.non_tournament_keywords = [
             'trening', 'practice', 'åpen ishall', 'open ice', 'reklag',
