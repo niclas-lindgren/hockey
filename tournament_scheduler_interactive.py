@@ -252,12 +252,7 @@ def run_search(search_params):
         kongsberg_ice = IceHallCalendar("https://kongsberghallen.no/webkalender/ishall/", outlook_scraper)
         calendar_sources.append(kongsberg_ice)
 
-        ice_events = outlook_scraper.scrape_calendar(
-            "https://kongsberghallen.no/webkalender/ishall/",
-            "Kongsberg ishall",
-            start_date,
-            end_date
-        )
+        ice_events = kongsberg_ice.fetch_events(start_date, end_date)
         all_events_for_teams.extend(ice_events)
 
     # Kongsberg ball hall
@@ -278,12 +273,7 @@ def run_search(search_params):
         skien_ice = IceHallCalendar("https://skienishockey.no/kalender-isbooking/", skien_scraper)
         calendar_sources.append(skien_ice)
 
-        skien_events = skien_scraper.scrape_calendar(
-            "https://skienishockey.no/kalender-isbooking/",
-            "Skien ishall",
-            start_date,
-            end_date
-        )
+        skien_events = skien_ice.fetch_events(start_date, end_date)
         all_events_for_teams.extend(skien_events)
 
     print(f"\n  Totalt antall hendelser hentet: {len(all_events_for_teams)}")

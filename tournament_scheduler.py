@@ -663,21 +663,16 @@ Examples:
         ice_hall = IceHallCalendar("https://kongsberghallen.no/webkalender/ishall/", scraper)
         ball_hall = BallHallCalendar("https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/", scraper)
 
-        # Fetch ALL ice hall events first (unfiltered)
-        print("Fetching all ice hall events...")
-        all_ice_hall_events = scraper.scrape_calendar(
-            "https://kongsberghallen.no/webkalender/ishall/",
-            "ice hall",
-            start_date,
-            end_date
-        )
+        # Fetch ice hall tournament events (filtered)
+        print("Fetching ice hall tournament events...")
+        ice_hall_events = ice_hall.fetch_events(start_date, end_date)
 
         # Fetch ball hall events (already filtered for >2 hours)
         ball_hall_events = ball_hall.fetch_events(start_date, end_date)
 
         # Combine all events for team checker
-        all_events_for_teams = all_ice_hall_events + ball_hall_events
-        print(f"  Total events for team checking: {len(all_events_for_teams)} ({len(all_ice_hall_events)} ice hall + {len(ball_hall_events)} ball hall)\n")
+        all_events_for_teams = ice_hall_events + ball_hall_events
+        print(f"  Total events for team checking: {len(all_events_for_teams)} ({len(ice_hall_events)} ice hall + {len(ball_hall_events)} ball hall)\n")
 
         # Initialize conflict checkers
         holiday_checker = HolidayConflictChecker()
