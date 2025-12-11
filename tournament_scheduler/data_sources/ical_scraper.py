@@ -3,23 +3,26 @@
 import sys
 import requests
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 from icalendar import Calendar as iCalendar
 import recurring_ical_events
 from tournament_scheduler.models import CalendarEvent
 from tournament_scheduler.interfaces import CalendarScraper
+from tournament_scheduler.utils.calendar_cache import CalendarCache
 
 
 class ICalScraper(CalendarScraper):
     """Scrapes Google Calendar using public iCal feeds."""
 
-    def __init__(self, calendar_id: str):
+    def __init__(self, calendar_id: str, cache: Optional[CalendarCache] = None):
         """Initialize iCal scraper.
 
         Args:
             calendar_id: Google Calendar ID (email format)
+            cache: Optional CalendarCache instance for caching scraped events
         """
         self.calendar_id = calendar_id
+        self.cache = cache or CalendarCache()
 
     def scrape_calendar(
         self,
@@ -41,9 +44,15 @@ class ICalScraper(CalendarScraper):
         """
         events = []
 
+        # Check cache first (use iCal URL as the "url" parameter)
+        ical_url = f'https://calendar.google.com/calendar/ical/{self.calendar_id}/public/basic.ics'
+        cached_events = self.cache.get(ical_url, calendar_name, start_date, end_date)
+        if cached_events is not None:
+            print(f"  ✓ Using cached {calendar_name} calendar data ({len(cached_events)} events)\n", flush=True)
+            return cached_events
+
         try:
             # Build iCal URL
-            ical_url = f'https://calendar.google.com/calendar/ical/{self.calendar_id}/public/basic.ics'
 
             print(f"  Fetching {calendar_name} iCal feed...", flush=True)
             response = requests.get(ical_url, timeout=15)
@@ -102,6 +111,10 @@ class ICalScraper(CalendarScraper):
                     unique_events.append(event)
 
             print(f"  ✓ Scraped {len(unique_events)} events from {calendar_name}\n", flush=True)
+
+            # Cache the results
+            self.cache.set(ical_url, calendar_name, start_date, end_date, unique_events)
+
             return unique_events
 
         except Exception as e:

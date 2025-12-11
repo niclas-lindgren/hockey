@@ -23,13 +23,14 @@ class IceHallCalendar(CalendarDataSource):
             'turnering', 'tournament', 'cup', 'mesterskap', 'championship',
             'series', 'serie', 'finale', 'final', 'semifinale', 'playoff',
             'kvalifisering', 'qualifying', 'region', 'nm ', 'nasjonalt',
-            'national', 'landsdel', 'krets', 'kamp', 'ef ', 'ju', 'u8', 'u9', 'u10',
-            'u11', 'u12', 'u13', 'u14', 'u15', 'u16', 'u17', 'u18'
+            'national', 'landsdel', 'krets', 'kamp'
         ]
         self.non_tournament_keywords = [
             'trening', 'practice', 'åpen ishall', 'open ice', 'reklag',
             'rek.lag', 'hockeytrim', 'pensjonist', 'helgevakt', 'duty',
-            'is vedlikehold', 'maintenance', 'stengt', 'closed'
+            'is vedlikehold', 'maintenance', 'stengt', 'closed',
+            'ef søndag', 'ef lørdag', 'ef mandag', 'ef tirsdag', 'ef onsdag',
+            'ef torsdag', 'ef fredag'
         ]
 
     def fetch_events(self, start_date: datetime, end_date: datetime) -> List[CalendarEvent]:

@@ -3,17 +3,23 @@
 import sys
 import re
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 from tournament_scheduler.models import CalendarEvent
 from tournament_scheduler.interfaces import CalendarScraper as BaseCalendarScraper
+from tournament_scheduler.utils.calendar_cache import CalendarCache
 
 
 class OutlookCalendarScraper(BaseCalendarScraper):
     """Handles scraping of Outlook calendars using Playwright."""
 
-    def __init__(self):
-        """Initialize calendar scraper."""
+    def __init__(self, cache: Optional[CalendarCache] = None):
+        """Initialize calendar scraper.
+
+        Args:
+            cache: Optional CalendarCache instance for caching scraped events
+        """
+        self.cache = cache or CalendarCache()
         self.norwegian_months = {
             'january': 1, 'february': 2, 'march': 3, 'april': 4,
             'may': 5, 'june': 6, 'july': 7, 'august': 8,
@@ -36,6 +42,12 @@ class OutlookCalendarScraper(BaseCalendarScraper):
         Returns:
             List of CalendarEvent objects
         """
+        # Check cache first
+        cached_events = self.cache.get(url, calendar_type, start_date, end_date)
+        if cached_events is not None:
+            print(f"  ✓ Using cached {calendar_type} calendar data ({len(cached_events)} events)\n", flush=True)
+            return cached_events
+
         events = []
 
         current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -132,6 +144,10 @@ class OutlookCalendarScraper(BaseCalendarScraper):
                     unique_events.append(event)
 
             print(f"  ✓ Scraped {len(unique_events)} events from {calendar_type} calendar\n", flush=True)
+
+            # Cache the results
+            self.cache.set(url, calendar_type, start_date, end_date, unique_events)
+
             return unique_events
 
         except Exception as e:
