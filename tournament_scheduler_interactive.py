@@ -19,6 +19,7 @@ from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.utils.date_parser import DateParser
 from tournament_scheduler.utils.search_history import SearchHistory
+from tournament_scheduler.utils.rich_output import TournamentOutput
 
 
 def print_header(text):
@@ -373,91 +374,64 @@ def run_search(search_params):
             excel_team_checker = checker
 
     # Display results
-    print("\n" + "=" * 60)
-    print("RESULTAT")
-    print("=" * 60)
-
-    print(f"\nSøkte: {result.total_weekends_checked} helgedatoer")
-    print(f"Ledige: {len(result.available_dates)} datoer")
-    print(f"Blokkert: {len(result.excluded_dates)} datoer med konflikter")
-
-    if result.exclusion_breakdown:
-        print(f"\nGrunner for blokkerte datoer:")
-        for checker_name, count in sorted(result.exclusion_breakdown.items()):
-            if checker_name != 'ball_hall_warning' and count > 0:
-                print(f"  • {checker_name.replace('_', ' ').title()}: {count} datoer")
+    TournamentOutput.print_summary(
+        result.total_weekends_checked,
+        len(result.available_dates),
+        len(result.excluded_dates),
+        result.exclusion_breakdown or {}
+    )
 
     if result.available_dates:
-        print(f"\n{'=' * 60}")
-        if is_reschedule:
-            print(f"✓ LEDIGE DATOER (alle {len(tournament_info.teams)} lag ledige):")
-        else:
-            print(f"✓ LEDIGE DATOER:")
-        print(f"{'=' * 60}")
-
-        # Show dates with suggested time slots and warnings
+        # Prepare dates with slots for Rich display
         day_names_no = {
             'Monday': 'Mandag', 'Tuesday': 'Tirsdag', 'Wednesday': 'Onsdag',
             'Thursday': 'Torsdag', 'Friday': 'Fredag', 'Saturday': 'Lørdag', 'Sunday': 'Søndag'
         }
+
+        dates_with_slots = []
+        dates_with_all_slots = []
+
         for d in sorted(result.available_dates):
             day_name_en = d.strftime('%A')
             day_name = day_names_no.get(day_name_en, day_name_en)
 
-            display_str = f"  {d.strftime('%Y-%m-%d')} ({day_name})"
-
-            # Add suggested time slot
+            # Get suggested time slot
+            time_slot = ""
             if timeslot_checker:
-                suggested_slot = timeslot_checker.get_suggested_slot(d)
-                if suggested_slot:
-                    display_str += f" - Foreslått: {suggested_slot}"
+                time_slot = timeslot_checker.get_suggested_slot(d)
 
             # Check for weekend warnings
-            has_warning = False
-            if excel_team_checker and d in excel_team_checker.weekend_warnings:
-                has_warning = True
-                display_str += " ⚠️  HELGE-KONFLIKT"
+            has_warning = excel_team_checker and d in excel_team_checker.weekend_warnings
 
-            print(display_str)
+            dates_with_slots.append((d, day_name, time_slot, has_warning))
 
-            # Show warning details
-            if has_warning:
-                warning_teams = excel_team_checker.weekend_warnings[d]
-                day_map = {'Mon': 'Man', 'Tue': 'Tir', 'Wed': 'Ons', 'Thu': 'Tor',
-                          'Fri': 'Fre', 'Sat': 'Lør', 'Sun': 'Søn'}
-                month_map = {'Jan': 'jan', 'Feb': 'feb', 'Mar': 'mar', 'Apr': 'apr',
-                            'May': 'mai', 'Jun': 'jun', 'Jul': 'jul', 'Aug': 'aug',
-                            'Sep': 'sep', 'Oct': 'okt', 'Nov': 'nov', 'Dec': 'des'}
-                for team, event, conflict_date in warning_teams:
-                    eng_date = conflict_date.strftime('%a %b %d')
-                    nor_date = eng_date
-                    for eng, nor in day_map.items():
-                        nor_date = nor_date.replace(eng, nor)
-                    for eng, nor in month_map.items():
-                        nor_date = nor_date.replace(eng, nor)
-                    print(f"      → {team} spiller {nor_date}: {event[:45]}")
+            # Get all slots for detailed view
+            if timeslot_checker:
+                all_slots = timeslot_checker.available_slots.get(d, [])
+                if len(all_slots) > 1:
+                    dates_with_all_slots.append((d, day_name, all_slots))
 
-        # Show detailed time slots
-        if timeslot_checker and len(result.available_dates) <= 15:
-            print(f"\n{'─' * 60}")
-            print("DETALJERT TIDSPUNKT-TILGJENGELIGHET:")
-            print(f"{'─' * 60}")
+        TournamentOutput.print_available_dates(dates_with_slots)
+
+        # Show detailed time slots if there are multiple options
+        if dates_with_all_slots and len(result.available_dates) <= 15:
+            TournamentOutput.print_time_slots_detail(dates_with_all_slots)
+
+        # Show weekend warning details
+        if excel_team_checker and excel_team_checker.weekend_warnings:
+            from rich.console import Console
+            console = Console()
+            console.print("\n[yellow]Detaljer om helgekonflikter:[/yellow]")
             for d in sorted(result.available_dates):
-                slots = timeslot_checker.available_slots.get(d, [])
-                if len(slots) > 1:
-                    slots_str = ", ".join([f"{s[0]}-{s[1]}" for s in slots])
-                    print(f"  {d.strftime('%Y-%m-%d')}: {slots_str}")
+                if d in excel_team_checker.weekend_warnings:
+                    warning_teams = excel_team_checker.weekend_warnings[d]
+                    for team, event, conflict_date in warning_teams:
+                        console.print(
+                            f"  {d.strftime('%Y-%m-%d')}: [cyan]{team}[/cyan] "
+                            f"spiller {conflict_date.strftime('%Y-%m-%d')} - {event[:50]}"
+                        )
     else:
-        print(f"\n{'=' * 60}")
-        print("✗ INGEN LEDIGE DATOER FUNNET")
-        print(f"{'=' * 60}")
-        print("  Alle datoer har konflikter. Prøv:")
-        print("  • Utvid datoperioden")
-        print("  • Sjekk færre kalendere")
-        if is_reschedule:
-            print("  • Sjekk om lag-planer kan justeres")
-
-    print("\n" + "=" * 60 + "\n")
+        TournamentOutput.print_no_dates_found()
 
 
 def main():

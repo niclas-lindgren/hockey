@@ -5,6 +5,7 @@ from typing import List, Set, Dict, Tuple
 from tournament_scheduler.interfaces import ConflictChecker
 from tournament_scheduler.models import ConflictContext, ConflictResult
 from tournament_scheduler.utils.date_parser import DateParser
+from tournament_scheduler.utils.rich_output import TournamentOutput
 import openpyxl
 
 
@@ -46,12 +47,12 @@ class ExcelTeamConflictChecker(ConflictChecker):
                 checker_name=self.get_checker_name()
             )
 
-        print(f"\nSjekker Excel-fil for lag-konflikter ({len(self.tournament_teams)} lag)...")
+        TournamentOutput.print_info(f"Sjekker Excel-fil for lag-konflikter ({len(self.tournament_teams)} lag)...")
 
         # Scan Excel file for team mentions with event details
         team_events = self._find_team_events_in_excel()
 
-        same_day_conflicts = []
+        same_day_list = []
         weekend_conflicts = []
 
         for check_date in dates:
@@ -65,9 +66,9 @@ class ExcelTeamConflictChecker(ConflictChecker):
                 excluded_dates.add(check_date)
                 team_list = ', '.join(conflicting_teams[:2])
                 if len(conflicting_teams) > 2:
-                    team_list += f" og {len(conflicting_teams) - 2} til"
+                    team_list += f" og {len(conflicting_teams) - 2} flere"
                 reasons[check_date] = f"Excel: {team_list} spiller andre kamper"
-                same_day_conflicts.append((check_date, conflicting_teams))
+                same_day_list.append((check_date, team_list))
             else:
                 # Check for same-weekend conflicts (these warn but don't block)
                 weekend_date = self._get_weekend_pair(check_date)
@@ -82,26 +83,23 @@ class ExcelTeamConflictChecker(ConflictChecker):
                         self.weekend_warnings[check_date] = warning_teams
                         weekend_conflicts.append((check_date, warning_teams))
 
-        if same_day_conflicts:
-            print(f"\n⚠️  SAMME DAG-KONFLIKTER I EXCEL ({len(same_day_conflicts)} datoer blokkert):")
-            for check_date, teams in same_day_conflicts[:10]:
-                teams_str = ', '.join(teams[:3])
-                if len(teams) > 3:
-                    teams_str += f" +{len(teams) - 3} til"
-                print(f"  - {check_date.strftime('%Y-%m-%d')}: {teams_str}")
-            if len(same_day_conflicts) > 10:
-                print(f"  ... og {len(same_day_conflicts) - 10} datoer til")
+        if same_day_list:
+            TournamentOutput.print_conflict_table(
+                "EXCEL SAMME DAG-KONFLIKTER",
+                same_day_list
+            )
+        else:
+            TournamentOutput.print_success("Ingen samme dag-konflikter i Excel")
 
         if weekend_conflicts:
-            print(f"\n⚠️  HELGE-KONFLIKTER (samme helg, ulik dag - {len(weekend_conflicts)} advarsler):")
+            TournamentOutput.print_warning(
+                f"HELGE-KONFLIKTER (samme helg, ulik dag - {len(weekend_conflicts)} advarsler - blokkerer IKKE):"
+            )
             for check_date, warning_teams in weekend_conflicts[:10]:
                 for team, event, conflict_date in warning_teams[:2]:
-                    print(f"  - {check_date.strftime('%Y-%m-%d')}: {team} spiller {conflict_date.strftime('%Y-%m-%d')} - {event[:50]}")
+                    print(f"  {check_date.strftime('%Y-%m-%d')}: {team} spiller {conflict_date.strftime('%Y-%m-%d')} - {event[:50]}")
             if len(weekend_conflicts) > 10:
                 print(f"  ... og {len(weekend_conflicts) - 10} advarsler til")
-
-        if not same_day_conflicts and not weekend_conflicts:
-            print(f"  ✓ Ingen lag-konflikter funnet i Excel-fil")
 
         return ConflictResult(
             excluded_dates=excluded_dates,

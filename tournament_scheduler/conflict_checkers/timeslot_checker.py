@@ -5,6 +5,7 @@ from typing import List, Dict, Tuple
 from tournament_scheduler.interfaces import ConflictChecker
 from tournament_scheduler.models import ConflictContext, ConflictResult
 from tournament_scheduler.utils.date_parser import DateParser
+from tournament_scheduler.utils.rich_output import TournamentOutput
 
 
 class TimeSlotChecker(ConflictChecker):
@@ -44,31 +45,31 @@ class TimeSlotChecker(ConflictChecker):
         reasons = {}
         self.available_slots = {}  # Store available time slots for dates (make it instance variable)
 
-        print(f"\nChecking time slot availability (need {self.min_duration_hours}h, starting between {self._format_time(self.earliest_start)}-{self._format_time(self.latest_start)})...")
+        TournamentOutput.print_info(
+            f"Sjekker ledige tidslukker (trenger {self.min_duration_hours}t, "
+            f"start mellom {self._format_time(self.earliest_start)}-{self._format_time(self.latest_start)})..."
+        )
 
-        conflicts_found = []
+        conflicts_list = []
         for check_date in dates:
             slots = self._find_available_slots(check_date)
             if not slots:
                 excluded_dates.add(check_date)
-                reasons[check_date] = f"No {self.min_duration_hours}h time slot available"
-                conflicts_found.append(check_date)
+                booked_times = self._get_booked_times(check_date)
+                reason = f"Opptatt: {booked_times}" if booked_times else f"Ingen {self.min_duration_hours}t luke"
+                reasons[check_date] = reason
+                conflicts_list.append((check_date, reason))
             else:
                 # Store the available slots for this date
                 self.available_slots[check_date] = slots
 
-        if conflicts_found:
-            print(f"\n⚠️  TIME SLOT CONFLICTS ({len(conflicts_found)} dates blocked):")
-            for check_date in conflicts_found[:10]:
-                booked_times = self._get_booked_times(check_date)
-                if booked_times:
-                    print(f"  - {check_date.strftime('%Y-%m-%d')}: Already booked {booked_times}")
-                else:
-                    print(f"  - {check_date.strftime('%Y-%m-%d')}: No suitable time slot")
-            if len(conflicts_found) > 10:
-                print(f"  ... and {len(conflicts_found) - 10} more dates")
+        if conflicts_list:
+            TournamentOutput.print_conflict_table(
+                "TIDSLUKE-KONFLIKTER",
+                conflicts_list
+            )
         else:
-            print(f"  ✓ All {len(dates)} dates have available time slots")
+            TournamentOutput.print_success(f"Alle {len(dates)} datoer har ledige tidslukker")
 
         return ConflictResult(
             excluded_dates=excluded_dates,

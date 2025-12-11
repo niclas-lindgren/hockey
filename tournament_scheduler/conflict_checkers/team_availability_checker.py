@@ -5,6 +5,7 @@ from typing import List, Set
 from tournament_scheduler.interfaces import ConflictChecker
 from tournament_scheduler.models import ConflictContext, ConflictResult, CalendarEvent
 from tournament_scheduler.utils.date_parser import DateParser
+from tournament_scheduler.utils.rich_output import TournamentOutput
 
 
 class TeamAvailabilityChecker(ConflictChecker):
@@ -39,29 +40,31 @@ class TeamAvailabilityChecker(ConflictChecker):
                 checker_name=self.get_checker_name()
             )
 
-        print(f"\nChecking availability for {len(context.team_names)} teams against {len(self.calendar_events)} calendar events...")
+        TournamentOutput.print_info(
+            f"Sjekker tilgjengelighet for {len(context.team_names)} lag mot {len(self.calendar_events)} kalenderhendelser..."
+        )
 
         # Check each date for team conflicts
-        conflicts_found = []
+        conflicts_list = []
         for check_date in dates:
             conflicts = self._check_team_conflicts_on_date(check_date, context.team_names)
             if conflicts:
                 excluded_dates.add(check_date)
                 team_conflicts = ', '.join([f"{team}" for team, _ in conflicts[:2]])
                 if len(conflicts) > 2:
-                    team_conflicts += f" and {len(conflicts) - 2} more"
-                reasons[check_date] = f"Team conflict: {team_conflicts}"
-                conflicts_found.append((check_date, conflicts))
+                    team_conflicts += f" +{len(conflicts) - 2} flere"
+                reasons[check_date] = f"Lag-konflikt: {team_conflicts}"
+                # Add to conflicts list for display
+                for team, event in conflicts[:2]:  # Show first 2 per date
+                    conflicts_list.append((check_date, f"{team} har '{event[:60]}'"))
 
-        if conflicts_found:
-            print(f"\n⚠️  TEAM CONFLICTS FOUND ({len(conflicts_found)} dates blocked):")
-            for check_date, conflicts in conflicts_found[:10]:  # Show first 10
-                for team, event in conflicts[:2]:  # Show first 2 conflicts per date
-                    print(f"  - {check_date.strftime('%Y-%m-%d')}: {team} has '{event[:60]}'")
-            if len(conflicts_found) > 10:
-                print(f"  ... and {len(conflicts_found) - 10} more dates with conflicts")
+        if conflicts_list:
+            TournamentOutput.print_conflict_table(
+                "LAG-KONFLIKTER",
+                conflicts_list
+            )
         else:
-            print(f"  ✓ All {len(dates)} dates are free for all teams")
+            TournamentOutput.print_success(f"Alle {len(dates)} datoer ledige for alle lag")
 
         return ConflictResult(
             excluded_dates=excluded_dates,
