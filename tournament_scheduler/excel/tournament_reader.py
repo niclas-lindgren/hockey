@@ -6,6 +6,9 @@ from typing import Set, List, Optional
 import openpyxl
 from tournament_scheduler.models import TournamentInfo
 from tournament_scheduler.utils.date_parser import DateParser
+from rich.console import Console
+
+console = Console()
 
 
 class ExcelTournamentReader:
@@ -30,10 +33,10 @@ class ExcelTournamentReader:
                 self.workbook = openpyxl.load_workbook(self.file_path, data_only=True)
                 self.worksheet = self.workbook.active
             except FileNotFoundError:
-                print(f"Error: Excel file not found: {self.file_path}", file=sys.stderr)
+                console.print(f"[red]Feil: Excel-fil ikke funnet: {self.file_path}[/red]")
                 sys.exit(1)
             except Exception as e:
-                print(f"Error: Failed to open Excel file: {e}", file=sys.stderr)
+                console.print(f"[red]Feil: Kunne ikke åpne Excel-fil: {e}[/red]")
                 sys.exit(1)
 
     def get_all_tournament_dates(self) -> Set[date]:
@@ -71,25 +74,25 @@ class ExcelTournamentReader:
 
         if not teams:
             available_dates = self.get_all_tournament_dates()
-            print(f"\nError: No tournament found on {tournament_date.strftime('%Y-%m-%d')} in Excel file", file=sys.stderr)
+            console.print(f"\n[red]Feil: Ingen turnering funnet på {tournament_date.strftime('%Y-%m-%d')} i Excel-fil[/red]")
             if available_dates:
-                print("\nAvailable tournament dates in file:", file=sys.stderr)
+                console.print("\n[yellow]Tilgjengelige turneringsdatoer i filen:[/yellow]")
                 for d in sorted(available_dates)[:10]:
-                    print(f"  - {d.strftime('%Y-%m-%d')}", file=sys.stderr)
+                    console.print(f"  - {d.strftime('%Y-%m-%d')}")
                 if len(available_dates) > 10:
-                    print(f"  ... and {len(available_dates) - 10} more dates", file=sys.stderr)
+                    console.print(f"  ... og {len(available_dates) - 10} flere datoer")
             sys.exit(1)
 
         # Debug output
-        print(f"\n{'='*60}")
-        print(f"TOURNAMENT DETAILS FOR {tournament_date.strftime('%Y-%m-%d')}")
-        print(f"{'='*60}")
+        console.print(f"\n[bold]{'='*60}[/bold]")
+        console.print(f"[bold cyan]TURNERINGSDETALJER FOR {tournament_date.strftime('%Y-%m-%d')}[/bold cyan]")
+        console.print(f"[bold]{'='*60}[/bold]")
         if location:
-            print(f"Location: {location}")
-        print(f"Teams found: {len(teams)}")
+            console.print(f"Lokasjon: {location}")
+        console.print(f"Lag funnet: {len(teams)}")
         for i, team in enumerate(teams, 1):
-            print(f"  {i}. {team}")
-        print(f"{'='*60}\n")
+            console.print(f"  {i}. {team}")
+        console.print(f"[bold]{'='*60}[/bold]\n")
 
         return TournamentInfo(
             date=tournament_date,

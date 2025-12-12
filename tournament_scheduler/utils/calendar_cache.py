@@ -6,6 +6,9 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Optional
 from tournament_scheduler.models import CalendarEvent
+from rich.console import Console
+
+console = Console()
 
 
 class CalendarCache:
@@ -134,8 +137,8 @@ class CalendarCache:
             with open(cache_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            # Silently fail if caching fails
-            print(f"  Warning: Failed to cache calendar data: {e}")
+            # Fail silently but log warning
+            console.print(f"  [yellow]⚠[/yellow] Advarsel: Kunne ikke cache kalenderdata: {e}", style="yellow")
 
     def clear(self) -> None:
         """Clear all cached calendar data."""

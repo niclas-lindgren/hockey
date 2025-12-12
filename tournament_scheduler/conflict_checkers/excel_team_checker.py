@@ -95,11 +95,13 @@ class ExcelTeamConflictChecker(ConflictChecker):
             TournamentOutput.print_warning(
                 f"HELGE-KONFLIKTER (samme helg, ulik dag - {len(weekend_conflicts)} advarsler - blokkerer IKKE):"
             )
+            from rich.console import Console
+            console = Console()
             for check_date, warning_teams in weekend_conflicts[:10]:
                 for team, event, conflict_date in warning_teams[:2]:
-                    print(f"  {check_date.strftime('%Y-%m-%d')}: {team} spiller {conflict_date.strftime('%Y-%m-%d')} - {event[:50]}")
+                    console.print(f"  [yellow]{check_date.strftime('%Y-%m-%d')}: {team} spiller {conflict_date.strftime('%Y-%m-%d')} - {event[:50]}[/yellow]")
             if len(weekend_conflicts) > 10:
-                print(f"  ... og {len(weekend_conflicts) - 10} advarsler til")
+                console.print(f"  [yellow]... og {len(weekend_conflicts) - 10} advarsler til[/yellow]")
 
         return ConflictResult(
             excluded_dates=excluded_dates,
@@ -194,7 +196,7 @@ class ExcelTeamConflictChecker(ConflictChecker):
             wb.close()
 
         except Exception as e:
-            print(f"  Advarsel: Kunne ikke skanne Excel-fil for lag-konflikter: {e}")
+            TournamentOutput.print_warning(f"Kunne ikke skanne Excel-fil for lag-konflikter: {e}")
 
         return team_events
 

@@ -1,6 +1,5 @@
 """iCal-based calendar scraper for Google Calendar public feeds."""
 
-import sys
 import requests
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -9,6 +8,9 @@ import recurring_ical_events
 from tournament_scheduler.models import CalendarEvent
 from tournament_scheduler.interfaces import CalendarScraper
 from tournament_scheduler.utils.calendar_cache import CalendarCache
+from rich.console import Console
+
+console = Console()
 
 
 class ICalScraper(CalendarScraper):
@@ -48,17 +50,17 @@ class ICalScraper(CalendarScraper):
         ical_url = f'https://calendar.google.com/calendar/ical/{self.calendar_id}/public/basic.ics'
         cached_events = self.cache.get(ical_url, calendar_name, start_date, end_date)
         if cached_events is not None:
-            print(f"  ✓ Using cached {calendar_name} calendar data ({len(cached_events)} events)\n", flush=True)
+            console.print(f"  [green]✓[/green] Bruker cachet {calendar_name} kalenderdata ([cyan]{len(cached_events)}[/cyan] hendelser)")
             return cached_events
 
         try:
             # Build iCal URL
 
-            print(f"  Fetching {calendar_name} iCal feed...", flush=True)
+            console.print(f"  [dim]Henter {calendar_name} iCal feed...[/dim]")
             response = requests.get(ical_url, timeout=15)
 
             if response.status_code != 200:
-                print(f"  ✗ Failed to fetch iCal feed: HTTP {response.status_code}", file=sys.stderr, flush=True)
+                console.print(f"  [red]✗[/red] Kunne ikke hente iCal feed: HTTP {response.status_code}", style="red")
                 return events
 
             # Parse iCal data
@@ -69,7 +71,7 @@ class ICalScraper(CalendarScraper):
             extended_end = end_date + timedelta(days=1)
             ical_events = recurring_ical_events.of(cal).between(start_date, extended_end)
 
-            print(f"  Found {len(ical_events)} events in date range", flush=True)
+            console.print(f"  [dim]Fant {len(ical_events)} hendelser i datoperioden[/dim]")
 
             # Convert to CalendarEvent objects
             for event in ical_events:
@@ -110,7 +112,7 @@ class ICalScraper(CalendarScraper):
                     seen.add(key)
                     unique_events.append(event)
 
-            print(f"  ✓ Scraped {len(unique_events)} events from {calendar_name}\n", flush=True)
+            console.print(f"  [green]✓[/green] Skrapte [cyan]{len(unique_events)}[/cyan] hendelser fra {calendar_name}")
 
             # Cache the results
             self.cache.set(ical_url, calendar_name, start_date, end_date, unique_events)
@@ -118,7 +120,7 @@ class ICalScraper(CalendarScraper):
             return unique_events
 
         except Exception as e:
-            print(f"  ✗ Failed to scrape {calendar_name}: {e}\n", file=sys.stderr, flush=True)
+            console.print(f"  [red]✗[/red] Kunne ikke skrape {calendar_name}: {e}", style="red")
             import traceback
             traceback.print_exc()
             return []

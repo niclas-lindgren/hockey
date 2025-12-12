@@ -8,6 +8,9 @@ from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeo
 from tournament_scheduler.models import CalendarEvent
 from tournament_scheduler.interfaces import CalendarScraper as BaseCalendarScraper
 from tournament_scheduler.utils.calendar_cache import CalendarCache
+from rich.console import Console
+
+console = Console()
 
 
 class OutlookCalendarScraper(BaseCalendarScraper):
@@ -45,7 +48,7 @@ class OutlookCalendarScraper(BaseCalendarScraper):
         # Check cache first
         cached_events = self.cache.get(url, calendar_type, start_date, end_date)
         if cached_events is not None:
-            print(f"  ✓ Using cached {calendar_type} calendar data ({len(cached_events)} events)\n", flush=True)
+            console.print(f"  [green]✓[/green] Bruker cachet {calendar_type} kalenderdata ([cyan]{len(cached_events)}[/cyan] hendelser)")
             return cached_events
 
         events = []
@@ -61,32 +64,32 @@ class OutlookCalendarScraper(BaseCalendarScraper):
 
         try:
             with sync_playwright() as p:
-                print(f"  Launching browser for {calendar_type}...", flush=True)
+                console.print(f"  [dim]Starter nettleser for {calendar_type}...[/dim]")
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
 
-                print(f"  Loading {calendar_type} calendar page...", flush=True)
+                console.print(f"  [dim]Laster {calendar_type} kalenderside...[/dim]")
                 page.goto(url, timeout=30000)
                 page.wait_for_timeout(2000)
 
                 iframe_element = page.query_selector('iframe')
                 if not iframe_element:
-                    print(f"Warning: Could not find {calendar_type} iframe")
+                    console.print(f"  [yellow]⚠[/yellow] Kunne ikke finne {calendar_type} iframe", style="yellow")
                     browser.close()
                     return events
 
                 iframe = iframe_element.content_frame()
                 if not iframe:
-                    print(f"Warning: Could not load {calendar_type} iframe content")
+                    console.print(f"  [yellow]⚠[/yellow] Kunne ikke laste {calendar_type} iframe innhold", style="yellow")
                     browser.close()
                     return events
 
-                print(f"  Accessing calendar iframe...", flush=True)
+                console.print(f"  [dim]Henter kalender iframe...[/dim]")
                 iframe.wait_for_timeout(3000)
 
                 # Navigate to start month
                 if months_to_start > 0:
-                    print(f"  Navigating to start month ({start_month.strftime('%B %Y')})...", flush=True)
+                    console.print(f"  [dim]Navigerer til {start_month.strftime('%B %Y')}...[/dim]")
                     for _ in range(months_to_start):
                         try:
                             next_button = iframe.query_selector('button[aria-label*="Go to next month"]')
@@ -94,10 +97,10 @@ class OutlookCalendarScraper(BaseCalendarScraper):
                                 next_button.click()
                                 iframe.wait_for_timeout(1000)
                         except Exception as e:
-                            print(f"  Warning: Could not navigate to start month: {e}", flush=True)
+                            console.print(f"  [yellow]⚠[/yellow] Kunne ikke navigere til startmåned: {e}", style="yellow")
                             break
                 elif months_to_start < 0:
-                    print(f"  Navigating to start month ({start_month.strftime('%B %Y')})...", flush=True)
+                    console.print(f"  [dim]Navigerer til {start_month.strftime('%B %Y')}...[/dim]")
                     for _ in range(abs(months_to_start)):
                         try:
                             prev_button = iframe.query_selector('button[aria-label*="Go to previous month"]')
@@ -105,15 +108,15 @@ class OutlookCalendarScraper(BaseCalendarScraper):
                                 prev_button.click()
                                 iframe.wait_for_timeout(1000)
                         except Exception as e:
-                            print(f"  Warning: Could not navigate to start month: {e}", flush=True)
+                            console.print(f"  [yellow]⚠[/yellow] Kunne ikke navigere til startmåned: {e}", style="yellow")
                             break
 
                 # Scrape events
-                print(f"  Scraping {months_to_scrape} months of events ({start_month.strftime('%b %Y')} to {end_month.strftime('%b %Y')})...", flush=True)
+                console.print(f"  [dim]Skraper {months_to_scrape} måneder ({start_month.strftime('%b %Y')} til {end_month.strftime('%b %Y')})...[/dim]")
                 for month_offset in range(months_to_scrape):
                     iframe.wait_for_timeout(1000)
                     if month_offset > 0:
-                        print(f"    Month {month_offset + 1}/{months_to_scrape}...", flush=True)
+                        console.print(f"    [dim]Måned {month_offset + 1}/{months_to_scrape}...[/dim]")
 
                     page_content = iframe.content()
                     month_events = self._parse_outlook_calendar(page_content)
@@ -126,10 +129,10 @@ class OutlookCalendarScraper(BaseCalendarScraper):
                                 next_button.click()
                                 iframe.wait_for_timeout(1500)
                             else:
-                                print(f"Could not find next month button in {calendar_type}")
+                                console.print(f"  [yellow]⚠[/yellow] Kunne ikke finne neste måned-knapp i {calendar_type}", style="yellow")
                                 break
                         except Exception as e:
-                            print(f"Warning: Could not navigate months: {e}")
+                            console.print(f"  [yellow]⚠[/yellow] Kunne ikke navigere mellom måneder: {e}", style="yellow")
                             break
 
                 browser.close()
@@ -143,7 +146,7 @@ class OutlookCalendarScraper(BaseCalendarScraper):
                     seen.add(key)
                     unique_events.append(event)
 
-            print(f"  ✓ Scraped {len(unique_events)} events from {calendar_type} calendar\n", flush=True)
+            console.print(f"  [green]✓[/green] Skrapte [cyan]{len(unique_events)}[/cyan] hendelser fra {calendar_type} kalender")
 
             # Cache the results
             self.cache.set(url, calendar_type, start_date, end_date, unique_events)
@@ -151,7 +154,7 @@ class OutlookCalendarScraper(BaseCalendarScraper):
             return unique_events
 
         except Exception as e:
-            print(f"  ✗ Failed to scrape {calendar_type} calendar: {e}\n", file=sys.stderr, flush=True)
+            console.print(f"  [red]✗[/red] Kunne ikke skrape {calendar_type} kalender: {e}", style="red")
             return []
 
     def _parse_outlook_calendar(self, text: str) -> List[CalendarEvent]:

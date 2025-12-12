@@ -1,12 +1,14 @@
 """Google Calendar scraper for embedded Google Calendars."""
 
-import sys
 import re
 from datetime import datetime, timedelta
 from typing import List
 from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
 from tournament_scheduler.models import CalendarEvent
 from tournament_scheduler.interfaces import CalendarScraper
+from rich.console import Console
+
+console = Console()
 
 
 class GoogleCalendarScraper(CalendarScraper):
@@ -40,29 +42,29 @@ class GoogleCalendarScraper(CalendarScraper):
 
         try:
             with sync_playwright() as p:
-                print(f"  Launching browser for {calendar_name}...", flush=True)
+                console.print(f"  [dim]Starter nettleser for {calendar_name}...[/dim]")
                 browser = p.chromium.launch(headless=True)
                 page = browser.new_page()
 
-                print(f"  Loading {calendar_name} page...", flush=True)
+                console.print(f"  [dim]Laster {calendar_name} side...[/dim]")
                 page.goto(url, timeout=30000)
                 page.wait_for_timeout(3000)
 
                 # Find Google Calendar iframe
-                print(f"  Looking for Google Calendar iframe...", flush=True)
+                console.print(f"  [dim]Ser etter Google Calendar iframe...[/dim]")
                 iframe_element = page.query_selector('iframe[src*="calendar.google.com"]')
                 if not iframe_element:
-                    print(f"Warning: Could not find Google Calendar iframe for {calendar_name}")
+                    console.print(f"  [yellow]⚠[/yellow] Kunne ikke finne Google Calendar iframe for {calendar_name}", style="yellow")
                     browser.close()
                     return events
 
                 iframe = iframe_element.content_frame()
                 if not iframe:
-                    print(f"Warning: Could not load Google Calendar iframe content for {calendar_name}")
+                    console.print(f"  [yellow]⚠[/yellow] Kunne ikke laste Google Calendar iframe innhold for {calendar_name}", style="yellow")
                     browser.close()
                     return events
 
-                print(f"  Accessing Google Calendar iframe...", flush=True)
+                console.print(f"  [dim]Åpner Google Calendar iframe...[/dim]")
                 iframe.wait_for_timeout(2000)
 
                 # Google Calendar shows events in list or agenda view
@@ -74,7 +76,7 @@ class GoogleCalendarScraper(CalendarScraper):
                         agenda_button.click()
                         iframe.wait_for_timeout(1000)
                 except Exception as e:
-                    print(f"  Note: Could not switch to agenda view: {e}", flush=True)
+                    console.print(f"  [dim]Notat: Kunne ikke bytte til agenda-visning: {e}[/dim]")
 
                 # Calculate months to scrape
                 current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -84,13 +86,13 @@ class GoogleCalendarScraper(CalendarScraper):
                 months_to_scrape = ((end_month.year - start_month.year) * 12 +
                                    (end_month.month - start_month.month)) + 1
 
-                print(f"  Scraping {months_to_scrape} months of events ({start_month.strftime('%b %Y')} to {end_month.strftime('%b %Y')})...", flush=True)
+                console.print(f"  [dim]Skraper {months_to_scrape} måneder ({start_month.strftime('%b %Y')} til {end_month.strftime('%b %Y')})...[/dim]")
 
                 # Navigate and scrape
                 current_scrape_month = start_month
                 for month_offset in range(months_to_scrape):
                     if month_offset > 0:
-                        print(f"    Month {month_offset + 1}/{months_to_scrape}...", flush=True)
+                        console.print(f"    [dim]Måned {month_offset + 1}/{months_to_scrape}...[/dim]")
 
                     iframe.wait_for_timeout(1500)
 
@@ -108,10 +110,10 @@ class GoogleCalendarScraper(CalendarScraper):
                                 next_button.click()
                                 iframe.wait_for_timeout(1500)
                             else:
-                                print(f"Could not find next month button in {calendar_name}")
+                                console.print(f"  [yellow]⚠[/yellow] Kunne ikke finne neste måned-knapp i {calendar_name}", style="yellow")
                                 break
                         except Exception as e:
-                            print(f"Warning: Could not navigate months: {e}")
+                            console.print(f"  [yellow]⚠[/yellow] Kunne ikke navigere mellom måneder: {e}", style="yellow")
                             break
 
                     current_scrape_month = self._next_month(current_scrape_month)
@@ -127,11 +129,11 @@ class GoogleCalendarScraper(CalendarScraper):
                     seen.add(key)
                     unique_events.append(event)
 
-            print(f"  ✓ Scraped {len(unique_events)} events from {calendar_name}\n", flush=True)
+            console.print(f"  [green]✓[/green] Skrapte [cyan]{len(unique_events)}[/cyan] hendelser fra {calendar_name}")
             return unique_events
 
         except Exception as e:
-            print(f"  ✗ Failed to scrape {calendar_name}: {e}\n", file=sys.stderr, flush=True)
+            console.print(f"  [red]✗[/red] Kunne ikke skrape {calendar_name}: {e}", style="red")
             import traceback
             traceback.print_exc()
             return []

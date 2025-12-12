@@ -7,6 +7,7 @@ from tournament_scheduler.interfaces import ConflictChecker
 from tournament_scheduler.models import ConflictContext, ConflictResult
 from tournament_scheduler.data_sources.ball_hall_calendar import BallHallCalendar
 from tournament_scheduler.utils.date_parser import DateParser
+from tournament_scheduler.utils.rich_output import TournamentOutput
 
 
 class BallHallConflictChecker(ConflictChecker):
@@ -53,10 +54,13 @@ class BallHallConflictChecker(ConflictChecker):
 
         # Print warnings if any
         if self.warnings:
-            print(f"\n⚠️  BALL HALL WARNINGS (does not block scheduling):", file=sys.stderr)
+            TournamentOutput.print_warning(
+                f"BALLHALL-ADVARSLER ({len(self.warnings)} advarsler - blokkerer IKKE):"
+            )
+            from rich.console import Console
+            console = Console()
             for warning in self.warnings:
-                print(f"  - {warning}", file=sys.stderr)
-            print()
+                console.print(f"  [yellow]{warning}[/yellow]")
 
         # Return EMPTY excluded_dates - ball hall does not block scheduling
         return ConflictResult(
