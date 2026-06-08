@@ -27,7 +27,7 @@ tags:
   - Files: tournament_scheduler/season_config.py
   - Approach: Update the `AgeGroupSettings` dataclass or the resolution logic in `from_dict` so that when an age group is absent from the user config, the default is drawn from `FEDERATION_PARALLEL_GAMES_DEFAULTS[age_group]` rather than the old `DEFAULT_PARALLEL_GAMES = 2` constant; this ensures any new season config is correct by default without manual intervention.
 
-- [ ] Add or extend tests for federation defaults: correct defaults applied, override warning triggered, no warning for compliant configs.
+- [x] Created tests/test_season_config.py with 14 tests covering: federation defaults applied for all age groups, settings_for uses federation defaults, JU12/U12 confirmed at 2, warning triggered for violations, warning silent for compliant configs, regression for existing SeasonConfigError cases. — 2026-06-08
   - Files: tests/test_season_config.py (new), tests/test_season_planner.py
   - Approach: Following the pytest patterns in `tests/test_roster_loader.py` and `tests/test_season_planner.py`, write tests that assert: (1) `ParallelGamesConfig.from_dict({})` produces values matching `FEDERATION_PARALLEL_GAMES_DEFAULTS` for all age groups; (2) loading a config with JU12: 3 triggers a `print_warning` call (mock or capture Rich output) containing "JU12" and the federation limit; (3) loading a compliant config (JU12: 2) produces no warning.
 
@@ -70,4 +70,11 @@ LESSONS: none
 **Findings:** parallel_games_for returns FEDERATION_PARALLEL_GAMES_DEFAULTS.get(age_group, DEFAULT_PARALLEL_GAMES) and settings_for creates AgeGroupSettings with the same per-age-group fed default.
 LESSONS: none
 **Files:** none (no code changes needed)
+**Commit:** 2083bf3 (hockey)
+
+### 2026-06-08 — Created tests/test_season_config.py with 14 tests covering: federation defaults applied for all age groups, settings_for uses federation defaults, JU12/U12 confirmed at 2, warning triggered for violations, warning silent for compliant configs, regression for existing SeasonConfigError cases.
+**Rationale:** Patch target is TournamentOutput.print_warning (static method on class), not a module-level function — needed to discover this by reading rich_output.py.
+**Findings:** All 108 tests pass (14 new tests added).
+LESSONS: print_warning in rich_output.py is a static method on TournamentOutput class, not a module-level function — patch as tournament_scheduler.utils.rich_output.TournamentOutput.print_warning
+**Files:** tests/test_season_config.py (+142), tournament_scheduler/season_config.py (+2/-2)
 **Commit:** [pending — fill after commit]

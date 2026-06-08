@@ -68,8 +68,8 @@ def _emit_federation_warning(age_group: str, configured: int, fed_max: int) -> N
         "Kontroller konfigurasjonen for å unngå regelbrudd."
     )
     try:
-        from tournament_scheduler.utils.rich_output import print_warning  # noqa: PLC0415
-        print_warning(message)
+        from tournament_scheduler.utils.rich_output import TournamentOutput  # noqa: PLC0415
+        TournamentOutput.print_warning(message)
     except Exception:
         import warnings as _warnings
         _warnings.warn(message, stacklevel=4)
