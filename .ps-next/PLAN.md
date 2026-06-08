@@ -30,7 +30,7 @@ tags:
   - Files: tournament_scheduler/season_config.py, tournament_scheduler/roster_loader.py, requirements.txt
   - Approach: Factor the `try: import yaml ... _YAML_AVAILABLE` block in season_config.py into a small shared helper (or import it directly from season_config.py into roster_loader.py) so both `ParallelGamesConfig` and `RosterLoader` use one source of truth for YAML availability and the Norwegian "pyyaml ikke installert" message; add `pyyaml` as an optional/commented dependency note in requirements.txt (matching how the project already documents optional YAML support for `ParallelGamesConfig` per season_config.py's module docstring) so both loaders behave identically whether or not `pyyaml` is present.
 
-- [ ] Write tests covering the new roster config loader's parsing, validation, and Norwegian error messages
+- [x] Added tests/test_roster_loader.py with 16 tests covering RosterLoader.from_dict and from_file: valid multi-club/multi-team parsing, JSON/YAML equivalence (skipped gracefully if pyyaml missing), and Norwegian-language RosterConfigError messages for missing files, unparseable JSON/YAML, wrong shapes, empty club entries, blank labels/age-groups, unknown age groups, duplicate labels, and missing pyyaml. — 2026-06-08
   - Files: tests/test_roster_loader.py (new)
   - Approach: Following the pytest conventions used in tests/test_season_planner.py and the validation-error tests implied by season_config.py, write tests that: (1) load a valid JSON roster config with multiple clubs and multiple teams per club (e.g. "Jar 1"/"Jar 2") and assert the resulting `Roster`/`Team` objects match; (2) load an equivalent valid YAML config (skip/xfail gracefully if `pyyaml` is unavailable, mirroring how season_config.py documents optional YAML); (3) assert that malformed inputs — missing file, unparseable JSON/YAML, wrong top-level shape, empty club team-maps, duplicate team labels, unknown age groups, blank labels — each raise the loader's exception with a Norwegian-language message containing the offending value; (4) assert `RosterLoader.from_file` and `RosterLoader.from_dict` produce identical `Roster` objects for equivalent JSON/YAML inputs.
 
@@ -82,4 +82,11 @@ LESSONS: collect_roster_entries() prints via plain print() (not Rich/TournamentO
 **Findings:** All 45 tests pass;  confirms the cross-module import of the private _YAML_AVAILABLE/yaml symbols works at runtime.
 LESSONS: RosterLoader shares _YAML_AVAILABLE and yaml by importing them directly from season_config.py rather than re-implementing the try/except import block — keep this single source of truth if either loader's YAML handling changes.
 **Files:** requirements.txt (+7/-0)
+**Commit:** 9e5284d (hockey)
+
+### 2026-06-08 — Added tests/test_roster_loader.py with 16 tests covering RosterLoader.from_dict and from_file: valid multi-club/multi-team parsing, JSON/YAML equivalence (skipped gracefully if pyyaml missing), and Norwegian-language RosterConfigError messages for missing files, unparseable JSON/YAML, wrong shapes, empty club entries, blank labels/age-groups, unknown age groups, duplicate labels, and missing pyyaml.
+**Rationale:** Followed tests/test_club_registry.py conventions (pytest, class-based grouping, pytest.raises) and used tmp_path fixtures for file-based tests; used pytest.mark.skipif on _YAML_AVAILABLE to handle both pyyaml-present and pyyaml-absent environments gracefully.
+**Findings:** 15 new tests pass plus 1 skipped (the pyyaml-absent test, since pyyaml is installed in this environment); full suite now at 60 passed / 1 skipped / 0 failed.
+LESSONS: Use pytest.mark.skipif(not _YAML_AVAILABLE, ...) / skipif(_YAML_AVAILABLE, ...) pairs to test both YAML-present and YAML-absent code paths without requiring environment-specific test runs — mirrors how season_config.py documents optional pyyaml support.
+**Files:** tests/test_roster_loader.py (+168/-0)
 **Commit:** [pending — fill after commit]
