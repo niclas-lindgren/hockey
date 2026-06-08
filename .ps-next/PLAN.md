@@ -23,7 +23,7 @@ tags:
   - Files: tournament_scheduler/season_config.py, tournament_scheduler/utils/rich_output.py
   - Approach: In `ParallelGamesConfig.from_dict`, after `_extract_parallel_games` resolves the value and positivity is validated, compare it against `FEDERATION_PARALLEL_GAMES_DEFAULTS[age_group]`; if it exceeds the mandate, call `print_warning` from `rich_output.py` with a Norwegian message identifying the age group, the configured value, and the federation limit (e.g. "Advarsel: JU12 er konfigurert med 3 baner, men forbundet tillater maks 2.").
 
-- [ ] Ensure ParallelGamesConfig defaults to FEDERATION_PARALLEL_GAMES_DEFAULTS when no parallelGames value is provided for an age group.
+- [x] Verified that parallel_games_for and settings_for already use FEDERATION_PARALLEL_GAMES_DEFAULTS as the fallback (implemented in task 1). No additional code changes needed. — 2026-06-08
   - Files: tournament_scheduler/season_config.py
   - Approach: Update the `AgeGroupSettings` dataclass or the resolution logic in `from_dict` so that when an age group is absent from the user config, the default is drawn from `FEDERATION_PARALLEL_GAMES_DEFAULTS[age_group]` rather than the old `DEFAULT_PARALLEL_GAMES = 2` constant; this ensures any new season config is correct by default without manual intervention.
 
@@ -63,4 +63,11 @@ LESSONS: none
 **Findings:** All 94 tests pass. Warning now uses print_warning from rich_output with Norwegian per-age-group message.
 LESSONS: none
 **Files:** tournament_scheduler/season_config.py (+21/-15)
+**Commit:** b3b7d88 (hockey)
+
+### 2026-06-08 — Verified that parallel_games_for and settings_for already use FEDERATION_PARALLEL_GAMES_DEFAULTS as the fallback (implemented in task 1). No additional code changes needed.
+**Rationale:** Already implemented in the previous task; this task confirmed correctness.
+**Findings:** parallel_games_for returns FEDERATION_PARALLEL_GAMES_DEFAULTS.get(age_group, DEFAULT_PARALLEL_GAMES) and settings_for creates AgeGroupSettings with the same per-age-group fed default.
+LESSONS: none
+**Files:** none (no code changes needed)
 **Commit:** [pending — fill after commit]
