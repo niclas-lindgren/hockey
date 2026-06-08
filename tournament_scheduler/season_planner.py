@@ -390,12 +390,17 @@ class SeasonPlanner:
         return DEFAULT_MAX_TEAMS_PER_TOURNAMENT
 
     def _pick_least_recently_grouped(self, candidates: Sequence[Team], count: int) -> List[Team]:
-        """Greedily build a subset that minimizes repeat groupings.
+        """Greedily build a subset that minimizes repeat matchups.
 
         Starts from the team that has been invited least often overall, then
-        repeatedly adds the candidate that has been grouped with the
-        already-selected teams the fewest times (ties broken by lowest
-        overall invite count, then roster order).
+        repeatedly adds the candidate that would create the fewest *actual
+        repeat matchups* with the already-selected teams, per
+        `_opponent_history` — directly enforcing "avoid repeat matchups
+        where alternatives exist" at selection time, rather than only
+        measuring it after the fact. Ties in repeat-matchup count fall back
+        to the original heuristic: fewest prior tournament co-attendances
+        (`_grouped_with`), then lowest overall invite count, then roster
+        order.
         """
         remaining = list(candidates)
         if not remaining:
@@ -406,12 +411,20 @@ class SeasonPlanner:
         selected: List[Team] = [remaining.pop(0)]
 
         while remaining and len(selected) < count:
+            def repeat_matchup_score(team: Team) -> int:
+                total = 0
+                for s in selected:
+                    pair = frozenset((team.label, s.label))
+                    total += self._opponent_history.get(pair, 0)
+                return total
+
             def overlap_score(team: Team) -> int:
                 grouped_with = self._grouped_with.get(team.label, set())
                 return sum(1 for s in selected if s.label in grouped_with)
 
             remaining.sort(
                 key=lambda t: (
+                    repeat_matchup_score(t),
                     overlap_score(t),
                     self._invite_counts.get(t.label, 0),
                     candidates.index(t),

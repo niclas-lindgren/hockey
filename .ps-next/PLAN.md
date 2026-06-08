@@ -27,7 +27,7 @@ tags:
   - Files: tournament_scheduler/season_planner.py
   - Approach: Add a `_score_candidate_date(date, age_group, candidate_participants)` method that combines (a) a penalty derived from `_opponent_history` for how many repeat matchups the candidate participant set would create and (b) a penalty derived from `_month_counts` for how far the candidate date's month is above the season's per-month average; wire this scoring into `_pick_spread_dates` (or the per-bucket "best date" selection within it) so the planner ranks/picks dates using this combined score rather than spread-only bucket selection.
 
-- [ ] Use opponent-history scoring to drive participant selection
+- [x] Extended _pick_least_recently_grouped to rank candidates first by a new repeat_matchup_score (actual repeat-matchup count vs. already-selected teams, per _opponent_history), falling back to the existing overlap_score (_grouped_with co-attendance), invite count, then roster order as tie-breaks. — 2026-06-08
   - Files: tournament_scheduler/season_planner.py
   - Approach: Replace or extend `_pick_least_recently_grouped` in `_select_participants` with a selection that, among otherwise-eligible candidate teams, prefers the subset minimizing total repeat-matchup count per `_opponent_history` (falling back to the existing least-recently-grouped tie-break when opponent history is equal), so that "avoid repeat matchups where alternatives exist" is enforced directly at selection time rather than only measured after the fact.
 
@@ -68,4 +68,11 @@ LESSONS: month_load_ratio takes expected_per_month as a parameter rather than st
 **Findings:** Full suite (82 passed, 1 skipped) and season_planner-focused tests all pass; combined scoring integrates without disrupting existing spread-based date selection.
 LESSONS: _pick_spread_dates runs before the real age-group/participant assignment loop in build_plan, so any scoring that needs _opponent_history/_grouped_with context must predict tentative values using local copies of the tracking dicts — mutating the real self._grouped_with/_invite_counts during prediction would corrupt the actual selection later.
 **Files:** tournament_scheduler/season_planner.py (+91/-5)
+**Commit:** 916e87a (hockey)
+
+### 2026-06-08 — Extended _pick_least_recently_grouped to rank candidates first by a new repeat_matchup_score (actual repeat-matchup count vs. already-selected teams, per _opponent_history), falling back to the existing overlap_score (_grouped_with co-attendance), invite count, then roster order as tie-breaks.
+**Rationale:** Kept the existing greedy seed-then-extend structure and just inserted the opponent-history score as the primary sort key ahead of the prior overlap_score, preserving all existing tie-break behavior for equal opponent-history counts — minimal, low-risk change that directly enforces 'avoid repeat matchups' at selection time.
+**Findings:** Full suite (82 passed, 1 skipped) passes; selection now prefers candidate subsets that minimize actual repeat matchups before falling back to mere co-attendance history.
+LESSONS: When extending greedy selection heuristics with a new primary criterion, insert it as the first element of the existing sort-key tuple rather than replacing the tuple — this preserves all prior tie-break behavior for free and keeps the diff minimal.
+**Files:** tournament_scheduler/season_planner.py (+17/-4)
 **Commit:** [pending — fill after commit]
