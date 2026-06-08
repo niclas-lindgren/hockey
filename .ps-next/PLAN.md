@@ -22,7 +22,7 @@ tags:
   - Files: tournament_scheduler/cli/season_command.py
   - Approach: Replace the `RosterLoader.load(args.roster_file)` call at season_command.py:28 with `RosterLoader.from_file(args.roster_file)` wrapped in `try/except` for the new error type, following the exact pattern already used for `ParallelGamesConfig.from_file` in `_load_parallel_games_config` (season_command.py:82-92) — catch the exception, render the Norwegian message via `TournamentOutput.print_error(str(exc))`, and `sys.exit(1)`.
 
-- [ ] Add a "load roster from file" option to the interactive flow's roster collection
+- [x] Extended collect_roster_entries() in the interactive CLI to first prompt for an optional YAML/JSON roster config file path; on entry it calls RosterLoader.from_file, prints Norwegian RosterConfigError messages and lets the user retry or fall back to manual entry, and falls through to the existing manual line-by-line loop unchanged when left blank. — 2026-06-08
   - Files: tournament_scheduler_interactive.py
   - Approach: Extend `collect_roster_entries()` (tournament_scheduler_interactive.py:437-479) to first ask the user (in Norwegian, via the existing `ask_text`/menu-prompt helpers) whether to load the roster from a YAML/JSON config file or enter teams manually; when a file path is given, call `RosterLoader.from_file(path)`, catch the new exception type, print the Norwegian validation error via the existing `print(...)` console conventions used elsewhere in this function, and let the user retry or fall back to manual entry; when left blank, fall through to the existing manual line-by-line entry loop unchanged. Update `collect_season_plan_params()` (lines 482-516) only if needed to thread the chosen roster source through.
 
@@ -68,4 +68,11 @@ LESSONS: RosterLoader.load(path) was replaced entirely by RosterLoader.from_file
 **Findings:** Confirmed via grep that line 28-32 of season_command.py uses RosterLoader.from_file with the exact try/except + print_error + sys.exit(1) pattern matching _load_parallel_games_config; no further changes required.
 LESSONS: When a plan splits 'rewrite X' and 'update caller of X' into separate tasks, the rewrite task may naturally include updating the (sole) caller — check git history/diff before assuming a separate edit is needed.
 **Files:** none (no files changed — already implemented in commit 9db38fa)
+**Commit:** 0956879 (hockey)
+
+### 2026-06-08 — Extended collect_roster_entries() in the interactive CLI to first prompt for an optional YAML/JSON roster config file path; on entry it calls RosterLoader.from_file, prints Norwegian RosterConfigError messages and lets the user retry or fall back to manual entry, and falls through to the existing manual line-by-line loop unchanged when left blank.
+**Rationale:** Kept the existing manual-entry loop entirely intact and added the file-load path as an opt-in prompt before it, matching the function's existing print()-based Norwegian console conventions and the retry/fallback UX pattern; reused RosterLoader.from_file/RosterConfigError from the prior rewrite rather than duplicating loading logic.
+**Findings:** All 45 tests still pass; py_compile confirms no syntax errors; collect_season_plan_params() needed no changes since it already just calls collect_roster_entries() and uses the returned Roster directly.
+LESSONS: collect_roster_entries() prints via plain print() (not Rich/TournamentOutput) — match that convention for any further interactive-flow roster UX changes; RosterConfigError messages are already Norwegian and can be printed directly with no extra wrapping.
+**Files:** tournament_scheduler_interactive.py (+28/-0)
 **Commit:** [pending — fill after commit]

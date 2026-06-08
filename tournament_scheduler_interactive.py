@@ -441,10 +441,38 @@ def collect_roster_entries():
     """
     from tournament_scheduler.models import Team, Roster
     from tournament_scheduler.club_registry import CLUB_REGISTRY
+    from tournament_scheduler.roster_loader import RosterConfigError, RosterLoader
 
     print("\n" + "-" * 60)
     print("LAGTROPP FOR SESONGEN")
     print("-" * 60)
+    print("\nDu kan laste lagtroppen fra en fil (YAML/JSON), f.eks.:")
+    print('  {"Jar": {"Jar 1": "U10", "Jar 2": "U11"}}')
+    print("La stå tomt for å skrive inn lagene manuelt i stedet.\n")
+
+    while True:
+        roster_file = ask_text("Filsti til lagtroppskonfigurasjon", default="", required=False)
+        if not roster_file:
+            break
+
+        try:
+            roster = RosterLoader.from_file(roster_file)
+        except RosterConfigError as exc:
+            print(f"  {exc}")
+            retry = ask_text(
+                "Prøv en annen fil? (j/n)", default="j", required=False
+            )
+            if retry.strip().lower().startswith("j"):
+                continue
+            print("  Går videre til manuell innlegging av lag.\n")
+            break
+
+        print(
+            f"  Lastet inn {len(roster.teams)} lag fordelt på {len(roster.clubs())} klubber "
+            f"og {len(roster.age_groups())} aldersgrupper."
+        )
+        return roster
+
     print("\nSkriv inn ett lag per linje på formatet: <Klubb> <Lagnavn> - <Aldersgruppe>")
     print("Eksempel: Jar 1 - U10")
     print("Skriv en tom linje når du er ferdig.\n")
