@@ -60,4 +60,4 @@ LESSONS: none
 **Findings:** Confirmed via new tests: colliding/over-length club names produce unique <31-char sheet titles via numeric suffixes; club summary rows correctly list team, age group, date, weekday, opponents, and arena; full suite passes (91 passed, 1 skipped).
 LESSONS: none
 **Files:** tests/test_plan_exporter.py (+68/-0) tournament_scheduler/excel/plan_exporter.py (+30/-20)
-**Commit:** [pending — fill after commit]
+**Commit:** a5465c2 (hockey)
