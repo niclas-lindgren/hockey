@@ -564,6 +564,7 @@ def run_season_plan(params):
     federation_defaults = params.get('federation_defaults') or {}
     parallel_games_for_age_group = federation_defaults.get('parallelGames', {})
     max_teams_per_tournament_for_age_group = federation_defaults.get('maxTeamsPerTournament', {})
+    max_games_per_team_for_age_group = federation_defaults.get('maxGamesPerTeam', {})
 
     sources = []
     club_arenas = {}
@@ -601,6 +602,7 @@ def run_season_plan(params):
         club_arenas=club_arenas,
         parallel_games_for_age_group=parallel_games_for_age_group,
         max_teams_per_tournament_for_age_group=max_teams_per_tournament_for_age_group,
+        max_games_per_team_for_age_group=max_games_per_team_for_age_group,
     )
 
     TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")

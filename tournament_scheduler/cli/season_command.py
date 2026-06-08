@@ -8,7 +8,7 @@ from tournament_scheduler.conflict_checkers.holiday_checker import HolidayConfli
 from tournament_scheduler.conflict_checkers.tournament_checker import TournamentConflictChecker
 from tournament_scheduler.roster_loader import RosterConfigError, RosterLoader
 from tournament_scheduler.scheduler import TournamentScheduler
-from tournament_scheduler.season_config import ParallelGamesConfig, SeasonConfigError
+
 from tournament_scheduler.season_planner import SeasonPlanner
 from tournament_scheduler.utils.date_parser import DateParser
 from tournament_scheduler.utils.rich_output import TournamentOutput
@@ -26,7 +26,7 @@ class SeasonCommand:
         )
 
         try:
-            roster = RosterLoader.from_file(args.roster_file)
+            roster, federation_defaults = RosterLoader.load_with_defaults(args.roster_file)
         except RosterConfigError as exc:
             TournamentOutput.print_error(str(exc))
             sys.exit(1)
@@ -36,7 +36,9 @@ class SeasonCommand:
             f"og {len(roster.age_groups())} aldersgrupper"
         )
 
-        parallel_games_for_age_group = self._load_parallel_games_config(args, roster)
+        parallel_games_for_age_group = federation_defaults.get('parallelGames', {})
+        max_teams_per_tournament = federation_defaults.get('maxTeamsPerTournament', {})
+        max_games_per_team = federation_defaults.get('maxGamesPerTeam', {})
 
         sources, club_arenas = self._build_calendar_sources()
         if not sources:
@@ -54,6 +56,8 @@ class SeasonCommand:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group=parallel_games_for_age_group,
+            max_teams_per_tournament_for_age_group=max_teams_per_tournament,
+            max_games_per_team_for_age_group=max_games_per_team,
         )
 
         TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")
@@ -83,18 +87,6 @@ class SeasonCommand:
                 TournamentOutput.print_error(f"Ugyldig sesongslutt-dato '{args.season_end}'. Bruk YYYY-MM-DD.")
                 sys.exit(1)
         return season_start, season_end
-
-    def _load_parallel_games_config(self, args, roster):
-        if not args.parallel_games_config:
-            return {}
-        try:
-            config = ParallelGamesConfig.from_file(args.parallel_games_config)
-        except SeasonConfigError as exc:
-            TournamentOutput.print_error(str(exc))
-            sys.exit(1)
-        return {
-            age_group: config.parallel_games_for(age_group) for age_group in roster.age_groups()
-        }
 
     def _build_calendar_sources(self):
         sources = []

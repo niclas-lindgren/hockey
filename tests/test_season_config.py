@@ -96,7 +96,7 @@ class TestFederationViolationWarning:
         with patch(
             "tournament_scheduler.utils.rich_output.TournamentOutput.print_warning"
         ) as mock_warn:
-            ParallelGamesConfig.from_dict({"JU12": 2, "U12": 2, "U7": 3})
+            ParallelGamesConfig.from_dict({"JU12": 2, "U12": 2, "U7": 4, "U9": 3})
 
         mock_warn.assert_not_called()
 
