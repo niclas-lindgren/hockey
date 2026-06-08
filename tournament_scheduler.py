@@ -659,14 +659,18 @@ Examples:
         print("\nNow scraping calendars to check team availability (30-60 seconds)...\n")
 
         # Initialize components
+        from tournament_scheduler.club_registry import get_club
+
         scraper = CalendarScraper()
-        ice_hall = IceHallCalendar("https://kongsberghallen.no/webkalender/ishall/", scraper)
+        kongsberg = get_club("Kongsberg")
+        ice_hall_url = kongsberg.source
+        ice_hall = IceHallCalendar(ice_hall_url, scraper)
         ball_hall = BallHallCalendar("https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/", scraper)
 
         # Fetch ALL ice hall events for timeslot checking (not just tournaments)
         print("Fetching all ice hall events...")
         all_ice_hall_events = scraper.scrape_calendar(
-            "https://kongsberghallen.no/webkalender/ishall/",
+            ice_hall_url,
             "ice hall",
             start_date,
             end_date
