@@ -160,30 +160,26 @@ def missing_clubs() -> List[ClubCalendarSource]:
     return [entry for entry in CLUB_REGISTRY.values() if entry.skip]
 
 
-def build_data_source(entry: ClubCalendarSource):
+def build_data_source(entry: ClubCalendarSource, cache=None):
     """Construct the appropriate CalendarDataSource for a registry entry.
 
+    Thin wrapper around the registry-driven
+    `data_sources.calendar_source_factory.build_calendar_source`, kept here for
+    backward compatibility with existing callers/tests that import
+    `build_data_source` from `club_registry`.
+
     For OUTLOOK sources this builds an `IceHallCalendar` backed by a shared
-    `CalendarScraper` (Playwright/Outlook-based webkalender).
+    `OutlookCalendarScraper` (Playwright-based webkalender).
     For ICAL sources this builds an `IceHallCalendar` backed by an `ICalScraper`
     constructed from the entry's `source` (calendar_id or feed URL), matching
     the existing Skien integration pattern.
 
+    Args:
+        entry: The club's `ClubCalendarSource` registry entry.
+        cache: Optional shared `CalendarCache` to back the underlying scraper.
+
     Returns None for UNKNOWN/skip entries.
     """
-    if not entry.is_known:
-        return None
+    from tournament_scheduler.data_sources.calendar_source_factory import build_calendar_source
 
-    from tournament_scheduler.data_sources.ice_hall_calendar import IceHallCalendar
-
-    if entry.kind == CalendarSourceKind.OUTLOOK:
-        from tournament_scheduler.data_sources.calendar_scraper import CalendarScraper
-
-        return IceHallCalendar(entry.source, CalendarScraper())
-
-    if entry.kind == CalendarSourceKind.ICAL:
-        from tournament_scheduler.data_sources.ical_scraper import ICalScraper
-
-        return IceHallCalendar(entry.source, ICalScraper(entry.source))
-
-    return None
+    return build_calendar_source(entry, cache)

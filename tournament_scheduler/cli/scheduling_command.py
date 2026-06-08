@@ -10,7 +10,7 @@ from tournament_scheduler.conflict_checkers.team_availability_checker import Tea
 from tournament_scheduler.conflict_checkers.tournament_checker import TournamentConflictChecker
 from tournament_scheduler.data_sources.ball_hall_calendar import BallHallCalendar
 from tournament_scheduler.data_sources.calendar_scraper import CalendarScraper
-from tournament_scheduler.data_sources.ice_hall_calendar import IceHallCalendar
+from tournament_scheduler.data_sources.calendar_source_factory import build_calendar_source
 from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.utils.date_parser import DateParser
@@ -32,7 +32,7 @@ class SchedulingCommand:
         scraper = CalendarScraper()
         kongsberg = get_club("Kongsberg")
         ice_hall_url = kongsberg.source
-        ice_hall = IceHallCalendar(ice_hall_url, scraper)
+        ice_hall = build_calendar_source(kongsberg)
         ball_hall = BallHallCalendar("https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/", scraper)
 
         all_ice_hall_events = scraper.scrape_calendar(ice_hall_url, "ice hall", start_date, end_date)
