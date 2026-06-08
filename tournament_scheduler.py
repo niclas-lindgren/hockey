@@ -5,6 +5,7 @@ Finds optimal weekend dates for hockey tournaments by analyzing conflicts from m
 """
 
 import argparse
+import os
 import sys
 import re
 from datetime import datetime, timedelta
@@ -572,6 +573,171 @@ def format_output(available_dates: List[datetime], exclusion_reasons: Dict, tota
     print("Ball hall events only count as conflicts if they exceed 2 hours.\n")
 
 
+def load_roster_file(path: str):
+    """Load a roster config file (JSON) into a `Roster` of `Team` objects.
+
+    Expected format::
+
+        {
+          "Jar": {"Jar 1": "U10", "Jar 2": "U11"},
+          "Kongsberg": {"Kongsberg 1": "U10"}
+        }
+
+    or, equivalently, a flat list of entries::
+
+        [
+          {"club": "Jar", "label": "Jar 1", "age_group": "U10"},
+          ...
+        ]
+    """
+    import json
+    from tournament_scheduler.models import Team, Roster
+
+    if not os.path.isfile(path):
+        print(f"Error: Roster file not found: {path}", file=sys.stderr)
+        sys.exit(1)
+
+    with open(path, 'r', encoding='utf-8') as handle:
+        try:
+            data = json.load(handle)
+        except json.JSONDecodeError as exc:
+            print(f"Error: Could not parse roster file '{path}': {exc}", file=sys.stderr)
+            sys.exit(1)
+
+    teams = []
+    if isinstance(data, dict):
+        for club, team_map in data.items():
+            if not isinstance(team_map, dict):
+                print(f"Error: Expected a mapping of team label -> age group for club '{club}'", file=sys.stderr)
+                sys.exit(1)
+            for label, age_group in team_map.items():
+                teams.append(Team(club=club, label=label, age_group=age_group))
+    elif isinstance(data, list):
+        for entry in data:
+            try:
+                teams.append(Team(club=entry['club'], label=entry['label'], age_group=entry['age_group']))
+            except (KeyError, TypeError):
+                print(f"Error: Roster entries must have 'club', 'label', and 'age_group': {entry}", file=sys.stderr)
+                sys.exit(1)
+    else:
+        print(f"Error: Unsupported roster file format in '{path}' — expected an object or a list", file=sys.stderr)
+        sys.exit(1)
+
+    if not teams:
+        print(f"Error: No teams found in roster file '{path}'", file=sys.stderr)
+        sys.exit(1)
+
+    return Roster(teams=teams)
+
+
+def run_generate_season(args, default_start_date: datetime, default_end_date: datetime):
+    """Run the full-season schedule generation flow (--generate-season)."""
+    from tournament_scheduler.club_registry import known_clubs, missing_clubs, build_data_source
+    from tournament_scheduler.scheduler import TournamentScheduler
+    from tournament_scheduler.season_planner import SeasonPlanner
+    from tournament_scheduler.season_config import ParallelGamesConfig, SeasonConfigError
+    from tournament_scheduler.utils.rich_output import TournamentOutput
+    from tournament_scheduler.conflict_checkers.holiday_checker import HolidayConflictChecker
+    from tournament_scheduler.conflict_checkers.tournament_checker import TournamentConflictChecker
+
+    TournamentOutput.print_header("GENERER SESONGPLAN")
+
+    # Season window: prefer --season-start/--season-end, fall back to --start-date/--end-date
+    season_start = default_start_date
+    season_end = default_end_date
+    if args.season_start:
+        season_start = DateParser.parse(args.season_start)
+        if not season_start:
+            TournamentOutput.print_error(f"Ugyldig sesongstart-dato '{args.season_start}'. Bruk YYYY-MM-DD.")
+            sys.exit(1)
+    if args.season_end:
+        season_end = DateParser.parse(args.season_end)
+        if not season_end:
+            TournamentOutput.print_error(f"Ugyldig sesongslutt-dato '{args.season_end}'. Bruk YYYY-MM-DD.")
+            sys.exit(1)
+
+    TournamentOutput.print_info(
+        f"Sesongvindu: {season_start.strftime('%Y-%m-%d')} til {season_end.strftime('%Y-%m-%d')}"
+    )
+
+    # Load roster
+    roster = load_roster_file(args.roster_file)
+    TournamentOutput.print_success(
+        f"Lastet inn {len(roster.teams)} lag fordelt på {len(roster.clubs())} klubber "
+        f"og {len(roster.age_groups())} aldersgrupper"
+    )
+
+    # Load parallel-games config (optional)
+    parallel_games_for_age_group = {}
+    if args.parallel_games_config:
+        try:
+            config = ParallelGamesConfig.from_file(args.parallel_games_config)
+        except SeasonConfigError as exc:
+            TournamentOutput.print_error(str(exc))
+            sys.exit(1)
+        parallel_games_for_age_group = {
+            age_group: config.parallel_games_for(age_group) for age_group in roster.age_groups()
+        }
+
+    # Build calendar sources via the club registry — only for clubs with known sources
+    sources = []
+    club_arenas = {}
+    for entry in known_clubs():
+        source = build_data_source(entry)
+        if source is not None:
+            sources.append(source)
+            club_arenas[entry.club] = entry.arena
+
+    for entry in missing_clubs():
+        TournamentOutput.print_warning(
+            f"Hopper over {entry.club} — kalenderkilde mangler ennå ({entry.note or 'ingen URL'})"
+        )
+
+    if not sources:
+        TournamentOutput.print_error("Ingen klubber med kjente kalenderkilder funnet — kan ikke generere sesongplan.")
+        sys.exit(1)
+
+    # Conflict checkers (subset that doesn't require Excel context for season planning)
+    checkers = [
+        HolidayConflictChecker(),
+    ]
+    # Add a tournament checker per ice-hall-style source where applicable
+    for source in sources:
+        try:
+            checkers.append(TournamentConflictChecker(source))
+        except Exception:
+            pass
+
+    scheduler = TournamentScheduler(
+        calendar_sources=sources,
+        conflict_checkers=checkers,
+        date_parser=DateParser()
+    )
+
+    planner = SeasonPlanner(
+        scheduler=scheduler,
+        roster=roster,
+        club_arenas=club_arenas,
+        parallel_games_for_age_group=parallel_games_for_age_group,
+    )
+
+    TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")
+    plan = planner.build_plan(season_start, season_end)
+
+    if not plan.tournaments:
+        TournamentOutput.print_no_dates_found()
+        return
+
+    TournamentOutput.print_season_overview(plan)
+    for tournament in sorted(plan.tournaments, key=lambda t: t.date):
+        TournamentOutput.print_tournament_schedule(tournament)
+    TournamentOutput.print_diversity_summary(plan)
+
+    if args.export_excel:
+        from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
+        SeasonPlanExporter().export(plan, args.export_excel)
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -594,6 +760,18 @@ Examples:
                         help='End date (YYYY-MM-DD), default: 6 months from start')
     parser.add_argument('--reschedule', type=str,
                         help='Reschedule tournament from this date (YYYY-MM-DD). Requires --excel-file.')
+    parser.add_argument('--generate-season', action='store_true',
+                        help='Generate a full-season tournament schedule across the configured club roster.')
+    parser.add_argument('--roster-file', type=str,
+                        help='Path to a roster config file (JSON) listing clubs/teams/age-groups for --generate-season.')
+    parser.add_argument('--season-start', type=str,
+                        help='Season start date (YYYY-MM-DD) for --generate-season, default: --start-date or today.')
+    parser.add_argument('--season-end', type=str,
+                        help='Season end date (YYYY-MM-DD) for --generate-season, default: --end-date or +6 months.')
+    parser.add_argument('--parallel-games-config', type=str,
+                        help='Path to a parallel-games config file (JSON/YAML) for --generate-season.')
+    parser.add_argument('--export-excel', type=str,
+                        help='Path to write an .xlsx export of the generated season plan (used with --generate-season).')
 
     args = parser.parse_args()
 
@@ -601,6 +779,11 @@ Examples:
     if args.reschedule and not args.excel_file:
         print("Error: Excel file is required when using --reschedule", file=sys.stderr)
         print("Usage: --reschedule 2026-01-17 --excel-file schedule.xlsx", file=sys.stderr)
+        sys.exit(1)
+
+    if args.generate_season and not args.roster_file:
+        print("Error: --roster-file is required when using --generate-season", file=sys.stderr)
+        print("Usage: --generate-season --roster-file roster.json --season-start 2026-10-01 --season-end 2027-04-30", file=sys.stderr)
         sys.exit(1)
 
     # Parse dates
@@ -619,6 +802,11 @@ Examples:
             sys.exit(1)
     else:
         end_date = start_date + timedelta(days=180)  # 6 months
+
+    # Check if season-generation mode
+    if args.generate_season:
+        run_generate_season(args, start_date, end_date)
+        return
 
     # Check if rescheduling mode
     if args.reschedule:
