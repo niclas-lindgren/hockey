@@ -434,6 +434,173 @@ def run_search(search_params):
         TournamentOutput.print_no_dates_found()
 
 
+def collect_roster_entries():
+    """Prompt the user for club/team roster entries (e.g. "Jar 1, Jar 2 - U10").
+
+    Returns a `Roster` of `Team` objects built from the entered lines.
+    """
+    from tournament_scheduler.models import Team, Roster
+    from tournament_scheduler.club_registry import CLUB_REGISTRY
+
+    print("\n" + "-" * 60)
+    print("LAGTROPP FOR SESONGEN")
+    print("-" * 60)
+    print("\nSkriv inn ett lag per linje på formatet: <Klubb> <Lagnavn> - <Aldersgruppe>")
+    print("Eksempel: Jar 1 - U10")
+    print("Skriv en tom linje når du er ferdig.\n")
+
+    teams = []
+    while True:
+        line = input("Lag (tom linje for å avslutte): ").strip()
+        if not line:
+            break
+
+        if " - " not in line:
+            print("  Ugyldig format. Bruk: <Klubb> <Lagnavn> - <Aldersgruppe> (f.eks. 'Jar 1 - U10')")
+            continue
+
+        label_part, age_group = (part.strip() for part in line.rsplit(" - ", 1))
+        if not label_part or not age_group:
+            print("  Ugyldig format. Bruk: <Klubb> <Lagnavn> - <Aldersgruppe> (f.eks. 'Jar 1 - U10')")
+            continue
+
+        # The club name is the leading word(s) of the label, e.g. "Jar" from "Jar 1".
+        club = label_part.rsplit(" ", 1)[0] if " " in label_part else label_part
+        if club not in CLUB_REGISTRY:
+            print(f"  Advarsel: '{club}' er ikke en kjent RVV-klubb. Lagt til likevel.")
+
+        teams.append(Team(club=club, label=label_part, age_group=age_group))
+        print(f"  Lagt til: {label_part} ({age_group})")
+
+    if not teams:
+        print("\nIngen lag lagt til.")
+        return None
+
+    return Roster(teams=teams)
+
+
+def collect_season_plan_params():
+    """Collect parameters for generating a full season schedule."""
+    from tournament_scheduler.models import Roster
+
+    roster = collect_roster_entries()
+    if not roster:
+        return None
+
+    print("\n" + "-" * 60)
+    print("SESONGVINDU")
+    print("-" * 60)
+
+    today = datetime.now()
+    default_start = today.replace(month=10, day=1)
+    if default_start < today:
+        default_start = default_start.replace(year=default_start.year + 1)
+    default_end = default_start.replace(year=default_start.year + 1, month=4, day=30)
+
+    season_start = ask_date("Sesongstart", default_start)
+    season_end = ask_date("Sesongslutt", default_end)
+
+    print("\n" + "-" * 60)
+    print("PARALLELLE KAMPER")
+    print("-" * 60)
+    print("\nDu kan oppgi en konfigurasjonsfil for antall parallelle kamper per aldersgruppe")
+    print("(JSON, f.eks. {\"U10\": {\"parallelGames\": 3}}). La stå tomt for å bruke standardverdier.")
+    parallel_games_config = ask_text("Konfigurasjonsfil for parallelle kamper", default="", required=False)
+
+    return {
+        'season_plan': True,
+        'roster': roster,
+        'season_start': season_start.strftime('%Y-%m-%d'),
+        'season_end': season_end.strftime('%Y-%m-%d'),
+        'parallel_games_config': parallel_games_config or None,
+    }
+
+
+def run_season_plan(params):
+    """Generate, render, and optionally export a full-season tournament plan."""
+    from tournament_scheduler.club_registry import known_clubs, missing_clubs, build_data_source
+    from tournament_scheduler.season_planner import SeasonPlanner
+    from tournament_scheduler.season_config import ParallelGamesConfig, SeasonConfigError
+
+    roster = params['roster']
+    season_start = DateParser.parse(params['season_start'])
+    season_end = DateParser.parse(params['season_end'])
+
+    TournamentOutput.print_header("GENERERER SESONGPLAN")
+    TournamentOutput.print_info(
+        f"Sesongvindu: {season_start.strftime('%Y-%m-%d')} til {season_end.strftime('%Y-%m-%d')}"
+    )
+    TournamentOutput.print_success(
+        f"Lagtropp: {len(roster.teams)} lag fordelt på {len(roster.clubs())} klubber "
+        f"og {len(roster.age_groups())} aldersgrupper"
+    )
+
+    parallel_games_for_age_group = {}
+    if params.get('parallel_games_config'):
+        try:
+            config = ParallelGamesConfig.from_file(params['parallel_games_config'])
+        except SeasonConfigError as exc:
+            TournamentOutput.print_error(str(exc))
+            return
+        parallel_games_for_age_group = {
+            age_group: config.parallel_games_for(age_group) for age_group in roster.age_groups()
+        }
+
+    sources = []
+    club_arenas = {}
+    for entry in known_clubs():
+        source = build_data_source(entry)
+        if source is not None:
+            sources.append(source)
+            club_arenas[entry.club] = entry.arena
+
+    for entry in missing_clubs():
+        TournamentOutput.print_warning(
+            f"Hopper over {entry.club} — kalenderkilde mangler ennå ({entry.note or 'ingen URL'})"
+        )
+
+    if not sources:
+        TournamentOutput.print_error("Ingen klubber med kjente kalenderkilder funnet — kan ikke generere sesongplan.")
+        return
+
+    checkers = [HolidayConflictChecker()]
+    for source in sources:
+        try:
+            checkers.append(TournamentConflictChecker(source))
+        except Exception:
+            pass
+
+    scheduler = TournamentScheduler(
+        calendar_sources=sources,
+        conflict_checkers=checkers,
+        date_parser=DateParser()
+    )
+
+    planner = SeasonPlanner(
+        scheduler=scheduler,
+        roster=roster,
+        club_arenas=club_arenas,
+        parallel_games_for_age_group=parallel_games_for_age_group,
+    )
+
+    TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")
+    plan = planner.build_plan(season_start, season_end)
+
+    if not plan.tournaments:
+        TournamentOutput.print_no_dates_found()
+        return
+
+    TournamentOutput.print_season_overview(plan)
+    for tournament in sorted(plan.tournaments, key=lambda t: t.date):
+        TournamentOutput.print_tournament_schedule(tournament)
+    TournamentOutput.print_diversity_summary(plan)
+
+    if ask_yes_no("\nVil du eksportere sesongplanen til Excel?", default=True):
+        export_path = ask_text("Filnavn for Excel-eksport", default="sesongplan.xlsx")
+        from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
+        SeasonPlanExporter().export(plan, export_path)
+
+
 def main():
     """Main interactive CLI."""
     history_manager = SearchHistory()
@@ -448,11 +615,12 @@ def main():
             [
                 ("1", "Nytt søk"),
                 ("2", "Velg fra søkehistorikk"),
-                ("3", "Avslutt")
+                ("3", "Generer full sesongplan"),
+                ("4", "Avslutt")
             ]
         )
 
-        if mode == "3":
+        if mode == "4":
             print("\nAvslutter...")
             break
 
@@ -466,6 +634,17 @@ def main():
             search_params = show_history_menu(history_manager)
             if not search_params:
                 continue  # User cancelled, back to main menu
+        elif mode == "3":
+            # Generate a full season schedule
+            season_params = collect_season_plan_params()
+            if season_params:
+                run_season_plan(season_params)
+
+                print()
+                if not ask_yes_no("Vil du gjøre noe mer?", default=True):
+                    print("\nAvslutter...")
+                    break
+            continue
 
         if search_params:
             # Run the search
