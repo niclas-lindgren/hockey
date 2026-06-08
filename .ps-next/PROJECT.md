@@ -41,12 +41,12 @@ Finds optimal weekend dates for youth hockey tournaments by scraping multiple cl
 - **Arenas:** Tournaments are hosted at different ice-hockey arenas (one per club roughly). The season plan should include at least one tournament per arena/club.
 - **Age groups:** Teams belong to age groups — boys: U7, U8, U9, U10, U11, U12; girls: JU10, JU11, etc. (JU = "jenter"/girls). Age groups with overlapping player pools (e.g. JU11 and U10 may share players) should preferably not have tournaments scheduled on the same weekend, to avoid player double-booking.
 - **Club calendar sources:**
-  - Kongsberg ice/ball hall — already integrated (Outlook/Playwright)
-  - Skien — already integrated (Google Calendar iCal feed)
+  - Kongsberg ice/ball hall — already integrated (Outlook/Playwright) https://kongsberghallen.no/webkalender/ishall/
+  - Skien — already integrated (Google Calendar iCal feed) https://skienishockey.no/kalender-isbooking/
   - Jutul (Bærum ishall): https://baerumishall.no/kalender/
   - Jar (Jarhallen, via Forumbooking): https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true
   - Ringerike (via Teamup): https://teamup.com/ksr8bg1tpn5s3npskw
-  - Holmen — URL not yet provided
-  - Frisk Asker — URL not yet provided
-  - Tønsberg — URL not yet provided
-  - Sandefjord Penguins — URL not yet provided
+  - Holmen — https://kalender.sportello.no/booking/11055
+  - Frisk Asker — https://teamup.com/ksdwpwxysmxwnuftoy
+  - Tønsberg — https://www.bookup.no/utleie/Index/860#___/view:item/id:860/part:/r:0/mod:book
+  - Sandefjord Penguins — https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen___/view:item/id:4497/part:/place:3907:SANDEFJORD/q:sandefjord/r:26/mod:book
