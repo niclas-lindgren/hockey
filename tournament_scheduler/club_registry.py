@@ -17,10 +17,27 @@ Each entry records:
     with known sources.
 
 Known/working sources today: Kongsberg, Skien, Ringerike (Teamup iCal export).
+
 Registered but not yet scrapeable live (kind is known but the feed needs more
-work — see notes on each entry): Jutul (StyledCalendar JS widget, no iCal
-export found), Jar (Forumbooking ical.aspx returns an empty placeholder feed).
-Still missing URLs entirely: Holmen, Frisk Asker, Tønsberg, Sandefjord Penguins.
+work — see notes on each entry):
+  - Jutul: baerumishall.no/kalender/ embeds a StyledCalendar JS widget with no
+    discoverable .ics/iCal export.
+  - Jar: Forumbooking's ical.aspx export returns only an empty placeholder
+    VEVENT regardless of date-range params.
+  - Frisk Asker: friskaskerhockey.no ("Aktivitetskalender") is a JS-rendered
+    Sportality/s8y SPA with no static calendar markup or export API found;
+    varnerarena.no is blocked by a WAF page.
+  - Holmen: holmenhockey.no links to a Sportello booking widget
+    (kalender.sportello.no/booking/11055) that is a JS-rendered SPA shell with
+    no discoverable .ics/iCal export.
+
+All four of the above would need either a discovered platform-specific export
+API (Sportello / Sportality·s8y / StyledCalendar) or a Playwright-based scraper
+for their JS-rendered booking widgets — analogous to Kongsberg's OUTLOOK
+integration but for different platforms/markup.
+
+Still missing URLs entirely (no calendar/booking system identified at all):
+Tønsberg, Sandefjord Penguins.
 """
 
 from dataclasses import dataclass
@@ -83,11 +100,33 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
     ),
     "Frisk Asker": ClubCalendarSource(
         club="Frisk Asker",
-        arena="Askerhallen",
+        # Home arena is "Varner Arena" (Frisk Asker's official site refers to it
+        # this way), not "Askerhallen" as previously assumed.
+        arena="Varner Arena",
         kind=CalendarSourceKind.UNKNOWN,
+        # https://www.friskaskerhockey.no/ ("Frisk Asker Ishockey") has an
+        # "Aktivitetskalender" page, but the whole site is a JS-rendered SPA
+        # (built on the Sportality/s8y platform — assets served from
+        # cdn.s8y.se) with no static HTML calendar markup or any discoverable
+        # .ics/iCal export endpoint (checked /api/calendar -> 404 JSON,
+        # /aktivitetskalender and /kalender both just return the same SPA
+        # shell). varnerarena.no itself is behind a "RUNCLOUD-7G-WAF-BLOCKED"
+        # WAF page and could not be inspected. Forumbooking does NOT host a
+        # "Varner Arena"/"Askerhallen" schema (its schema.aspx ignores unknown
+        # `schema` values and silently falls back to Jarhallen's data).
         source=None,
         skip=True,
-        note="TODO: calendar URL not yet provided — add a registry entry once known.",
+        note=(
+            "Checked: friskaskerhockey.no (Sportality/s8y JS SPA — "
+            "'Aktivitetskalender' page exists but renders client-side with no "
+            "static calendar markup or .ics export found; /api/calendar -> 404), "
+            "varnerarena.no (blocked by a WAF/'RUNCLOUD-7G-WAF-BLOCKED' page), "
+            "and Forumbooking (no 'Varner Arena'/'Askerhallen' schema — query "
+            "param is ignored, falls back to Jarhallen). A live, working source "
+            "would need either a discovered Sportality calendar API or a "
+            "Playwright-based scraper for the SPA (similar to Kongsberg's "
+            "OUTLOOK integration, but for a different platform/markup)."
+        ),
     ),
     "Sandefjord Penguins": ClubCalendarSource(
         club="Sandefjord Penguins",
@@ -125,9 +164,26 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         club="Holmen",
         arena="Holmenkollen ishall",
         kind=CalendarSourceKind.UNKNOWN,
+        # holmenhockey.no ("Holmen Hockey") has an "istider" (ice times) page
+        # and links to a Sportello booking widget
+        # (https://kalender.sportello.no/booking/11055), but that widget is a
+        # JS-rendered SPA shell (~1.3KB HTML) — every export-style URL pattern
+        # tried (.ics, /ical/, /export/*.ics, /booking/*/ical, /feed/*.ics)
+        # returns the identical SPA shell rather than calendar data, and no
+        # .ics/iCal link is exposed in the static markup. The /istider page
+        # itself is a static text page (training-time table), not a calendar
+        # feed.
         source=None,
         skip=True,
-        note="TODO: calendar URL not yet provided — add a registry entry once known.",
+        note=(
+            "Checked: holmenhockey.no/istider (static training-times text page, "
+            "not a calendar feed) and the linked Sportello booking widget at "
+            "kalender.sportello.no/booking/11055 (JS-rendered SPA shell — every "
+            "guessed export URL pattern returns the same ~1.3KB shell, no "
+            ".ics/iCal export discoverable in static markup). A live source "
+            "would need a discovered Sportello calendar/export API or a "
+            "Playwright-based scraper for the booking widget."
+        ),
     ),
     "Skien": ClubCalendarSource(
         club="Skien",
