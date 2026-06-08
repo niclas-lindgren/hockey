@@ -38,7 +38,8 @@ Examples:
     parser.add_argument('--generate-season', action='store_true',
                         help='Generate a full-season tournament schedule across the configured club roster.')
     parser.add_argument('--roster-file', type=str,
-                        help='Path to a roster config file (JSON) listing clubs/teams/age-groups for --generate-season.')
+                        help='Path to a roster config file (JSON or YAML) listing clubs/teams/age-groups '
+                             '(e.g. {"Jar": {"Jar 1": "U10", "Jar 2": "U11"}}) for --generate-season.')
     parser.add_argument('--season-start', type=str,
                         help='Season start date (YYYY-MM-DD) for --generate-season, default: --start-date or today.')
     parser.add_argument('--season-end', type=str,

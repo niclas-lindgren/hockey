@@ -1,10 +1,27 @@
 """Loading roster config files for --generate-season.
 
+A roster config lists, for each club, the set of teams it enters into the
+season plan — supporting multiple teams per club (e.g. "Jar 1", "Jar 2")
+each with its own age group::
+
+    {
+      "Jar": {"Jar 1": "U10", "Jar 2": "U11"},
+      "Kongsberg": {"Kongsberg 1": "U10"}
+    }
+
 Both JSON and YAML config files are supported, mirroring
-`ParallelGamesConfig` in `season_config.py`. YAML support is optional and
-only requires `pyyaml` to be installed — if it is not available, only JSON
-files can be loaded and a clear Norwegian-language error is raised when a
-`.yaml`/`.yml` file is requested.
+`ParallelGamesConfig` in `season_config.py` (same canonical
+mapping-of-mappings shape, same optional-YAML mechanism). YAML support is
+optional and only requires `pyyaml` to be installed — if it is not
+available, only JSON files can be loaded and a clear Norwegian-language
+error is raised when a `.yaml`/`.yml` file is requested.
+
+Malformed entries (missing files, unparseable JSON/YAML, wrong top-level
+shape, empty clubs, duplicate or blank team labels, unknown age groups,
+etc.) raise `RosterConfigError` with a Norwegian-language message, so both
+the scriptable CLI (`cli/season_command.py`) and the interactive flow
+(`tournament_scheduler_interactive.py`) can catch and render errors
+consistently via `TournamentOutput.print_error` / Norwegian console output.
 """
 
 import json

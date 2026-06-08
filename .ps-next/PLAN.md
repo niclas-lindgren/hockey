@@ -34,7 +34,7 @@ tags:
   - Files: tests/test_roster_loader.py (new)
   - Approach: Following the pytest conventions used in tests/test_season_planner.py and the validation-error tests implied by season_config.py, write tests that: (1) load a valid JSON roster config with multiple clubs and multiple teams per club (e.g. "Jar 1"/"Jar 2") and assert the resulting `Roster`/`Team` objects match; (2) load an equivalent valid YAML config (skip/xfail gracefully if `pyyaml` is unavailable, mirroring how season_config.py documents optional YAML); (3) assert that malformed inputs — missing file, unparseable JSON/YAML, wrong top-level shape, empty club team-maps, duplicate team labels, unknown age groups, blank labels — each raise the loader's exception with a Norwegian-language message containing the offending value; (4) assert `RosterLoader.from_file` and `RosterLoader.from_dict` produce identical `Roster` objects for equivalent JSON/YAML inputs.
 
-- [ ] Update module docstrings and in-CLI help/prompt text to document the new roster config file format and both loading paths
+- [x] Expanded the RosterLoader module docstring to fully document the canonical YAML/JSON club->teams shape, multi-team-per-club support, the shared optional-YAML mechanism with ParallelGamesConfig, and that malformed entries raise Norwegian RosterConfigError messages catchable by both CLI entry points; updated --roster-file argparse help text in tournament_scheduler.py to mention JSON or YAML and show an example shape. — 2026-06-08
   - Files: tournament_scheduler/roster_loader.py, tournament_scheduler.py, tournament_scheduler_interactive.py
   - Approach: Update the `RosterLoader` module docstring (roster_loader.py:1-26) to describe the canonical YAML/JSON club→teams shape (mirroring `ParallelGamesConfig`'s docstring style in season_config.py), document that multiple teams per club are supported (e.g. "Jar 1", "Jar 2"), and that malformed entries raise Norwegian-language errors; update the `--roster-file` argparse help text in tournament_scheduler.py to mention YAML/JSON support; update the interactive prompt text added in the previous task to briefly explain the expected file format to the user in Norwegian.
 
@@ -89,4 +89,11 @@ LESSONS: RosterLoader shares _YAML_AVAILABLE and yaml by importing them directly
 **Findings:** 15 new tests pass plus 1 skipped (the pyyaml-absent test, since pyyaml is installed in this environment); full suite now at 60 passed / 1 skipped / 0 failed.
 LESSONS: Use pytest.mark.skipif(not _YAML_AVAILABLE, ...) / skipif(_YAML_AVAILABLE, ...) pairs to test both YAML-present and YAML-absent code paths without requiring environment-specific test runs — mirrors how season_config.py documents optional pyyaml support.
 **Files:** tests/test_roster_loader.py (+168/-0)
+**Commit:** e3e63ad (hockey)
+
+### 2026-06-08 — Expanded the RosterLoader module docstring to fully document the canonical YAML/JSON club->teams shape, multi-team-per-club support, the shared optional-YAML mechanism with ParallelGamesConfig, and that malformed entries raise Norwegian RosterConfigError messages catchable by both CLI entry points; updated --roster-file argparse help text in tournament_scheduler.py to mention JSON or YAML and show an example shape.
+**Rationale:** The interactive prompt text added in the prior task already explained the expected file format in Norwegian with an inline example, so no further changes were needed there; focused docstring/help updates on the two files that still had stale (JSON-only, English-leaning) descriptions.
+**Findings:** All 60 tests pass (1 skipped for missing pyyaml, which is installed); confirmed via grep that the interactive prompt already documents the format.
+LESSONS: none
+**Files:** tournament_scheduler/roster_loader.py (+~20/-3), tournament_scheduler.py (+2/-1)
 **Commit:** [pending — fill after commit]
