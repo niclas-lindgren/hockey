@@ -97,6 +97,11 @@ class SeasonPlanner:
         # matchup-diversity heuristic that wants to know real opponent
         # history rather than just shared invitations.
         self._opponent_history: Dict[frozenset, int] = {}
+        # Tracks how many tournaments have been scheduled in each
+        # year-month (key: `(year, month)` tuple) of the season window —
+        # used to spot months that are already carrying more than their
+        # fair share of the season's tournament load.
+        self._month_counts: Dict[Tuple[int, int], int] = {}
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -128,6 +133,8 @@ class SeasonPlanner:
         scheduled_age_groups_by_date: Dict[date, List[str]] = {}
 
         for tournament_date, host_club in zip(chosen_dates, host_assignments):
+            self._record_month(tournament_date)
+
             age_group = self._next_age_group(
                 age_groups, ag_index, tournament_date, scheduled_age_groups_by_date
             )
@@ -393,6 +400,53 @@ class SeasonPlanner:
                 continue
             pair = frozenset((game.home.label, game.away.label))
             self._opponent_history[pair] = self._opponent_history.get(pair, 0) + 1
+
+    # ------------------------------------------------------------------
+    # Month-load tracking
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _expected_monthly_load(window_start: date, window_end: date, tournament_count: int) -> float:
+        """Return the season's expected average tournament count per month.
+
+        Derived from the number of distinct year-months spanned by the
+        season window and the total number of tournaments being scheduled.
+        Used as the baseline that `month_load_ratio` compares actual counts
+        against. Returns `0.0` when the window is empty or no tournaments
+        are scheduled.
+        """
+        if tournament_count <= 0:
+            return 0.0
+
+        months_spanned = (
+            (window_end.year - window_start.year) * 12
+            + (window_end.month - window_start.month)
+            + 1
+        )
+        months_spanned = max(1, months_spanned)
+        return tournament_count / months_spanned
+
+    def _record_month(self, tournament_date: date) -> None:
+        """Record that a tournament was scheduled in `tournament_date`'s month."""
+        key = (tournament_date.year, tournament_date.month)
+        self._month_counts[key] = self._month_counts.get(key, 0) + 1
+
+    def month_load_ratio(self, tournament_date: date, expected_per_month: float) -> float:
+        """Report how loaded `tournament_date`'s month is, relative to average.
+
+        Returns the ratio of the month's current tournament count (as
+        recorded via `_record_month`, including `tournament_date` itself if
+        already recorded) to `expected_per_month`. A ratio greater than `1.0`
+        indicates the month is already carrying more than its fair share of
+        the season's tournament load — a concrete signal that downstream
+        selection logic can use to prefer a less-loaded alternative date
+        where one exists. Returns `0.0` when `expected_per_month` is `0`.
+        """
+        if expected_per_month <= 0:
+            return 0.0
+
+        key = (tournament_date.year, tournament_date.month)
+        return self._month_counts.get(key, 0) / expected_per_month
 
     # ------------------------------------------------------------------
     # Within-tournament round-robin game-schedule generator

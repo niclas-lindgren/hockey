@@ -19,7 +19,7 @@ tags:
   - Files: tournament_scheduler/season_planner.py, tournament_scheduler/models.py
   - Approach: Introduce an `_opponent_history` structure (dict keyed by frozenset/tuple of team pairs -> match count) alongside the existing `_grouped_with`/`_record_grouping` machinery in season_planner.py, populated whenever `generate_round_robin_games` produces a `Game` for a `Tournament`; this gives the planner a true record of how many times each pair of teams has actually played, distinct from mere co-attendance.
 
-- [ ] Implement month-load tracking for the season window
+- [x] Added a _month_counts tracker (dict keyed by (year, month) -> tournament count) updated as dates are chosen in build_plan, plus _expected_monthly_load and month_load_ratio helpers that report how a given month's load compares to the season's expected per-month average. — 2026-06-08
   - Files: tournament_scheduler/season_planner.py
   - Approach: Add a `_month_counts` tracker (dict keyed by year-month -> tournament count) updated as dates are chosen in `build_plan`, and a helper that reports the current month's load relative to the season's expected per-month average (derived from `start_date`/`end_date` and target tournament count), giving downstream selection logic a concrete signal for "is this month already over-loaded".
 
@@ -54,4 +54,11 @@ Tests in test_season_planner.py covering opponent-history tracking, candidate-da
 **Findings:** All season_planner tests pass; the new structure tracks true scheduled-matchup counts distinct from _grouped_with co-attendance tracking.
 LESSONS: generate_round_robin_games is a @staticmethod, so per-game bookkeeping that needs self must happen in the caller (build_plan) after the games list is returned, not inside the generator.
 **Files:** tournament_scheduler/season_planner.py (+24/-0)
+**Commit:** 7ffbb1b (hockey)
+
+### 2026-06-08 — Added a _month_counts tracker (dict keyed by (year, month) -> tournament count) updated as dates are chosen in build_plan, plus _expected_monthly_load and month_load_ratio helpers that report how a given month's load compares to the season's expected per-month average.
+**Rationale:** Exposed _expected_monthly_load as a static helper and month_load_ratio as an instance method so future selection logic can compute the expected baseline once and query per-date load ratios cheaply; left the values uninvoked by build_plan itself since wiring them into date selection is a separate later task.
+**Findings:** All season_planner tests pass; the new tracker and helpers compile and integrate cleanly with the existing per-tournament loop.
+LESSONS: month_load_ratio takes expected_per_month as a parameter rather than storing it on self, so callers must compute the baseline once via _expected_monthly_load(start, end, tournament_count) and pass it through — keeps the tracker decoupled from any one selection strategy.
+**Files:** tournament_scheduler/season_planner.py (+54/-0)
 **Commit:** [pending — fill after commit]
