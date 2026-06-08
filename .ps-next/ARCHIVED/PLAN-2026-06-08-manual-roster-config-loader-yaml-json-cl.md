@@ -1,5 +1,14 @@
 ---
 date: 2026-06-08
+status: done
+feature: "Manual roster config loader — YAML/JSON club/team config with Norwegian-language validation"
+goal: "Manual roster config loader — add a YAML/JSON config format listing each club and its teams (supports multiple teams per club, e.g. \"Jar 1\", \"Jar 2\"), with validation and clear Norwegian-language error messages on malformed entries, loaded by both CLI and interactive entry points."
+tags:
+  - ps-next
+---
+
+---
+date: 2026-06-08
 status: in-progress
 feature: "Manual roster config loader — YAML/JSON club/team config with Norwegian-language validation"
 goal: "Manual roster config loader — add a YAML/JSON config format listing each club and its teams (supports multiple teams per club, e.g. \"Jar 1\", \"Jar 2\"), with validation and clear Norwegian-language error messages on malformed entries, loaded by both CLI and interactive entry points."
@@ -96,4 +105,22 @@ LESSONS: Use pytest.mark.skipif(not _YAML_AVAILABLE, ...) / skipif(_YAML_AVAILAB
 **Findings:** All 60 tests pass (1 skipped for missing pyyaml, which is installed); confirmed via grep that the interactive prompt already documents the format.
 LESSONS: none
 **Files:** tournament_scheduler/roster_loader.py (+~20/-3), tournament_scheduler.py (+2/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** 1efa22c (hockey)
+
+## Verification Report
+**Date:** 2026-06-08
+
+| Criterion | Verdict | Notes |
+|-----------|---------|-------|
+| Loading a valid YAML or JSON roster config (multi-club, multi-team) via RosterLoader.from_file returns a Roster with matching Team objects | PASS | from_dict builds Team(club, label, age_group) for each entry, validated against KNOWN_AGE_GROUPS; from_file dispatches JSON/YAML by extension and delegates to from_dict; tests/test_roster_loader.py covers multi-club/multi-team JSON+YAML parsing and asserts Roster equality |
+| Loading a malformed roster config (unknown age group, duplicate label, empty club, unparseable YAML/JSON) raises an exception with a Norwegian message containing the offending value | PASS | RosterConfigError (ValueError subclass) is raised with Norwegian-language messages embedding the offending value for each malformed case (lines 61-156 of roster_loader.py); covered by 15 passing tests in tests/test_roster_loader.py |
+| Running tournament_scheduler.py --generate-season --roster-file <malformed-file> exits non-zero with Norwegian error, matching ParallelGamesConfig pattern | PASS | season_command.py:28-32 wraps RosterLoader.from_file in try/except RosterConfigError, calls TournamentOutput.print_error(str(exc)) and sys.exit(1), mirroring _load_parallel_games_config |
+| collect_roster_entries offers file-load choice; on malformed file prints Norwegian error and lets user retry or fall back to manual entry | PASS | tournament_scheduler_interactive.py:453-474 prompts for an optional file path, catches RosterConfigError, prints the message, asks j/n to retry or falls through to the existing manual entry loop |
+| Running pytest tests/test_roster_loader.py exits with code 0 | PASS | Test run: 15 passed, 1 skipped (pyyaml-absent path skipped because pyyaml is installed in this environment), 0 failed |
+
+**Shell checks (ps-verify-plan):** all passed
+```
+no embedded shell checks found
+```
+**Git history:** 5/5 tasks with matching commits
+**Tests:** passed (15 passed, 1 skipped, 0 failed)
