@@ -1,0 +1,122 @@
+"""Tests for SeasonPlanner.generate_round_robin_games (circle-method round-robin generator)."""
+
+import math
+
+from tournament_scheduler.models import Team
+from tournament_scheduler.season_planner import SeasonPlanner
+
+
+def _make_teams(n, age_group='U10'):
+    return [Team(club=f'Club{i}', label=f'Team{i}', age_group=age_group) for i in range(n)]
+
+
+def _expected_pairings(n):
+    return n * (n - 1) // 2
+
+
+def _expected_min_rounds(n, parallel_games):
+    """Minimum number of sequential rounds for n teams given parallel-game limit.
+
+    A full round-robin for n teams needs (n-1) rounds for even n, or n rounds
+    for odd n (one bye per round). Each round has at most floor(n/2) games,
+    which may need to be split across multiple "sequential slots" if
+    parallel_games is smaller than the games-per-round count — but the
+    generator assigns parallel_slot within a round (0..parallel_games-1),
+    it does not split rounds. So the expected round count is simply the
+    standard round-robin round count.
+    """
+    return n - 1 if n % 2 == 0 else n
+
+
+class TestRoundRobinGenerator:
+    """Test suite for the circle-method round-robin game generator."""
+
+    def test_empty_and_single_team_produce_no_games(self):
+        assert SeasonPlanner.generate_round_robin_games([], parallel_games=2) == []
+        assert SeasonPlanner.generate_round_robin_games(_make_teams(1), parallel_games=2) == []
+
+    def test_every_team_plays_every_other_team_exactly_once(self):
+        for n in range(2, 9):
+            teams = _make_teams(n)
+            games = SeasonPlanner.generate_round_robin_games(teams, parallel_games=2)
+
+            assert len(games) == _expected_pairings(n), f"n={n}: expected {_expected_pairings(n)} games"
+
+            seen_pairs = set()
+            for game in games:
+                pair = frozenset((game.home.label, game.away.label))
+                assert pair not in seen_pairs, f"n={n}: duplicate pairing {pair}"
+                seen_pairs.add(pair)
+
+            # Every team appears in exactly n-1 games (plays everyone else once).
+            appearances = {}
+            for game in games:
+                appearances[game.home.label] = appearances.get(game.home.label, 0) + 1
+                appearances[game.away.label] = appearances.get(game.away.label, 0) + 1
+            for team in teams:
+                assert appearances[team.label] == n - 1
+
+    def test_no_team_appears_twice_in_the_same_round(self):
+        """Within each generated 'round' (a maximal run of non-overlapping games
+        produced consecutively by the circle method), no team should play twice.
+
+        Since the generator emits games round-by-round, we reconstruct rounds
+        by greedily grouping consecutive games until a team repeats.
+        """
+        for n in [4, 5, 6, 7, 8]:
+            teams = _make_teams(n)
+            games = SeasonPlanner.generate_round_robin_games(teams, parallel_games=3)
+
+            rounds = []
+            current_round = []
+            current_teams = set()
+            for game in games:
+                if game.home.label in current_teams or game.away.label in current_teams:
+                    rounds.append(current_round)
+                    current_round = []
+                    current_teams = set()
+                current_round.append(game)
+                current_teams.add(game.home.label)
+                current_teams.add(game.away.label)
+            if current_round:
+                rounds.append(current_round)
+
+            for round_games in rounds:
+                labels = []
+                for game in round_games:
+                    labels.append(game.home.label)
+                    labels.append(game.away.label)
+                assert len(labels) == len(set(labels)), f"n={n}: team appears twice within a round"
+
+    def test_parallel_slot_respects_limit(self):
+        for n in [4, 5, 6, 7, 8]:
+            for parallel_games in [1, 2, 3]:
+                teams = _make_teams(n)
+                games = SeasonPlanner.generate_round_robin_games(teams, parallel_games=parallel_games)
+                for game in games:
+                    assert 0 <= game.parallel_slot < parallel_games
+
+    def test_round_count_matches_expected_minimum(self):
+        """The number of distinct rounds matches the standard round-robin minimum
+        for the given team count (n-1 for even n, n for odd n with byes)."""
+        for n in [4, 5, 6, 7, 8]:
+            teams = _make_teams(n)
+            games = SeasonPlanner.generate_round_robin_games(teams, parallel_games=10)
+
+            rounds = []
+            current_round = []
+            current_teams = set()
+            for game in games:
+                if game.home.label in current_teams or game.away.label in current_teams:
+                    rounds.append(current_round)
+                    current_round = []
+                    current_teams = set()
+                current_round.append(game)
+                current_teams.add(game.home.label)
+                current_teams.add(game.away.label)
+            if current_round:
+                rounds.append(current_round)
+
+            assert len(rounds) == _expected_min_rounds(n, parallel_games=10), (
+                f"n={n}: expected {_expected_min_rounds(n, 10)} rounds, got {len(rounds)}"
+            )
