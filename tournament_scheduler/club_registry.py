@@ -16,9 +16,11 @@ Each entry records:
     pipeline can simply filter them out and continue working for the clubs
     with known sources.
 
-Known sources today: Kongsberg, Skien, Jutul, Jar, Ringerike.
-Still missing (need URLs before they can be scraped live): Holmen, Frisk Asker,
-Tønsberg, Sandefjord Penguins.
+Known/working sources today: Kongsberg, Skien, Ringerike (Teamup iCal export).
+Registered but not yet scrapeable live (kind is known but the feed needs more
+work — see notes on each entry): Jutul (StyledCalendar JS widget, no iCal
+export found), Jar (Forumbooking ical.aspx returns an empty placeholder feed).
+Still missing URLs entirely: Holmen, Frisk Asker, Tønsberg, Sandefjord Penguins.
 """
 
 from dataclasses import dataclass
@@ -64,8 +66,12 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         club="Ringerike",
         arena="Ringerikshallen",
         kind=CalendarSourceKind.ICAL,
-        source="https://teamup.com/ksr8bg1tpn5s3npskw",
-        note="Teamup calendar feed.",
+        # The public calendar page (https://teamup.com/ksr8bg1tpn5s3npskw) is an
+        # HTML/JS view, not a feed — Teamup exposes the actual iCal export at
+        # ics.teamup.com using the same calendar key (verified: returns
+        # text/calendar with hundreds of parseable VEVENTs).
+        source="https://ics.teamup.com/feed/ksr8bg1tpn5s3npskw/0.ics",
+        note="Teamup iCal export feed (verified working — confirm parses via icalendar/recurring_ical_events).",
     ),
     "Tønsberg": ClubCalendarSource(
         club="Tønsberg",
@@ -99,11 +105,21 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         club="Jar",
         arena="Jarhallen",
         kind=CalendarSourceKind.ICAL,
-        source=(
-            "https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)"
-            "&kalender=true&safarifix=true"
+        # The schema.aspx URL is the HTML calendar viewer, not a feed.
+        # Forumbooking (FRI Webb-Bokning) exposes ical.aspx as an export
+        # endpoint, but as of this check it returns a single empty placeholder
+        # VEVENT (DTSTART/SUMMARY/UID all blank) regardless of date-range
+        # query params (from/to, start/end, dateFrom/dateTo) — the booking
+        # system likely requires session/auth or a different export trigger
+        # to populate real events.
+        source="https://www.forumbooking.no/ical.aspx?obj=2&schema=Jarhallen%20(ishall)",
+        skip=True,
+        note=(
+            "TODO: Forumbooking ical.aspx export currently returns an empty "
+            "placeholder VEVENT (no usable DTSTART/SUMMARY) — needs further "
+            "investigation (auth/session/export trigger) before this club can "
+            "be scraped live. Pipeline skips it for now."
         ),
-        note="Forumbooking calendar feed (iCal-compatible).",
     ),
     "Holmen": ClubCalendarSource(
         club="Holmen",
@@ -124,8 +140,20 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         club="Jutul",
         arena="Bærum ishall",
         kind=CalendarSourceKind.ICAL,
+        # https://baerumishall.no/kalender/ is an HTML page embedding a
+        # StyledCalendar JS widget (iframe to embed.styledcalendar.com) — no
+        # static .ics/iCal export endpoint could be found for it, so a generic
+        # ICalScraper cannot consume it as-is. It would need a Playwright-based
+        # (OUTLOOK-style) scraper or a discovered StyledCalendar export API.
         source="https://baerumishall.no/kalender/",
-        note="Bærum ishall calendar feed.",
+        skip=True,
+        note=(
+            "TODO: baerumishall.no/kalender/ embeds a StyledCalendar JS widget "
+            "with no exposed iCal/.ics feed — a generic ICalScraper cannot "
+            "parse it. Needs a Playwright-based scraper (like Kongsberg's "
+            "OUTLOOK integration) or a discovered StyledCalendar export API "
+            "before this club can be scraped live. Pipeline skips it for now."
+        ),
     ),
     "Kongsberg": ClubCalendarSource(
         club="Kongsberg",

@@ -17,8 +17,10 @@ ALL_NINE_CLUBS = [
     "Jar", "Holmen", "Skien", "Jutul", "Kongsberg",
 ]
 
-CLUBS_WITH_KNOWN_SOURCES = ["Kongsberg", "Skien", "Jutul", "Jar", "Ringerike"]
-CLUBS_PENDING_URLS = ["Holmen", "Frisk Asker", "Tønsberg", "Sandefjord Penguins"]
+CLUBS_WITH_KNOWN_SOURCES = ["Kongsberg", "Skien", "Ringerike"]
+CLUBS_PENDING_URLS = [
+    "Holmen", "Frisk Asker", "Tønsberg", "Sandefjord Penguins", "Jutul", "Jar",
+]
 
 
 class TestClubRegistry:

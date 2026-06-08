@@ -1,4 +1,4 @@
-"""iCal-based calendar scraper for Google Calendar public feeds."""
+"""iCal-based calendar scraper for Google Calendar and other generic iCal feeds."""
 
 import requests
 from datetime import datetime, timedelta
@@ -20,11 +20,27 @@ class ICalScraper(CalendarScraper):
         """Initialize iCal scraper.
 
         Args:
-            calendar_id: Google Calendar ID (email format)
+            calendar_id: Either a Google Calendar ID (email-style, e.g.
+                "name@gmail.com") which gets expanded into the public Google
+                Calendar iCal feed URL, or a full feed URL (any
+                http(s)://... address — Forumbooking, Teamup, Bærum ishall,
+                etc.) which is used as-is.
             cache: Optional CalendarCache instance for caching scraped events
         """
         self.calendar_id = calendar_id
         self.cache = cache or CalendarCache()
+
+    def _feed_url(self) -> str:
+        """Resolve the actual iCal feed URL to fetch.
+
+        Email-style Google Calendar IDs are expanded into the public Google
+        Calendar iCal feed URL (existing Skien integration pattern). Any value
+        that already looks like a full URL (http/https) — Forumbooking,
+        Teamup, Bærum ishall, etc. — is used as-is.
+        """
+        if self.calendar_id.startswith('http://') or self.calendar_id.startswith('https://'):
+            return self.calendar_id
+        return f'https://calendar.google.com/calendar/ical/{self.calendar_id}/public/basic.ics'
 
     def scrape_calendar(
         self,
@@ -47,15 +63,13 @@ class ICalScraper(CalendarScraper):
         events = []
 
         # Check cache first (use iCal URL as the "url" parameter)
-        ical_url = f'https://calendar.google.com/calendar/ical/{self.calendar_id}/public/basic.ics'
+        ical_url = self._feed_url()
         cached_events = self.cache.get(ical_url, calendar_name, start_date, end_date)
         if cached_events is not None:
             console.print(f"  [green]✓[/green] Bruker cachet {calendar_name} kalenderdata ([cyan]{len(cached_events)}[/cyan] hendelser)")
             return cached_events
 
         try:
-            # Build iCal URL
-
             console.print(f"  [dim]Henter {calendar_name} iCal feed...[/dim]")
             response = requests.get(ical_url, timeout=15)
 
