@@ -168,8 +168,14 @@ class SeasonPlanner:
             )
             plan.tournaments.append(tournament)
 
+        expected_per_month = self._expected_monthly_load(
+            start_date.date(), end_date.date(), len(chosen_dates)
+        )
+
         plan.arena_counts = self._arena_counts(plan.tournaments)
         plan.diversity_score = self._diversity_score(plan.tournaments)
+        plan.pairwise_matchup_score = self._pairwise_matchup_score(plan.tournaments)
+        plan.month_balance_score = self._month_balance_score(expected_per_month)
         if collisions:
             plan.arena_counts["_age_group_overlap_collisions"] = len(collisions)
             self._collisions = collisions
@@ -629,25 +635,73 @@ class SeasonPlanner:
             counts[tournament.arena] = counts.get(tournament.arena, 0) + 1
         return counts
 
-    @staticmethod
-    def _diversity_score(tournaments: Sequence[Tournament]) -> float:
-        """A simple diversity score: average fraction of *new* co-participants
-        each team encounters across the season (1.0 = every grouping is novel).
+    def _diversity_score(self, tournaments: Sequence[Tournament]) -> float:
+        """Pairwise-matchup diversity score grounded in `_opponent_history`.
+
+        Reworked from the original co-attendance-based metric to measure
+        actual scheduled matchups rather than mere tournament groupings:
+        the fraction of all scheduled pairwise games (across `tournaments`)
+        that are *first-time* pairings, i.e. the only time that exact pair
+        of teams has been scheduled to play each other this season
+        (1.0 = every scheduled game is a fresh matchup; lower values
+        indicate more repeat matchups). This is equivalent to
+        `_pairwise_matchup_score` and the two are kept in sync — see that
+        method for the precise definition.
         """
-        grouped_with: Dict[str, Set[str]] = {}
+        return self._pairwise_matchup_score(tournaments)
+
+    @staticmethod
+    def _pairwise_matchup_score(tournaments: Sequence[Tournament]) -> float:
+        """Fraction of scheduled matchups that are first-time pairings.
+
+        Walks every `Game` across `tournaments` in order, building up a
+        running per-pair match count (keyed by `frozenset` of team labels —
+        equivalent to what `_opponent_history` accumulates over a full
+        season) and counts a game as a "first-time pairing" when it's the
+        first scheduled meeting between that exact pair of teams.
+
+        Returns `novel_pairings / total_games` rounded to 3 decimals
+        (1.0 = every scheduled game is a fresh matchup; lower values mean
+        more repeat matchups). Returns `0.0` when no games were scheduled.
+        """
+        seen_pairs: Dict[frozenset, int] = {}
         novel_total = 0
-        encounter_total = 0
+        game_total = 0
 
         for tournament in tournaments:
-            labels = [team.label for team in tournament.teams]
-            for team in tournament.teams:
-                seen = grouped_with.setdefault(team.label, set())
-                others = [label for label in labels if label != team.label]
-                novel = [label for label in others if label not in seen]
-                novel_total += len(novel)
-                encounter_total += len(others)
-                seen.update(others)
+            for game in tournament.games:
+                if game.home is None or game.away is None:
+                    continue
+                pair = frozenset((game.home.label, game.away.label))
+                game_total += 1
+                if pair not in seen_pairs:
+                    novel_total += 1
+                seen_pairs[pair] = seen_pairs.get(pair, 0) + 1
 
-        if encounter_total == 0:
+        if game_total == 0:
             return 0.0
-        return round(novel_total / encounter_total, 3)
+        return round(novel_total / game_total, 3)
+
+    def _month_balance_score(self, expected_per_month: float) -> float:
+        """Score how evenly tournaments are spread across the season's months.
+
+        Grounded in `_month_counts` (populated during `build_plan`):
+        computes, for every month that hosted at least one tournament, how
+        far its actual count deviates from `expected_per_month`, averages
+        those deviations (as a fraction of the expected value), and
+        converts that into a `0..1` balance score where `1.0` means every
+        month carried exactly its expected share and lower values indicate
+        more uneven month-to-month distribution.
+
+        Returns `0.0` when there is no expected load to compare against or
+        no months were recorded.
+        """
+        if expected_per_month <= 0 or not self._month_counts:
+            return 0.0
+
+        deviation_total = 0.0
+        for count in self._month_counts.values():
+            deviation_total += abs(count - expected_per_month) / expected_per_month
+
+        avg_deviation = deviation_total / len(self._month_counts)
+        return round(max(0.0, 1.0 - avg_deviation), 3)

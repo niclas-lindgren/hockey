@@ -31,7 +31,7 @@ tags:
   - Files: tournament_scheduler/season_planner.py
   - Approach: Replace or extend `_pick_least_recently_grouped` in `_select_participants` with a selection that, among otherwise-eligible candidate teams, prefers the subset minimizing total repeat-matchup count per `_opponent_history` (falling back to the existing least-recently-grouped tie-break when opponent history is equal), so that "avoid repeat matchups where alternatives exist" is enforced directly at selection time rather than only measured after the fact.
 
-- [ ] Replace the aggregate diversity score with a pairwise-matchup + month-balance metric
+- [x] Reworked _diversity_score to be grounded in _opponent_history (fraction of scheduled pairwise games that are first-time pairings) via a new _pairwise_matchup_score helper, added _month_balance_score (derived from _month_counts vs. expected per-month average), added pairwise_matchup_score and month_balance_score fields to SeasonPlan in models.py, set all three on the plan in build_plan, and updated print_diversity_summary in rich_output.py to render both new figures alongside the existing arena-count summary. — 2026-06-08
   - Files: tournament_scheduler/season_planner.py, tournament_scheduler/models.py, tournament_scheduler/utils/rich_output.py
   - Approach: Rework `_diversity_score` to compute a metric grounded in `_opponent_history` (e.g. fraction of scheduled matchups that are first-time pairings, or average repeat count per pair) plus a month-balance figure derived from `_month_counts`, store both on `SeasonPlan` (extending the existing `diversity_score` field / adding a `month_balance_score` field in models.py), and update `print_diversity_summary` in rich_output.py to render both figures so they're visible in console output alongside the existing arena-count summary.
 
@@ -75,4 +75,11 @@ LESSONS: _pick_spread_dates runs before the real age-group/participant assignmen
 **Findings:** Full suite (82 passed, 1 skipped) passes; selection now prefers candidate subsets that minimize actual repeat matchups before falling back to mere co-attendance history.
 LESSONS: When extending greedy selection heuristics with a new primary criterion, insert it as the first element of the existing sort-key tuple rather than replacing the tuple — this preserves all prior tie-break behavior for free and keeps the diff minimal.
 **Files:** tournament_scheduler/season_planner.py (+17/-4)
+**Commit:** d4dc3a0 (hockey)
+
+### 2026-06-08 — Reworked _diversity_score to be grounded in _opponent_history (fraction of scheduled pairwise games that are first-time pairings) via a new _pairwise_matchup_score helper, added _month_balance_score (derived from _month_counts vs. expected per-month average), added pairwise_matchup_score and month_balance_score fields to SeasonPlan in models.py, set all three on the plan in build_plan, and updated print_diversity_summary in rich_output.py to render both new figures alongside the existing arena-count summary.
+**Rationale:** Kept plan.diversity_score assigned (now delegating to _pairwise_matchup_score) for backward compatibility with any code/tests reading that field, while exposing the new metric explicitly as pairwise_matchup_score per the plan's Approach — avoids a breaking rename while still grounding the score in real opponent history rather than co-attendance.
+**Findings:** Full suite (82 passed, 1 skipped) passes; new fields populate correctly and render in the Rich console summary panel in Norwegian alongside existing metrics.
+LESSONS: When reworking a scored metric that's read elsewhere (e.g. plan.diversity_score), keep the old field assigned via delegation to the new computation rather than removing it — preserves compatibility for any downstream readers/tests while still satisfying the 'rework' requirement.
+**Files:** tournament_scheduler/models.py (+10/-0), tournament_scheduler/season_planner.py (+86/-14), tournament_scheduler/utils/rich_output.py (+8/-0)
 **Commit:** [pending — fill after commit]

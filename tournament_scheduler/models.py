@@ -136,6 +136,16 @@ class SeasonPlan:
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     diversity_score: float = 0.0
+    # Fraction of scheduled matchups (pairwise team-vs-team games) that are
+    # first-time pairings, grounded in actual `_opponent_history` counts
+    # rather than mere tournament co-attendance (1.0 = every scheduled game
+    # is a fresh matchup; lower values indicate more repeat matchups).
+    pairwise_matchup_score: float = 0.0
+    # How evenly tournaments are spread across the season's months: 1.0
+    # means every month carries exactly its expected share of the season's
+    # tournament load; lower values indicate more uneven month-to-month
+    # distribution (derived from `_month_counts` vs. the expected average).
+    month_balance_score: float = 0.0
     # Maps arena/host-club name -> number of tournaments scheduled there
     arena_counts: Dict[str, int] = field(default_factory=dict)
 

@@ -322,6 +322,14 @@ class TournamentOutput:
             f"Mangfoldscore (andel nye lagkonstellasjoner): {plan.diversity_score:.2f}\n",
             style="green"
         )
+        summary_text.append(
+            f"Kampmangfold (andel ferske motstanderpar): {plan.pairwise_matchup_score:.2f}\n",
+            style="green"
+        )
+        summary_text.append(
+            f"Månedsbalanse (jevn fordeling over sesongen): {plan.month_balance_score:.2f}\n",
+            style="green"
+        )
 
         if plan.arena_counts:
             summary_text.append("\nTurneringer per arena:\n", style="bold")
