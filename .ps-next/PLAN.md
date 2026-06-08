@@ -30,7 +30,7 @@
   - Files: tournament_scheduler/excel/plan_exporter.py (new), tournament_scheduler/excel/tournament_reader.py
   - Approach: Add a `SeasonPlanExporter` (sibling to the read-only `ExcelTournamentReader` in tournament_scheduler/excel/tournament_reader.py, which currently only loads workbooks via `openpyxl.load_workbook(data_only=True)`) that uses `openpyxl.Workbook()` to write (a) a season-overview sheet with one row per tournament — date, weekday, age group/gender, arena/venue, participating teams — and (b) a per-tournament sheet (or grouped block) listing that tournament's full game schedule (home/away teams + parallel slot), and saves to a user-specified `.xlsx` path.
 
-- [ ] Add console rendering for the season overview, per-tournament schedules, and matchup-diversity metrics to TournamentOutput
+- [x] Added print_season_overview, print_tournament_schedule, and print_diversity_summary methods to TournamentOutput in utils/rich_output.py, following the existing Rich Table/Panel rendering style (box.ROUNDED tables with bold magenta headers, box.DOUBLE summary panels), with Norwegian labels, so a SeasonPlan and its per-tournament round-robin schedules and diversity metrics are fully reviewable in the console before export. — 2026-06-08
   - Files: tournament_scheduler/utils/rich_output.py
   - Approach: Add `print_season_overview(plan: SeasonPlan)` (one row per tournament: date, age group/gender, arena, location), `print_tournament_schedule(tournament: Tournament)` (participating teams + full round-robin game list grouped by parallel slot/round), and `print_diversity_summary(plan: SeasonPlan)` methods to the existing `TournamentOutput` class (utils/rich_output.py), following the Rich `Table`-based rendering style of `print_conflict_table`/`print_available_dates`, so the plan is fully reviewable in the console before export.
 
@@ -102,4 +102,11 @@ LESSONS: none
 **Findings:** Functionally verified end-to-end by creating a temporary venv with openpyxl+rich installed (since they're missing from this environment), exporting a 2-tournament SeasonPlan to a real .xlsx, and re-reading it back with openpyxl — confirmed correct overview rows, correct per-tournament sheet titles/content, Norwegian weekday names, and round-robin game listings with 1-based parallel-slot display.
 LESSONS: openpyxl/rich are not installed in the base environment — when a task needs functional verification of openpyxl-dependent code, create a throwaway venv (python3 -m venv /tmp/x && /tmp/x/bin/pip install openpyxl rich) and run the smoke test with that interpreter rather than relying on ast.parse alone.
 **Files:** tournament_scheduler/excel/plan_exporter.py (+175)
+**Commit:** 6e11109 (hockey)
+
+### 2026-06-08 — Added print_season_overview, print_tournament_schedule, and print_diversity_summary methods to TournamentOutput in utils/rich_output.py, following the existing Rich Table/Panel rendering style (box.ROUNDED tables with bold magenta headers, box.DOUBLE summary panels), with Norwegian labels, so a SeasonPlan and its per-tournament round-robin schedules and diversity metrics are fully reviewable in the console before export.
+**Rationale:** Used TYPE_CHECKING-guarded imports for SeasonPlan/Tournament to avoid a circular import between rich_output.py and models.py while still getting type-hint clarity; matched column styles/colors and box styles from print_conflict_table/print_available_dates/print_summary for visual consistency.
+**Findings:** Smoke-tested all three methods end-to-end with a 2-tournament SeasonPlan in the throwaway openpyxl/rich venv: season overview table, per-tournament round-robin game table (grouped/visible by parallel slot), and diversity summary panel (with arena counts and overlap-collision status) all rendered correctly with no errors.
+LESSONS: none
+**Files:** tournament_scheduler/utils/rich_output.py (+128/-1)
 **Commit:** [pending — fill after commit]

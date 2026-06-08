@@ -1,13 +1,16 @@
 """Rich-based output formatting for tournament scheduler."""
 
 from datetime import date
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 from rich.text import Text
+
+if TYPE_CHECKING:
+    from tournament_scheduler.models import SeasonPlan, Tournament
 
 console = Console()
 
@@ -222,3 +225,127 @@ class TournamentOutput:
             for start, end in slots:
                 console.print(f"  • {start}-{end}")
             console.print()
+
+    @staticmethod
+    def print_season_overview(plan: "SeasonPlan") -> None:
+        """Print a season overview table — one row per proposed tournament.
+
+        Args:
+            plan: The proposed SeasonPlan
+        """
+        if not plan.tournaments:
+            console.print(Panel(
+                "[bold red]Ingen turneringer foreslått[/bold red]",
+                title="✗ Ingen sesongplan",
+                border_style="red",
+                box=box.DOUBLE
+            ))
+            return
+
+        table = Table(
+            title=f"📅 Sesongoversikt ({len(plan.tournaments)} turneringer)",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold magenta"
+        )
+        table.add_column("Dato", style="cyan", no_wrap=True)
+        table.add_column("Aldersgruppe", style="green")
+        table.add_column("Arena", style="yellow")
+        table.add_column("Vertsklubb", style="blue")
+        table.add_column("Lag", style="white")
+
+        for tournament in sorted(plan.tournaments, key=lambda t: t.date):
+            table.add_row(
+                tournament.date.strftime('%Y-%m-%d'),
+                tournament.age_group,
+                tournament.arena,
+                tournament.host_club or "-",
+                ", ".join(team.label for team in tournament.teams)
+            )
+
+        console.print(table)
+
+    @staticmethod
+    def print_tournament_schedule(tournament: "Tournament") -> None:
+        """Print a single tournament's participating teams and full game schedule.
+
+        Games are grouped by parallel slot/round so the round-robin layout
+        within the tournament is easy to review.
+
+        Args:
+            tournament: The Tournament to render
+        """
+        console.print(
+            f"\n[bold cyan]{tournament.date.strftime('%Y-%m-%d')} — "
+            f"{tournament.age_group} — {tournament.arena}[/bold cyan]"
+        )
+        console.print(
+            f"[white]Deltakende lag:[/white] "
+            f"{', '.join(team.label for team in tournament.teams)}\n"
+        )
+
+        if not tournament.games:
+            console.print("[dim]Ingen kamper generert ennå[/dim]")
+            return
+
+        table = Table(
+            title=f"🏒 Kampoppsett ({len(tournament.games)} kamper)",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold magenta"
+        )
+        table.add_column("Kamp #", style="dim", no_wrap=True)
+        table.add_column("Parallellbane", style="cyan", no_wrap=True)
+        table.add_column("Hjemmelag", style="green")
+        table.add_column("Bortelag", style="yellow")
+
+        for game_number, game in enumerate(tournament.games, start=1):
+            table.add_row(
+                str(game_number),
+                str(game.parallel_slot + 1),
+                game.home.label,
+                game.away.label
+            )
+
+        console.print(table)
+
+    @staticmethod
+    def print_diversity_summary(plan: "SeasonPlan") -> None:
+        """Print a summary panel of matchup-diversity metrics for a season plan.
+
+        Args:
+            plan: The proposed SeasonPlan
+        """
+        summary_text = Text()
+        summary_text.append(f"Antall turneringer: {len(plan.tournaments)}\n", style="bold")
+        summary_text.append(
+            f"Mangfoldscore (andel nye lagkonstellasjoner): {plan.diversity_score:.2f}\n",
+            style="green"
+        )
+
+        if plan.arena_counts:
+            summary_text.append("\nTurneringer per arena:\n", style="bold")
+            for arena, count in sorted(plan.arena_counts.items()):
+                if arena.startswith("_"):
+                    continue
+                summary_text.append(f"  • {arena}: {count} turnering(er)\n", style="cyan")
+
+        collisions = plan.arena_counts.get("_age_group_overlap_collisions", 0)
+        if collisions:
+            summary_text.append(
+                f"\n⚠ {collisions} uunngåelig(e) kollisjon(er) mellom overlappende "
+                "aldersgrupper samme helg\n",
+                style="red"
+            )
+        else:
+            summary_text.append(
+                "\n✓ Ingen kollisjoner mellom overlappende aldersgrupper\n",
+                style="green"
+            )
+
+        console.print(Panel(
+            summary_text,
+            title="Mangfold og fordeling",
+            border_style="cyan",
+            box=box.DOUBLE
+        ))
