@@ -437,7 +437,10 @@ def run_search(search_params):
 def collect_roster_entries():
     """Prompt the user for club/team roster entries (e.g. "Jar 1, Jar 2 - U10").
 
-    Returns a `Roster` of `Team` objects built from the entered lines.
+    Returns ``(Roster, federation_defaults)`` where ``federation_defaults`` is
+    the dict under the ``federationDefaults`` key in an extended input file
+    (contains ``parallelGames`` and ``maxTeamsPerTournament`` sub-dicts), or an
+    empty dict when roster is entered manually or a flat file is used.
     """
     from tournament_scheduler.models import Team, Roster
     from tournament_scheduler.club_registry import CLUB_REGISTRY
@@ -447,7 +450,7 @@ def collect_roster_entries():
     print("LAGTROPP FOR SESONGEN")
     print("-" * 60)
     print("\nDu kan laste lagtroppen fra en fil (YAML/JSON), f.eks.:")
-    print('  {"Jar": {"Jar 1": "U10", "Jar 2": "U11"}}')
+    print('  {"clubs": {"Jar": {"U10": ["Jar 1"]}}, "federationDefaults": {...}}')
     print("La stå tomt for å skrive inn lagene manuelt i stedet.\n")
 
     while True:
@@ -456,7 +459,7 @@ def collect_roster_entries():
             break
 
         try:
-            roster = RosterLoader.from_file(roster_file)
+            roster, federation_defaults = RosterLoader.load_with_defaults(roster_file)
         except RosterConfigError as exc:
             print(f"  {exc}")
             retry = ask_text(
@@ -471,7 +474,9 @@ def collect_roster_entries():
             f"  Lastet inn {len(roster.teams)} lag fordelt på {len(roster.clubs())} klubber "
             f"og {len(roster.age_groups())} aldersgrupper."
         )
-        return roster
+        if federation_defaults:
+            print("  Forbundsstandarder lastet fra fil.")
+        return roster, federation_defaults
 
     print("\nSkriv inn ett lag per linje på formatet: <Klubb> <Lagnavn> - <Aldersgruppe>")
     print("Eksempel: Jar 1 - U10")
@@ -502,16 +507,16 @@ def collect_roster_entries():
 
     if not teams:
         print("\nIngen lag lagt til.")
-        return None
+        return None, {}
 
-    return Roster(teams=teams)
+    return Roster(teams=teams), {}
 
 
 def collect_season_plan_params():
     """Collect parameters for generating a full season schedule."""
     from tournament_scheduler.models import Roster
 
-    roster = collect_roster_entries()
+    roster, federation_defaults = collect_roster_entries()
     if not roster:
         return None
 
@@ -528,23 +533,12 @@ def collect_season_plan_params():
     season_start = ask_date("Sesongstart", default_start)
     season_end = ask_date("Sesongslutt", default_end)
 
-    print("\n" + "-" * 60)
-    print("PARALLELLE KAMPER")
-    print("-" * 60)
-    print("\nDu kan oppgi en konfigurasjonsfil for antall parallelle kamper per aldersgruppe")
-    print("(JSON, f.eks. {\"U10\": {\"parallelGames\": 3}}). La stå tomt for å bruke forbundets standardverdier.")
-    print("\nForbundets maksimumsgrenser (NIHF):")
-    print("  U7/U8: 3 baner  |  U9–U12: 2 baner  |  JU10–JU13: 2 baner")
-    print("  Merk: JU12 og U12 er bekreftet til maks 2 baner per forbundets regler.")
-    print("  Hvis du overstyrer disse grensene, vil du få en advarsel.")
-    parallel_games_config = ask_text("Konfigurasjonsfil for parallelle kamper", default="", required=False)
-
     return {
         'season_plan': True,
         'roster': roster,
         'season_start': season_start.strftime('%Y-%m-%d'),
         'season_end': season_end.strftime('%Y-%m-%d'),
-        'parallel_games_config': parallel_games_config or None,
+        'federation_defaults': federation_defaults,
     }
 
 
@@ -552,7 +546,7 @@ def run_season_plan(params):
     """Generate, render, and optionally export a full-season tournament plan."""
     from tournament_scheduler.club_registry import known_clubs, missing_clubs, build_data_source
     from tournament_scheduler.season_planner import SeasonPlanner
-    from tournament_scheduler.season_config import ParallelGamesConfig, SeasonConfigError
+
 
     roster = params['roster']
     season_start = DateParser.parse(params['season_start'])
@@ -567,16 +561,9 @@ def run_season_plan(params):
         f"og {len(roster.age_groups())} aldersgrupper"
     )
 
-    parallel_games_for_age_group = {}
-    if params.get('parallel_games_config'):
-        try:
-            config = ParallelGamesConfig.from_file(params['parallel_games_config'])
-        except SeasonConfigError as exc:
-            TournamentOutput.print_error(str(exc))
-            return
-        parallel_games_for_age_group = {
-            age_group: config.parallel_games_for(age_group) for age_group in roster.age_groups()
-        }
+    federation_defaults = params.get('federation_defaults') or {}
+    parallel_games_for_age_group = federation_defaults.get('parallelGames', {})
+    max_teams_per_tournament_for_age_group = federation_defaults.get('maxTeamsPerTournament', {})
 
     sources = []
     club_arenas = {}
@@ -613,6 +600,7 @@ def run_season_plan(params):
         roster=roster,
         club_arenas=club_arenas,
         parallel_games_for_age_group=parallel_games_for_age_group,
+        max_teams_per_tournament_for_age_group=max_teams_per_tournament_for_age_group,
     )
 
     TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")

@@ -9,8 +9,8 @@ from tournament_scheduler.roster_loader import RosterConfigError, RosterLoader
 from tournament_scheduler.season_config import _YAML_AVAILABLE
 
 VALID_CONFIG = {
-    "Jar": {"Jar 1": "U10", "Jar 2": "U11"},
-    "Kongsberg": {"Kongsberg 1": "U10"},
+    "Jar": {"U10": ["Jar 1", "Jar 2"], "U11": ["Jar 1"]},
+    "Kongsberg": {"U10": ["Kongsberg 1"]},
 }
 
 
@@ -27,11 +27,20 @@ class TestFromDict:
         roster = RosterLoader.from_dict(VALID_CONFIG)
 
         assert isinstance(roster, Roster)
-        assert len(roster.teams) == 3
+        assert len(roster.teams) == 4
         assert Team(club="Jar", label="Jar 1", age_group="U10") in roster.teams
-        assert Team(club="Jar", label="Jar 2", age_group="U11") in roster.teams
+        assert Team(club="Jar", label="Jar 2", age_group="U10") in roster.teams
+        assert Team(club="Jar", label="Jar 1", age_group="U11") in roster.teams
         assert Team(club="Kongsberg", label="Kongsberg 1", age_group="U10") in roster.teams
         assert roster.clubs() == ["Jar", "Kongsberg"]
+
+    def test_same_label_in_different_age_groups_is_allowed(self):
+        config = {"Sandefjord": {"U10": ["Sandefjord 1"], "U11": ["Sandefjord 1"]}}
+        roster = RosterLoader.from_dict(config)
+
+        assert len(roster.teams) == 2
+        assert Team(club="Sandefjord", label="Sandefjord 1", age_group="U10") in roster.teams
+        assert Team(club="Sandefjord", label="Sandefjord 1", age_group="U11") in roster.teams
 
     def test_top_level_must_be_a_mapping(self):
         with pytest.raises(RosterConfigError) as exc_info:
@@ -45,7 +54,7 @@ class TestFromDict:
 
         assert "tom" in str(exc_info.value)
 
-    def test_club_with_no_teams_is_rejected(self):
+    def test_club_with_no_age_groups_is_rejected(self):
         with pytest.raises(RosterConfigError) as exc_info:
             RosterLoader.from_dict({"Jar": {}})
 
@@ -54,42 +63,45 @@ class TestFromDict:
 
     def test_club_entry_must_be_a_mapping(self):
         with pytest.raises(RosterConfigError) as exc_info:
-            RosterLoader.from_dict({"Jar": ["Jar 1"]})
+            RosterLoader.from_dict({"Jar": ["U10"]})
+
+        assert "Jar" in str(exc_info.value)
+
+    def test_age_group_value_must_be_a_list(self):
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict({"Jar": {"U10": "Jar 1"}})
+
+        assert "Jar" in str(exc_info.value)
+
+    def test_empty_label_list_is_rejected(self):
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict({"Jar": {"U10": []}})
 
         assert "Jar" in str(exc_info.value)
 
     def test_blank_team_label_is_rejected(self):
         with pytest.raises(RosterConfigError) as exc_info:
-            RosterLoader.from_dict({"Jar": {"  ": "U10"}})
+            RosterLoader.from_dict({"Jar": {"U10": ["  "]}})
 
         assert "Lagnavn" in str(exc_info.value)
 
     def test_blank_age_group_is_rejected(self):
         with pytest.raises(RosterConfigError) as exc_info:
-            RosterLoader.from_dict({"Jar": {"Jar 1": "  "}})
+            RosterLoader.from_dict({"Jar": {"  ": ["Jar 1"]}})
 
         assert "aldersgruppe" in str(exc_info.value).lower()
 
     def test_unknown_age_group_is_rejected(self):
         with pytest.raises(RosterConfigError) as exc_info:
-            RosterLoader.from_dict({"Jar": {"Jar 1": "U99"}})
+            RosterLoader.from_dict({"Jar": {"U99": ["Jar 1"]}})
 
         message = str(exc_info.value)
         assert "U99" in message
         assert "Ukjent aldersgruppe" in message
 
-    def test_duplicate_label_within_same_club_is_rejected(self):
-        # Use a raw dict literal trick is impossible (dict keys overwrite); instead
-        # build a config where the same label appears under two different clubs to
-        # exercise the cross-club duplicate path, and rely on from_dict's own
-        # bookkeeping for within-club duplicates being structurally impossible via
-        # plain dict construction — covered by the cross-club case below as the
-        # representative duplicate-label scenario.
+    def test_duplicate_label_within_same_club_and_age_group_is_rejected(self):
         with pytest.raises(RosterConfigError) as exc_info:
-            RosterLoader.from_dict({
-                "Jar": {"Jar 1": "U10"},
-                "Kongsberg": {"Jar 1": "U11"},
-            })
+            RosterLoader.from_dict({"Jar": {"U10": ["Jar 1", "Jar 1"]}})
 
         message = str(exc_info.value)
         assert "Jar 1" in message
@@ -113,7 +125,7 @@ class TestFromFile:
         roster = RosterLoader.from_file(path)
 
         assert isinstance(roster, Roster)
-        assert len(roster.teams) == 3
+        assert len(roster.teams) == 4
         assert roster.clubs() == ["Jar", "Kongsberg"]
 
     def test_unparseable_json_raises_norwegian_message(self, tmp_path):
@@ -128,10 +140,14 @@ class TestFromFile:
     def test_valid_yaml_file_matches_equivalent_json(self, tmp_path):
         yaml_text = (
             "Jar:\n"
-            "  Jar 1: U10\n"
-            "  Jar 2: U11\n"
+            "  U10:\n"
+            "    - Jar 1\n"
+            "    - Jar 2\n"
+            "  U11:\n"
+            "    - Jar 1\n"
             "Kongsberg:\n"
-            "  Kongsberg 1: U10\n"
+            "  U10:\n"
+            "    - Kongsberg 1\n"
         )
         yaml_path = _write(tmp_path, "roster.yaml", yaml_text)
         json_path = _write(tmp_path, "roster.json", json.dumps(VALID_CONFIG))
@@ -152,7 +168,7 @@ class TestFromFile:
 
     @pytest.mark.skipif(_YAML_AVAILABLE, reason="only relevant when pyyaml is missing")
     def test_yaml_without_pyyaml_raises_norwegian_message(self, tmp_path):
-        path = _write(tmp_path, "roster.yaml", "Jar:\n  Jar 1: U10\n")
+        path = _write(tmp_path, "roster.yaml", "Jar:\n  U10:\n    - Jar 1\n")
 
         with pytest.raises(RosterConfigError) as exc_info:
             RosterLoader.from_file(path)

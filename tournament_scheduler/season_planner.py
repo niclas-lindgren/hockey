@@ -58,6 +58,7 @@ class SeasonPlanner:
         club_arenas: Dict[str, str],
         parallel_games_for_age_group: Optional[Dict[str, int]] = None,
         target_tournament_count: Optional[int] = None,
+        max_teams_per_tournament_for_age_group: Optional[Dict[str, int]] = None,
     ):
         """Initialize the planner.
 
@@ -75,12 +76,17 @@ class SeasonPlanner:
                 tournaments to propose (default: spread between
                 `MIN_TOURNAMENTS` and `MAX_TOURNAMENTS` based on how many
                 free dates are available).
+            max_teams_per_tournament_for_age_group: Optional mapping of age
+                group -> maximum number of teams invited to a single
+                tournament. When set for an age group, takes precedence over
+                the parallel-games heuristic in `_max_teams_for`.
         """
         self.scheduler = scheduler
         self.roster = roster
         self.club_arenas = club_arenas
         self.parallel_games_for_age_group = parallel_games_for_age_group or {}
         self.target_tournament_count = target_tournament_count
+        self.max_teams_per_tournament_for_age_group = max_teams_per_tournament_for_age_group or {}
 
         # Tracks, per team, the set of other teams it has already been
         # grouped with in a tournament this season — used by the
@@ -382,16 +388,17 @@ class SeasonPlanner:
         return self._pick_least_recently_grouped(candidates, max_teams)
 
     def _max_teams_for(self, age_group: str) -> int:
-        """Derive a practical round-robin subset size for an age group.
+        """Return the maximum number of teams to invite to a single tournament.
 
-        Driven by the configured parallel-games count where available
-        (more parallel sheets/timeslots support more teams in a round-robin
-        within a single weekend), otherwise falls back to a sensible default.
+        Explicit per-age-group config (from ``maxTeamsPerTournament`` in
+        input.json) takes precedence.  Falls back to a heuristic derived from
+        the parallel-games count, then to ``DEFAULT_MAX_TEAMS_PER_TOURNAMENT``.
         """
+        explicit = self.max_teams_per_tournament_for_age_group.get(age_group)
+        if explicit is not None and explicit > 0:
+            return explicit
         parallel_games = self.parallel_games_for_age_group.get(age_group)
         if parallel_games and parallel_games > 0:
-            # Heuristic: each parallel slot can comfortably support a couple
-            # of extra teams in a single round-robin weekend.
             return max(4, min(DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games - 1, parallel_games * 3))
         return DEFAULT_MAX_TEAMS_PER_TOURNAMENT
 

@@ -37,13 +37,13 @@ except ImportError:  # pragma: no cover - exercised only when pyyaml is missing
 # group is absent from the user's config file *and* as the upper bound that
 # triggers a warning when a config file specifies a higher value.
 FEDERATION_PARALLEL_GAMES_DEFAULTS: Dict[str, int] = {
-    "U7": 3,
-    "U8": 3,
-    "U9": 2,
-    "U10": 2,
+    "U7": 4,
+    "U8": 4,
+    "U9": 3,
+    "U10": 3,
     "U11": 2,
     "U12": 2,
-    "JU10": 2,
+    "JU10": 3,
     "JU11": 2,
     "JU12": 2,
     "JU13": 2,

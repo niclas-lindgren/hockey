@@ -1,5 +1,14 @@
 ---
 date: 2026-06-08
+status: done
+feature: "Federation parallel-games defaults — bake in federation-mandated parallelGames defaults per age group"
+goal: "Federation parallel-games defaults — bake in the federation-mandated parallelGames defaults per age group (e.g. JU12: 2 baner, not 3) so the config starts correct and violations are flagged. At least one club was running JU12 on three rinks in breach of the rules. Defaults should be documented and enforced as warnings when overridden, so organizers don't accidentally misconfigure a new season."
+tags:
+  - ps-next
+---
+
+---
+date: 2026-06-08
 status: in-progress
 feature: "Federation parallel-games defaults — bake in federation-mandated parallelGames defaults per age group"
 goal: "Federation parallel-games defaults — bake in the federation-mandated parallelGames defaults per age group (e.g. JU12: 2 baner, not 3) so the config starts correct and violations are flagged."
@@ -84,4 +93,22 @@ LESSONS: print_warning in rich_output.py is a static method on TournamentOutput 
 **Findings:** All 108 tests still pass. Docstring and CLI help now list per-age-group defaults and warn about overrides.
 LESSONS: none
 **Files:** tournament_scheduler/season_config.py (+26/-2), tournament_scheduler_interactive.py (+6/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** ecd0a28 (hockey)
+
+## Verification Report
+**Date:** 2026-06-08
+
+| Criterion | Verdict | Notes |
+|-----------|---------|-------|
+| When ParallelGamesConfig.from_dict is called with no entries, resolved values match FEDERATION_PARALLEL_GAMES_DEFAULTS for all age groups | PASS | Implemented in season_config.py; test_empty_config_returns_federation_defaults_for_all_age_groups confirms this |
+| When JU12 parallelGames=3, loading produces a warning containing 'JU12' and the federation limit | PASS | _emit_federation_warning helper calls print_warning with Norwegian message; test_exceeding_ju12_limit_triggers_print_warning verifies content |
+| When JU12 parallelGames=2, no warning is emitted for that age group | PASS | test_compliant_config_produces_no_warning and test_empty_config_produces_no_warning confirm silence |
+| The pytest test suite passes with new tests covering default-fallback, over-limit warning, and compliant-no-warning cases | PASS | 108 tests pass (1 skipped); 14 new tests in tests/test_season_config.py cover all required cases |
+| ParallelGamesConfig docstring and interactive CLI help text contain federation-mandated parallelGames limits per age group | PASS | Docstring has table of all 10 age groups; CLI displays Norwegian text with NIHF limits before config file input |
+
+**Shell checks (ps-verify-plan):** all passed
+```
+no embedded shell checks found
+```
+**Git history:** 5 tasks with matching commits / 5 tasks total
+**Tests:** 108 passed, 1 skipped / not failed
