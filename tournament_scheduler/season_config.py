@@ -19,8 +19,9 @@ files can be loaded and a clear Norwegian-language error is raised when a
 
 import json
 import os
+import warnings
 from dataclasses import dataclass
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 try:
     import yaml  # type: ignore
@@ -31,14 +32,29 @@ except ImportError:  # pragma: no cover - exercised only when pyyaml is missing
     _YAML_AVAILABLE = False
 
 
-# Sensible defaults applied when an age group is not present in the config file.
+# Federation-mandated maximum parallel games per age group (NIHF rules).
+# JU12 and U12 are confirmed at 2 rinks; younger groups may use up to 3 rinks
+# simultaneously.  These values act as both the fallback default when an age
+# group is absent from the user's config file *and* as the upper bound that
+# triggers a warning when a config file specifies a higher value.
+FEDERATION_PARALLEL_GAMES_DEFAULTS: Dict[str, int] = {
+    "U7": 3,
+    "U8": 3,
+    "U9": 2,
+    "U10": 2,
+    "U11": 2,
+    "U12": 2,
+    "JU10": 2,
+    "JU11": 2,
+    "JU12": 2,
+    "JU13": 2,
+}
+
+# Kept for backwards-compatibility; prefer FEDERATION_PARALLEL_GAMES_DEFAULTS.
 DEFAULT_PARALLEL_GAMES = 2
 
 # Known age groups (boys + girls/"jenter") — used to validate config keys.
-KNOWN_AGE_GROUPS = {
-    "U7", "U8", "U9", "U10", "U11", "U12",
-    "JU10", "JU11", "JU12", "JU13",
-}
+KNOWN_AGE_GROUPS = set(FEDERATION_PARALLEL_GAMES_DEFAULTS.keys())
 
 
 class SeasonConfigError(ValueError):
@@ -92,6 +108,7 @@ class ParallelGamesConfig:
             )
 
         settings: Dict[str, AgeGroupSettings] = {}
+        violations: List[str] = []
         for age_group, raw_value in data.items():
             if age_group not in KNOWN_AGE_GROUPS:
                 raise SeasonConfigError(
@@ -107,7 +124,22 @@ class ParallelGamesConfig:
                     f"{parallel_games}. Verdien må være et positivt heltall."
                 )
 
+            fed_max = FEDERATION_PARALLEL_GAMES_DEFAULTS.get(age_group)
+            if fed_max is not None and parallel_games > fed_max:
+                violations.append(
+                    f"  {age_group}: konfigurert {parallel_games}, forbundsmaksimum {fed_max}"
+                )
+
             settings[age_group] = AgeGroupSettings(parallel_games=parallel_games)
+
+        if violations:
+            warnings.warn(
+                "Advarsel: følgende aldersgrupper overskrider forbundets maksimumsgrense "
+                "for antall parallelle kamper (parallelGames):\n"
+                + "\n".join(violations)
+                + "\nKontroller konfigurasjonen for å unngå regelbrudd.",
+                stacklevel=2,
+            )
 
         return cls(settings)
 
@@ -175,17 +207,25 @@ class ParallelGamesConfig:
     def parallel_games_for(self, age_group: str) -> int:
         """Return the configured parallel-games count for an age group.
 
-        Falls back to `DEFAULT_PARALLEL_GAMES` when the age group is not
-        present in the loaded configuration.
+        Falls back to the federation-mandated default for the age group when it
+        is not present in the loaded configuration, or to `DEFAULT_PARALLEL_GAMES`
+        when the age group is not in `FEDERATION_PARALLEL_GAMES_DEFAULTS`.
         """
         settings = self._settings.get(age_group)
         if settings is None:
-            return DEFAULT_PARALLEL_GAMES
+            return FEDERATION_PARALLEL_GAMES_DEFAULTS.get(age_group, DEFAULT_PARALLEL_GAMES)
         return settings.parallel_games
 
     def settings_for(self, age_group: str) -> AgeGroupSettings:
-        """Return the full `AgeGroupSettings` for an age group (with defaults)."""
-        return self._settings.get(age_group, AgeGroupSettings())
+        """Return the full `AgeGroupSettings` for an age group (with defaults).
+
+        When the age group is not explicitly configured the returned object
+        reflects the federation-mandated default for `parallel_games`.
+        """
+        if age_group in self._settings:
+            return self._settings[age_group]
+        fed_default = FEDERATION_PARALLEL_GAMES_DEFAULTS.get(age_group, DEFAULT_PARALLEL_GAMES)
+        return AgeGroupSettings(parallel_games=fed_default)
 
     def configured_age_groups(self) -> Dict[str, AgeGroupSettings]:
         """Return a copy of the explicitly-configured age-group settings."""

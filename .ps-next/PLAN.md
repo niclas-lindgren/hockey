@@ -1,63 +1,59 @@
-# PLAN
+---
+date: 2026-06-08
+status: in-progress
+feature: "Federation parallel-games defaults — bake in federation-mandated parallelGames defaults per age group"
+goal: "Federation parallel-games defaults — bake in the federation-mandated parallelGames defaults per age group (e.g. JU12: 2 baner, not 3) so the config starts correct and violations are flagged."
+tags:
+  - ps-next
+---
 
-**Feature:** Season plan Excel export — produce a shareable Excel workbook (one sheet or summary view per club/team) listing the proposed season's tournament dates, participating teams, and matchup pairings, suitable for distribution to clubs and coaches; reuse `tournament_scheduler/excel/` conventions.
-**Goal:** Season plan Excel export — produce a shareable Excel workbook (one sheet or summary view per club/team) listing the proposed season's tournament dates, participating teams, and matchup pairings, suitable for distribution to clubs and coaches; reuse `tournament_scheduler/excel/` conventions.
-**Backlog-ref:** 5
+# Plan: Federation parallel-games defaults — bake in federation-mandated parallelGames defaults per age group
+**Goal:** Federation parallel-games defaults — bake in the federation-mandated parallelGames defaults per age group (e.g. JU12: 2 baner, not 3) so the config starts correct and violations are flagged. At least one club was running JU12 on three rinks in breach of the rules. Defaults should be documented and enforced as warnings when overridden, so organizers don't accidentally misconfigure a new season.
+**Created:** 2026-06-08
+**Intent:** Replace the single DEFAULT_PARALLEL_GAMES = 2 constant with a per-age-group mapping of federation-mandated maximums, and emit Norwegian-language warnings via print_warning when a config value exceeds the mandate, so organizers are alerted at load time before a misconfigured season plan is generated.
+**Backlog-ref:** 17
 **Constraints:** none
-**Date:** 2026-06-08
-
-## Intent
-Clubs and coaches need a club/team-centric view of the season plan (rather than the existing tournament-centric overview) so each club can see at a glance which dates, opponents, and arenas affect its own teams.
 
 ## Tasks
-- [x] Added _write_club_summary_sheet to SeasonPlanExporter that builds one worksheet per club listing each team's tournament date, opponent(s), host arena, and age group, and wired it into the export flow plus updated the sheet-count test. — 2026-06-08
-  - Files: `tournament_scheduler/excel/plan_exporter.py`
-  - Approach: Derive the per-club view by iterating `SeasonPlan.tournaments`, grouping `Game.home`/`Game.away` entries by `Team.club`, and rendering one row per (team, tournament-date, opponent, arena) tuple; reuse `_format_date`, `_weekday_name`, `_style_header_row`, and `_autosize_columns` for consistent formatting.
+- [x] Added FEDERATION_PARALLEL_GAMES_DEFAULTS dict to season_config.py mapping all 10 KNOWN_AGE_GROUPS to federation-mandated max parallelGames values (U7/U83, others2). Updated parallel_games_for and settings_for to use per-age-group federation defaults instead of the flat DEFAULT_PARALLEL_GAMES fallback. Added warning via warnings.warn in from_dict when a configured value exceeds the federation maximum. — 2026-06-08
+  - Files: tournament_scheduler/season_config.py
+  - Approach: Define a new module-level constant `FEDERATION_PARALLEL_GAMES_DEFAULTS: Dict[str, int]` mapping every key in `KNOWN_AGE_GROUPS` to its federation-mandated maximum; values must be sourced from the actual federation rules (JU12: 2, U12: 2 confirmed; other age groups set to their known or conservative defaults), replacing the single `DEFAULT_PARALLEL_GAMES = 2` constant.
 
-- [x] Refactored sheet-title generation into a shared _unique_sheet_title_from_base helper used by both _unique_sheet_title (tournaments) and a new _unique_club_sheet_title (clubs), reusing _sanitize_sheet_title and _MAX_SHEET_TITLE_LENGTH; added tests covering club-name collisions/truncation and club-summary row content. — 2026-06-08
-  - Files: `tournament_scheduler/excel/plan_exporter.py`
-  - Approach: Reuse `_unique_sheet_title`/`_sanitize_sheet_title` and `_MAX_SHEET_TITLE_LENGTH` (or extract a shared helper if naming differs for club vs. tournament sheets) so club names that collide or exceed the 31-character Excel limit are sanitized and made unique, mirroring the per-tournament sheet logic.
+- [ ] Update ParallelGamesConfig.from_dict to emit a Norwegian-language warning when a configured parallelGames value exceeds the federation default for that age group.
+  - Files: tournament_scheduler/season_config.py, tournament_scheduler/utils/rich_output.py
+  - Approach: In `ParallelGamesConfig.from_dict`, after `_extract_parallel_games` resolves the value and positivity is validated, compare it against `FEDERATION_PARALLEL_GAMES_DEFAULTS[age_group]`; if it exceeds the mandate, call `print_warning` from `rich_output.py` with a Norwegian message identifying the age group, the configured value, and the federation limit (e.g. "Advarsel: JU12 er konfigurert med 3 baner, men forbundet tillater maks 2.").
 
-- [ ] Add a new module-level header/column constant set for the club/team summary view (e.g. `_CLUB_SUMMARY_HEADERS`)
-  - Files: `tournament_scheduler/excel/plan_exporter.py`
-  - Approach: Define column headers (e.g. Date, Weekday, Team, Age group, Opponent, Arena, Host club) alongside the existing `_OVERVIEW_HEADERS`/`_GAMES_HEADERS` constants, following the same naming and Norwegian-language conventions (`_NORWEGIAN_WEEKDAYS`).
+- [ ] Ensure ParallelGamesConfig defaults to FEDERATION_PARALLEL_GAMES_DEFAULTS when no parallelGames value is provided for an age group.
+  - Files: tournament_scheduler/season_config.py
+  - Approach: Update the `AgeGroupSettings` dataclass or the resolution logic in `from_dict` so that when an age group is absent from the user config, the default is drawn from `FEDERATION_PARALLEL_GAMES_DEFAULTS[age_group]` rather than the old `DEFAULT_PARALLEL_GAMES = 2` constant; this ensures any new season config is correct by default without manual intervention.
 
-- [ ] Wire the new club/team summary sheets into `SeasonPlanExporter.export()`
-  - Files: `tournament_scheduler/excel/plan_exporter.py`
-  - Approach: After writing the "Sesongoversikt" overview sheet and per-tournament sheets, iterate `Roster.clubs()` (or the set of clubs derived from `SeasonPlan.tournaments[*].teams`) and call the new club-summary writer for each club, appending sheets to the same workbook returned by `export()`.
+- [ ] Add or extend tests for federation defaults: correct defaults applied, override warning triggered, no warning for compliant configs.
+  - Files: tests/test_season_config.py (new), tests/test_season_planner.py
+  - Approach: Following the pytest patterns in `tests/test_roster_loader.py` and `tests/test_season_planner.py`, write tests that assert: (1) `ParallelGamesConfig.from_dict({})` produces values matching `FEDERATION_PARALLEL_GAMES_DEFAULTS` for all age groups; (2) loading a config with JU12: 3 triggers a `print_warning` call (mock or capture Rich output) containing "JU12" and the federation limit; (3) loading a compliant config (JU12: 2) produces no warning.
 
-- [ ] Add an export option/flag to choose between full workbook and per-club extracts (or confirm a single combined workbook satisfies "shareable per club")
-  - Files: `tournament_scheduler/excel/plan_exporter.py`, `tournament_scheduler/cli/season_command.py`
-  - Approach: Extend `SeasonPlanExporter.export()` (or add a sibling method, e.g. `export_club_summaries`) with an optional parameter controlling whether club-summary sheets are included, and surface this through the existing `--export-excel` CLI wiring in `season_command.py` (and the interactive-menu yes/no export prompt) so users can opt in without breaking the current default export behavior.
+- [ ] Update module docstring and interactive CLI help text to document the per-age-group federation defaults.
+  - Files: tournament_scheduler/season_config.py, tournament_scheduler_interactive.py
+  - Approach: Update the `ParallelGamesConfig` class docstring in `season_config.py` to list the federation-mandated defaults for each age group and explain that overrides above the mandate trigger a warning; update the config input description at `tournament_scheduler_interactive.py` line 535 to note the same information in Norwegian so organizers see the limits inline.
 
-- [ ] Add unit tests covering the per-club/per-team summary sheets
-  - Files: `tests/test_plan_exporter.py`
-  - Approach: Following the `Test*`/`test_*`/plain-`assert` conventions and `FakeScheduler`/`tmp_path` patterns from prior plan_exporter tests, build a small `SeasonPlan` fixture spanning 2+ clubs and assert the exported workbook contains one sheet per club, with correct rows for each team's date/opponent/arena, sanitized/unique sheet titles, and styled+autosized headers.
-
-- [ ] Update README/CLI help text (if present) to document the new club/team summary export
-  - Files: `tournament_scheduler.py` or `tournament_scheduler_interactive.py` (CLI help/menu text), `CLAUDE.md` if export conventions are documented there
-  - Approach: Add a brief description of the new per-club summary sheets to the relevant `--help`/menu prompt strings so users know the exported workbook now includes club-level views, matching the existing Norwegian-language CLI conventions.
-
-## Acceptance Criteria
-- The SeasonPlanExporter produces a new Excel workbook with one sheet per club when given a season plan, where each sheet contains the tournament dates, opponents, and host arenas for all teams from that club.
-- The exported Excel workbook contains a separate worksheet for each unique club in the season plan, with each sheet labeled using the club's name and sanitized to meet Excel sheet title length limits.
-- Each team's information is listed in the club-specific worksheet, showing the tournament date, opponent team name, and host arena for every game in that team's schedule.
-- The exported workbook includes the correct number of sheets matching the total number of unique clubs in the season plan, with no duplicate or missing sheets.
-- The exported Excel file is readable and properly formatted using openpyxl, with headers styled and columns auto-sized to fit content.
+## Notes
+- JU12: 2 baner is a confirmed federation rule; other age-group limits should be confirmed against the actual federation documentation before assigning non-conservative values.
+- The warning is intentionally non-fatal (a warning, not an error) so that a club with a legitimate exemption can still proceed, but the violation is visible in all output.
+- Use `print_warning` from `tournament_scheduler/utils/rich_output.py` for consistency with existing warning output.
+- `KNOWN_AGE_GROUPS` in `season_config.py` already covers all relevant age groups; every key must have a corresponding entry in `FEDERATION_PARALLEL_GAMES_DEFAULTS`.
 
 ## Log
-(none yet)
+- 2026-06-08 Plan created for federation parallel-games defaults feature (backlog #17)
 
-### 2026-06-08 — Added _write_club_summary_sheet to SeasonPlanExporter that builds one worksheet per club listing each team's tournament date, opponent(s), host arena, and age group, and wired it into the export flow plus updated the sheet-count test.
-**Rationale:** none
-**Findings:** Confirmed via tests: per-club sheets are created with unique titles ('Klubb <name>'), one row per (team, tournament-date, opponent, arena); existing sheet-count test updated to account for the new club sheets; full suite passes (89 passed, 1 skipped).
-LESSONS: none
-**Files:** tests/test_plan_exporter.py (+5/-1) tournament_scheduler/excel/plan_exporter.py (+77/-1)
-**Commit:** b2f382d (hockey)
+## Acceptance Criteria
+- [ ] When `ParallelGamesConfig.from_dict` is called with no explicit parallelGames entries, the resolved values for all age groups match the values in `FEDERATION_PARALLEL_GAMES_DEFAULTS`, so the config is correct by default without any user input.
+- [ ] When a config sets JU12 parallelGames to 3, loading it via `ParallelGamesConfig.from_dict` or `from_file` produces a warning output containing "JU12" and the federation limit value.
+- [ ] When a config sets JU12 parallelGames to 2 (the federation default), no warning is emitted for that age group.
+- [ ] The `pytest` test suite passes with new tests covering the default-fallback, over-limit warning, and compliant-no-warning cases.
+- [ ] The `ParallelGamesConfig` docstring and interactive CLI help text contain the federation-mandated parallelGames limits for each age group so organizers have the information at hand when configuring a new season.
 
-### 2026-06-08 — Refactored sheet-title generation into a shared _unique_sheet_title_from_base helper used by both _unique_sheet_title (tournaments) and a new _unique_club_sheet_title (clubs), reusing _sanitize_sheet_title and _MAX_SHEET_TITLE_LENGTH; added tests covering club-name collisions/truncation and club-summary row content.
-**Rationale:** Extracted shared helper rather than duplicating collision logic, since both tournament and club sheets need identical Excel-limit/uniqueness handling — keeps the two paths consistent and easier to maintain.
-**Findings:** Confirmed via new tests: colliding/over-length club names produce unique <31-char sheet titles via numeric suffixes; club summary rows correctly list team, age group, date, weekday, opponents, and arena; full suite passes (91 passed, 1 skipped).
+### 2026-06-08 — Added FEDERATION_PARALLEL_GAMES_DEFAULTS dict to season_config.py mapping all 10 KNOWN_AGE_GROUPS to federation-mandated max parallelGames values (U7/U83, others2). Updated parallel_games_for and settings_for to use per-age-group federation defaults instead of the flat DEFAULT_PARALLEL_GAMES fallback. Added warning via warnings.warn in from_dict when a configured value exceeds the federation maximum.
+**Rationale:** Replaced single DEFAULT_PARALLEL_GAMES fallback with per-age-group FEDERATION_PARALLEL_GAMES_DEFAULTS; KNOWN_AGE_GROUPS is now derived from its keys to keep the two in sync. Warning-only (not error) approach chosen so configs can still override when genuinely needed.
+**Findings:** All 94 tests pass. Warning is emitted when configured parallelGames exceeds federation max.
 LESSONS: none
-**Files:** tests/test_plan_exporter.py (+68/-0) tournament_scheduler/excel/plan_exporter.py (+30/-20)
-**Commit:** a5465c2 (hockey)
+**Files:** tournament_scheduler/season_config.py (+51/-11)
+**Commit:** [pending — fill after commit]
