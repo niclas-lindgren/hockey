@@ -8,5 +8,6 @@
 - [5] [ ] Season plan Excel export — produce a shareable Excel workbook (one sheet or summary view per club/team) listing the proposed season's tournament dates, participating teams, and matchup pairings, suitable for distribution to clubs and coaches; reuse `tournament_scheduler/excel/` conventions.
 - [6] [ ] Season-plan interactive flow — add a guided Norwegian-language step to `tournament_scheduler_interactive.py` that walks the user through selecting the roster config, season date range, and number of tournaments, then runs the full pipeline and saves the run to search history like other searches.
 - [7] [ ] Even time-distribution validator — a check/report that flags months or periods within the proposed season plan that are over- or under-loaded with tournaments relative to the Oct-Apr target spread, surfaced as Rich warnings before the plan is finalized.
+- [8] [ ] Spond season-plan export — export the generated season plan (tournaments, dates, arenas, participating teams, and per-tournament round-robin game schedules) to Spond's Excel-import format for season planning. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use.
 
 ## Done

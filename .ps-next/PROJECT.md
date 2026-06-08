@@ -1,5 +1,5 @@
 # Hockey Tournament Scheduler
-Finds optimal weekend dates for youth hockey tournaments by scraping multiple club/hall calendars and checking conflicts, for the people organizing Kongsberg's tournament and season schedules.
+Finds optimal weekend dates for youth hockey tournaments by scraping multiple club/hall calendars and checking conflicts, for the people organizing Kongsberg's tournament and season schedules. The season-scheduling extension targets all clubs in **Region Viken Vest (RVV, https://www.rvvhockey.no/)**: Ringerike, Tønsberg, Frisk Asker, Sandefjord Penguins, Jar, Holmen, Skien, Jutul and Kongsberg — 9 clubs total.
 
 ## Stack
 - Language/runtime: Python 3
@@ -31,11 +31,22 @@ Finds optimal weekend dates for youth hockey tournaments by scraping multiple cl
 - **Currently integrated calendars:** Kongsberg ice hall and ball hall (Outlook/Playwright), Skien ice hall (Google Calendar iCal feed); existing Excel schedule lives at `existing_schedule/U10_ETTER_JUL_Klar_-_Kongsberg_Sandefjord.xlsx`
 - **Debug helpers:** `debug/debug_calendar.py`, `debug/debug_excel_teams.py`, `debug/debug-calendar.sh`
 
+## Season-scheduling extension — expected output
+1. **Season overview:** a single schedule listing every proposed tournament across all age groups and genders (boys U7-U12, girls JU10/JU11/...), with its arena/location and date.
+2. **Per-tournament schedules:** for each tournament, the list of participating teams plus the actual game schedule within that tournament — every participating team should play every other participating team (round-robin within the tournament). The number of games that run in parallel depends on the age group and must be configurable, e.g. a config like `{U7: {parallelGames: 4}, U10: {parallelGames: 3}}`; other age-group-specific settings may be added to this config later.
+3. **Spond export (lower priority — after the above is working):** export the season plan to Spond's Excel-import format for season planning. Build this last, once the season overview and per-tournament schedules are solid.
+
 ## Season-scheduling extension — additional requirements
+- **Region scope:** All 9 RVV clubs — Ringerike, Tønsberg, Frisk Asker, Sandefjord Penguins, Jar, Holmen, Skien, Jutul, Kongsberg. (Originally scoped to 7 — Tønsberg and Sandefjord Penguins were missing and have been added; Sandefjord already appears as an opponent in the existing Excel schedule `existing_schedule/U10_ETTER_JUL_Klar_-_Kongsberg_Sandefjord.xlsx` but has no calendar scraper yet.)
 - **Arenas:** Tournaments are hosted at different ice-hockey arenas (one per club roughly). The season plan should include at least one tournament per arena/club.
 - **Age groups:** Teams belong to age groups — boys: U7, U8, U9, U10, U11, U12; girls: JU10, JU11, etc. (JU = "jenter"/girls). Age groups with overlapping player pools (e.g. JU11 and U10 may share players) should preferably not have tournaments scheduled on the same weekend, to avoid player double-booking.
-- **New club calendar sources (URLs provided by user):**
+- **Club calendar sources:**
+  - Kongsberg ice/ball hall — already integrated (Outlook/Playwright)
+  - Skien — already integrated (Google Calendar iCal feed)
   - Jutul (Bærum ishall): https://baerumishall.no/kalender/
   - Jar (Jarhallen, via Forumbooking): https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true
   - Ringerike (via Teamup): https://teamup.com/ksr8bg1tpn5s3npskw
-  - (Holmen and Frisk Asker calendar URLs not yet provided — to be obtained before implementing those scrapers)
+  - Holmen — URL not yet provided
+  - Frisk Asker — URL not yet provided
+  - Tønsberg — URL not yet provided
+  - Sandefjord Penguins — URL not yet provided

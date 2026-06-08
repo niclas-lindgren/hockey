@@ -130,4 +130,4 @@ LESSONS: none
 **Findings:** Ran the full suite (45 tests including pre-existing test_models.py and test_date_parser.py) in a throwaway venv with pytest+pytest-cov+openpyxl+rich installed: all 45 passed, 0 failures. New tests contribute 23 passing cases; season_planner.py now at 86% coverage, club_registry.py at 97%, plan_exporter.py at 95%.
 LESSONS: To run the full pytest suite for openpyxl/rich-dependent code, install pytest+pytest-cov+openpyxl+rich into a throwaway venv (python3 -m venv /tmp/x && /tmp/x/bin/pip install ...) — pytest.ini's --cov addopts require pytest-cov too. The base environment has none of these.
 **Files:** tests/test_round_robin.py (+122), tests/test_club_registry.py (+69), tests/test_season_planner.py (+182), tests/test_plan_exporter.py (+128)
-**Commit:** [pending — fill after commit]
+**Commit:** 2d3b2a9 (hockey)
