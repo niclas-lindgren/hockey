@@ -1,7 +1,6 @@
 # Backlog
 
 ## Open
-- [1] [ ] Full-season schedule generator across Holmen, Jutul, Jar, Ringerike, Frisk Asker, Kongsberg and Skien — given a manually-configured club/team roster (e.g. Jar 1, Jar 2) and a season window (Oct–Apr), scrape each club's calendar, run the existing conflict checks, and propose 10-15 weekend tournament dates that maximize matchup diversity (every team plays a varied mix of opponents) and spread tournaments evenly over time; output via Rich console plus an Excel export, integrated into the existing CLI/interactive flow.
 - [2] [ ] Manual roster config loader — add a YAML/JSON config format listing each club and its teams (supports multiple teams per club, e.g. "Jar 1", "Jar 2"), with validation and clear Norwegian-language error messages on malformed entries, loaded by both CLI and interactive entry points.
 - [3] [ ] New club calendar scrapers (Holmen, Jutul, Jar, Ringerike, Frisk Asker) — extend `tournament_scheduler/data_sources/` with scrapers/configs for each new club's calendar (Outlook/Playwright or iCal as appropriate), reusing `fetch_events` and the existing on-disk cache, and wire each into the calendar-source selection in both CLI entry points.
 - [4] [ ] Matchup-diversity scoring — a scoring/selection algorithm that, given a candidate set of conflict-free weekend dates and the team roster, ranks or selects tournament dates so that each team's opponents vary across the season (avoid repeat matchups where alternatives exist) and tournament load is spread evenly month-to-month.
@@ -11,3 +10,4 @@
 - [8] [ ] Spond season-plan export — export the generated season plan (tournaments, dates, arenas, participating teams, and per-tournament round-robin game schedules) to Spond's Excel-import format for season planning. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use.
 
 ## Done
+- [1] [x] Full-season schedule generator across Holmen, Jutul, Jar, Ringerike, Frisk Asker, Kongsberg and Skien — given a manually-configured club/team roster (e.g. Jar 1, Jar 2) and a season window (Oct–Apr), scrape each club's calendar, run the existing conflict checks, and propose 10-15 weekend tournament dates that maximize matchup diversity (every team plays a varied mix of opponents) and spread tournaments evenly over time; output via Rich console plus an Excel export, integrated into the existing CLI/interactive flow. (2026-06-08)
