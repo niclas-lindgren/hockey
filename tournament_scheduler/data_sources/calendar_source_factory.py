@@ -24,9 +24,13 @@ returns `None` for them so callers can simply skip those clubs (mirroring
 `ClubCalendarSource.is_known` / `club_registry.missing_clubs`).
 """
 
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
-from tournament_scheduler.club_registry import CalendarSourceKind, ClubCalendarSource
+from tournament_scheduler.club_registry import (
+    CalendarSourceKind,
+    ClubCalendarSource,
+    known_clubs,
+)
 from tournament_scheduler.interfaces import CalendarDataSource
 from tournament_scheduler.utils.calendar_cache import CalendarCache
 
@@ -71,3 +75,44 @@ def build_calendar_source(
         f"No calendar source factory wired up for kind={entry.kind!r} "
         f"(club={entry.club!r}). Known kinds: OUTLOOK, ICAL."
     )
+
+
+def build_known_calendar_sources(
+    cache: Optional[CalendarCache] = None,
+) -> Tuple[List[CalendarDataSource], Dict[str, CalendarDataSource]]:
+    """Build calendar data sources for every club with a usable, known source.
+
+    Loops over `club_registry.known_clubs()` (i.e. every entry where
+    `is_known` is true — `skip=False` and `source` is set) and builds a
+    `CalendarDataSource` for each via `build_calendar_source`, sharing a single
+    `CalendarCache` across all of them so repeated runs hit the on-disk cache
+    consistently.
+
+    This is the registry-driven replacement for hardcoding a single club
+    (e.g. only Kongsberg) in CLI entry points — adding/activating a club is
+    then just a matter of updating its `CLUB_REGISTRY` entry.
+
+    Args:
+        cache: Optional shared `CalendarCache`. When omitted, a single new
+            `CalendarCache()` is created and shared across all sources.
+
+    Returns:
+        A tuple of:
+          - a flat list of `CalendarDataSource` instances (in registry order)
+          - a dict mapping club name -> its `CalendarDataSource`, so callers
+            that need to single out a specific club (e.g. Kongsberg's ice
+            hall for tournament/team-availability checking) can do so without
+            re-instantiating it.
+    """
+    shared_cache = cache or CalendarCache()
+
+    sources: List[CalendarDataSource] = []
+    by_club: Dict[str, CalendarDataSource] = {}
+
+    for entry in known_clubs():
+        source = build_calendar_source(entry, shared_cache)
+        if source is not None:
+            sources.append(source)
+            by_club[entry.club] = source
+
+    return sources, by_club
