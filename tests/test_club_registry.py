@@ -10,6 +10,8 @@ from tournament_scheduler.club_registry import (
     known_clubs,
     missing_clubs,
 )
+from tournament_scheduler.data_sources.calendar_scraper import OutlookCalendarScraper
+from tournament_scheduler.data_sources.ical_scraper import ICalScraper
 from tournament_scheduler.data_sources.ice_hall_calendar import IceHallCalendar
 
 ALL_NINE_CLUBS = [
@@ -21,6 +23,21 @@ CLUBS_WITH_KNOWN_SOURCES = ["Kongsberg", "Skien", "Ringerike"]
 CLUBS_PENDING_URLS = [
     "Holmen", "Frisk Asker", "Tønsberg", "Sandefjord Penguins", "Jutul", "Jar",
 ]
+
+# The expected concrete scraper class for each known club's CalendarSourceKind
+# — guards against drift between the registry's declared `kind` and the
+# scraper the factory actually wires up for it.
+EXPECTED_SCRAPER_BY_KIND = {
+    CalendarSourceKind.OUTLOOK: OutlookCalendarScraper,
+    CalendarSourceKind.ICAL: ICalScraper,
+}
+
+# Clubs whose registry entries were specifically researched (live-checked) as
+# part of the calendar-scraper backlog work — their notes must document actual
+# findings, not the generic "URL not yet provided" placeholder that the
+# remaining still-unresearched clubs (Tønsberg, Sandefjord Penguins) retain.
+RESEARCHED_PENDING_CLUBS = ["Holmen", "Frisk Asker", "Jutul", "Jar"]
+GENERIC_PLACEHOLDER_NOTE_FRAGMENT = "URL not yet provided"
 
 
 class TestClubRegistry:
@@ -51,6 +68,20 @@ class TestClubRegistry:
             assert source is not None, f"{club} should produce a constructible CalendarDataSource"
             assert isinstance(source, IceHallCalendar)
 
+    def test_known_clubs_build_the_scraper_matching_their_registered_kind(self):
+        """build_data_source wires each known club to the scraper its `kind` declares."""
+        for club in CLUBS_WITH_KNOWN_SOURCES:
+            entry = get_club(club)
+            expected_scraper_cls = EXPECTED_SCRAPER_BY_KIND[entry.kind]
+
+            source = build_data_source(entry)
+            assert isinstance(source, IceHallCalendar)
+            assert isinstance(source.scraper, expected_scraper_cls), (
+                f"{club} (kind={entry.kind}) should be backed by "
+                f"{expected_scraper_cls.__name__}, got {type(source.scraper).__name__}"
+            )
+            assert source.url == entry.source
+
     def test_clubs_pending_urls_are_marked_skip_with_placeholder(self):
         for club in CLUBS_PENDING_URLS:
             entry = get_club(club)
@@ -58,6 +89,23 @@ class TestClubRegistry:
             assert entry.is_known is False
             assert entry.note  # documents that a URL is still needed
             assert build_data_source(entry) is None
+
+    def test_researched_pending_clubs_have_specific_findings_not_generic_placeholder(self):
+        """Holmen/Frisk Asker/Jutul/Jar were live-researched — their notes must say so.
+
+        Regression guard against silently reverting a researched entry back to
+        the generic "TODO: calendar URL not yet provided" placeholder note.
+        """
+        for club in RESEARCHED_PENDING_CLUBS:
+            entry = get_club(club)
+            assert entry.skip is True
+            assert GENERIC_PLACEHOLDER_NOTE_FRAGMENT not in (entry.note or ""), (
+                f"{club}'s note should document specific research findings, "
+                f"not the generic placeholder"
+            )
+            # A documented finding should be substantial enough to be useful
+            # to the next person continuing the research.
+            assert len(entry.note or "") > 80
 
     def test_known_clubs_returns_only_constructible_entries(self):
         names = {entry.club for entry in known_clubs()}
