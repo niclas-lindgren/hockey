@@ -26,7 +26,7 @@ tags:
   - Files: tournament_scheduler_interactive.py
   - Approach: Extend `collect_roster_entries()` (tournament_scheduler_interactive.py:437-479) to first ask the user (in Norwegian, via the existing `ask_text`/menu-prompt helpers) whether to load the roster from a YAML/JSON config file or enter teams manually; when a file path is given, call `RosterLoader.from_file(path)`, catch the new exception type, print the Norwegian validation error via the existing `print(...)` console conventions used elsewhere in this function, and let the user retry or fall back to manual entry; when left blank, fall through to the existing manual line-by-line entry loop unchanged. Update `collect_season_plan_params()` (lines 482-516) only if needed to thread the chosen roster source through.
 
-- [ ] Add YAML support detection / dependency note and ensure both loaders share the optional-pyyaml mechanism
+- [x] Confirmed RosterLoader already imports _YAML_AVAILABLE and yaml directly from season_config.py (single source of truth, no duplication) from the prior rewrite; added a commented optional pyyaml>6.0 dependency note to requirements.txt documenting that both ParallelGamesConfig and RosterLoader support optional YAML loading with a Norwegian fallback message. — 2026-06-08
   - Files: tournament_scheduler/season_config.py, tournament_scheduler/roster_loader.py, requirements.txt
   - Approach: Factor the `try: import yaml ... _YAML_AVAILABLE` block in season_config.py into a small shared helper (or import it directly from season_config.py into roster_loader.py) so both `ParallelGamesConfig` and `RosterLoader` use one source of truth for YAML availability and the Norwegian "pyyaml ikke installert" message; add `pyyaml` as an optional/commented dependency note in requirements.txt (matching how the project already documents optional YAML support for `ParallelGamesConfig` per season_config.py's module docstring) so both loaders behave identically whether or not `pyyaml` is present.
 
@@ -75,4 +75,11 @@ LESSONS: When a plan splits 'rewrite X' and 'update caller of X' into separate t
 **Findings:** All 45 tests still pass; py_compile confirms no syntax errors; collect_season_plan_params() needed no changes since it already just calls collect_roster_entries() and uses the returned Roster directly.
 LESSONS: collect_roster_entries() prints via plain print() (not Rich/TournamentOutput) — match that convention for any further interactive-flow roster UX changes; RosterConfigError messages are already Norwegian and can be printed directly with no extra wrapping.
 **Files:** tournament_scheduler_interactive.py (+28/-0)
+**Commit:** f6a433a (hockey)
+
+### 2026-06-08 — Confirmed RosterLoader already imports _YAML_AVAILABLE and yaml directly from season_config.py (single source of truth, no duplication) from the prior rewrite; added a commented optional pyyaml>6.0 dependency note to requirements.txt documenting that both ParallelGamesConfig and RosterLoader support optional YAML loading with a Norwegian fallback message.
+**Rationale:** Importing _YAML_AVAILABLE/yaml directly from season_config.py (done during the RosterLoader rewrite) avoids duplicating the try/import block and guarantees identical behavior; documented as a commented-out optional dependency in requirements.txt to match how the project keeps Playwright etc. pinned while noting optional extras.
+**Findings:** All 45 tests pass;  confirms the cross-module import of the private _YAML_AVAILABLE/yaml symbols works at runtime.
+LESSONS: RosterLoader shares _YAML_AVAILABLE and yaml by importing them directly from season_config.py rather than re-implementing the try/except import block — keep this single source of truth if either loader's YAML handling changes.
+**Files:** requirements.txt (+7/-0)
 **Commit:** [pending — fill after commit]
