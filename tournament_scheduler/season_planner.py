@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
+    Game,
     Roster,
     SeasonPlan,
     Team,
@@ -136,12 +137,15 @@ class SeasonPlanner:
             participants = self._select_participants(age_group)
             self._record_grouping(participants)
 
+            parallel_games = self.parallel_games_for_age_group.get(age_group, DEFAULT_MAX_TEAMS_PER_TOURNAMENT)
+            games = self.generate_round_robin_games(participants, parallel_games)
+
             tournament = Tournament(
                 date=tournament_date,
                 arena=arena,
                 age_group=age_group,
                 teams=participants,
-                games=[],
+                games=games,
                 host_club=host_club,
             )
             plan.tournaments.append(tournament)
@@ -365,6 +369,77 @@ class SeasonPlanner:
             self._invite_counts[team.label] = self._invite_counts.get(team.label, 0) + 1
             grouped = self._grouped_with.setdefault(team.label, set())
             grouped.update(label for label in labels if label != team.label)
+
+    # ------------------------------------------------------------------
+    # Within-tournament round-robin game-schedule generator
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def generate_round_robin_games(teams: Sequence[Team], parallel_games: int) -> List[Game]:
+        """Generate a full round-robin schedule for `teams` using the circle method.
+
+        Every team plays every other team exactly once. Games are grouped
+        into rounds (one round = each team plays at most once), and within
+        each round games are assigned to `parallel_slot` indices
+        `0..min(parallel_games, games_in_round) - 1` so that up to
+        `parallel_games` games run concurrently, minimizing the number of
+        sequential rounds. Odd team counts get a "bye" each round, per the
+        standard circle-method convention (a placeholder team sits out).
+
+        Args:
+            teams: The participating teams (all the same age group).
+            parallel_games: Max number of games that can run concurrently.
+
+        Returns:
+            A flat list of `Game`, each with its `parallel_slot` set to its
+            position within its round (0-based).
+        """
+        n = len(teams)
+        if n < 2:
+            return []
+
+        parallel_games = max(1, parallel_games)
+
+        # Circle method requires an even number of "slots" — pad with a bye
+        # placeholder (None) when there's an odd number of teams.
+        roster = list(teams)
+        has_bye = n % 2 == 1
+        if has_bye:
+            roster = roster + [None]  # type: ignore[list-item]
+
+        slot_count = len(roster)
+        num_rounds = slot_count - 1
+        half = slot_count // 2
+
+        games: List[Game] = []
+        rotation = roster[:]
+
+        for round_index in range(num_rounds):
+            round_pairs: List[Tuple[Team, Team]] = []
+            for i in range(half):
+                home = rotation[i]
+                away = rotation[slot_count - 1 - i]
+                if home is None or away is None:
+                    continue  # bye — this team sits out this round
+                round_pairs.append((home, away))
+
+            # Alternate home/away across rounds for a fairer split.
+            if round_index % 2 == 1:
+                round_pairs = [(away, home) for home, away in round_pairs]
+
+            for slot_index, (home, away) in enumerate(round_pairs):
+                games.append(
+                    Game(
+                        home=home,
+                        away=away,
+                        parallel_slot=slot_index % parallel_games,
+                    )
+                )
+
+            # Rotate all but the first fixed element (standard circle method).
+            rotation = [rotation[0]] + [rotation[-1]] + rotation[1:-1]
+
+        return games
 
     # ------------------------------------------------------------------
     # Plan metadata helpers
