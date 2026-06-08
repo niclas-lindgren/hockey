@@ -128,3 +128,71 @@ class TestSeasonPlanExporter:
         assert len(titles) == len(set(titles)), "sheet titles must be unique"
         for title in titles:
             assert len(title) <= 31
+
+    def test_club_sheet_titles_are_unique_and_sanitized_on_collision(self, tmp_path):
+        # Two clubs whose names collide once sanitized/truncated to the same
+        # base, forcing the numeric-suffix collision path to engage.
+        long_name = "Sandefjord Penguins Ishockeyklubb Senior"
+        teams_a = [Team(club=long_name, label="A1", age_group="U10")]
+        teams_b = [Team(club=f"{long_name} (2)", label="B1", age_group="U10")]
+
+        tournament = Tournament(
+            date=date(2026, 9, 12),
+            arena="Testhallen",
+            age_group="U10",
+            teams=teams_a + teams_b,
+            games=_round_robin_games(teams_a + teams_b),
+            host_club=long_name,
+        )
+        plan = SeasonPlan(tournaments=[tournament])
+
+        output_path = tmp_path / "club_collision.xlsx"
+        SeasonPlanExporter().export(plan, str(output_path))
+
+        workbook = openpyxl.load_workbook(str(output_path))
+        titles = workbook.sheetnames
+
+        assert len(titles) == len(set(titles)), "sheet titles must be unique"
+        for title in titles:
+            assert len(title) <= 31
+
+        club_titles = [title for title in titles if title.startswith("Klubb ")]
+        assert len(club_titles) == 2, f"expected one summary sheet per club, got {club_titles}"
+
+    def test_club_summary_sheet_lists_team_opponents_and_arena(self, sample_plan, tmp_path):
+        output_path = tmp_path / "season_plan.xlsx"
+        SeasonPlanExporter().export(sample_plan, str(output_path))
+
+        workbook = openpyxl.load_workbook(str(output_path))
+        club_sheets = [name for name in workbook.sheetnames if name.startswith("Klubb ")]
+
+        # sample_plan teams use clubs "Club0".."Club4" (U10) and "Club0".."Club3" (JU11)
+        assert sorted(club_sheets) == [f"Klubb Club{i}" for i in range(5)]
+
+        sheet = workbook["Klubb Club0"]
+        rows = list(sheet.iter_rows(values_only=True))
+
+        header_index = next(
+            i for i, row in enumerate(rows)
+            if row[:6] == ("Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena")
+        )
+        data_rows = [row for row in rows[header_index + 1:] if row[0] is not None]
+
+        # Club0 has one team in each tournament (U10-0 and JU11-0)
+        assert len(data_rows) == 2
+        labels = {row[0] for row in data_rows}
+        assert labels == {"U10-0", "JU11-0"}
+
+        for row in data_rows:
+            label, age_group, formatted_date, weekday, opponents, arena = row
+            tournament = next(t for t in sample_plan.tournaments if t.age_group == age_group)
+            assert formatted_date == tournament.date.strftime("%d.%m.%Y")
+            assert weekday == _NORWEGIAN_WEEKDAYS[tournament.date.weekday()]
+            assert arena == tournament.arena
+            team = next(t for t in tournament.teams if t.label == label)
+            expected_opponents = {
+                (game.away if game.home is team else game.home).label
+                for game in tournament.games
+                if game.home is team or game.away is team
+            }
+            assert set(opponents.split(", ")) == expected_opponents

@@ -14,7 +14,7 @@ Clubs and coaches need a club/team-centric view of the season plan (rather than 
   - Files: `tournament_scheduler/excel/plan_exporter.py`
   - Approach: Derive the per-club view by iterating `SeasonPlan.tournaments`, grouping `Game.home`/`Game.away` entries by `Team.club`, and rendering one row per (team, tournament-date, opponent, arena) tuple; reuse `_format_date`, `_weekday_name`, `_style_header_row`, and `_autosize_columns` for consistent formatting.
 
-- [ ] Add club-sheet naming/uniqueness handling using existing Excel sheet-title constraints
+- [x] Refactored sheet-title generation into a shared _unique_sheet_title_from_base helper used by both _unique_sheet_title (tournaments) and a new _unique_club_sheet_title (clubs), reusing _sanitize_sheet_title and _MAX_SHEET_TITLE_LENGTH; added tests covering club-name collisions/truncation and club-summary row content. — 2026-06-08
   - Files: `tournament_scheduler/excel/plan_exporter.py`
   - Approach: Reuse `_unique_sheet_title`/`_sanitize_sheet_title` and `_MAX_SHEET_TITLE_LENGTH` (or extract a shared helper if naming differs for club vs. tournament sheets) so club names that collide or exceed the 31-character Excel limit are sanitized and made unique, mirroring the per-tournament sheet logic.
 
@@ -53,4 +53,11 @@ Clubs and coaches need a club/team-centric view of the season plan (rather than 
 **Findings:** Confirmed via tests: per-club sheets are created with unique titles ('Klubb <name>'), one row per (team, tournament-date, opponent, arena); existing sheet-count test updated to account for the new club sheets; full suite passes (89 passed, 1 skipped).
 LESSONS: none
 **Files:** tests/test_plan_exporter.py (+5/-1) tournament_scheduler/excel/plan_exporter.py (+77/-1)
+**Commit:** b2f382d (hockey)
+
+### 2026-06-08 — Refactored sheet-title generation into a shared _unique_sheet_title_from_base helper used by both _unique_sheet_title (tournaments) and a new _unique_club_sheet_title (clubs), reusing _sanitize_sheet_title and _MAX_SHEET_TITLE_LENGTH; added tests covering club-name collisions/truncation and club-summary row content.
+**Rationale:** Extracted shared helper rather than duplicating collision logic, since both tournament and club sheets need identical Excel-limit/uniqueness handling — keeps the two paths consistent and easier to maintain.
+**Findings:** Confirmed via new tests: colliding/over-length club names produce unique <31-char sheet titles via numeric suffixes; club summary rows correctly list team, age group, date, weekday, opponents, and arena; full suite passes (91 passed, 1 skipped).
+LESSONS: none
+**Files:** tests/test_plan_exporter.py (+68/-0) tournament_scheduler/excel/plan_exporter.py (+30/-20)
 **Commit:** [pending — fill after commit]

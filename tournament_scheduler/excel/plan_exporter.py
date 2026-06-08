@@ -67,8 +67,8 @@ class SeasonPlanExporter:
             used_titles.add(sheet.title)
             self._write_tournament_sheet(sheet, tournament)
 
-        for club in self._clubs_in_plan(plan):
-            sheet = self.workbook.create_sheet(title=self._unique_club_sheet_title(club, used_titles))
+        for club_index, club in enumerate(self._clubs_in_plan(plan), start=1):
+            sheet = self.workbook.create_sheet(title=self._unique_club_sheet_title(club, club_index, used_titles))
             used_titles.add(sheet.title)
             self._write_club_summary_sheet(sheet, plan, club)
 
@@ -177,21 +177,14 @@ class SeasonPlanExporter:
         return seen
 
     @staticmethod
-    def _unique_club_sheet_title(club: str, used_titles) -> str:
-        """Build a unique, Excel-valid (<=31 chars) sheet title for a club summary."""
-        base = SeasonPlanExporter._sanitize_sheet_title(f"{_CLUB_SHEET_PREFIX}{club}")
-        title = base[:_MAX_SHEET_TITLE_LENGTH]
-        if title not in used_titles:
-            return title
+    def _unique_club_sheet_title(club: str, index: int, used_titles) -> str:
+        """Build a unique, Excel-valid (<=31 chars) sheet title for a club summary.
 
-        suffix = " (2)"
-        index = 2
-        while title in used_titles:
-            trimmed_len = _MAX_SHEET_TITLE_LENGTH - len(suffix)
-            title = f"{base[:trimmed_len]}{suffix}"
-            index += 1
-            suffix = f" ({index})"
-        return title
+        Format: "<_CLUB_SHEET_PREFIX><club>" truncated as needed, with a
+        numeric suffix appended on collision — mirrors `_unique_sheet_title`.
+        """
+        base = f"{_CLUB_SHEET_PREFIX}{club}"
+        return SeasonPlanExporter._unique_sheet_title_from_base(base, index, used_titles)
 
     # ------------------------------------------------------------------
     # Helpers
@@ -234,17 +227,32 @@ class SeasonPlanExporter:
         """
         date_part = tournament.date.strftime("%d.%m")
         base = f"{date_part} {tournament.age_group} {tournament.arena}".strip()
+        return SeasonPlanExporter._unique_sheet_title_from_base(base, index, used_titles)
+
+    @staticmethod
+    def _unique_sheet_title_from_base(base: str, index: int, used_titles) -> str:
+        """Sanitize `base` into a unique, Excel-valid (<=31 chars) sheet title.
+
+        Shared by tournament and club sheet naming: truncates `base` to
+        Excel's sheet-title limits and, on collision with `used_titles`,
+        appends a numeric suffix (` (<index>)`), trimming the base as needed
+        to keep the result within `_MAX_SHEET_TITLE_LENGTH`.
+        """
         base = SeasonPlanExporter._sanitize_sheet_title(base)
 
         title = base[:_MAX_SHEET_TITLE_LENGTH]
         if title not in used_titles:
             return title
 
-        # Collision — append a numeric suffix, trimming the base as needed.
-        suffix = f" ({index})"
-        trimmed_len = _MAX_SHEET_TITLE_LENGTH - len(suffix)
-        title = f"{base[:trimmed_len]}{suffix}"
-        return title
+        # Collision — append a numeric suffix, trimming the base as needed,
+        # bumping the index until the result is unique.
+        while True:
+            suffix = f" ({index})"
+            trimmed_len = _MAX_SHEET_TITLE_LENGTH - len(suffix)
+            title = f"{base[:trimmed_len]}{suffix}"
+            if title not in used_titles:
+                return title
+            index += 1
 
     @staticmethod
     def _sanitize_sheet_title(title: str) -> str:
