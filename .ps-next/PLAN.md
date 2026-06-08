@@ -18,7 +18,7 @@ tags:
   - Files: tournament_scheduler/roster_loader.py, tournament_scheduler/season_config.py
   - Approach: Replace the current `RosterLoader.load()` (sys.exit/print-based, JSON-only, English messages) with `RosterLoader.from_file(path)` / `from_dict(data)` classmethods that mirror `ParallelGamesConfig.from_file`/`from_dict` in season_config.py — reading `.yaml`/`.yml` via the optional `pyyaml` import (with the same `_YAML_AVAILABLE` Norwegian fallback message: "pakken 'pyyaml' er ikke installert ...") and `.json` via `json.loads`, raising a shared/reusable exception (either reuse `SeasonConfigError` from season_config.py or add a `RosterConfigError(ValueError)` alongside it) with Norwegian messages for: file not found, unparseable JSON/YAML, wrong top-level shape (expected club -> {team label: age group} mapping), empty club entries (a club listed with no teams), duplicate team labels within or across clubs, missing/blank labels, and unknown age groups (validate against `KNOWN_AGE_GROUPS` from season_config.py). Keep the existing dict-of-clubs format (`{"Jar": {"Jar 1": "U10", "Jar 2": "U11"}}`) as the canonical shape supporting multiple teams per club; drop or clearly deprecate the flat-list format to keep one canonical shape consistent with `ParallelGamesConfig`'s structure.
 
-- [ ] Update the scriptable CLI (`--generate-season` / `cli/season_command.py`) to use the new exception-based loader
+- [x] Verified that season_command.py already calls RosterLoader.from_file(args.roster_file) wrapped in try/except RosterConfigError, rendering errors via TournamentOutput.print_error and sys.exit(1) — this was completed as part of the prior RosterLoader rewrite task. — 2026-06-08
   - Files: tournament_scheduler/cli/season_command.py
   - Approach: Replace the `RosterLoader.load(args.roster_file)` call at season_command.py:28 with `RosterLoader.from_file(args.roster_file)` wrapped in `try/except` for the new error type, following the exact pattern already used for `ParallelGamesConfig.from_file` in `_load_parallel_games_config` (season_command.py:82-92) — catch the exception, render the Norwegian message via `TournamentOutput.print_error(str(exc))`, and `sys.exit(1)`.
 
@@ -61,4 +61,11 @@ tags:
 **Findings:** All 45 existing tests pass; no test files reference RosterLoader directly so no test updates were needed; only one call site existed (season_command.py).
 LESSONS: RosterLoader.load(path) was replaced entirely by RosterLoader.from_file(path)/from_dict(data) raising RosterConfigError(ValueError) with Norwegian messages — any future caller must use try/except RosterConfigError + TournamentOutput.print_error, matching _load_parallel_games_config's pattern.
 **Files:** tournament_scheduler/roster_loader.py (+~140/-~40), tournament_scheduler/cli/season_command.py (+8/-1)
+**Commit:** 9db38fa (hockey)
+
+### 2026-06-08 — Verified that season_command.py already calls RosterLoader.from_file(args.roster_file) wrapped in try/except RosterConfigError, rendering errors via TournamentOutput.print_error and sys.exit(1) — this was completed as part of the prior RosterLoader rewrite task.
+**Rationale:** This task's required change was implemented inline while rewriting RosterLoader (same call site, same commit scope was natural to do together); no separate edit was needed.
+**Findings:** Confirmed via grep that line 28-32 of season_command.py uses RosterLoader.from_file with the exact try/except + print_error + sys.exit(1) pattern matching _load_parallel_games_config; no further changes required.
+LESSONS: When a plan splits 'rewrite X' and 'update caller of X' into separate tasks, the rewrite task may naturally include updating the (sole) caller — check git history/diff before assuming a separate edit is needed.
+**Files:** none (no files changed — already implemented in commit 9db38fa)
 **Commit:** [pending — fill after commit]
