@@ -89,6 +89,14 @@ class SeasonPlanner:
         # Tracks how many times each team has been invited overall, to keep
         # invitations roughly balanced across the season.
         self._invite_counts: Dict[str, int] = {team.label: 0 for team in roster.teams}
+        # Tracks, per unordered pair of teams (as a frozenset of labels),
+        # how many times that pair has actually been scheduled to play each
+        # other — distinct from `_grouped_with`, which only records mere
+        # tournament co-attendance. Populated from the `Game`s produced by
+        # `generate_round_robin_games`. Useful for a future
+        # matchup-diversity heuristic that wants to know real opponent
+        # history rather than just shared invitations.
+        self._opponent_history: Dict[frozenset, int] = {}
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -139,6 +147,7 @@ class SeasonPlanner:
 
             parallel_games = self.parallel_games_for_age_group.get(age_group, DEFAULT_MAX_TEAMS_PER_TOURNAMENT)
             games = self.generate_round_robin_games(participants, parallel_games)
+            self._record_opponent_history(games)
 
             tournament = Tournament(
                 date=tournament_date,
@@ -369,6 +378,21 @@ class SeasonPlanner:
             self._invite_counts[team.label] = self._invite_counts.get(team.label, 0) + 1
             grouped = self._grouped_with.setdefault(team.label, set())
             grouped.update(label for label in labels if label != team.label)
+
+    def _record_opponent_history(self, games: Sequence[Game]) -> None:
+        """Record actual scheduled matchups from `games` in `_opponent_history`.
+
+        Unlike `_record_grouping` (which only tracks tournament
+        co-attendance), this tracks how many times each unordered pair of
+        teams has actually been scheduled to play one another, keyed by a
+        `frozenset` of the two team labels so that home/away order doesn't
+        matter.
+        """
+        for game in games:
+            if game.home is None or game.away is None:
+                continue
+            pair = frozenset((game.home.label, game.away.label))
+            self._opponent_history[pair] = self._opponent_history.get(pair, 0) + 1
 
     # ------------------------------------------------------------------
     # Within-tournament round-robin game-schedule generator
