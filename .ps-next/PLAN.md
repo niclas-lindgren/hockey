@@ -23,7 +23,7 @@ tags:
   - Files: tournament_scheduler/season_planner.py
   - Approach: Add a `_month_counts` tracker (dict keyed by year-month -> tournament count) updated as dates are chosen in `build_plan`, and a helper that reports the current month's load relative to the season's expected per-month average (derived from `start_date`/`end_date` and target tournament count), giving downstream selection logic a concrete signal for "is this month already over-loaded".
 
-- [ ] Score and rank candidate dates by projected matchup diversity and month balance
+- [x] Added _score_candidate_date combining a repeat-matchup penalty (average _opponent_history count across candidate-participant pairs) with a month-load penalty (excess above the season's expected per-month average), and wired it into _pick_spread_dates's per-bucket selection by predicting a tentative age-group/participant set per candidate (mirroring _next_age_group/_select_participants against local copies of the tracking state) and combining the diversity penalty with the existing closeness-to-bucket-center spread penalty. — 2026-06-08
   - Files: tournament_scheduler/season_planner.py
   - Approach: Add a `_score_candidate_date(date, age_group, candidate_participants)` method that combines (a) a penalty derived from `_opponent_history` for how many repeat matchups the candidate participant set would create and (b) a penalty derived from `_month_counts` for how far the candidate date's month is above the season's per-month average; wire this scoring into `_pick_spread_dates` (or the per-bucket "best date" selection within it) so the planner ranks/picks dates using this combined score rather than spread-only bucket selection.
 
@@ -61,4 +61,11 @@ LESSONS: generate_round_robin_games is a @staticmethod, so per-game bookkeeping 
 **Findings:** All season_planner tests pass; the new tracker and helpers compile and integrate cleanly with the existing per-tournament loop.
 LESSONS: month_load_ratio takes expected_per_month as a parameter rather than storing it on self, so callers must compute the baseline once via _expected_monthly_load(start, end, tournament_count) and pass it through — keeps the tracker decoupled from any one selection strategy.
 **Files:** tournament_scheduler/season_planner.py (+54/-0)
+**Commit:** 7fc9f11 (hockey)
+
+### 2026-06-08 — Added _score_candidate_date combining a repeat-matchup penalty (average _opponent_history count across candidate-participant pairs) with a month-load penalty (excess above the season's expected per-month average), and wired it into _pick_spread_dates's per-bucket selection by predicting a tentative age-group/participant set per candidate (mirroring _next_age_group/_select_participants against local copies of the tracking state) and combining the diversity penalty with the existing closeness-to-bucket-center spread penalty.
+**Rationale:** Predicting age-group/participants per candidate date inside _pick_spread_dates (rather than restructuring build_plan to interleave date+age-group selection) keeps the change localized; predictions use local copies of ag_index/scheduled_by_date so the real per-tournament assignment in build_plan is unaffected — the prediction is a heuristic signal for ranking, not a binding commitment.
+**Findings:** Full suite (82 passed, 1 skipped) and season_planner-focused tests all pass; combined scoring integrates without disrupting existing spread-based date selection.
+LESSONS: _pick_spread_dates runs before the real age-group/participant assignment loop in build_plan, so any scoring that needs _opponent_history/_grouped_with context must predict tentative values using local copies of the tracking dicts — mutating the real self._grouped_with/_invite_counts during prediction would corrupt the actual selection later.
+**Files:** tournament_scheduler/season_planner.py (+91/-5)
 **Commit:** [pending — fill after commit]

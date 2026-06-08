@@ -112,8 +112,6 @@ class SeasonPlanner:
         scheduling_result = self.scheduler.find_available_dates(start_date, end_date)
         free_dates = sorted(scheduling_result.available_dates)
 
-        chosen_dates = self._pick_spread_dates(free_dates, start_date.date(), end_date.date())
-
         plan = SeasonPlan(
             tournaments=[],
             start_date=start_date.date(),
@@ -123,6 +121,10 @@ class SeasonPlanner:
         age_groups = self.roster.age_groups()
         if not age_groups:
             return plan
+
+        chosen_dates = self._pick_spread_dates(
+            free_dates, start_date.date(), end_date.date(), age_groups
+        )
 
         host_assignments = self._assign_hosts(chosen_dates)
         collisions: List[Tuple[date, str, str]] = []
@@ -194,11 +196,24 @@ class SeasonPlanner:
         free_dates: Sequence[date],
         window_start: date,
         window_end: date,
+        age_groups: Sequence[str] = (),
     ) -> List[date]:
         """Pick 10-15 free dates, spread evenly across the season window.
 
-        Buckets the date range into N roughly-equal slices and picks the
-        best (closest-to-bucket-center) free date per slice.
+        Buckets the date range into N roughly-equal slices. Within each
+        bucket, candidates are ranked by a combined score: closeness to the
+        bucket center (so the spread stays even) plus a projected
+        matchup-diversity / month-balance penalty from `_score_candidate_date`
+        — using a *tentative* age-group and participant prediction for each
+        candidate date (mirroring `_next_age_group`/`_select_participants`,
+        but against local copies of the tracking state so the real
+        selection in `build_plan` is unaffected). This lets the planner
+        prefer dates that are likely to produce fresher matchups and
+        better-balanced months, not just even date spacing.
+
+        `age_groups` may be empty (e.g. when the roster has none yet), in
+        which case the projected-score component is skipped and selection
+        falls back to closeness-to-center only.
         """
         if not free_dates:
             return []
@@ -210,14 +225,23 @@ class SeasonPlanner:
         if total_days <= 0 or target_count == 1:
             return list(free_dates[:target_count])
 
+        expected_per_month = self._expected_monthly_load(window_start, window_end, target_count)
+
         bucket_span = total_days / target_count
         chosen: List[date] = []
         used: Set[date] = set()
+
+        # Local copies of the predictive state, advanced as buckets are
+        # filled, so later buckets' predictions account for earlier picks
+        # without mutating the planner's real tracking structures.
+        ag_index = 0
+        scheduled_by_date: Dict[date, List[str]] = {}
 
         for i in range(target_count):
             bucket_start = window_start + timedelta(days=int(i * bucket_span))
             bucket_end = window_start + timedelta(days=int((i + 1) * bucket_span))
             bucket_center = bucket_start + (bucket_end - bucket_start) / 2
+            half_span_days = max(1.0, (bucket_end - bucket_start).days / 2)
 
             candidates = [d for d in free_dates if bucket_start <= d <= bucket_end and d not in used]
             if not candidates:
@@ -226,7 +250,26 @@ class SeasonPlanner:
             if not candidates:
                 continue
 
-            best = min(candidates, key=lambda d: abs((d - bucket_center).days))
+            if age_groups:
+                predicted_age_group = self._next_age_group(
+                    age_groups, ag_index, bucket_center, scheduled_by_date
+                )
+                predicted_participants = self._select_participants(predicted_age_group)
+
+                def combined_score(d: date) -> float:
+                    spread_penalty = abs((d - bucket_center).days) / half_span_days
+                    diversity_penalty = self._score_candidate_date(
+                        d, predicted_age_group, predicted_participants, expected_per_month
+                    )
+                    return spread_penalty + diversity_penalty
+
+                best = min(candidates, key=combined_score)
+
+                ag_index = (age_groups.index(predicted_age_group) + 1) % len(age_groups)
+                scheduled_by_date.setdefault(best, []).append(predicted_age_group)
+            else:
+                best = min(candidates, key=lambda d: abs((d - bucket_center).days))
+
             chosen.append(best)
             used.add(best)
 
@@ -430,6 +473,49 @@ class SeasonPlanner:
         """Record that a tournament was scheduled in `tournament_date`'s month."""
         key = (tournament_date.year, tournament_date.month)
         self._month_counts[key] = self._month_counts.get(key, 0) + 1
+
+    def _score_candidate_date(
+        self,
+        candidate_date: date,
+        age_group: str,
+        candidate_participants: Sequence[Team],
+        expected_per_month: float,
+    ) -> float:
+        """Score a candidate date for a tentative age-group/participant set.
+
+        Combines two penalties (lower score = more desirable candidate):
+
+        - **Repeat-matchup penalty**: the average `_opponent_history` count
+          across all unordered pairs in `candidate_participants` — higher
+          when the candidate set would create more repeat matchups.
+        - **Month-load penalty**: how far above the season's expected
+          per-month average `candidate_date`'s month already is, per
+          `month_load_ratio` — higher when the month is already overloaded.
+          Only the excess above `1.0` (i.e. above-average load) counts as a
+          penalty; under-loaded months contribute `0`.
+
+        The two penalties are weighted equally and summed. `age_group` is
+        accepted for symmetry/future use (e.g. age-group-specific weighting)
+        but does not currently affect the score directly — its influence is
+        already captured via `candidate_participants`.
+        """
+        repeat_penalty = 0.0
+        participants = list(candidate_participants)
+        if len(participants) >= 2:
+            pair_count = 0
+            repeat_total = 0
+            for i, team_a in enumerate(participants):
+                for team_b in participants[i + 1:]:
+                    pair = frozenset((team_a.label, team_b.label))
+                    repeat_total += self._opponent_history.get(pair, 0)
+                    pair_count += 1
+            if pair_count:
+                repeat_penalty = repeat_total / pair_count
+
+        load_ratio = self.month_load_ratio(candidate_date, expected_per_month)
+        month_penalty = max(0.0, load_ratio - 1.0)
+
+        return repeat_penalty + month_penalty
 
     def month_load_ratio(self, tournament_date: date, expected_per_month: float) -> float:
         """Report how loaded `tournament_date`'s month is, relative to average.
