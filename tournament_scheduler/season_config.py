@@ -104,9 +104,31 @@ class ParallelGamesConfig:
           "U10": {"parallelGames": 3}
         }
 
+    **Federation-mandated defaults** (NIHF rules) — applied when an age group
+    is absent from the config file and used as the upper bound for warnings:
+
+    +--------+-----------+    +--------+-----------+
+    | Group  | Max baner |    | Group  | Max baner |
+    +========+===========+    +========+===========+
+    | U7     | 3         |    | JU10   | 2         |
+    | U8     | 3         |    | JU11   | 2         |
+    | U9     | 2         |    | JU12   | 2 (*)     |
+    | U10    | 2         |    | JU13   | 2         |
+    | U11    | 2         |    +--------+-----------+
+    | U12    | 2 (*)     |
+    +--------+-----------+
+
+    (*) Confirmed NIHF rule — running JU12 or U12 on 3 rinks simultaneously
+    is a federation violation.
+
+    If a config file specifies a `parallelGames` value *above* the mandate for
+    an age group, a Norwegian-language warning is printed via
+    `TournamentOutput.print_warning` (falls back to `warnings.warn`).  The
+    value is still accepted so organizers can override when genuinely needed
+    (e.g. an exhibition event), but the warning flags the potential rule breach.
+
     Unknown age groups and non-positive `parallelGames` values raise
-    `SeasonConfigError` with a Norwegian-language message. Age groups absent
-    from the config fall back to `DEFAULT_PARALLEL_GAMES`.
+    `SeasonConfigError` with a Norwegian-language message.
     """
 
     def __init__(self, settings: Optional[Dict[str, AgeGroupSettings]] = None):

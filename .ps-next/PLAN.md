@@ -31,7 +31,7 @@ tags:
   - Files: tests/test_season_config.py (new), tests/test_season_planner.py
   - Approach: Following the pytest patterns in `tests/test_roster_loader.py` and `tests/test_season_planner.py`, write tests that assert: (1) `ParallelGamesConfig.from_dict({})` produces values matching `FEDERATION_PARALLEL_GAMES_DEFAULTS` for all age groups; (2) loading a config with JU12: 3 triggers a `print_warning` call (mock or capture Rich output) containing "JU12" and the federation limit; (3) loading a compliant config (JU12: 2) produces no warning.
 
-- [ ] Update module docstring and interactive CLI help text to document the per-age-group federation defaults.
+- [x] Updated ParallelGamesConfig docstring with a table of all federation-mandated defaults and explanation of the warning mechanism. Updated the interactive CLI parallel games section to display the federation limits in Norwegian so organizers see them inline before entering a config file path. — 2026-06-08
   - Files: tournament_scheduler/season_config.py, tournament_scheduler_interactive.py
   - Approach: Update the `ParallelGamesConfig` class docstring in `season_config.py` to list the federation-mandated defaults for each age group and explain that overrides above the mandate trigger a warning; update the config input description at `tournament_scheduler_interactive.py` line 535 to note the same information in Norwegian so organizers see the limits inline.
 
@@ -77,4 +77,11 @@ LESSONS: none
 **Findings:** All 108 tests pass (14 new tests added).
 LESSONS: print_warning in rich_output.py is a static method on TournamentOutput class, not a module-level function — patch as tournament_scheduler.utils.rich_output.TournamentOutput.print_warning
 **Files:** tests/test_season_config.py (+142), tournament_scheduler/season_config.py (+2/-2)
+**Commit:** 28cfd29 (hockey)
+
+### 2026-06-08 — Updated ParallelGamesConfig docstring with a table of all federation-mandated defaults and explanation of the warning mechanism. Updated the interactive CLI parallel games section to display the federation limits in Norwegian so organizers see them inline before entering a config file path.
+**Rationale:** Inline text display in the CLI is simpler and more visible than referencing documentation files.
+**Findings:** All 108 tests still pass. Docstring and CLI help now list per-age-group defaults and warn about overrides.
+LESSONS: none
+**Files:** tournament_scheduler/season_config.py (+26/-2), tournament_scheduler_interactive.py (+6/-1)
 **Commit:** [pending — fill after commit]

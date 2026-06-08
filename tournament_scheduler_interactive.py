@@ -532,7 +532,11 @@ def collect_season_plan_params():
     print("PARALLELLE KAMPER")
     print("-" * 60)
     print("\nDu kan oppgi en konfigurasjonsfil for antall parallelle kamper per aldersgruppe")
-    print("(JSON, f.eks. {\"U10\": {\"parallelGames\": 3}}). La stå tomt for å bruke standardverdier.")
+    print("(JSON, f.eks. {\"U10\": {\"parallelGames\": 3}}). La stå tomt for å bruke forbundets standardverdier.")
+    print("\nForbundets maksimumsgrenser (NIHF):")
+    print("  U7/U8: 3 baner  |  U9–U12: 2 baner  |  JU10–JU13: 2 baner")
+    print("  Merk: JU12 og U12 er bekreftet til maks 2 baner per forbundets regler.")
+    print("  Hvis du overstyrer disse grensene, vil du få en advarsel.")
     parallel_games_config = ask_text("Konfigurasjonsfil for parallelle kamper", default="", required=False)
 
     return {
