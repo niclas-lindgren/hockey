@@ -6,7 +6,7 @@ from datetime import datetime
 from tournament_scheduler.club_registry import build_data_source, known_clubs, missing_clubs
 from tournament_scheduler.conflict_checkers.holiday_checker import HolidayConflictChecker
 from tournament_scheduler.conflict_checkers.tournament_checker import TournamentConflictChecker
-from tournament_scheduler.roster_loader import RosterLoader
+from tournament_scheduler.roster_loader import RosterConfigError, RosterLoader
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_config import ParallelGamesConfig, SeasonConfigError
 from tournament_scheduler.season_planner import SeasonPlanner
@@ -25,7 +25,12 @@ class SeasonCommand:
             f"Sesongvindu: {season_start.strftime('%Y-%m-%d')} til {season_end.strftime('%Y-%m-%d')}"
         )
 
-        roster = RosterLoader.load(args.roster_file)
+        try:
+            roster = RosterLoader.from_file(args.roster_file)
+        except RosterConfigError as exc:
+            TournamentOutput.print_error(str(exc))
+            sys.exit(1)
+
         TournamentOutput.print_success(
             f"Lastet inn {len(roster.teams)} lag fordelt på {len(roster.clubs())} klubber "
             f"og {len(roster.age_groups())} aldersgrupper"
