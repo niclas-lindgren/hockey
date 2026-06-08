@@ -19,9 +19,8 @@ files can be loaded and a clear Norwegian-language error is raised when a
 
 import json
 import os
-import warnings
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 try:
     import yaml  # type: ignore
@@ -55,6 +54,25 @@ DEFAULT_PARALLEL_GAMES = 2
 
 # Known age groups (boys + girls/"jenter") — used to validate config keys.
 KNOWN_AGE_GROUPS = set(FEDERATION_PARALLEL_GAMES_DEFAULTS.keys())
+
+
+def _emit_federation_warning(age_group: str, configured: int, fed_max: int) -> None:
+    """Emit a Norwegian-language warning about a federation parallelGames violation.
+
+    Uses `rich_output.print_warning` when Rich is available; falls back to
+    `warnings.warn` so the message is never silently swallowed.
+    """
+    message = (
+        f"Advarsel: {age_group} er konfigurert med {configured} baner, "
+        f"men forbundet tillater maks {fed_max}. "
+        "Kontroller konfigurasjonen for å unngå regelbrudd."
+    )
+    try:
+        from tournament_scheduler.utils.rich_output import print_warning  # noqa: PLC0415
+        print_warning(message)
+    except Exception:
+        import warnings as _warnings
+        _warnings.warn(message, stacklevel=4)
 
 
 class SeasonConfigError(ValueError):
@@ -108,7 +126,6 @@ class ParallelGamesConfig:
             )
 
         settings: Dict[str, AgeGroupSettings] = {}
-        violations: List[str] = []
         for age_group, raw_value in data.items():
             if age_group not in KNOWN_AGE_GROUPS:
                 raise SeasonConfigError(
@@ -126,20 +143,9 @@ class ParallelGamesConfig:
 
             fed_max = FEDERATION_PARALLEL_GAMES_DEFAULTS.get(age_group)
             if fed_max is not None and parallel_games > fed_max:
-                violations.append(
-                    f"  {age_group}: konfigurert {parallel_games}, forbundsmaksimum {fed_max}"
-                )
+                _emit_federation_warning(age_group, parallel_games, fed_max)
 
             settings[age_group] = AgeGroupSettings(parallel_games=parallel_games)
-
-        if violations:
-            warnings.warn(
-                "Advarsel: følgende aldersgrupper overskrider forbundets maksimumsgrense "
-                "for antall parallelle kamper (parallelGames):\n"
-                + "\n".join(violations)
-                + "\nKontroller konfigurasjonen for å unngå regelbrudd.",
-                stacklevel=2,
-            )
 
         return cls(settings)
 

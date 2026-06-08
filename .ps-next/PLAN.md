@@ -19,7 +19,7 @@ tags:
   - Files: tournament_scheduler/season_config.py
   - Approach: Define a new module-level constant `FEDERATION_PARALLEL_GAMES_DEFAULTS: Dict[str, int]` mapping every key in `KNOWN_AGE_GROUPS` to its federation-mandated maximum; values must be sourced from the actual federation rules (JU12: 2, U12: 2 confirmed; other age groups set to their known or conservative defaults), replacing the single `DEFAULT_PARALLEL_GAMES = 2` constant.
 
-- [ ] Update ParallelGamesConfig.from_dict to emit a Norwegian-language warning when a configured parallelGames value exceeds the federation default for that age group.
+- [x] Refactored violation warning to use a dedicated _emit_federation_warning helper that calls print_warning from rich_output.py with a per-age-group Norwegian message (e.g. 'Advarsel: JU12 er konfigurert med 3 baner, men forbundet tillater maks 2.'). Falls back to warnings.warn if Rich is unavailable. — 2026-06-08
   - Files: tournament_scheduler/season_config.py, tournament_scheduler/utils/rich_output.py
   - Approach: In `ParallelGamesConfig.from_dict`, after `_extract_parallel_games` resolves the value and positivity is validated, compare it against `FEDERATION_PARALLEL_GAMES_DEFAULTS[age_group]`; if it exceeds the mandate, call `print_warning` from `rich_output.py` with a Norwegian message identifying the age group, the configured value, and the federation limit (e.g. "Advarsel: JU12 er konfigurert med 3 baner, men forbundet tillater maks 2.").
 
@@ -56,4 +56,11 @@ tags:
 **Findings:** All 94 tests pass. Warning is emitted when configured parallelGames exceeds federation max.
 LESSONS: none
 **Files:** tournament_scheduler/season_config.py (+51/-11)
+**Commit:** 442efad (hockey)
+
+### 2026-06-08 — Refactored violation warning to use a dedicated _emit_federation_warning helper that calls print_warning from rich_output.py with a per-age-group Norwegian message (e.g. 'Advarsel: JU12 er konfigurert med 3 baner, men forbundet tillater maks 2.'). Falls back to warnings.warn if Rich is unavailable.
+**Rationale:** Used local import to avoid hard Rich dependency in pure config parsing paths. Single violation message per age group matches plan spec.
+**Findings:** All 94 tests pass. Warning now uses print_warning from rich_output with Norwegian per-age-group message.
+LESSONS: none
+**Files:** tournament_scheduler/season_config.py (+21/-15)
 **Commit:** [pending — fill after commit]
