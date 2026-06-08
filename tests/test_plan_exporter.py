@@ -58,8 +58,10 @@ class TestSeasonPlanExporter:
 
         workbook = openpyxl.load_workbook(str(output_path))
         assert "Sesongoversikt" in workbook.sheetnames
-        # One sheet per tournament, plus the overview sheet
-        assert len(workbook.sheetnames) == 1 + len(sample_plan.tournaments)
+        # One sheet per tournament, plus the overview sheet, plus one summary
+        # sheet per distinct club appearing in the plan's rosters.
+        distinct_clubs = {team.club for tournament in sample_plan.tournaments for team in tournament.teams}
+        assert len(workbook.sheetnames) == 1 + len(sample_plan.tournaments) + len(distinct_clubs)
 
     def test_overview_rows_match_plan_tournaments(self, sample_plan, tmp_path):
         output_path = tmp_path / "season_plan.xlsx"

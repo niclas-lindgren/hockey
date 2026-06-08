@@ -34,6 +34,11 @@ _NORWEGIAN_WEEKDAYS = [
 
 _OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag"]
 _GAMES_HEADERS = ["Kamp #", "Hjemmelag", "Bortelag", "Parallellbane"]
+_CLUB_SUMMARY_HEADERS = ["Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena"]
+
+# Club worksheet titles are prefixed to distinguish them from tournament
+# sheets and to keep them grouped together when sorted alphabetically.
+_CLUB_SHEET_PREFIX = "Klubb "
 
 # Excel worksheet titles cannot exceed 31 characters and must be unique.
 _MAX_SHEET_TITLE_LENGTH = 31
@@ -61,6 +66,11 @@ class SeasonPlanExporter:
             sheet = self.workbook.create_sheet(title=self._unique_sheet_title(tournament, index, used_titles))
             used_titles.add(sheet.title)
             self._write_tournament_sheet(sheet, tournament)
+
+        for club in self._clubs_in_plan(plan):
+            sheet = self.workbook.create_sheet(title=self._unique_club_sheet_title(club, used_titles))
+            used_titles.add(sheet.title)
+            self._write_club_summary_sheet(sheet, plan, club)
 
         self.workbook.save(output_path)
         console.print(f"[green]Sesongplanen ble eksportert til[/green] [bold]{output_path}[/bold]")
@@ -114,6 +124,74 @@ class SeasonPlanExporter:
             ])
 
         self._autosize_columns(sheet)
+
+    # ------------------------------------------------------------------
+    # Per-club summary sheets
+    # ------------------------------------------------------------------
+
+    def _write_club_summary_sheet(self, sheet: Worksheet, plan: SeasonPlan, club: str) -> None:
+        """Write one row per (team, tournament-date, opponent, arena) for `club`.
+
+        Iterates `plan.tournaments`, finds the games involving teams that
+        belong to `club`, and renders a row for each such game from that
+        team's perspective (its label, the tournament's age group/date, the
+        opponent's label, and the host arena).
+        """
+        sheet.append([f"Klubb: {club}"])
+        sheet.append([])
+        sheet.append(_CLUB_SUMMARY_HEADERS)
+        header_row_index = sheet.max_row
+        for cell in sheet[header_row_index]:
+            cell.font = cell.font.copy(bold=True)
+
+        for tournament in plan.tournaments:
+            club_teams = [team for team in tournament.teams if team.club == club]
+            if not club_teams:
+                continue
+
+            for team in club_teams:
+                opponents = [
+                    (game.away if game.home is team else game.home).label
+                    for game in tournament.games
+                    if game.home is team or game.away is team
+                ]
+                sheet.append([
+                    team.label,
+                    tournament.age_group,
+                    self._format_date(tournament.date),
+                    self._weekday_name(tournament.date),
+                    ", ".join(opponents),
+                    tournament.arena,
+                ])
+
+        self._autosize_columns(sheet)
+
+    @staticmethod
+    def _clubs_in_plan(plan: SeasonPlan) -> List[str]:
+        """Return distinct club names across all tournaments' teams, in first-seen order."""
+        seen: List[str] = []
+        for tournament in plan.tournaments:
+            for team in tournament.teams:
+                if team.club not in seen:
+                    seen.append(team.club)
+        return seen
+
+    @staticmethod
+    def _unique_club_sheet_title(club: str, used_titles) -> str:
+        """Build a unique, Excel-valid (<=31 chars) sheet title for a club summary."""
+        base = SeasonPlanExporter._sanitize_sheet_title(f"{_CLUB_SHEET_PREFIX}{club}")
+        title = base[:_MAX_SHEET_TITLE_LENGTH]
+        if title not in used_titles:
+            return title
+
+        suffix = " (2)"
+        index = 2
+        while title in used_titles:
+            trimmed_len = _MAX_SHEET_TITLE_LENGTH - len(suffix)
+            title = f"{base[:trimmed_len]}{suffix}"
+            index += 1
+            suffix = f" ({index})"
+        return title
 
     # ------------------------------------------------------------------
     # Helpers
