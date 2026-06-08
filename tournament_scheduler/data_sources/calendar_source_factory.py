@@ -22,6 +22,17 @@ consistent across every club:
 `UNKNOWN` and `skip=True` entries have no usable source yet; `build_calendar_source`
 returns `None` for them so callers can simply skip those clubs (mirroring
 `ClubCalendarSource.is_known` / `club_registry.missing_clubs`).
+
+Note for clubs still pending a discovered source (Holmen, Frisk Asker, Jutul,
+Jar, Tønsberg, Sandefjord Penguins — see notes on each `CLUB_REGISTRY` entry
+for what was checked): no new scraper code or factory changes are needed to
+activate them. Both `ICalScraper` (any iCal/.ics feed URL or Google-Calendar
+email-style ID — see `ICalScraper._feed_url`) and `OutlookCalendarScraper`
+(any Playwright-renderable Outlook-format webkalender URL) are fully generic
+and URL-parameterised already. Once a real feed/calendar URL is found for a
+club, activating it is just a matter of updating its registry entry
+(`kind`, `source`, `skip=False`) — `build_calendar_source` /
+`build_known_calendar_sources` will pick it up automatically.
 """
 
 from typing import Dict, List, Optional, Tuple

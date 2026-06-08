@@ -125,7 +125,11 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
             "param is ignored, falls back to Jarhallen). A live, working source "
             "would need either a discovered Sportality calendar API or a "
             "Playwright-based scraper for the SPA (similar to Kongsberg's "
-            "OUTLOOK integration, but for a different platform/markup)."
+            "OUTLOOK integration, but for a different platform/markup). "
+            "No new scraper code is needed to wire it in once found — "
+            "build_calendar_source() already builds an IceHallCalendar from "
+            "either an ICAL feed URL (-> ICalScraper) or an OUTLOOK webkalender "
+            "URL (-> OutlookCalendarScraper); just set kind/source/skip=False."
         ),
     ),
     "Sandefjord Penguins": ClubCalendarSource(
@@ -180,9 +184,14 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
             "not a calendar feed) and the linked Sportello booking widget at "
             "kalender.sportello.no/booking/11055 (JS-rendered SPA shell — every "
             "guessed export URL pattern returns the same ~1.3KB shell, no "
-            ".ics/iCal export discoverable in static markup). A live source "
-            "would need a discovered Sportello calendar/export API or a "
-            "Playwright-based scraper for the booking widget."
+            ".ics/iCal export discoverable in static markup; its JS bundle "
+            "(assets/index.0f99a841.js) has no inlined API base URL either). "
+            "A live source would need a discovered Sportello calendar/export "
+            "API or a Playwright-based scraper for the booking widget. "
+            "No new scraper code is needed to wire it in once found — "
+            "build_calendar_source() already builds an IceHallCalendar from "
+            "either an ICAL feed URL (-> ICalScraper) or an OUTLOOK webkalender "
+            "URL (-> OutlookCalendarScraper); just set kind/source/skip=False."
         ),
     ),
     "Skien": ClubCalendarSource(
