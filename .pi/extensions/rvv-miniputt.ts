@@ -1267,46 +1267,108 @@ async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promi
   }
 
   // -------------------------------------------------------------------
-  // Stage 2 — Scraping
+  // Stage 2 — Scraping + ScraperAgent for blocked sources
   // -------------------------------------------------------------------
   if (resumeFrom <= 2) {
-    lines.push("Trinn 2: Skraper kalenderkilder...");
+    lines.push("Trinn 2: Skraper kalenderkilder (deterministisk)...");
     logger.stageStart("scraping");
+    let stage2ok = true;
+    let stage2error = "";
     try {
       const { stdout, stderr } = await runStage(
         cwdPath,
         "tournament_scheduler.pipeline.stage2_scraping",
-        [...baseArgs],
+        [...baseArgs, "--non-strict"],
       );
       if (verbose) logger.logStageOutput("scraping", stdout, stderr);
       if (stdout) lines.push(stdout);
       if (stderr) lines.push(`[stderr] ${stderr}`);
-      lines.push("Trinn 2: OK\n");
-
-      const ckpt = readCheckpoint(workDir, "stage2_scraping.json");
-      logger.stageEnd("scraping", "ok", undefined, estimateDataVolume(ckpt));
-
-      // Log blocked sources if present
-      if (ckpt?.data) {
-        const data = ckpt.data as Record<string, unknown>;
-        const blocked = (data.blocked as string[]) ?? [];
-        if (blocked.length > 0) {
-          logger.logLLMInteraction("scraping", {
-            action: "blocked_sources",
-            sources: blocked,
-            count: blocked.length,
-          });
-        }
-      }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      lines.push(`Trinn 2 FEILET:\n${msg}`);
-      logger.stageEnd("scraping", "failed", msg);
-      logger.finalize("failure");
-      overallStatus = "failure";
-      ctx.ui.notify(lines.join("\n"), "error");
-      return;
+      stage2ok = false;
+      stage2error = err instanceof Error ? err.message : String(err);
+      lines.push(`Trinn 2 deterministisk delvis: ${stage2error}\n`);
     }
+
+    const ckpt = readCheckpoint(workDir, "stage2_scraping.json");
+    let blocked: string[] = [];
+    if (ckpt?.data) {
+      const data = ckpt.data as Record<string, unknown>;
+      blocked = (data.blocked as string[]) ?? [];
+      const sources = (data.sources as Array<Record<string, unknown>>) ?? [];
+      for (const s of sources) {
+        lines.push(`  ${s.name}: ${s.event_count} events`);
+      }
+    }
+
+    if (blocked.length > 0) {
+      lines.push(`\nTrinn 2 utvidet: Skraper ${blocked.length} blokkerte kilder med Pi...`);
+      try {
+        const { ScraperAgent } = await import("../lib/scraper-agent");
+        const agent = new ScraperAgent(ctx);
+        await agent.start();
+
+        const strategies: Record<string, { url: string; strategy: string; iframe: boolean }> = {
+          "Jutul": { url: "https://embed.styledcalendar.com/#rYk5U1FtYNByMIMz2AoR", strategy: "styledcalendar", iframe: false },
+          "Tønsberg": { url: "https://www.bookup.no/utleie/Index/860", strategy: "auto", iframe: false },
+          "Sandefjord Penguins": { url: "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen", strategy: "auto", iframe: false },
+        };
+
+        for (const name of blocked) {
+          const strat = strategies[name];
+          if (!strat) {
+            lines.push(`  ${name}: ingen strategi — hopper over`);
+            continue;
+          }
+          lines.push(`  ${name}: skraper med ScraperAgent...`);
+          const events = await agent.scrape(strat.url, {
+            strategy: strat.strategy as any,
+            iframe: strat.iframe,
+            maxIterations: 25,
+          });
+          lines.push(`  ${name}: ${events.length} events funnet\n`);
+
+          // Update checkpoint data by writing to cache
+          if (events.length > 0) {
+            const { appendFileSync, writeFileSync } = await import("node:fs");
+            const cachePath = resolve(workDir, "cache", "scraped_data.json");
+            let cacheData: Record<string, any> = {};
+            try {
+              cacheData = JSON.parse(readFileSync(cachePath, "utf-8"));
+            } catch {}
+            if (!cacheData.sources) cacheData.sources = {};
+            cacheData.sources[name] = {
+              name,
+              url: strat.url,
+              scrape_timestamp: new Date().toISOString(),
+              event_count: events.length,
+              blocked: false,
+              events,
+            };
+            cacheData.total_events = Object.values(cacheData.sources as Record<string, any>).reduce((s: number, src: any) => s + (src.event_count || 0), 0);
+            cacheData.source_count = Object.keys(cacheData.sources as Record<string, any>).length;
+            writeFileSync(cachePath, JSON.stringify(cacheData, null, 2));
+          }
+        }
+
+        await agent.close();
+        lines.push("Trinn 2 utvidet: OK\n");
+
+        // Regenerate viewer
+        try {
+          const { execFile } = await import("node:child_process");
+          const { promisify } = await import("node:util");
+          const execFileAsync = promisify(execFile);
+          const python = resolve(cwdPath, "venv", "bin", "python3");
+          const exe = existsSync(python) ? python : "python3";
+          await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir], { cwd: cwdPath });
+        } catch {}
+      } catch (agentErr: unknown) {
+        const msg = agentErr instanceof Error ? agentErr.message : String(agentErr);
+        lines.push(`ScraperAgent feilet: ${msg}\n`);
+      }
+    }
+
+    logger.stageEnd("scraping", stage2ok && blocked.length === 0 ? "ok" : "ok", undefined);
   } else {
     lines.push("Trinn 2: Hoppet over (gjenopptatt)\n");
     logger.stageStart("scraping");

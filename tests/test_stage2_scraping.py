@@ -132,9 +132,9 @@ class TestRunStage2:
         """'html' source type dispatches to the browser scraper (same as 'outlook')."""
         state = PipelineState(tmp_path / "pipeline")
         cfg = _make_config_with_sources([
-            {"name": "Jutul", "type": "html", "url": "https://baerumishall.no/kalender/"},
+            {"name": "OtherHall", "type": "html", "url": "https://example.com/kalender/"},
         ])
-        events = [_make_event("Jutul booking")]
+        events = [_make_event("Booking")]
 
         with patch(
             "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",

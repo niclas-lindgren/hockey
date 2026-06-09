@@ -285,6 +285,9 @@ class BrowserWorker:
                 month_start = datetime.now().replace(day=1)
             events = self._parse_date_param(html, month_start)
 
+        if not events and (strategy == "styledcalendar" or strategy == "auto"):
+            events = self._parse_styledcalendar()
+
         return {"ok": True, "events": events}
 
     def cmd_eval(self, params: dict[str, Any]) -> dict[str, Any]:
@@ -443,6 +446,64 @@ class BrowserWorker:
 
 # ---------------------------------------------------------------------------
 # Main loop
+    def _parse_styledcalendar(self) -> list[dict[str, Any]]:
+        """Extract FullCalendar events from the current page via JS eval.
+
+        First switches to month view (fc-dayGridMonth) if needed, then
+        iterates all .fc-daygrid-event elements and extracts date+title.
+        """
+        if self._page is None:
+            return []
+        try:
+            import time as _time
+            # Switch to month view if not already active
+            month_btn = self._page.query_selector("button.fc-dayGridMonth-button")
+            if month_btn:
+                is_active = self._page.evaluate(
+                    "document.querySelector('button.fc-dayGridMonth-button')?.classList.contains('fc-button-active')"
+                )
+                if not is_active:
+                    month_btn.click()
+                    _time.sleep(1.0)
+
+            # Extract events from the month grid
+            raw = self._page.evaluate("""
+                JSON.stringify(Array.from(document.querySelectorAll('.fc-daygrid-event')).map(e => {
+                    const day = e.closest('[data-date]');
+                    const date = day ? day.getAttribute('data-date') || '' : '';
+                    const title = (e.querySelector('.fc-event-title') || e).innerText.trim();
+                    return { date, title };
+                }))
+            """)
+            raw_events = json.loads(raw) if isinstance(raw, str) else raw
+            if not isinstance(raw_events, list):
+                return []
+            events: list[dict[str, Any]] = []
+            seen: set[tuple[str, str]] = set()
+            for item in raw_events:
+                date_str = item.get("date", "")
+                title = item.get("title", "")
+                if not date_str or not title:
+                    continue
+                try:
+                    dt = datetime.strptime(date_str, "%Y-%m-%d")
+                except ValueError:
+                    continue
+                key = (date_str, title)
+                if key in seen:
+                    continue
+                seen.add(key)
+                events.append({
+                    "date": dt.strftime("%d.%m.%Y"),
+                    "name": title,
+                    "datetime": dt.isoformat(),
+                    "duration_hours": 1.0,
+                })
+            return events
+        except Exception:
+            return []
+
+
 # ---------------------------------------------------------------------------
 
 def main() -> None:
