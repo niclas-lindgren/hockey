@@ -25,6 +25,16 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sesongplan $SEASON_LABEL$ — RVV Hockey</title>
 <style>
+  /* Navbar */
+  .navbar { display: flex; align-items: center; gap: 4px;
+             background: #1a1a2e; color: #fff; padding: 8px 16px;
+             border-bottom: 1px solid #333; }
+  .navbar .brand { font-weight: 700; font-size: 0.9em; margin-right: 20px; color: #38bdf8; }
+  .navbar a { color: #94a3b8; text-decoration: none; padding: 4px 12px;
+               border-radius: 4px; font-size: 0.8em; }
+  .navbar a:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .navbar a.active { background: #38bdf8; color: #0f172a; font-weight: 600; }
+  .navbar .meta-nav { margin-left: auto; font-size: 0.75em; color: #666; }
   :root {
     --ice: #0f172a;
     --ice-light: #1e293b;
@@ -349,6 +359,12 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
+<div class="navbar">
+  <span class="brand">🏒 RVV Miniputt</span>
+  <a href="calendars.html">🗓️ Skrapede kalendere</a>
+  <a href="season_plan.html" class="active">📋 Sesongplan</a>
+  <span class="meta-nav">$SCRAPE_META$</span>
+</div>
 <div class="app" id="app">
   <header class="header">
     <div class="header-left">
@@ -564,8 +580,19 @@ render();
 class HtmlExporter:
     """Generates a standalone interactive HTML overview of a :class:`SeasonPlan`."""
 
-    def export(self, plan: SeasonPlan, path: str | os.PathLike[str]) -> str:
-        """Write an interactive HTML overview to *path*, return the path."""
+    def export(self, plan: SeasonPlan, path: str | os.PathLike[str], meta: dict[str, Any] | None = None) -> str:
+        """Write an interactive HTML overview to *path*, return the path.
+
+        Parameters
+        ----------
+        plan:
+            The season plan to export.
+        path:
+            Output file path.
+        meta:
+            Optional metadata dict with ``total_events``, ``source_count``,
+            ``updated_at`` etc. from the scraped data cache. Shown in navbar.
+        """
         tournaments_json = self._plan_to_json(plan)
 
         # Count unique teams
@@ -583,8 +610,33 @@ class HtmlExporter:
             if ag not in ("U10", "U11"):
                 extra_age_options += f'<option value="{ag}">{ag}</option>\n'
 
+        # Scrape metadata for navbar
+        if meta:
+            ev = meta.get("total_events", 0)
+            src = meta.get("source_count", 0)
+            ts = meta.get("updated_at", "")
+            age = ""
+            if ts:
+                try:
+                    from datetime import datetime as _dt
+                    delta = _dt.now() - _dt.fromisoformat(ts)
+                    if delta.total_seconds() < 60:
+                        age = f"{int(delta.total_seconds())}s siden"
+                    elif delta.total_seconds() < 3600:
+                        age = f"{int(delta.total_seconds() // 60)}m siden"
+                    elif delta.days < 1:
+                        age = f"{int(delta.total_seconds() // 3600)}t siden"
+                    else:
+                        age = f"{delta.days}d siden"
+                except Exception:
+                    pass
+            scrape_meta = f"🏒 {src} kilder · 📊 {ev} hendelser · 🕐 {age}" if age else f"🏒 {src} kilder · 📊 {ev} hendelser"
+        else:
+            scrape_meta = ""
+
         replacements = {
             "$SEASON_LABEL$": season_label,
+            "$SCRAPE_META$": scrape_meta,
             "$AGE_GROUPS$": " + ".join(age_groups),
             "$TOURNAMENT_COUNT$": str(len(plan.tournaments)),
             "$GAME_COUNT$": str(sum(len(t.games) for t in plan.tournaments)),

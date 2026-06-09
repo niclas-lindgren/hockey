@@ -935,57 +935,69 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
   // -------------------------------------------------------------------------
   pi.registerCommand("rvv-miniputt calendars", {
     description:
-      "Generer og åpne HTML-kalendervisning for skrapede kalenderdata.\n" +
-      "Valgfrie flagg: --refresh (tving re-skraping), --output <sti>\n" +
-      "Kalenderen vises i .pipeline/calendars.html.",
+      "Generer rapporter (skrapede kalendere + sesongplan) fra cache.\n" +
+      "Hurtig — kjører ikke skraping på nytt.\n" +
+      "Flagg: --refresh (tving re-skraping), --work-dir <sti>\n" +
+      "Rapportene ligger i .pipeline/calendars.html og .pipeline/season_plan.html.",
     getArgumentCompletions: (prefix) => {
-      const words = ["--refresh", "--output", "--work-dir"];
+      const words = ["--refresh", "--work-dir"];
       return words.filter((w) => w.startsWith(prefix)).map((value) => ({ value, label: value }));
     },
     handler: async (args, ctx) => {
       const tokens = args.trim().split(/\s+/);
       let refresh = false;
-      let outputPath = "";
       let workDir = ".pipeline";
       for (let i = 0; i < tokens.length; i++) {
         if (tokens[i] === "--refresh") refresh = true;
-        else if (tokens[i] === "--output" && i + 1 < tokens.length) outputPath = tokens[++i];
         else if (tokens[i] === "--work-dir" && i + 1 < tokens.length) workDir = tokens[++i];
       }
 
       const python = resolve(ctx.cwd, "venv", "bin", "python3");
       const exe = existsSync(python) ? python : "python3";
-      const viewerArgs = [
-        "-m", "tournament_scheduler.pipeline.calendar_viewer",
-        "--work-dir", resolve(ctx.cwd, workDir),
-      ];
-      if (refresh) viewerArgs.push("--refresh");
+      const absWorkDir = resolve(ctx.cwd, workDir);
+
+      ctx.ui.notify("Genererer rapporter...", "info");
 
       try {
         const { execFile } = await import("node:child_process");
         const { promisify } = await import("node:util");
         const execFileAsync = promisify(execFile);
-        const { stdout, stderr } = await execFileAsync(exe, viewerArgs, {
-          cwd: ctx.cwd,
-          timeout: 30_000,
-        });
-        const out = stdout.trim();
-        if (out) ctx.ui.notify(out, "info");
-        if (stderr) ctx.ui.notify(stderr, "warning");
+        const { copyFileSync } = await import("node:fs");
 
-        if (!refresh) {
-          const calendarFile = resolve(ctx.cwd, workDir, "calendars.html");
-          if (existsSync(calendarFile)) {
-            ctx.ui.notify(
-              `Åpne kalenderen: ${calendarFile}\n` +
-              `Eller kjør: open ${calendarFile}`,
-              "info",
-            );
-          }
+        const lines: string[] = [];
+
+        // 1. Regenerate calendar viewer (reads cache — fast)
+        try {
+          const viewerArgs = ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", absWorkDir];
+          if (refresh) viewerArgs.push("--refresh");
+          const { stdout } = await execFileAsync(exe, viewerArgs, { cwd: ctx.cwd, timeout: 30_000 });
+          if (stdout.trim()) lines.push(stdout.trim());
+        } catch (err: unknown) {
+          lines.push(`Kalendervisning feilet: ${err instanceof Error ? err.message : String(err)}`);
         }
+
+        // 2. Copy season plan from export dir (+++rask — bare filkopiering)
+        if (!refresh) {
+          try {
+            const src = resolve(ctx.cwd, "export", "season_plan.html");
+            const dst = resolve(absWorkDir, "season_plan.html");
+            if (existsSync(src)) {
+              copyFileSync(src, dst);
+              lines.push(`Sesongplan kopiert: ${dst}`);
+            }
+          } catch {}
+        }
+
+        // 3. Show paths
+        const calendarFile = resolve(absWorkDir, "calendars.html");
+        const planFile = resolve(absWorkDir, "season_plan.html");
+        if (existsSync(calendarFile)) lines.push(`  🗓️  ${calendarFile}`);
+        if (existsSync(planFile)) lines.push(`  📋  ${planFile}`);
+
+        ctx.ui.notify(lines.join("\n"), "info");
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        ctx.ui.notify(`Feil ved generering av kalendervisning: ${msg}`, "error");
+        ctx.ui.notify(`Feil: ${msg}`, "error");
       }
     },
   });
@@ -1443,6 +1455,27 @@ async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promi
     logger.stageEnd("export", "skipped");
   }
 
+  // Copy season plan HTML next to calendars.html for navbar linking
+  try {
+    const seasonPlanSrc = resolve(cwdPath, "export", "season_plan.html");
+    const seasonPlanDst = resolve(workDir, "season_plan.html");
+    if (existsSync(seasonPlanSrc)) {
+      const { copyFileSync } = await import("node:fs");
+      copyFileSync(seasonPlanSrc, seasonPlanDst);
+      lines.push("Sesongplan kopiert til pipeline-katalog\n");
+    }
+  } catch {}
+
+  // Regenerate viewer to include navbar with all report links
+  try {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const execFileAsync = promisify(execFile);
+    const python = resolve(cwdPath, "venv", "bin", "python3");
+    const exe = existsSync(python) ? python : "python3";
+    await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir], { cwd: cwdPath });
+  } catch {}
+
   // Finalize
   logger.finalize(overallStatus);
 
@@ -1451,6 +1484,12 @@ async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promi
 
   // Add a self-improvement summary
   if (overallStatus === "success") {
+    lines.push("");
+    lines.push("Genererte filer:");
+    lines.push(`  🗓️  Skrapede kalendere:  ${resolve(workDir, "calendars.html")}`);
+    const sp = resolve(workDir, "season_plan.html");
+    if (existsSync(sp)) lines.push(`  📋 Sesongplan:         ${sp}`);
+    lines.push(`  📊 Sesongplan (Excel):  ${resolve(cwdPath, "export", "season_plan.xlsx")}`);
     lines.push("");
     lines.push("For å se kjøringshistorikk og trender:");
     lines.push("  /rvv-miniputt logs list   — vis siste kjøringer");

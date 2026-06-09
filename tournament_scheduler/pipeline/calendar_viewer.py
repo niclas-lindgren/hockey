@@ -104,6 +104,35 @@ def generate_html(work_dir: str = ".pipeline") -> str:
     start_date_str = meta.get("start_date", "")
     end_date_str = meta.get("end_date", "")
 
+    # Collect all months in range for month filter
+    all_months: list[tuple[int, int]] = []
+    y, m = min_date.year, min_date.month
+    end_y, end_m = max_date.year, max_date.month
+    while (y < end_y) or (y == end_y and m <= end_m):
+        all_months.append((y, m))
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+
+    def _format_time(ev: dict[str, Any]) -> str:
+        """Extract start and end time string from event."""
+        dt_str = ev.get("datetime", "")
+        dur = ev.get("duration_hours", 0)
+        if not dt_str:
+            return ""
+        try:
+            dt = datetime.fromisoformat(dt_str)
+            start = dt.strftime("%H:%M")
+            if dur and dur > 0:
+                from datetime import timedelta
+                end_dt = dt + timedelta(hours=dur)
+                end = end_dt.strftime("%H:%M")
+                return f"{start}-{end}"
+            return start
+        except (ValueError, TypeError):
+            return ""
+
     # Generate month-by-month calendar
     def _month_html(year: int, month: int) -> str:
         import calendar
@@ -113,7 +142,7 @@ def generate_html(work_dir: str = ".pipeline") -> str:
         now = datetime.now()
 
         lines = [
-            f'<div class="month" id="m{year}{month:02d}">',
+            f'<div class="month" id="m{year}{month:02d}" data-year="{year}" data-month="{month:02d}">',
             f'  <h3 class="month-title">{month_name} {year}</h3>',
             '  <table class="cal">',
             '    <thead><tr class="day-names">',
@@ -122,7 +151,6 @@ def generate_html(work_dir: str = ".pipeline") -> str:
             '    <tbody>',
         ]
 
-        week_num = 0
         for week in month_days:
             lines.append('      <tr>')
             for day_num in week:
@@ -150,37 +178,30 @@ def generate_html(work_dir: str = ".pipeline") -> str:
                         src_url = ev.get("_source_url", "")
                         color = color_map.get(src, CLUB_COLORS[-1])
                         name = _escape_html(ev.get("name", "?"))
-                        dur = ev.get("duration_hours", 0)
-                        dur_str = f"{dur:.1f}t" if dur > 0 else ""
+                        time_str = _format_time(ev)
                         link = f'<a href="{_escape_html(src_url)}" target="_blank" title="Åpne {_escape_html(src)} sin kalender">🔗</a>' if src_url else ""
                         lines.append(
-                            f'<div class="event" style="background:{color["bg"]};border-left:3px solid {color["border"]}">'
-                            f'<span class="ev-name">{name}</span> '
-                            f'<span class="ev-meta">{_escape_html(src)}{" " + dur_str if dur_str else ""} {link}</span>'
-                            f'</div>'
+                            f'<div class="event" data-source="{_escape_html(src)}" style="background:{color["bg"]};border-left:3px solid {color["border"]}" title="{_escape_html(src)} — {name}">'
+                            + (f'<span class="ev-time">{time_str}</span> ' if time_str else '')
+                            + f'<span class="ev-name">{name}</span> '
+                            + f'<span class="ev-meta">{_escape_html(src)} {link}</span>'
+                            + f'</div>'
                         )
                     lines.append('          </div>')
 
                 lines.append('        </td>')
             lines.append('      </tr>')
-            week_num += 1
 
         lines.extend(['    </tbody>', '  </table>', '</div>'])
         return "\n".join(lines)
 
     # Build month list
     months_html: list[str] = []
-    y, m = min_date.year, min_date.month
-    end_y, end_m = max_date.year, max_date.month
-    while (y < end_y) or (y == end_y and m <= end_m):
+    for y, m in all_months:
         months_html.append(_month_html(y, m))
-        m += 1
-        if m > 12:
-            m = 1
-            y += 1
 
-    # Build filter controls
-    filter_lines: list[str] = []
+    # Build club filter controls
+    club_filter_lines: list[str] = []
     for name in source_names:
         color = color_map[name]
         cnt = sources.get(name, {}).get("event_count", 0)
@@ -188,18 +209,35 @@ def generate_html(work_dir: str = ".pipeline") -> str:
         age = _age_string(ts)
         blocked = sources.get(name, {}).get("blocked", False)
         status = "🔴" if blocked else "🟢"
-        filter_lines.append(
+        club_filter_lines.append(
             f'<label class="filter-item" style="--cbg:{color["bg"]};--cborder:{color["border"]}">'
             f'<input type="checkbox" class="club-filter" data-club="{_escape_html(name)}" checked>'
             f'<span class="club-label">{_escape_html(name)}</span> '
             f'<span class="club-stats">({cnt} hendelser, {age}) {status}</span>'
             f'</label>'
         )
-    filter_html = "\n".join(filter_lines)
+    club_filter_html = "\n".join(club_filter_lines)
+
+    # Build month filter controls
+    month_filter_lines: list[str] = []
+    for y, m in all_months:
+        mn = _month_name(m)
+        mid = f"m{y}{m:02d}"
+        month_filter_lines.append(
+            f'<label class="month-filter-item">'
+            f'<input type="checkbox" class="month-filter" data-month="{mid}" checked>'
+            f'<span>{mn} {y}</span>'
+            f'</label>'
+        )
+    month_filter_html = "\n".join(month_filter_lines)
 
     total_events = data.get("total_events", 0)
     source_count = data.get("source_count", 0)
     age_all = _age_string(updated_at)
+
+    # Check if season plan exists alongside
+    season_plan_path = Path(work_dir) / "season_plan.html"
+    has_season_plan = season_plan_path.exists()
 
     html = f"""<!DOCTYPE html>
 <html lang="nb">
@@ -208,66 +246,139 @@ def generate_html(work_dir: str = ".pipeline") -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RVV Miniputt — Skrapede kalendere</title>
 <style>
+  :root {{
+    --ice: #0f172a;
+    --ice-light: #1e293b;
+    --ice-surface: #334155;
+    --ice-border: #475569;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --accent: #38bdf8;
+    --accent-dim: #0284c7;
+    --radius: 8px;
+    --radius-sm: 4px;
+    --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  }}
   *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-         background: #f5f5f5; color: #333; padding: 20px; }}
-  h1 {{ font-size: 1.5em; margin-bottom: 4px; }}
-  .meta {{ font-size: 0.85em; color: #666; margin-bottom: 16px; }}
-  .meta span {{ margin-right: 16px; }}
-  .filters {{ display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }}
-  .filter-item {{ display: inline-flex; align-items: center; gap: 4px;
-                  padding: 4px 10px; border-radius: 6px;
+  html, body {{ height: 100%; }}
+  body {{ font-family: var(--font); background: var(--ice); color: var(--text); line-height: 1.5; }}
+  .layout {{ display: flex; height: 100vh; }}
+  
+  /* Navbar — matches season_plan */
+  .navbar {{ display: flex; align-items: center; gap: 4px;
+             background: #1a1a2e; color: #fff; padding: 8px 16px;
+             border-bottom: 1px solid #333; flex-shrink: 0; }}
+  .navbar .brand {{ font-weight: 700; font-size: 0.9em; margin-right: 20px; color: var(--accent); }}
+  .navbar a {{ color: #94a3b8; text-decoration: none; padding: 4px 12px;
+               border-radius: 4px; font-size: 0.8em; }}
+  .navbar a:hover {{ background: rgba(255,255,255,0.1); color: #fff; }}
+  .navbar a.active {{ background: var(--accent); color: #0f172a; font-weight: 600; }}
+  
+  /* Sidebar — dark theme */
+  .sidebar {{ width: 270px; min-width: 270px; background: var(--ice-light);
+              border-right: 1px solid var(--ice-surface);
+              padding: 14px; overflow-y: auto; position: sticky; top: 0; height: calc(100vh - 40px); }}
+  .sidebar h2 {{ font-size: 0.85em; margin: 14px 0 6px; color: var(--text-dim);
+                  text-transform: uppercase; letter-spacing: .08em; }}
+  .sidebar h2:first-child {{ margin-top: 0; }}
+  .filter-item {{ display: flex; align-items: center; gap: 3px;
+                  padding: 3px 8px; border-radius: var(--radius-sm);
                   background: var(--cbg); border: 1px solid var(--cborder);
-                  cursor: pointer; font-size: 0.85em; }}
-  .filter-item input {{ accent-color: var(--cborder); }}
-  .club-label {{ font-weight: 600; }}
-  .club-stats {{ color: #555; font-size: 0.9em; }}
-  .month {{ margin-bottom: 32px; }}
-  .month-title {{ font-size: 1.2em; margin-bottom: 8px; color: #444; }}
+                  cursor: pointer; font-size: 0.78em; margin-bottom: 3px; }}
+  .filter-item input {{ accent-color: var(--cborder); flex-shrink: 0; }}
+  .club-label {{ font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #111; }}
+  .club-stats {{ color: #444; font-size: 0.85em; flex-shrink: 0; }}
+  .month-filter-item {{ display: inline-flex; align-items: center; gap: 2px;
+                        padding: 2px 6px; margin: 1px; border-radius: var(--radius-sm);
+                        cursor: pointer; font-size: 0.75em;
+                        background: var(--ice-surface); border: 1px solid var(--ice-border);
+                        color: var(--text); }}
+  .month-filter-item input {{ accent-color: var(--accent); }}
+  .sidebar .refresh-btn {{ display: block; padding: 6px 12px; background: var(--accent-dim);
+                          color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer;
+                          font-size: 0.78em; text-decoration: none; margin: 4px 0; text-align: center; }}
+  .sidebar .refresh-btn:hover {{ background: var(--accent); }}
+  .sidebar .refresh-btn.green {{ background: #2E7D32; }}
+  .sidebar .refresh-btn.green:hover {{ background: #388E3C; }}
+  .count-badge {{ font-size: 0.7em; color: var(--text-dim); margin-top: 8px; }}
+  
+  /* Main content — dark theme */
+  .main {{ flex: 1; overflow-y: auto; padding: 20px; }}
+  h1 {{ font-size: 1.2em; margin-bottom: 4px; font-weight: 700; letter-spacing: -.02em; }}
+  h1 span {{ color: var(--accent); }}
+  .meta {{ font-size: 0.8em; color: var(--text-dim); margin-bottom: 16px; }}
+  .meta span {{ margin-right: 14px; }}
+  .month {{ margin-bottom: 28px; }}
+  .month-title {{ font-size: 1.05em; margin-bottom: 6px; color: var(--accent); font-weight: 600; }}
   table.cal {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
-  td, th {{ border: 1px solid #ddd; padding: 4px; vertical-align: top; height: 80px; }}
-  th {{ background: #eee; font-size: 0.8em; font-weight: 600; text-align: center; height: auto; padding: 6px; }}
-  td.empty {{ background: #fafafa; }}
-  td.today {{ background: #fffde7; }}
-  .day-num {{ font-weight: 600; font-size: 0.85em; margin-bottom: 2px; }}
-  .events {{ display: flex; flex-direction: column; gap: 2px; }}
-  .event {{ padding: 2px 4px; border-radius: 3px; font-size: 0.7em; line-height: 1.3; }}
-  .ev-name {{ display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-  .ev-meta {{ font-size: 0.85em; color: #555; }}
-  .ev-meta a {{ text-decoration: none; }}
-  .hidden {{ display: none !important; }}
-  a {{ color: #1E88E5; }}
+  td, th {{ border: 1px solid var(--ice-border); padding: 3px; vertical-align: top; height: 70px; }}
+  th {{ background: var(--ice-light); font-size: 0.72em; font-weight: 600; text-align: center;
+        height: auto; padding: 5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }}
+  td.empty {{ background: var(--ice); }}
+  td.today {{ background: rgba(56, 189, 248, .1); border-color: var(--accent-dim); }}
+  .day-num {{ font-weight: 600; font-size: 0.8em; margin-bottom: 2px; color: var(--text-dim); }}
+  td.today .day-num {{ color: var(--accent); }}
+  .events {{ display: flex; flex-direction: column; gap: 1px; }}
+  .event {{ padding: 2px 4px; border-radius: var(--radius-sm); font-size: 0.65em; line-height: 1.3;
+            cursor: default; position: relative; }}
+  .event:hover {{ filter: brightness(1.1); }}
+  .ev-time {{ font-weight: 600; margin-right: 2px; font-size: 0.95em; }}
+  .ev-name {{ display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }}
+  .ev-meta {{ font-size: 0.85em; opacity: 0.8; }}
+  .ev-meta a {{ text-decoration: none; color: inherit; }}
+  .ev-meta a:hover {{ text-decoration: underline; }}
+  a {{ color: var(--accent); }}
   a:hover {{ text-decoration: underline; }}
-  .refresh-btn {{ display: inline-block; padding: 6px 16px; background: #1E88E5;
-                 color: #fff; border: none; border-radius: 6px; cursor: pointer;
-                 font-size: 0.85em; text-decoration: none; margin-bottom: 16px; }}
-  .refresh-btn:hover {{ background: #1565C0; }}
-  @media (max-width: 768px) {{ td {{ height: 60px; font-size: 0.9em; }} }}
+  @media (max-width: 768px) {{ .layout {{ flex-direction: column; }} .navbar {{ overflow-x: auto; }} .sidebar {{ width: 100%; min-width: auto; height: auto; position: static; }} .main {{ padding: 10px; }} td {{ height: 50px; }} }}
 </style>
 </head>
 <body>
-<h1>🗓️ RVV Miniputt — Skrapede kalendere</h1>
-<div class="meta">
-  <span>📅 {start_date_str} — {end_date_str}</span>
-  <span>🏒 {source_count} kilder</span>
-  <span>📊 {total_events} hendelser</span>
-  <span>⏱️ Oppdatert: {age_all}</span>
+<div class="navbar">
+  <span class="brand">🏒 RVV Miniputt</span>
+  <a href="calendars.html" class="active">🗓️ Skrapede kalendere</a>
+  <a href="season_plan.html" class="{'active' if not has_season_plan else ''}">📋 Sesongplan</a>
+  <a href="#" onclick="document.querySelector('.main').scrollTo(0,0);return false" style="margin-left:auto;color:#666">⬆️ Topp</a>
 </div>
-<div class="filters">{filter_html}</div>
-<p><a class="refresh-btn" href="#" onclick="location.reload()">🔄 Oppdater side</a>
-<a class="refresh-btn" href="/rvv-miniputt calendars --refresh" style="background:#43A047">🔄 Tving re-skraping</a></p>
-<div id="calendars">{''.join(months_html)}</div>
+<div class="layout">
+  <div class="sidebar">
+    <h2>🏒 Klubber</h2>
+    <div id="club-filters">{club_filter_html}</div>
+    <h2>📅 Måneder</h2>
+    <div id="month-filters">{month_filter_html}</div>
+    <h2>🔄</h2>
+    <a class="refresh-btn" href="#" onclick="location.reload()">Oppdater side</a>
+    <a class="refresh-btn green" href="/rvv-miniputt calendars --refresh">Tving re-skraping</a>
+    <p class="count-badge">{source_count} kilder, {total_events} hendelser<br>Oppdatert: {age_all}</p>
+  </div>
+  <div class="main">
+    <h1>🗓️ Skrapede kalendere</h1>
+    <div class="meta">
+      <span>📅 {start_date_str} — {end_date_str}</span>
+      <span>🏒 {source_count} kilder</span>
+      <span>📊 {total_events} hendelser</span>
+      <span>⏱️ {age_all}</span>
+    </div>
+    <div id="calendars">{''.join(months_html)}</div>
+  </div>
+</div>
 <script>
-document.querySelectorAll('.club-filter').forEach(cb => {{
-  cb.addEventListener('change', () => {{
-    const active = new Set();
-    document.querySelectorAll('.club-filter:checked').forEach(c => active.add(c.dataset.club));
-    document.querySelectorAll('.event').forEach(el => {{
-      const src = el.querySelector('.ev-meta')?.textContent?.trim().split(' ')[0];
-      el.style.display = (src && active.has(src)) ? '' : 'none';
-    }});
+document.querySelectorAll('.club-filter').forEach(cb => cb.addEventListener('change', applyFilters));
+document.querySelectorAll('.month-filter').forEach(cb => cb.addEventListener('change', applyFilters));
+
+function applyFilters() {{
+  const activeClubs = new Set();
+  document.querySelectorAll('.club-filter:checked').forEach(c => activeClubs.add(c.dataset.club));
+  document.querySelectorAll('.event').forEach(el => {{
+    const src = el.dataset.source;
+    el.style.display = (src && activeClubs.has(src)) ? '' : 'none';
   }});
-}});
+
+  const activeMonths = new Set();
+  document.querySelectorAll('.month-filter:checked').forEach(c => activeMonths.add(c.dataset.month));
+  document.querySelectorAll('.month').forEach(el => {{
+    el.style.display = activeMonths.has(el.id) ? '' : 'none';
+  }});
+}}
 </script>
 </body>
 </html>"""

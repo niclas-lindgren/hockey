@@ -120,7 +120,14 @@ def run(
     # --- HTML ---
     try:
         html_path = str(export_path / f"{basename}.html")
-        HtmlExporter().export(plan, html_path)
+        # Pass scrape metadata from cache for navbar
+        meta = None
+        try:
+            from .cache_manager import ScrapedDataCache
+            meta = ScrapedDataCache(state.work_dir).read().get("_meta")
+        except Exception:
+            pass
+        HtmlExporter().export(plan, html_path, meta=meta)
         output_files["html"] = html_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"HTML-eksport feilet: {exc}")
