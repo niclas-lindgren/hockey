@@ -1,7 +1,7 @@
 {
   "stage": "config",
   "status": "done",
-  "updated_at": "2026-06-09T15:11:03.078792+00:00",
+  "updated_at": "2026-06-09T15:27:32.775310+00:00",
   "data": {
     "start_date": "2026-09-01",
     "end_date": "2027-04-30",
@@ -188,6 +188,28 @@
         "club": "Tønsberg",
         "label": "Tønsberg 1",
         "age_group": "U11"
+      }
+    ],
+    "sources": [
+      {
+        "name": "Kongsberg ishall",
+        "type": "outlook",
+        "url": "https://kongsberghallen.no/webkalender/ishall/"
+      },
+      {
+        "name": "Kongsberg ballhall (garderobe)",
+        "type": "outlook",
+        "url": "https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/"
+      },
+      {
+        "name": "Skien ishall",
+        "type": "google",
+        "url": "istiderskienhockey@gmail.com"
+      },
+      {
+        "name": "Ringerike",
+        "type": "ical",
+        "url": "https://ics.teamup.com/feed/ksr8bg1tpn5s3npskw/0.ics"
       }
     ]
   }

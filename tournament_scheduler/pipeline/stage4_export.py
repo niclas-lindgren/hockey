@@ -6,6 +6,7 @@ and writes three output files:
 - ``<export_dir>/season_plan.xlsx``   — Excel workbook via :class:`SeasonPlanExporter`
 - ``<export_dir>/season_plan.ics``    — iCal feed via :class:`ICalExporter`
 - ``<export_dir>/season_plan.csv``    — flat game CSV + ``_overview.csv`` via :class:`CsvExporter`
+- ``<export_dir>/season_plan.html``   — interactive HTML overview via :class:`~tournament_scheduler.html.html_exporter.HtmlExporter`
 
 File paths are written to the Stage 4 checkpoint.
 """
@@ -21,6 +22,7 @@ from ..models import Game, Roster, SeasonPlan, Team, Tournament
 from ..excel.plan_exporter import SeasonPlanExporter
 from ..ical.ical_exporter import ICalExporter
 from ..csv.csv_exporter import CsvExporter
+from ..html.html_exporter import HtmlExporter
 from .state import PipelineState, StageName, StageStatus
 
 # ---------------------------------------------------------------------------
@@ -114,6 +116,14 @@ def run(
         output_files["csv_overview"] = overview_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"CSV-eksport feilet: {exc}")
+
+    # --- HTML ---
+    try:
+        html_path = str(export_path / f"{basename}.html")
+        HtmlExporter().export(plan, html_path)
+        output_files["html"] = html_path
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"HTML-eksport feilet: {exc}")
 
     checkpoint: dict[str, Any] = {
         "output_files": output_files,

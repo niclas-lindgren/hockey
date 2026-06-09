@@ -1,9 +1,6 @@
 {
   "stage": "scraping",
-  "status": "done",
-  "updated_at": "2026-06-09T15:11:05.257603+00:00",
-  "data": {
-    "sources": [],
-    "blocked": []
-  }
+  "status": "running",
+  "updated_at": "2026-06-09T15:29:53.075499+00:00",
+  "data": {}
 }

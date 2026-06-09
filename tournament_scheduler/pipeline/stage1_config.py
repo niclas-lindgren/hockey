@@ -302,6 +302,7 @@ def _parse_config(raw: dict[str, Any]) -> dict[str, Any]:
         "age_groups": age_groups,
         "parallel_games": pg_dict,
         "teams": teams_data,
+        "sources": raw.get("sources", []),
     }
 
 

@@ -113,8 +113,16 @@ def run(
     sources: list[dict[str, Any]] = config.get("sources", [])
 
     if not sources:
-        # No sources configured — write empty checkpoint and continue
-        result: dict[str, Any] = {"sources": [], "blocked": []}
+        # No sources configured — we cannot scrape anything
+        reason = "Ingen kalenderkilder er konfigurert. Legg til en 'sources'-seksjon i input.json " \
+                  "for a hente kalenderdata (f.eks. Kongsberg ishall, Skien o.l.). Uten kalenderdata " \
+                  "kan ikke pipelinen planlegge rundt faktiske bookinger og vil foresla fantasidatoer."
+        if strict:
+            state.write_stage(StageName.SCRAPING, {}, status=StageStatus.FAILED)
+            state.mark_failed(StageName.SCRAPING, error=reason)
+            raise Stage2Error([{"name": "(ingen kilder)", "reason": reason}])
+        # Non-strict: write empty checkpoint and continue (for tests)
+        result: dict[str, Any] = {"sources": [], "blocked": [], "warning": reason}
         state.write_stage(StageName.SCRAPING, result, status=StageStatus.DONE)
         state.mark_done(StageName.SCRAPING)
         return result
@@ -259,17 +267,22 @@ def _run_ical_scraper(
     end_date: datetime,
     source_type: str,
 ) -> list[CalendarEvent]:
-    """Run the appropriate iCal scraper."""
-    if source_type == SOURCE_GOOGLE:
-        from ..data_sources.google_calendar_scraper import GoogleCalendarScraper
+    """Run the appropriate iCal scraper.
 
-        scraper = GoogleCalendarScraper()
-        return scraper.scrape_calendar(url, name, start_date, end_date)
-    else:
-        from ..data_sources.ical_scraper import ICalScraper
+    Both ``ical`` and ``google`` source types use :class:`ICalScraper`
+    (HTTP-fetched iCal feeds). The ``url`` may be a full feed URL
+    (https://ics.teamup.com/...) or a Google Calendar email-style ID
+    (``name@gmail.com``) which ``ICalScraper`` expands into the public
+    Google Calendar iCal feed URL automatically.
 
-        scraper = ICalScraper()
-        return scraper.scrape_calendar(url, name, start_date, end_date)
+    ``GoogleCalendarScraper`` (Playwright-based) is NOT used here because
+    the pipeline sources are feed URLs / calendar IDs, not web pages
+    containing embedded iframes.
+    """
+    from ..data_sources.ical_scraper import ICalScraper
+
+    scraper = ICalScraper(url)
+    return scraper.scrape_calendar(url, name, start_date, end_date)
 
 
 # ---------------------------------------------------------------------------
