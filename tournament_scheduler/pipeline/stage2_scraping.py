@@ -475,3 +475,39 @@ class _OutlookScraperWithHtml:
         end_date: datetime,
     ) -> list[CalendarEvent]:
         return self._scraper.scrape_calendar(url, name, start_date, end_date)
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point — supports: python3 -m tournament_scheduler.pipeline.stage2_scraping
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":  # pragma: no cover
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Stage 2: calendar scraping with LLM gate")
+    parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
+    cli_args = parser.parse_args()
+
+    from .state import PipelineState, StageName  # noqa: E402
+
+    _state = PipelineState(cli_args.work_dir)
+    _cfg = _state.read_stage(StageName.CONFIG)
+    if not _cfg:
+        print("Stage 1 checkpoint not found — run Stage 1 first.", file=sys.stderr)
+        sys.exit(1)
+
+    from datetime import datetime as _dt
+
+    _start = _dt.strptime(_cfg["start_date"], "%Y-%m-%d")
+    _end = _dt.strptime(_cfg["end_date"], "%Y-%m-%d")
+
+    try:
+        _result = run(_cfg, _state, _start, _end)
+        n_sources = len(_result.get("sources", []))
+        blocked = _result.get("blocked", [])
+        print(f"Stage 2 OK — {n_sources} kilder skannet, {len(blocked)} blokkert")
+        sys.exit(0)
+    except Stage2Error as _e:
+        print(str(_e), file=sys.stderr)
+        sys.exit(1)

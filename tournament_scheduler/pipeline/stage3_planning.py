@@ -327,3 +327,40 @@ def _make_default_client() -> "LMStudioClient":
     from ..llm.lm_studio_client import LMStudioClient
 
     return LMStudioClient()
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point — supports: python3 -m tournament_scheduler.pipeline.stage3_planning
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":  # pragma: no cover
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Stage 3: season planning with LLM evaluation")
+    parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
+    cli_args = parser.parse_args()
+
+    from .state import PipelineState, StageName  # noqa: E402
+    from datetime import datetime as _dt
+
+    _state = PipelineState(cli_args.work_dir)
+    _cfg = _state.read_stage(StageName.CONFIG)
+    if not _cfg:
+        print("Stage 1 checkpoint not found — run Stage 1 first.", file=sys.stderr)
+        sys.exit(1)
+
+    _scraping = _state.read_stage(StageName.SCRAPING)
+    _start = _dt.strptime(_cfg["start_date"], "%Y-%m-%d")
+    _end = _dt.strptime(_cfg["end_date"], "%Y-%m-%d")
+
+    try:
+        _result = run(_cfg, _scraping, _state, _start, _end)
+        plan = _result.get("plan", {})
+        n = len(plan.get("tournaments", []))
+        conf = _result.get("llm_confidence", None)
+        print(f"Stage 3 OK — {n} turneringer planlagt, LLM confidence: {conf}")
+        sys.exit(0)
+    except Stage3Error as _e:
+        print(str(_e), file=sys.stderr)
+        sys.exit(1)

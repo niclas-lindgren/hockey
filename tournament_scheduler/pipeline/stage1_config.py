@@ -302,3 +302,28 @@ def _parse_config(raw: dict[str, Any]) -> dict[str, Any]:
         "parallel_games": pg_dict,
         "teams": teams_data,
     }
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point — supports: python3 -m tournament_scheduler.pipeline.stage1_config
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":  # pragma: no cover
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Stage 1: config parsing and validation")
+    parser.add_argument("--input", default="input.json", help="Path to input.json")
+    parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
+    cli_args = parser.parse_args()
+
+    from .state import PipelineState  # noqa: E402
+
+    _state = PipelineState(cli_args.work_dir)
+    try:
+        _result = run(cli_args.input, _state)
+        print(f"Stage 1 OK — {len(_result.get('teams', []))} lag, {_result.get('start_date')} til {_result.get('end_date')}")
+        sys.exit(0)
+    except (Stage1Error, FileNotFoundError) as _e:
+        print(str(_e), file=sys.stderr)
+        sys.exit(1)

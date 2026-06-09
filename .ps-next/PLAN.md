@@ -33,7 +33,7 @@
   - Files: `tournament_scheduler/pipeline/stage4_export.py`, `tournament_scheduler/excel/plan_exporter.py`, `tournament_scheduler/ical/ical_exporter.py`, `tournament_scheduler/ical/__init__.py`, `tournament_scheduler/csv/csv_exporter.py`, `tournament_scheduler/csv/__init__.py`
   - Approach: Extend Stage 4 to call the existing `SeasonPlanExporter().export()` for Excel; add `ICalExporter` in a new `ical/` subpackage that writes one VEVENT per game using the `icalendar` library already in requirements; add `CsvExporter` in a new `csv/` subpackage using stdlib `csv`; write output file paths to the Stage 4 checkpoint.
 
-- [ ] Build the rvv-miniputt pi extension and wire stages into it
+- [x] Created .pi/extensions/rvv-miniputt.ts with /rvv-miniputt run (accepts --input, --work-dir, --resume-from, --export-dir) and /rvv-miniputt status commands; also added __main__ blocks to all four stage modules for python3 -m invocation. — 2026-06-09
   - Files: `.pi/extensions/rvv-miniputt.ts`
   - Approach: Create a TypeScript pi extension that imports `ExtensionAPI` from `@earendil-works/pi-coding-agent`; register a `/rvv-miniputt run` command that accepts `--input <path>`, `--work-dir <path>`, `--resume-from <stage>`, and `--export-dir <path>` flags; use `execFileAsync` (promisified Node.js `execFile`) to invoke each Python stage module as `python3 -m tournament_scheduler.pipeline.stage1_config <args>`, passing the work-dir and checkpoint paths; print stage results back to the pi session using the command context; also register a `/rvv-miniputt status` command that reads checkpoint JSON files from the work-dir and renders a stage-by-stage summary.
 
@@ -94,4 +94,11 @@ LESSONS: CLUB_REGISTRY (not CLUB_ARENAS) is the arena source; Game has parallel_
 **Findings:** All 108 tests pass; all imports verified.
 LESSONS: ical/ and csv/ subpackages live inside tournament_scheduler/ (one level deep), so use  not  for relative imports
 **Files:** stage4_export.py (+193), ical/__init__.py (+5), ical/ical_exporter.py (+128), csv/__init__.py (+5), csv/csv_exporter.py (+86)
+**Commit:** cdf7ad9 (hockey)
+
+### 2026-06-09 — Created .pi/extensions/rvv-miniputt.ts with /rvv-miniputt run (accepts --input, --work-dir, --resume-from, --export-dir) and /rvv-miniputt status commands; also added __main__ blocks to all four stage modules for python3 -m invocation.
+**Rationale:** Used existing pi extension patterns (execFileAsync, registerCommand, Type from typebox); __main__ blocks read Stage N-1 checkpoint to extract date args rather than duplicating config parsing.
+**Findings:** All 108 tests pass.
+LESSONS: none
+**Files:** .pi/extensions/rvv-miniputt.ts (+282), stage*_*.py (+129 total)
 **Commit:** [pending — fill after commit]

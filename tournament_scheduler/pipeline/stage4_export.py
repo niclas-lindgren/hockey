@@ -191,3 +191,34 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
         month_balance_score=float(d.get("month_balance_score", 0.0)),
         arena_counts=dict(d.get("arena_counts", {})),
     )
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point — supports: python3 -m tournament_scheduler.pipeline.stage4_export
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":  # pragma: no cover
+    import argparse
+    import sys
+
+    parser = argparse.ArgumentParser(description="Stage 4: multi-format export")
+    parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
+    parser.add_argument("--export-dir", default="export", help="Directory for output files")
+    cli_args = parser.parse_args()
+
+    from .state import PipelineState, StageName  # noqa: E402
+
+    _state = PipelineState(cli_args.work_dir)
+    _plan_ckpt = _state.read_stage(StageName.PLANNING)
+    if not _plan_ckpt:
+        print("Stage 3 checkpoint not found — run Stage 3 first.", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        _result = run(_plan_ckpt, _state, export_dir=cli_args.export_dir)
+        files = _result.get("output_files", {})
+        print(f"Stage 4 OK — {len(files)} filer eksportert: {', '.join(files.values())}")
+        sys.exit(0)
+    except Stage4Error as _e:
+        print(str(_e), file=sys.stderr)
+        sys.exit(1)
