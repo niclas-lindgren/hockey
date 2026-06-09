@@ -58,6 +58,8 @@ interface RunArgs {
   resume_from?: string;
   export_dir?: string;
   log_level?: string;
+  llm_endpoint?: string;
+  scraper_max_iterations?: string;
 }
 
 interface LogEntry {
@@ -124,6 +126,8 @@ function parseRunArgs(args: string): RunArgs {
     else if (t === "--resume-from" && i + 1 < tokens.length) result.resume_from = tokens[++i];
     else if (t === "--export-dir" && i + 1 < tokens.length) result.export_dir = tokens[++i];
     else if (t === "--log-level" && i + 1 < tokens.length) result.log_level = tokens[++i];
+    else if (t === "--llm-endpoint" && i + 1 < tokens.length) result.llm_endpoint = tokens[++i];
+    else if (t === "--scraper-max-iterations" && i + 1 < tokens.length) result.scraper_max_iterations = tokens[++i];
   }
   return result;
 }
@@ -837,10 +841,13 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
     description:
       "Kjør den firetrinns sesongplanleggingspipelinen for RVV-hockeyklubber. " +
       "Hvert trinn har en LLM-kvalitetskontroll. Støtter gjenopptak fra et bestemt trinn.\n" +
-      "Valgfrie flagg: --input <sti> --work-dir <sti> --resume-from <trinn> --export-dir <sti> --log-level <info|verbose>\n" +
+      "Valgfrie flagg: --input <sti> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
+      "--log-level <info|verbose> --llm-endpoint <url> --scraper-max-iterations <N>\n" +
+      "--llm-endpoint: overstyr LLM API-base-URL (f.eks. http://localhost:1234)\n" +
+      "--scraper-max-iterations: maks antall LLM-iterasjoner per kilde (standard: 20)\n" +
       "Hver kjøring logges strukturelt til .pipeline/logs/run-<dato>.jsonl for selvforbedringsanalyse.",
     getArgumentCompletions: (prefix) => {
-      const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level"];
+      const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level", "--llm-endpoint", "--scraper-max-iterations"];
       const filtered = words.filter((w) => w.startsWith(prefix));
       if (prefix.startsWith("--log-level")) {
         return LOG_LEVELS.map((value) => ({ value, label: value }));
@@ -998,10 +1005,13 @@ async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promi
     lines.push("Trinn 2: Skraper kalenderkilder med LLM-kvalitetskontroll...");
     logger.stageStart("scraping");
     try {
+      const stage2Args = [...baseArgs];
+      if (params.llm_endpoint) stage2Args.push("--llm-endpoint", params.llm_endpoint);
+      if (params.scraper_max_iterations) stage2Args.push("--scraper-max-iterations", params.scraper_max_iterations);
       const { stdout, stderr } = await runStage(
         cwdPath,
         "tournament_scheduler.pipeline.stage2_scraping",
-        [...baseArgs],
+        stage2Args,
       );
       if (verbose) logger.logStageOutput("scraping", stdout, stderr);
       if (stdout) lines.push(stdout);

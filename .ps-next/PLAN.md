@@ -34,7 +34,7 @@
     The system prompt describes what ice hall bookings look like (date ranges, time slots, team names, Norwegian hall names), tells the LLM the available actions with their selectors, and instructs it to keep trying different approaches when calendar data isn't found. The user message includes the DOM snapshot, the date range, the source name, and the iteration count.
     The LLM endpoint is not hardcoded — `LMStudioClient` (or a Pi-provided equivalent) receives the endpoint from the Pi extension's configuration, which Pi manages. The `llm_scraper.py` module accepts an `llm_endpoint` parameter and defaults to whatever Pi passes through.
 
-- [ ] Integrate the agentic scraper into Stage 2 as a replacement for the Outlook-specific scraper for HTML-based sources
+- [x] Integrate the agentic scraper into Stage 2 as a replacement for the Outlook-specific scraper for HTML-based sources
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`, `tournament_scheduler/pipeline/llm_scraper.py`
   - Approach: In `_scrape_source`, when `source_type == "outlook"` (which covers all Playwright-based HTML sources), dispatch to `LLMGuidedScraper` instead of `_run_outlook_scraper`. Keep the existing iCal path unchanged. The LLM quality gate and HTML fallback in Stage 2 become redundant since the agentic loop already handles both verification and fallback extraction — remove them or fold them into the scraper's internal logic. Update source config to include a new source type `"html"` (distinct from `"outlook"`) for JS-rendered SPAs that need the full agentic loop; keep `"outlook"` as an alias for backward compatibility but internally both go through the agent. Also update the `club_registry.py` entries for Jutul, Jar, Frisk Asker, and Holmen to set `kind=OUTLOOK` and `skip=False` (since the agentic scraper can handle them now), with a note that they use the LLM-guided scraper rather than the old regex parser.
 
@@ -77,6 +77,13 @@
 ## Log
 
 
+
+### 2026-06-09 — Integrate the agentic scraper into Stage 2 as a replacement for the Outlook-specific scraper for HTML-based sources
+**Done:** Modified _scrape_source in stage2_scraping.py to dispatch outlook/html sources to LLMGuidedScraper.run(). Added SOURCE_HTML constant. Removed legacy LLM quality gate and HTML fallback (redundant with agentic loop). Updated club_registry.py: Jutul, Jar, Holmen, Frisk Asker now set to kind=OUTLOOK, skip=False with LLM-agent docs. Updated tests for the new code path.
+**Rationale:** The agentic scraper replaces the brittle regex-based Outlook scraper + LLM fallback for all JS-rendered calendars. The quality gate and HTML fallback are redundant because the agent loop already validates by iterating until events are found (or blocking).
+**Findings:** 178 tests pass (1 pre-existing skip). 4 clubs (Jutul, Jar, Holmen, Frisk Asker) are now active with skip=False, kind=OUTLOOK. The 'html' source type is distinct from 'outlook' for config clarity but both route to the same agent.
+**Files:** M tournament_scheduler/pipeline/stage2_scraping.py, M tournament_scheduler/club_registry.py, M tests/test_stage2_scraping.py, M tests/test_club_registry.py
+**Commit:** 039046b
 ### 2026-06-09 — Build the LLM agent loop — `LLMGuidedScraper` class
 **Done:** Added LLMGuidedScraper class to llm_scraper.py with run(url, name, start_date, end_date, max_iterations=20) method implementing the full agent loop: (1) open URL with Playwright, (2) capture DOM snapshot, (3) send snapshot + context to LLM, (4) parse structured action from response, (5) execute action via Playwright, (6) loop until done with events or max iterations, (7) block with Norwegian message when exhausted.
 **Rationale:** Follows existing codebase patterns (Playwright sync API, LMStudioClient). System prompt describes ice hall bookings in Norwegian, lists 7 action types with JSON examples. User message includes DOM snapshot with interactive elements table. Action executor maps to Playwright click/select_option/fill/scroll/wait operations.

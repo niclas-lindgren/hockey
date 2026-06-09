@@ -87,6 +87,8 @@ def run(
     end_date: datetime,
     *,
     strict: bool = True,
+    llm_endpoint: str | None = None,
+    max_iterations: int | None = None,
 ) -> dict[str, Any]:
     """Run Stage 2 scraping for all sources listed in *config*.
 
@@ -100,12 +102,22 @@ def run(
         Date range for scraping.
     strict:
         If ``True``, raise :class:`Stage2Error` when any source is blocked.
+    llm_endpoint:
+        Optional LLM endpoint URL. If not provided, falls back to the
+        ``llm_endpoint`` key from *config* (input.json), then the default.
+    max_iterations:
+        Optional max agent iterations. Falls back to the
+        ``scraper_max_iterations`` key from *config*, then the default (20).
 
     Returns
     -------
     dict
         Checkpoint data with per-source results.
     """
+    # Resolve llm_endpoint: CLI arg > config > default
+    _llm_endpoint = llm_endpoint or config.get("llm_endpoint")
+    # Resolve max_iterations: CLI arg > config > default
+    _max_iterations = max_iterations or config.get("scraper_max_iterations") or 20
     state.write_stage(StageName.SCRAPING, {}, status=StageStatus.RUNNING)
 
     sources: list[dict[str, Any]] = config.get("sources", [])
@@ -133,6 +145,8 @@ def run(
             source_cfg,
             start_date=start_date,
             end_date=end_date,
+            llm_endpoint=_llm_endpoint,
+            max_iterations=_max_iterations,
         )
         source_results.append(source_result)
         if source_result.get("blocked"):
@@ -168,6 +182,8 @@ def _scrape_source(
     *,
     start_date: datetime,
     end_date: datetime,
+    llm_endpoint: str | None = None,
+    max_iterations: int = 20,
 ) -> dict[str, Any]:
     """Scrape a single source and return a per-source result dict.
 
@@ -199,7 +215,10 @@ def _scrape_source(
     try:
         if source_type in _AGENTIC_SOURCE_TYPES:
             # LLM-guided agentic scraper for JS-rendered calendars
-            scraper = LLMGuidedScraper()
+            kwargs = {}
+            if llm_endpoint:
+                kwargs["llm_endpoint"] = llm_endpoint
+            scraper = LLMGuidedScraper(max_iterations=max_iterations, **kwargs)
             events = scraper.run(
                 url=url,
                 name=name,
@@ -778,8 +797,21 @@ if __name__ == "__main__":  # pragma: no cover
     import argparse
     import sys
 
-    parser = argparse.ArgumentParser(description="Stage 2: calendar scraping with LLM gate")
+    parser = argparse.ArgumentParser(
+        description="Stage 2: calendar scraping with LLM-guided agent"
+    )
     parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
+    parser.add_argument(
+        "--llm-endpoint",
+        default=None,
+        help="LLM API base URL (overrides config and default)",
+    )
+    parser.add_argument(
+        "--scraper-max-iterations",
+        type=int,
+        default=None,
+        help="Max agent iterations for LLM-guided scraping (default: 20)",
+    )
     cli_args = parser.parse_args()
 
     from .state import PipelineState, StageName  # noqa: E402
@@ -787,7 +819,7 @@ if __name__ == "__main__":  # pragma: no cover
     _state = PipelineState(cli_args.work_dir)
     _cfg = _state.read_stage(StageName.CONFIG)
     if not _cfg:
-        print("Stage 1 checkpoint not found — run Stage 1 first.", file=sys.stderr)
+        print("Stage 1 checkpoint not found -- run Stage 1 first.", file=sys.stderr)
         sys.exit(1)
 
     from datetime import datetime as _dt
@@ -796,10 +828,14 @@ if __name__ == "__main__":  # pragma: no cover
     _end = _dt.strptime(_cfg["end_date"], "%Y-%m-%d")
 
     try:
-        _result = run(_cfg, _state, _start, _end)
+        _result = run(
+            _cfg, _state, _start, _end,
+            llm_endpoint=cli_args.llm_endpoint,
+            max_iterations=cli_args.scraper_max_iterations,
+        )
         n_sources = len(_result.get("sources", []))
         blocked = _result.get("blocked", [])
-        print(f"Stage 2 OK — {n_sources} kilder skannet, {len(blocked)} blokkert")
+        print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(blocked)} blokkert")
         sys.exit(0)
     except Stage2Error as _e:
         print(str(_e), file=sys.stderr)
