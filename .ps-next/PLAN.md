@@ -13,7 +13,7 @@
   - Files: `tournament_scheduler/llm/__init__.py`, `tournament_scheduler/llm/lm_studio_client.py`
   - Approach: Create a new `llm` subpackage with an HTTP client (using stdlib `urllib` or `httpx` if available) that POSTs to `http://host.lima.internal:1234/v1/chat/completions` with the Qwen2.5-32B model; expose a `complete(system, user, temperature)` function returning the text response and a confidence extraction helper that parses a structured JSON response from the LLM.
 
-- [ ] Implement pipeline state manager — intermediate JSON checkpoints per stage
+- [x] Created tournament_scheduler/pipeline subpackage with PipelineState class writing per-stage JSON checkpoint files; supports status tracking (pending/running/done/failed), read/write/mark_done/mark_failed helpers, and stages_to_run() for --resume-from logic. — 2026-06-09
   - Files: `tournament_scheduler/pipeline/__init__.py`, `tournament_scheduler/pipeline/state.py`
   - Approach: Create a `PipelineState` class that reads/writes JSON checkpoint files to a configurable `--work-dir` (default `.pipeline/`); one file per stage (`stage1_config.json`, `stage2_scraping.json`, `stage3_plan.json`, `stage4_export.json`) with a `status` field (`pending`, `done`, `failed`) so a `--resume-from` flag can skip completed stages.
 
@@ -59,4 +59,11 @@ Running the pipeline with `--resume-from stage3` when valid Stage 1 and Stage 2 
 **Findings:** All 108 tests pass; imports verified.
 LESSONS: none
 **Files:** tournament_scheduler/llm/__init__.py (+5), tournament_scheduler/llm/lm_studio_client.py (+269)
+**Commit:** 2a5064c (hockey)
+
+### 2026-06-09 — Created tournament_scheduler/pipeline subpackage with PipelineState class writing per-stage JSON checkpoint files; supports status tracking (pending/running/done/failed), read/write/mark_done/mark_failed helpers, and stages_to_run() for --resume-from logic.
+**Rationale:** Envelope wraps data with stage/status/updated_at fields for easy introspection; resolve_resume_from accepts integer, name, and alias inputs.
+**Findings:** All 108 tests pass; round-trip and resume-logic unit checks verified manually.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/__init__.py (+9), tournament_scheduler/pipeline/state.py (+299)
 **Commit:** [pending — fill after commit]
