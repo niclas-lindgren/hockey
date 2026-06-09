@@ -181,7 +181,7 @@ def generate_html(work_dir: str = ".pipeline") -> str:
                         time_str = _format_time(ev)
                         link = f'<a href="{_escape_html(src_url)}" target="_blank" title="Åpne {_escape_html(src)} sin kalender">🔗</a>' if src_url else ""
                         lines.append(
-                            f'<div class="event" data-source="{_escape_html(src)}" style="background:{color["bg"]};border-left:3px solid {color["border"]}" title="{_escape_html(src)} — {name}">'
+                            f'<div class="event" data-source="{_escape_html(src)}" style="background:{color["bg"]};border-left:3px solid {color["border"]};color:{color["text"]}" title="{_escape_html(src)} — {name}">'
                             + (f'<span class="ev-time">{time_str}</span> ' if time_str else '')
                             + f'<span class="ev-name">{name}</span> '
                             + f'<span class="ev-meta">{_escape_html(src)} {link}</span>'
