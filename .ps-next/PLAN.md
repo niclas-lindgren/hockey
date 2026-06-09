@@ -25,7 +25,7 @@
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`, `tournament_scheduler/data_sources/calendar_scraper.py`
   - Approach: For each Playwright/Outlook source run the existing `CalendarScraper.scrape_calendar`; expose raw HTML from the `iframe.content()` call via an optional `return_raw_html=True` param so the LLM fallback can attempt extraction; pass scraped events to `lm_studio_client.complete()` for validation; skip LLM for iCal sources (`ical_scraper.py`); block with a Norwegian message if both scraper and LLM return zero events, writing per-source results to the Stage 2 checkpoint.
 
-- [ ] Implement Stage 3 — planning with LLM evaluation and retry loop
+- [x] Created stage3_planning.py with run(), LLM evaluation of coverage/diversity/balance (Norwegian prompts), retry loop up to MAX_RETRIES3 resetting SeasonPlanner on each attempt, and _plan_to_dict serialiser. — 2026-06-09
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: Call `SeasonPlanner.build_plan(start, end)` using calendar events from the Stage 2 checkpoint; pass the resulting `SeasonPlan` as JSON to `lm_studio_client.complete()` asking it to evaluate coverage, opponent diversity, and monthly load balance; if the LLM returns low confidence retry up to `MAX_RETRIES` (default 3) times with adjusted `diversity_weight` params; write the accepted plan to the Stage 3 checkpoint.
 
@@ -80,4 +80,11 @@ LESSONS: none
 **Findings:** All 108 tests pass; Stage2 imports verified.
 LESSONS: LMStudioUnavailableError must be imported from lm_studio_client not from llm/__init__.py since __init__.py does not re-export it
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (+477)
+**Commit:** e19cd40 (hockey)
+
+### 2026-06-09 — Created stage3_planning.py with run(), LLM evaluation of coverage/diversity/balance (Norwegian prompts), retry loop up to MAX_RETRIES3 resetting SeasonPlanner on each attempt, and _plan_to_dict serialiser.
+**Rationale:** Game model only has parallel_slot not time_slot/rink — fixed serialiser; CLUB_REGISTRY has arena field, not a separate CLUB_ARENAS constant.
+**Findings:** All 108 tests pass; Stage3 imports verified.
+LESSONS: CLUB_REGISTRY (not CLUB_ARENAS) is the arena source; Game has parallel_slot not time_slot
+**Files:** tournament_scheduler/pipeline/stage3_planning.py (+329)
 **Commit:** [pending — fill after commit]
