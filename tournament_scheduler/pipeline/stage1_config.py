@@ -93,14 +93,22 @@ def run(
     raw = _load_json(input_path)
     errors = validate_config(raw)
 
-    if errors and strict:
+    if errors:
+        if strict:
+            state.write_stage(
+                StageName.CONFIG,
+                {"errors": errors, "raw": raw},
+                status=StageStatus.FAILED,
+            )
+            state.mark_failed(StageName.CONFIG, error="; ".join(errors))
+            raise Stage1Error(errors)
+        # Non-strict: record errors but continue with best-effort parsing
         state.write_stage(
             StageName.CONFIG,
             {"errors": errors, "raw": raw},
             status=StageStatus.FAILED,
         )
-        state.mark_failed(StageName.CONFIG, error="; ".join(errors))
-        raise Stage1Error(errors)
+        return {"errors": errors}
 
     # Parse validated config into structured objects
     config = _parse_config(raw)

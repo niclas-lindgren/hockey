@@ -307,12 +307,12 @@ def _make_planner(
 ) -> SeasonPlanner:
     """Construct a fresh :class:`SeasonPlanner` (resets opponent history)."""
     from ..scheduler import TournamentScheduler
-    from ..conflict_checkers.holiday_checker import HolidayChecker
+    from ..conflict_checkers.holiday_checker import HolidayConflictChecker
     from ..utils.date_parser import DateParser
 
     scheduler = TournamentScheduler(
         calendar_sources=[],
-        conflict_checkers=[HolidayChecker()],
+        conflict_checkers=[HolidayConflictChecker()],
         date_parser=DateParser(),
     )
     return SeasonPlanner(

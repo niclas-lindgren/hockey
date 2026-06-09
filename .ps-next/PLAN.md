@@ -37,7 +37,7 @@
   - Files: `.pi/extensions/rvv-miniputt.ts`
   - Approach: Create a TypeScript pi extension that imports `ExtensionAPI` from `@earendil-works/pi-coding-agent`; register a `/rvv-miniputt run` command that accepts `--input <path>`, `--work-dir <path>`, `--resume-from <stage>`, and `--export-dir <path>` flags; use `execFileAsync` (promisified Node.js `execFile`) to invoke each Python stage module as `python3 -m tournament_scheduler.pipeline.stage1_config <args>`, passing the work-dir and checkpoint paths; print stage results back to the pi session using the command context; also register a `/rvv-miniputt status` command that reads checkpoint JSON files from the work-dir and renders a stage-by-stage summary.
 
-- [ ] Add pytest tests for pipeline stages and LLM client (with mocked LM Studio)
+- [x] Created 6 test files covering PipelineState, LMStudioClient, and all four stages with mocked LLM calls (58 new tests); also fixed HolidayChecker→HolidayConflictChecker and strictFalse path in stage1_config. — 2026-06-09
   - Files: `tests/test_pipeline_state.py`, `tests/test_stage1_config.py`, `tests/test_stage2_scraping.py`, `tests/test_stage3_planning.py`, `tests/test_stage4_export.py`, `tests/test_lm_studio_client.py`
   - Approach: Mock the `lm_studio_client.complete()` call using `unittest.mock.patch` to avoid real HTTP calls; test Stage 1 validation with known-bad input.json fixtures; test Stage 2 LLM gate blocking and bypass for iCal sources; test Stage 3 retry logic; test Stage 4 produces all three output file types; each stage module must be runnable as `python3 -m tournament_scheduler.pipeline.stageN` so the pi extension can invoke it via execFile.
 
@@ -101,4 +101,11 @@ LESSONS: ical/ and csv/ subpackages live inside tournament_scheduler/ (one level
 **Findings:** All 108 tests pass.
 LESSONS: none
 **Files:** .pi/extensions/rvv-miniputt.ts (+282), stage*_*.py (+129 total)
+**Commit:** 1ee52e9 (hockey)
+
+### 2026-06-09 — Created 6 test files covering PipelineState, LMStudioClient, and all four stages with mocked LLM calls (58 new tests); also fixed HolidayChecker→HolidayConflictChecker and strictFalse path in stage1_config.
+**Rationale:** Two bugs found and fixed during test writing: wrong HolidayChecker class name, and stage1 non-strict path crashed on invalid config in _parse_config.
+**Findings:** 166/167 total tests pass (1 pre-existing skip).
+LESSONS: HolidayConflictChecker not HolidayChecker; stage1 strictFalse must return early with errors dict not call _parse_config on invalid input
+**Files:** tests/test_pipeline_state.py (+87), test_lm_studio_client.py (+99), test_stage1_config.py (+147), test_stage2_scraping.py (+142), test_stage3_planning.py (+116), test_stage4_export.py (+116), pipeline fixes (+18)
 **Commit:** [pending — fill after commit]
