@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 
-CACHE_DIR = ".pipeline/cache"
+CACHE_DIR = "cache"
 CACHE_FILE = "scraped_data.json"
 DEFAULT_TTL_HOURS = 6
 

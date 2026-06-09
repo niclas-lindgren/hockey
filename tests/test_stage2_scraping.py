@@ -42,6 +42,7 @@ class TestRunStage2:
         result = run(
             cfg, state,
             datetime(2025, 9, 1), datetime(2025, 12, 1),
+            strict=False,
         )
         assert state.is_done(StageName.SCRAPING)
         assert result["sources"] == []
@@ -75,8 +76,8 @@ class TestRunStage2:
         ])
 
         with patch(
-            "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
-            return_value=[],
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([], ""),
         ):
             with pytest.raises(Stage2Error) as exc_info:
                 run(
@@ -95,8 +96,8 @@ class TestRunStage2:
         ])
 
         with patch(
-            "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
-            return_value=[],
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([], ""),
         ):
             result = run(
                 cfg, state,
@@ -114,8 +115,8 @@ class TestRunStage2:
         events = [_make_event("Hockey practice")]
 
         with patch(
-            "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
-            return_value=events,
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=(events, ""),
         ):
             result = run(
                 cfg, state,
@@ -127,8 +128,8 @@ class TestRunStage2:
         assert src["event_count"] == 1
         assert src["blocked"] is False
 
-    def test_html_source_dispatches_to_agent(self, tmp_path):
-        """'html' source type dispatches to the agentic scraper (same as 'outlook')."""
+    def test_html_source_dispatches_to_browser_scraper(self, tmp_path):
+        """'html' source type dispatches to the browser scraper (same as 'outlook')."""
         state = PipelineState(tmp_path / "pipeline")
         cfg = _make_config_with_sources([
             {"name": "Jutul", "type": "html", "url": "https://baerumishall.no/kalender/"},
@@ -136,8 +137,8 @@ class TestRunStage2:
         events = [_make_event("Jutul booking")]
 
         with patch(
-            "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
-            return_value=events,
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=(events, ""),
         ):
             result = run(
                 cfg, state,
@@ -150,8 +151,8 @@ class TestRunStage2:
         assert src["blocked"] is False
         assert src["type"] == "html"
 
-    def test_ical_source_skipped_by_agent(self, tmp_path):
-        """iCal sources are NOT dispatched to the agentic scraper."""
+    def test_ical_source_skipped_by_browser_scraper(self, tmp_path):
+        """iCal sources do NOT use the browser scraper."""
         state = PipelineState(tmp_path / "pipeline")
         cfg = _make_config_with_sources([
             {"name": "Teamup", "type": SOURCE_ICAL, "url": "https://ics.teamup.com/feed/key"},
@@ -163,15 +164,15 @@ class TestRunStage2:
                 return_value=[_make_event("iCal event")],
             ),
             patch(
-                "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
-            ) as mock_agent,
+                "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            ) as mock_browser,
         ):
             result = run(
                 cfg, state,
                 datetime(2025, 9, 1), datetime(2025, 12, 1),
             )
 
-        mock_agent.assert_not_called()
+        mock_browser.assert_not_called()
         src = result["sources"][0]
         assert src["event_count"] == 1
         assert src["events"][0]["name"] == "iCal event"

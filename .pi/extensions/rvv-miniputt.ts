@@ -929,6 +929,66 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       }
     },
   });
+
+  // -------------------------------------------------------------------------
+  // /rvv-miniputt calendars
+  // -------------------------------------------------------------------------
+  pi.registerCommand("rvv-miniputt calendars", {
+    description:
+      "Generer og åpne HTML-kalendervisning for skrapede kalenderdata.\n" +
+      "Valgfrie flagg: --refresh (tving re-skraping), --output <sti>\n" +
+      "Kalenderen vises i .pipeline/calendars.html.",
+    getArgumentCompletions: (prefix) => {
+      const words = ["--refresh", "--output", "--work-dir"];
+      return words.filter((w) => w.startsWith(prefix)).map((value) => ({ value, label: value }));
+    },
+    handler: async (args, ctx) => {
+      const tokens = args.trim().split(/\s+/);
+      let refresh = false;
+      let outputPath = "";
+      let workDir = ".pipeline";
+      for (let i = 0; i < tokens.length; i++) {
+        if (tokens[i] === "--refresh") refresh = true;
+        else if (tokens[i] === "--output" && i + 1 < tokens.length) outputPath = tokens[++i];
+        else if (tokens[i] === "--work-dir" && i + 1 < tokens.length) workDir = tokens[++i];
+      }
+
+      const python = resolve(ctx.cwd, "venv", "bin", "python3");
+      const exe = existsSync(python) ? python : "python3";
+      const viewerArgs = [
+        "-m", "tournament_scheduler.pipeline.calendar_viewer",
+        "--work-dir", resolve(ctx.cwd, workDir),
+      ];
+      if (refresh) viewerArgs.push("--refresh");
+
+      try {
+        const { execFile } = await import("node:child_process");
+        const { promisify } = await import("node:util");
+        const execFileAsync = promisify(execFile);
+        const { stdout, stderr } = await execFileAsync(exe, viewerArgs, {
+          cwd: ctx.cwd,
+          timeout: 30_000,
+        });
+        const out = stdout.trim();
+        if (out) ctx.ui.notify(out, "info");
+        if (stderr) ctx.ui.notify(stderr, "warning");
+
+        if (!refresh) {
+          const calendarFile = resolve(ctx.cwd, workDir, "calendars.html");
+          if (existsSync(calendarFile)) {
+            ctx.ui.notify(
+              `Åpne kalenderen: ${calendarFile}\n` +
+              `Eller kjør: open ${calendarFile}`,
+              "info",
+            );
+          }
+        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        ctx.ui.notify(`Feil ved generering av kalendervisning: ${msg}`, "error");
+      }
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------

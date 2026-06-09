@@ -50,17 +50,17 @@ All scraped data is cached with timestamps and merged into a unified HTML calend
   - Approach: ScrapedDataCache stores all scraped events per source in `.pipeline/cache/scraped_data.json`. Each entry: source name, URL, scrape timestamp (ISO), TTL, event count, events list. Support force-refresh flag. Existing CalendarCache handles per-source caching; this adds unified aggregation.
   - Lesson: TBD
 
-- [ ] Task 6: Build HTML calendar viewer with club filters and source links
+- [x] Task 6: Build HTML calendar viewer with club filters and source links
   - Files: `tournament_scheduler/pipeline/calendar_viewer.py`
   - Approach: Generate a self-contained HTML file from unified cache. Month-grid calendar with color-coded events per club. Club filter checkboxes. Each event links to source calendar URL. Shows scrape timestamp and age. Export to `.pipeline/calendars.html`.
   - Lesson: TBD
 
-- [ ] Task 7: Add /rvv-miniputt calendars command
+- [x] Task 7: Add /rvv-miniputt calendars command
   - Files: `.pi/extensions/rvv-miniputt.ts`
   - Approach: New command that regenerates calendar HTML from cache and opens/informs. Accept --refresh to force re-scrape, --output for custom path.
   - Lesson: TBD
 
-- [ ] Task 8: Register clubs in club_registry.py
+- [x] Task 8: Register clubs in club_registry.py
   - Files: `tournament_scheduler/club_registry.py`
   - Approach: Club registry already has entries for all 9 clubs. Update Tønsberg/Sandefjord with correct Bookup URLs, verify Holmen/Jutul entries.
   - Lesson: TBD
@@ -82,6 +82,27 @@ All scraped data is cached with timestamps and merged into a unified HTML calend
 
 
 
+
+
+
+### 2026-06-09 — Task 8: Register clubs in club_registry.py
+**Done:** yes
+**Rationale:** Club registry updated for all 9 clubs with correct URLs, arena names, calendar source kinds, and current notes.
+**Findings:** Frisk Asker changed to ical with Teamup feed. Skien changed to outlook with brp.exigo.no URL. Notes updated to reference Pi-driven ScraperAgent instead of LLM agent.
+**Files:** tournament_scheduler/club_registry.py (+7 club registry updates)
+**Commit:** not committed
+### 2026-06-09 — Task 7: Add /rvv-miniputt calendars command
+**Done:** yes
+**Rationale:** Added /rvv-miniputt calendars command that runs the Python calendar_viewer CLI. Accepts --refresh to force re-scrape, --output and --work-dir flags.
+**Findings:** Command runs the calendar_viewer Python module with --work-dir and --refresh flags. Shows the generated file path.
+**Files:** .pi/extensions/rvv-miniputt.ts (+calendars command)
+**Commit:** not committed
+### 2026-06-09 — Task 6: Build HTML calendar viewer with club filters and source links
+**Done:** yes
+**Rationale:** calendar_viewer.py reads from the unified cache and produces .pipeline/calendars.html — a standalone HTML page with month-grid calendar, per-club colour coding, filter checkboxes, source links, and timestamp info.
+**Findings:** HTML viewer generates a 1MB self-contained file with month-grid, club filter checkboxes (color-coded), source links, and scrape-age indicator. 3198 events from 10 sources rendered.
+**Files:** tournament_scheduler/pipeline/calendar_viewer.py (+175)
+**Commit:** not committed
 ### 2026-06-09 — Task 5: Build pipeline cache manager with timestamp+refresh
 **Done:** yes
 **Rationale:** ScrapedDataCache reads from Stage 2 checkpoint, merges into unified .pipeline/cache/scraped_data.json with per-source timestamps, TTL, and event lists. Supports stale detection and force-refresh.

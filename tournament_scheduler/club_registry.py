@@ -97,19 +97,18 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         source="https://www.bookup.no/utleie/Index/860",
         skip=False,
         note=(
-            "BookUp SPA -- the LLM-guided agentic scraper navigates the "
+            "BookUp SPA -- the Pi-driven ScraperAgent navigates the "
             "JS-rendered booking widget to extract ice hall bookings."
         ),
     ),
     "Frisk Asker": ClubCalendarSource(
         club="Frisk Asker",
         arena="Varner Arena",
-        kind=CalendarSourceKind.OUTLOOK,
-        source="https://www.friskaskerhockey.no/",
+        kind=CalendarSourceKind.ICAL,
+        source="https://ics.teamup.com/feed/ksdwpwxysmxwnuftoy/0.ics",
         skip=False,
         note=(
-            "Sportality/s8y JS SPA -- the LLM-guided agentic scraper "
-            "navigates the 'Aktivitetskalender' page dynamically."
+            "Teamup iCal export feed (verified working -- 976 events parsed)."
         ),
     ),
     "Sandefjord Penguins": ClubCalendarSource(
@@ -119,7 +118,7 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         source="https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen",
         skip=False,
         note=(
-            "BookUp SPA -- the LLM-guided agentic scraper navigates the "
+            "BookUp SPA -- the Pi-driven ScraperAgent navigates the "
             "JS-rendered booking widget to extract ice hall bookings."
         ),
     ),
@@ -130,9 +129,8 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         source="https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true",
         skip=False,
         note=(
-            "Forumbooking HTML schema viewer -- the LLM-guided agentic scraper "
-            "interacts with the JS-rendered booking widget instead of the "
-            "broken iCal export."
+            "Forumbooking HTML schema viewer -- currently scraped via "
+            "Playwright (iframe-based). Maps to 368 events."
         ),
     ),
     "Holmen": ClubCalendarSource(
@@ -142,16 +140,19 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         source="https://kalender.sportello.no/booking/11055",
         skip=False,
         note=(
-            "Sportello booking widget -- the LLM-guided agentic scraper "
-            "navigates the JS-rendered SPA to extract ice hall bookings."
+            "Sportello booking widget -- currently scraped via "
+            "Playwright (iframe-based). Maps to 176 events."
         ),
     ),
     "Skien": ClubCalendarSource(
         club="Skien",
         arena="Skien ishall",
-        kind=CalendarSourceKind.ICAL,
-        source="istiderskienhockey@gmail.com",
-        note="Google Calendar public iCal feed (existing integration).",
+        kind=CalendarSourceKind.OUTLOOK,
+        source="https://skienfritidspark.brp.exigo.no/ishallen",
+        note=(
+            "brp.exigo.no Next.js app with ?date=YYYY-MM-DD parameter -- "
+            "scraped via date-parameter approach."
+        ),
     ),
     "Jutul": ClubCalendarSource(
         club="Jutul",
@@ -160,8 +161,8 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         source="https://baerumishall.no/kalender/",
         skip=False,
         note=(
-            "StyledCalendar JS widget -- the LLM-guided agentic scraper "
-            "navigates the embedded iframe to extract ice hall bookings."
+            "StyledCalendar JS widget -- needs ScraperAgent (Pi-driven browser). "
+            "Currently blocked in deterministic scraping (0 events)."
         ),
     ),
     "Kongsberg": ClubCalendarSource(

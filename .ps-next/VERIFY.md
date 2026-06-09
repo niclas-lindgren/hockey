@@ -4,11 +4,13 @@ STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `LLMGuidedScraper` opens a URL with Playwright, captures DOM snapshot, sends to LLM, executes returned action, and loops until events are extracted. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| The LLM can return `click`, `select`, `type`, `wait`, `scroll`, `extract`, and `done` structured actions. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Running Stage 2 with a source configured as `"type": "html"` dispatches to the agentic scraper instead of the old Outlook scraper. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Jutul, Jar, Frisk Asker, and Holmen are activated in the club registry with `skip=False, kind=OUTLOOK`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| iCal sources (Teamup, Google Calendar) still bypass the LLM agent entirely. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Max iterations exceeded produces a Norwegian blocking message with the final page state. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| All existing pipeline tests (Stage 1, Stage 3, Stage 4, tournament updater) still pass. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| 5+ tests in `tests/test_llm_scraper.py` cover immediate extraction, multi-step discovery, iCal bypass, and iteration limits. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| browser_worker.py accepts stdin JSON commands and returns stdout JSON responses | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Extension launches worker, sends commands, and reads responses | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Pi's model reads page snapshot and returns valid next action | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Write scraper strategy entries for all calendar system types | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Run pipeline and confirm at least 6 of 9 clubs produce events | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Write scraped data with timestamps into `.pipeline/cache/scraped_data.json` | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Produce `.pipeline/calendars.html` with month-grid, club filters, source links | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Create `/rvv-miniputt calendars` command that shows viewer path | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Write all 9 club entries in `club_registry.py` | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Run `pytest` and confirm all existing tests pass | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |

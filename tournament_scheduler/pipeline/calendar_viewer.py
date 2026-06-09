@@ -276,3 +276,21 @@ document.querySelectorAll('.club-filter').forEach(cb => {{
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
     return str(out_path.resolve())
+
+
+if __name__ == "__main__":  # pragma: no cover
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Generate calendar viewer HTML from cache")
+    parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
+    parser.add_argument("--refresh", action="store_true", help="Force re-scrape (marks cache stale)")
+    args = parser.parse_args()
+
+    if args.refresh:
+        from .cache_manager import ScrapedDataCache
+        c = ScrapedDataCache(work_dir=args.work_dir)
+        c.force_refresh()
+        print("Cache markert som utdatert — kjør /rvv-miniputt run for å re-skrape.")
+    else:
+        path = generate_html(work_dir=args.work_dir)
+        print(f"Kalendervisning generert: {path}")
