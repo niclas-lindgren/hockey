@@ -233,6 +233,7 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
 
     def _tournament_to_dict(t: Tournament) -> dict[str, Any]:
         return {
+            "id": t.id,
             "date": t.date.isoformat(),
             "arena": t.arena,
             "age_group": t.age_group,
@@ -309,6 +310,39 @@ def _make_default_client() -> "LMStudioClient":
     from ..llm.lm_studio_client import LMStudioClient
 
     return LMStudioClient()
+
+
+def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
+    """Reconstruct a :class:`Tournament` from a serialised dict."""
+    teams = [
+        Team(club=t["club"], label=t["label"], age_group=t["age_group"])
+        for t in data.get("teams", [])
+    ]
+    games = [
+        Game(
+            home=_find_team(teams, g["home"]),
+            away=_find_team(teams, g["away"]),
+            parallel_slot=g.get("parallel_slot", 0),
+        )
+        for g in data.get("games", [])
+    ]
+    return Tournament(
+        id=data.get("id", ""),
+        date=date.fromisoformat(data["date"]),
+        arena=data["arena"],
+        age_group=data["age_group"],
+        host_club=data.get("host_club"),
+        teams=teams,
+        games=games,
+    )
+
+
+def _find_team(teams: list[Team], label: str) -> Team:
+    """Find a Team by label; return a placeholder if missing."""
+    for t in teams:
+        if t.label == label:
+            return t
+    return Team(club="", label=label, age_group="")
 
 
 # ---------------------------------------------------------------------------

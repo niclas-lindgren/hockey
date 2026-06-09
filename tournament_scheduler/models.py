@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime, date
 from typing import List, Dict, Set, Optional, Tuple
+import uuid
 
 
 @dataclass
@@ -123,6 +124,7 @@ class Tournament:
     date: date
     arena: str  # host club's home arena, e.g. "Jarhallen"
     age_group: str  # e.g. "U10", "JU11" — one age group/gender per tournament
+    id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     teams: List[Team] = field(default_factory=list)
     games: List[Game] = field(default_factory=list)
     host_club: Optional[str] = None

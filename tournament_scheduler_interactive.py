@@ -621,6 +621,171 @@ def run_season_plan(params):
         SeasonPlanExporter().export(plan, export_path)
 
 
+def run_tournament_update():
+    """Interactive tournament update flow — modify a generated season plan."""
+    from tournament_scheduler.pipeline.state import PipelineState, StageName
+    from tournament_scheduler.pipeline.tournament_updater import TournamentUpdater
+
+    work_dir = ".pipeline"
+    TournamentOutput.print_header("OPPDATER TURNERING I SESONGPLANEN")
+
+    # Check that pipeline state exists
+    state = PipelineState(work_dir)
+    plan_data = state.read_stage(StageName.PLANNING)
+    if not plan_data or "plan" not in plan_data:
+        TournamentOutput.print_error(
+            f"Ingen sesongplan funnet i {work_dir}/.\n"
+            f"Kjør 'Generer full sesongplan' (valg 3) forst."
+        )
+        input("\nTrykk Enter for a fortsette...")
+        return
+
+    updater = TournamentUpdater(state=state)
+
+    try:
+        plan = updater.load_plan()
+    except ValueError as exc:
+        TournamentOutput.print_error(str(exc))
+        input("\nTrykk Enter for a fortsette...")
+        return
+
+    tournaments = sorted(plan.tournaments, key=lambda t: t.date)
+
+    TournamentOutput.print_info(
+        f"Sesongplan lastet: {len(tournaments)} turneringer "
+        f"({plan.start_date} til {plan.end_date})"
+    )
+
+    # List tournaments with index, ID, date, age group, arena, team count
+    print("\n" + "-" * 70)
+    print("TURNERINGER I PLANEN:")
+    print("-" * 70)
+    for i, t in enumerate(tournaments, 1):
+        team_labels = ", ".join(team.label for team in t.teams)
+        print(f"  {i}. [{t.id}] {t.date.isoformat()} | {t.age_group} | {t.arena}")
+        print(f"     Lag ({len(t.teams)}): {team_labels}")
+        print(f"     Kamper: {len(t.games)}")
+    print()
+
+    # Select tournament
+    max_choice = len(tournaments)
+    choice = ask_text(
+        f"Velg turnering (1-{max_choice}) eller trykk Enter for å avbryte",
+        required=False,
+    )
+    if not choice:
+        print("\nAvbryter...")
+        return
+
+    try:
+        idx = int(choice) - 1
+        if idx < 0 or idx >= max_choice:
+            raise ValueError()
+    except (ValueError, IndexError):
+        TournamentOutput.print_error(f"Ugyldig valg. Velg 1-{max_choice}.")
+        input("\nTrykk Enter for a fortsette...")
+        return
+
+    tournament = tournaments[idx]
+    TournamentOutput.print_info(
+        f"Valgt: {tournament.id} — {tournament.date.isoformat()} | "
+        f"{tournament.age_group} | {tournament.arena}"
+    )
+
+    # Choose operation
+    op = ask_choice(
+        "\nHva vil du gjøre?",
+        [
+            ("1", "Fjern et lag fra turneringen"),
+            ("2", "Flytt turneringen til en annen dato"),
+            ("3", "Avbryt"),
+        ]
+    )
+
+    if op == "3":
+        print("\nAvbryter...")
+        return
+
+    result = None
+
+    if op == "1":
+        # Drop a team
+        print("\n" + "-" * 60)
+        print("VELG LAG SOM SKAL FJERNES:")
+        print("-" * 60)
+        for i, team in enumerate(tournament.teams, 1):
+            print(f"  {i}. {team.label} ({team.club})")
+        print()
+
+        team_choice = ask_text(
+            f"Velg lag (1-{len(tournament.teams)}) eller skriv inn lagnavn",
+            required=False,
+        )
+        if not team_choice:
+            print("\nAvbryter...")
+            return
+
+        # Try as index first, then as label
+        try:
+            team_idx = int(team_choice) - 1
+            if 0 <= team_idx < len(tournament.teams):
+                team_label = tournament.teams[team_idx].label
+            else:
+                team_label = team_choice
+        except ValueError:
+            team_label = team_choice
+
+        print(f"\nFjerner lag '{team_label}'...")
+        result = updater.drop_team(tournament.id, team_label, plan=plan)
+
+    elif op == "2":
+        # Move date
+        new_date = ask_date("\nNy dato for turneringen")
+        if not new_date:
+            print("\nAvbryter...")
+            return
+
+        force = ask_yes_no(
+            "Flytt selv om det er konflikter?",
+            default=False,
+        ) if result is None or not result.success else False
+
+        print(f"\nFlytter turnering {tournament.id} til {new_date.date().isoformat()}...")
+        result = updater.move_date(
+            tournament.id,
+            new_date.date(),
+            plan=plan,
+            force=force,
+            cascade=True,
+        )
+
+    if not result:
+        TournamentOutput.print_error("Ingen operasjon utført.")
+        input("\nTrykk Enter for a fortsette...")
+        return
+
+    # Show result and confirm
+    print("\n" + "=" * 60)
+    if result.success:
+        TournamentOutput.print_success("ENDRINGSOVERSIKT:")
+        print(result.summary_nb)
+        print()
+
+        if ask_yes_no("Vil du lagre endringene?", default=True):
+            updater.write_updated_checkpoint(plan, log_entry=result)
+            log_path = updater.log_update(result)
+            TournamentOutput.print_success(f"Endringene er lagret til {work_dir}/stage3_plan.json")
+            if log_path:
+                TournamentOutput.print_info(f"Logget til: {log_path}")
+        else:
+            TournamentOutput.print_info("Endringene ble ikke lagret.")
+    else:
+        TournamentOutput.print_error(result.summary_nb)
+
+    print()
+    input("Trykk Enter for a fortsette...")
+
+
 def main():
     """Main interactive CLI."""
     history_manager = SearchHistory()
@@ -636,11 +801,12 @@ def main():
                 ("1", "Nytt søk"),
                 ("2", "Velg fra søkehistorikk"),
                 ("3", "Generer full sesongplan"),
-                ("4", "Avslutt")
+                ("4", "Oppdater turnering i sesongplanen"),
+                ("5", "Avslutt")
             ]
         )
 
-        if mode == "4":
+        if mode == "5":
             print("\nAvslutter...")
             break
 
@@ -664,6 +830,10 @@ def main():
                 if not ask_yes_no("Vil du gjøre noe mer?", default=True):
                     print("\nAvslutter...")
                     break
+            continue
+        elif mode == "4":
+            # Update tournament in existing season plan
+            run_tournament_update()
             continue
 
         if search_params:

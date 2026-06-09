@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from tournament_scheduler.cli.reschedule_command import RescheduleCommand
 from tournament_scheduler.cli.scheduling_command import SchedulingCommand
 from tournament_scheduler.cli.season_command import SeasonCommand
+from tournament_scheduler.cli.update_command import UpdateCommand
 from tournament_scheduler.utils.date_parser import DateParser
 
 
@@ -49,6 +50,20 @@ Examples:
     parser.add_argument('--export-excel', type=str,
                         help='Path to write an .xlsx export of the generated season plan (used with --generate-season).')
 
+    # Tournament update flags
+    parser.add_argument('--update-tournament', type=str,
+                        help='ID for turneringen som skal oppdateres i sesongplanen. Bruk med --team-drop eller --new-date.')
+    parser.add_argument('--team-drop', type=str,
+                        help='Fjern et lag fra turneringen (lagets label, f.eks. "Jar 1"). Krever --update-tournament.')
+    parser.add_argument('--new-date', type=str,
+                        help='Ny dato for turneringen (YYYY-MM-DD). Krever --update-tournament.')
+    parser.add_argument('--force', action='store_true',
+                        help='Tving flytting av turnering selv om det er konflikter.')
+    parser.add_argument('--no-cascade', action='store_true',
+                        help='Ikke kaskader til andre turneringer ved datoflytting.')
+    parser.add_argument('--work-dir', type=str, default='.pipeline',
+                        help='Pipeline work directory (standard: .pipeline).')
+
     return parser
 
 
@@ -77,6 +92,17 @@ def _validate_args(args) -> None:
         print("Usage: --generate-season --roster-file roster.json --season-start 2026-10-01 --season-end 2027-04-30", file=sys.stderr)
         sys.exit(1)
 
+    if args.update_tournament:
+        if not args.team_drop and not args.new_date:
+            print("Error: --team-drop or --new-date is required when using --update-tournament", file=sys.stderr)
+            print("Usage: --update-tournament <ID> --team-drop \"Jar 1\"", file=sys.stderr)
+            print("       --update-tournament <ID> --new-date 2027-02-20", file=sys.stderr)
+            sys.exit(1)
+
+        if args.team_drop and args.new_date:
+            print("Error: --team-drop and --new-date cannot be used together", file=sys.stderr)
+            sys.exit(1)
+
 
 def main():
     """Main CLI entry point — parses arguments and dispatches to the matching command."""
@@ -86,6 +112,17 @@ def main():
 
     if args.generate_season:
         SeasonCommand().run(args, start_date, end_date)
+        return
+
+    if args.update_tournament:
+        UpdateCommand().run(
+            tournament_id=args.update_tournament,
+            team_drop=args.team_drop,
+            new_date=args.new_date,
+            force=args.force,
+            no_cascade=args.no_cascade,
+            work_dir=args.work_dir,
+        )
         return
 
     if args.reschedule:

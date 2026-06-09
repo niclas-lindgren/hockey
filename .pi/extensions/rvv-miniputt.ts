@@ -61,7 +61,7 @@ interface RunArgs {
 }
 
 interface LogEntry {
-  type: "run_meta" | "stage_meta" | "stage_log" | "self_improve" | "llm_interaction";
+  type: "run_meta" | "stage_meta" | "stage_log" | "self_improve" | "llm_interaction" | "tournament_update";
   run_id: string;
   timestamp: string;
   [key: string]: unknown;
@@ -157,6 +157,19 @@ function parseLogsArgs(args: string): LogsArgs {
     else if (t === "show" && i + 1 < tokens.length) {
       result.subcommand = "show";
       result.run_id = tokens[++i];
+      if (result.run_id === "latest") {
+        // Resolve to the most recent run log file
+        const logDir = join(cwd(), ".pipeline", "logs");
+        if (existsSync(logDir)) {
+          const files = readdirSync(logDir)
+            .filter((f) => f.startsWith("run-") && f.endsWith(".jsonl"))
+            .sort()
+            .reverse();
+          if (files.length > 0) {
+            result.run_id = files[0].replace(/\.jsonl$/, "");
+          }
+        }
+      }
     } else if (t === "stats") result.subcommand = "stats";
     else if (t === "--count" && i + 1 < tokens.length) result.count = parseInt(tokens[++i], 10);
     else if (t === "--work-dir" && i + 1 < tokens.length) result.work_dir = tokens[++i];
@@ -585,6 +598,19 @@ function loadStageEntries(workDir: string, runId: string): StageMeta[] {
   return entries;
 }
 
+function loadTournamentUpdates(workDir: string, runId: string): LogEntry[] {
+  const logPath = join(workDir, "logs", `${runId}.jsonl`);
+  if (!existsSync(logPath)) return [];
+  const entries: LogEntry[] = [];
+  for (const line of readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean)) {
+    try {
+      const entry = JSON.parse(line) as LogEntry;
+      if (entry.type === "tournament_update") entries.push(entry);
+    } catch { /* skip */ }
+  }
+  return entries;
+}
+
 function loadLLMInteractions(workDir: string, runId: string): LogEntry[] {
   const logPath = join(workDir, "logs", `${runId}.jsonl`);
   if (!existsSync(logPath)) return [];
@@ -696,6 +722,22 @@ function buildLogsShowText(workDir: string, runId: string): string {
       lines.push(`  • ${stage}: ${action}${confidence}${tokens}`);
     }
     if (llms.length > 10) lines.push(`  ... og ${llms.length - 10} flere`);
+  }
+
+  // Tournament updates
+  const updates = loadTournamentUpdates(workDir, runId);
+  if (updates.length > 0) {
+    lines.push("");
+    lines.push(`Turneringsoppdateringer (${updates.length}):`);
+    for (const u of updates.slice(0, 10)) {
+      const op = (u.operation as string) ?? "?";
+      const tid = (u.tournament_id as string) ?? "?";
+      const success = u.success === true ? "\u2713" : u.success === false ? "\u2717" : "?";
+      const summary = (u.summary_nb as string) ?? "";
+      const firstLine = summary.split("\n")[0].slice(0, 80);
+      lines.push(`  ${success} [${tid}] ${op === "team_drop" ? "Fjern lag" : op === "date_move" ? "Flytt dato" : op}: ${firstLine}`);
+    }
+    if (updates.length > 10) lines.push(`  ... og ${updates.length - 10} flere`);
   }
 
   return lines.join("\n");
@@ -831,9 +873,11 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
   pi.registerCommand("rvv-miniputt logs", {
     description:
       "Vis pipeline-logging for selvforbedring. Underspørsmål:\n" +
-      "  list           — vis de siste kjøringene (standard)\n" +
-      "  show <run-id>  — vis detaljer for en bestemt kjøring\n" +
-      "  stats          — vis aggregerte selvforbedringsstatistikker\n" +
+      "  list              — vis de siste kjøringene (standard)\n" +
+      "  show <run-id>     — vis detaljer for en bestemt kjøring\n" +
+      "  show latest       — vis detaljer for den nyeste kjøringen\n" +
+      "  stats             — vis aggregerte selvforbedringsstatistikker\n" +
+      "Viser også turneringsoppdateringer (team-drop/date-move) i show-visningen.\n" +
       "Flagg: --count <N> (standard 10), --work-dir <sti>",
     getArgumentCompletions: (prefix) => {
       const words = ["list", "show", "stats", "--count", "--work-dir"];
