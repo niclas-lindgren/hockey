@@ -9,7 +9,7 @@
 
 ## Tasks
 
-- [ ] Define LLM action schema and create a DOM snapshotter utility
+- [x] Define LLM action schema and create a DOM snapshotter utility
   - Files: `tournament_scheduler/pipeline/llm_scraper.py` (new)
   - Approach: Create a new module `llm_scraper.py` in the pipeline subpackage. Define a typed dict / dataclass for the LLM's structured action response with the following action types:
     - `click(selector: str)` — click an element by Playwright selector
@@ -75,4 +75,11 @@
 - [ ] 5+ tests in `tests/test_llm_scraper.py` cover immediate extraction, multi-step discovery, iCal bypass, and iteration limits.
 
 ## Log
+
+### 2026-06-09 — Define LLM action schema and create a DOM snapshotter utility
+**Done:** Created tournament_scheduler/pipeline/llm_scraper.py with LLMAction dataclass (7 action types), action_from_dict parser with snake_case/camelCase fallback, capture_dom_snapshot() function with <script>/<style> stripping and interactive element extraction.
+**Rationale:** Follows existing codebase patterns (dataclasses, type hints, docstrings). action_from_dict tolerates LLM output variations (camelCase, extra keys). DOM snapshot strips script/style tags, extracts buttons/links/inputs/selects, and generates Playwright-compatible selectors.
+**Findings:** All imports and unit tests pass. BeautifulSoup used for text extraction when available with a regex fallback. Selector builder tries data-testid, aria-label, id, and text-based selectors in priority order.
+**Files:** A tournament_scheduler/pipeline/llm_scraper.py (+405)
+**Commit:** 1a5993b
 <!-- pi-next appends entries here after each task -->

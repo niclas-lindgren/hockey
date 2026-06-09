@@ -435,3 +435,471 @@ def _events_to_action_dicts(events: list[CalendarEvent]) -> list[dict[str, Any]]
         }
         for e in events
     ]
+
+
+# ===========================================================================
+# LLM agent loop — LLMGuidedScraper
+# ===========================================================================
+
+# LLM client – optional dependency; graceful degradation when unavailable
+try:
+    from ..llm.lm_studio_client import LMStudioClient, LMStudioUnavailableError
+
+    _LLM_AVAILABLE = True
+except ImportError:
+    _LLM_AVAILABLE = False
+    LMStudioUnavailableError = RuntimeError
+
+
+# Default endpoint — Pi overrides this via the extension
+_DEFAULT_LLM_ENDPOINT = "http://host.lima.internal:1234"
+
+
+class LLMGuidedScraper:
+    """Agentic scraper that uses an LLM to navigate JS-rendered calendars.
+
+    The scraper opens a URL with Playwright, captures a simplified DOM
+    snapshot, sends it to the LLM, executes the returned action (click,
+    select, type, wait, scroll, or done), and loops until calendar events
+    are extracted or the iteration limit is hit.
+
+    The LLM endpoint is configurable and **not hardcoded** — Pi passes its
+    configured endpoint through the extension. The scraper defaults to
+    ``LMStudioClient`` but can accept any compatible client that exposes
+    a ``complete(system, user, temperature)`` method.
+
+    Parameters
+    ----------
+    llm_endpoint:
+        Base URL for the LLM API (e.g. ``http://host.lima.internal:1234``).
+        Ignored if *client* is provided.
+    llm_model:
+        Model name to use (e.g. ``"qwen2.5-32b-instruct"``).
+    client:
+        A pre-configured LLM client instance. If provided, *llm_endpoint*
+        and *llm_model* are ignored. The client must expose a
+        ``complete(system, user, temperature)`` method returning an object
+        with a ``text`` attribute.
+    max_iterations:
+        Maximum number of LLM-guided interaction cycles before the scraper
+        blocks with a Norwegian message.
+    """
+
+    def __init__(
+        self,
+        llm_endpoint: str = _DEFAULT_LLM_ENDPOINT,
+        llm_model: str = "qwen2.5-32b-instruct",
+        client: Any | None = None,
+        max_iterations: int = 20,
+    ) -> None:
+        self.max_iterations = max_iterations
+
+        if client is not None:
+            self._client = client
+        else:
+            self._client = LMStudioClient(
+                base_url=llm_endpoint,
+                model=llm_model,
+            )
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def run(
+        self,
+        url: str,
+        name: str,
+        start_date: datetime,
+        end_date: datetime,
+        *,
+        max_iterations: int | None = None,
+    ) -> list[CalendarEvent]:
+        """Run the LLM-guided agent loop for a single calendar source.
+
+        Opens *url* with Playwright (headless Chromium), captures a DOM
+        snapshot, sends it to the LLM with context about ice hall bookings,
+        executes the returned action, and repeats until the LLM signals
+        ``done`` with extracted events or the iteration limit is hit.
+
+        Parameters
+        ----------
+        url:
+            Target URL to open.
+        name:
+            Human-readable source name (for prompts and logging).
+        start_date / end_date:
+            Date range the LLM should search within.
+        max_iterations:
+            Override the instance-level default for this call.
+
+        Returns
+        -------
+        list[CalendarEvent]
+            Extracted events, or empty list if the scraper blocked.
+
+        Raises
+        ------
+        RuntimeError
+            If ``LMStudioClient`` is unavailable (import failed).
+        """
+        if not _LLM_AVAILABLE:
+            raise RuntimeError(
+                "LLM-guided scraper er ikke tilgjengelig — "
+                "LMStudioClient kunne ikke importeres. "
+                "Sjekk at lm_studio_client.py finnes i tournament_scheduler/llm/."
+            )
+
+        iterations = max_iterations if max_iterations is not None else self.max_iterations
+        logger.info(
+            "Starter LLM-guided skraping for '%s' (%s) — maks %d iterasjoner",
+            name, url, iterations,
+        )
+
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            logger.error("Playwright is not installed — cannot run LLM-guided scraper")
+            return []
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+
+            try:
+                page.goto(url, timeout=30_000, wait_until="networkidle")
+            except Exception as exc:
+                logger.warning("Kunne ikke laste %s: %s", url, exc)
+                # Still try — the page may have partial content
+                try:
+                    page.goto(url, timeout=30_000)
+                except Exception as exc2:
+                    logger.error("Giving up on %s: %s", url, exc2)
+                    browser.close()
+                    return []
+
+            page.wait_for_timeout(2_000)  # Let JS render
+
+            for iteration in range(1, iterations + 1):
+                logger.debug("Iterasjon %d/%d for '%s'", iteration, iterations, name)
+
+                # --- Step 2: Capture DOM snapshot ---
+                snapshot = capture_dom_snapshot(page)
+
+                # --- Step 3: Send snapshot to LLM ---
+                system_prompt = _build_system_prompt(name, start_date, end_date)
+                user_message = _build_user_message(
+                    snapshot=snapshot,
+                    source_name=name,
+                    start_date=start_date,
+                    end_date=end_date,
+                    iteration=iteration,
+                    max_iterations=iterations,
+                )
+
+                try:
+                    response = self._client.complete(
+                        system=system_prompt,
+                        user=user_message,
+                        temperature=0.1,
+                    )
+                    raw_text = response.text.strip()
+                    logger.debug("LLM response (iter %d): %s", iteration, raw_text[:300])
+                except Exception as exc:
+                    logger.error(
+                        "LLM-feil i iterasjon %d for '%s': %s",
+                        iteration, name, exc,
+                    )
+                    continue
+
+                # --- Step 4: Parse the action ---
+                try:
+                    # Try to extract JSON from markdown fences or raw
+                    json_text = _extract_json_from_llm(raw_text)
+                    action_data = json.loads(json_text)
+                    action = action_from_dict(action_data)
+                except (ValueError, json.JSONDecodeError) as exc:
+                    logger.warning(
+                        "Kunne ikke tolke LLM-svar som handling (iter %d): %s",
+                        iteration, exc,
+                    )
+                    continue
+
+                # --- Step 5/6: Execute the action ---
+                if action.action == "done":
+                    events = _action_events_to_calendar_events(action.events)
+                    logger.info(
+                        "LLM signaliserte ferdig for '%s' — %d hendelser funnet",
+                        name, len(events),
+                    )
+                    browser.close()
+                    return events
+
+                success = _execute_action(action, page)
+                if not success:
+                    logger.warning(
+                        "Handling '%s' feilet for '%s' (iter %d)",
+                        action.action, name, iteration,
+                    )
+                    # Continue anyway — the LLM may adapt
+
+                page.wait_for_timeout(1_500)  # Let the page settle
+
+            # --- Step 7: Max iterations exceeded — block ---
+            final_snapshot = capture_dom_snapshot(page)
+            block_message = (
+                f"\n### BLOCKERT: {name}\n"
+                f"Kilden '{name}' ({url}) returnerte 0 hendelser etter "
+                f"{iterations} iterasjoner med LLM-styrt navigasjon.\n\n"
+                f"**Siste sidetilstand:**\n"
+                f"- Tittel: {final_snapshot.get('title', 'ukjent')}\n"
+                f"- URL: {final_snapshot.get('url', url)}\n"
+                f"- Viewport: {final_snapshot.get('viewport_width', '?')}x"
+                f"{final_snapshot.get('viewport_height', '?')}\n"
+                f"- Synlige elementer: {final_snapshot.get('element_count', 0)}\n"
+                f"- Synlig tekst (første 500 tegn):\n"
+                f"{final_snapshot.get('visible_text', '')[:500]}\n"
+            )
+            logger.warning(block_message)
+            print(block_message)  # Also surface to user
+
+            browser.close()
+            return []
+
+
+def _build_system_prompt(
+    source_name: str,
+    start_date: datetime,
+    end_date: datetime,
+) -> str:
+    """Build the system prompt describing ice hall bookings and available actions."""
+    # Build the prompt using raw string to avoid escaping JSON examples
+    lines: list[str] = [
+        'Du er en agent som navigerer ishall-kalendere for aa finne bookinger.',
+        '',
+        '**Hva du ser etter:**',
+        'Ishall-bookinger ser typisk slik ut:',
+        "- Datoer med tidsluker (f.eks. '08:00-09:30' eller 'kl 08.00-09.30')",
+        "- Holdnavn som 'Kongsberghallen', 'Jarhallen', 'Baerum ishall'",
+        "- Lag-/klubbnavn som 'Kongsberg', 'Jar', 'Jutul', 'Skien'",
+        "- Aktiviteter som 'ishockey', 'kunstlop', 'trening', 'kamp'",
+        '- Manedsoversikter med ukedager og datoer',
+        '',
+        '**Dine mulige handlinger:**',
+        '1. **click** -- Klikk paa en knapp eller lenke.',
+        '   Bruk: {"action": "click", "selector": "button:text(\'Vis kalender\')"}',
+        '2. **select** -- Velg et alternativ i en nedtrekksmeny.',
+        '   Bruk: {"action": "select", "selector": "select#month", "value": "2026-01"}',
+        '3. **type** -- Skriv tekst i et input-felt.',
+        '   Bruk: {"action": "type", "selector": "input[type=\'date\']", "value": "2026-01-01"}',
+        '4. **wait** -- Vent i et gitt antall millisekunder.',
+        '   Bruk: {"action": "wait", "ms": 2000}',
+        '5. **scroll** -- Rull siden opp eller ned.',
+        '   Bruk: {"action": "scroll", "direction": "down", "amount": 300}',
+        '6. **extract** -- Trekk ut kalenderdata fra den synlige teksten.',
+        '   Bruk: {"action": "extract"}',
+        '7. **done** -- Signaliser at du er ferdig og returner hendelser.',
+        '   Bruk: {"action": "done", "events": [...]}',
+        '',
+        '**Regler:**',
+        '- Svar ALLTID med et JSON-objekt -- ingen forklarende tekst utenfor JSON.',
+        "- Hvis kalenderdata ikke er synlig, prov aa klikke paa knapper som 'Vis kalender',",
+        "  'Kalender', 'Book tid', 'Ledige tider', eller lignende.",
+        '- Hvis du ser en manedsvisning, prov aa navigere til riktig maned/ar.',
+        '- Hvis du finner kalenderdata i tabellform, bruk **extract** for aa faa dem ut.',
+        '- Naar du har hentet ut alle hendelser, returner **done** med events-listen.',
+        '- Hver hendelse skal inneholde: date (DD.MM.AAAA), name (beskrivelse),',
+        '  duration_hours (antall timer som desimaltall).',
+        '- **Ikke** gi opp etter en feilet handling -- prov forskjellige tilnaerminger.',
+        f'- **Maalperiode:** {start_date.strftime("%d.%m.%Y")} til {end_date.strftime("%d.%m.%Y")}',
+        f'- **Kilde:** {source_name}',
+    ]
+    return '\n'.join(lines)
+
+
+def _build_user_message(
+    snapshot: dict[str, Any],
+    source_name: str,
+    start_date: datetime,
+    end_date: datetime,
+    iteration: int,
+    max_iterations: int,
+) -> str:
+    """Build the user message containing the DOM snapshot and context."""
+    lines: list[str] = [
+        f"Iterasjon {iteration}/{max_iterations} for '{source_name}'",
+        f"Målperiode: {start_date.strftime('%d.%m.%Y')} til {end_date.strftime('%d.%m.%Y')}",
+        "",
+        "--- DOM-øyeblikksbilde ---",
+        f"Tittel: {snapshot.get('title', 'ukjent')}",
+        f"URL: {snapshot.get('url', 'ukjent')}",
+        f"Viewport: {snapshot.get('viewport_width', '?')}x{snapshot.get('viewport_height', '?')} piksler",
+        f"Antall interaktive elementer: {snapshot.get('element_count', 0)}",
+        "",
+        "Synlig tekst:",
+        snapshot.get('visible_text', '(ingen synlig tekst)'),
+        "",
+        "Interaktive elementer:",
+    ]
+
+    elements = snapshot.get("interactive_elements", [])
+    if elements:
+        for i, elem in enumerate(elements):
+            lines.append(
+                f"  [{i}] <{elem.get('tag', '?')}> role={elem.get('role', '?')} "
+                f"text=\"{elem.get('text', '')[:80]}\" "
+                f"selector={elem.get('selector', '?')}"
+            )
+    else:
+        lines.append("  (ingen interaktive elementer funnet)")
+
+    lines.append("")
+    lines.append("Hva vil du gjøre? Svar med et JSON-objekt.")
+
+    return "\n".join(lines)
+
+
+def _extract_json_from_llm(raw_text: str) -> str:
+    """Extract valid JSON from an LLM response, stripping markdown fences.
+
+    Handles both `` ```json `` and `` ``` `` fences, and also finds JSON
+    objects embedded in prose with ``{...}`` extraction.
+    """
+    text = raw_text.strip()
+
+    # Strip markdown code fences
+    for fence in ("```json", "```"):
+        if text.startswith(fence):
+            text = text[len(fence):].strip()
+            if text.endswith("```"):
+                text = text[:-3].strip()
+            break
+
+    # For action responses, try to find a JSON object if there's surrounding prose
+    if not text.startswith("{"):
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            text = text[start : end + 1]
+
+    return text.strip()
+
+
+def _execute_action(action: LLMAction, page: Any) -> bool:
+    """Execute a single LLM action on the Playwright page.
+
+    Returns ``True`` if the action was executed successfully (or if the
+    error is non-fatal), ``False`` if the action clearly failed and the
+    LLM should try a different approach.
+    """
+    try:
+        if action.action == "click":
+            if not action.selector:
+                logger.warning("click-handling mangler selector")
+                return False
+            element = page.locator(action.selector)
+            if element.count() == 0:
+                logger.warning("Fant ikke element med selector '%s'", action.selector)
+                return False
+            element.first.click()
+            logger.debug("Klikket på '%s'", action.selector)
+            return True
+
+        elif action.action == "select":
+            if not action.selector or not action.value:
+                return False
+            element = page.locator(action.selector)
+            if element.count() == 0:
+                return False
+            element.first.select_option(action.value)
+            logger.debug("Valgte '%s' i '%s'", action.value, action.selector)
+            return True
+
+        elif action.action == "type":
+            if not action.selector:
+                return False
+            element = page.locator(action.selector)
+            if element.count() == 0:
+                return False
+            element.first.fill(action.value)
+            logger.debug("Fylte inn '%s' i '%s'", action.value[:20], action.selector)
+            return True
+
+        elif action.action == "wait":
+            import time
+
+            ms = max(action.ms, 100)  # Minimum 100ms
+            time.sleep(ms / 1000.0)
+            logger.debug("Venter i %d ms", ms)
+            return True
+
+        elif action.action == "scroll":
+            direction = action.direction or "down"
+            amount = action.amount or 300
+            if direction == "down":
+                page.evaluate(f"window.scrollBy(0, {amount})")
+            elif direction == "up":
+                page.evaluate(f"window.scrollBy(0, -{amount})")
+            elif direction == "left":
+                page.evaluate(f"window.scrollBy(-{amount}, 0)")
+            elif direction == "right":
+                page.evaluate(f"window.scrollBy({amount}, 0)")
+            else:
+                page.evaluate(f"window.scrollBy(0, {amount})")
+            logger.debug("Scroller %s %d piksler", direction, amount)
+            return True
+
+        elif action.action == "extract":
+            # extract is handled by capturing visible text;
+            # the LLM will include the extracted data in a subsequent
+            # ``done`` action. Nothing to execute on the page.
+            logger.debug("extract-handling — samler synlig tekst")
+            return True
+
+        elif action.action == "done":
+            # The caller handles ``done`` before calling this function
+            logger.debug("done-handling — skal ikke kjøres via _execute_action")
+            return True
+
+        else:
+            logger.warning("Ukjent handlingstype: '%s'", action.action)
+            return False
+
+    except Exception as exc:
+        logger.warning(
+            "Feil ved utføring av '%s'-handling: %s",
+            action.action, exc,
+        )
+        return False
+
+
+def _action_events_to_calendar_events(
+    event_dicts: list[dict[str, Any]],
+) -> list[CalendarEvent]:
+    """Convert event dicts from an LLM ``done`` action to CalendarEvent objects."""
+    events: list[CalendarEvent] = []
+    for item in event_dicts:
+        if not isinstance(item, dict):
+            continue
+        date_str = item.get("date", "")
+        name = item.get("name", "")
+        duration = float(item.get("duration_hours", 1.0))
+        if not date_str or not name:
+            continue
+        try:
+            dt = datetime.strptime(date_str, "%d.%m.%Y")
+        except ValueError:
+            # Try ISO format
+            try:
+                dt = datetime.fromisoformat(date_str)
+            except (ValueError, TypeError):
+                continue
+        events.append(
+            CalendarEvent(
+                date=dt.strftime("%d.%m.%Y"),
+                name=name,
+                datetime=dt,
+                duration_hours=duration,
+            )
+        )
+    return events
