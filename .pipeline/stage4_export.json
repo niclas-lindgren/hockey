@@ -1,0 +1,15 @@
+{
+  "stage": "export",
+  "status": "done",
+  "updated_at": "2026-06-09T21:38:18.993531+00:00",
+  "data": {
+    "output_files": {
+      "excel": "export/season_plan.xlsx",
+      "ical": "export/season_plan.ics",
+      "csv_games": "export/season_plan.csv",
+      "csv_overview": "export/season_plan_overview.csv",
+      "html": "export/season_plan.html"
+    },
+    "errors": []
+  }
+}

@@ -1,7 +1,7 @@
 {
   "stage": "planning",
   "status": "done",
-  "updated_at": "2026-06-09T21:35:47.371271+00:00",
+  "updated_at": "2026-06-09T21:38:18.764513+00:00",
   "data": {
     "plan": {
       "start_date": "2026-09-01",
@@ -22,7 +22,7 @@
       },
       "tournaments": [
         {
-          "id": "4e01e99d",
+          "id": "bf040abf",
           "date": "2026-09-06",
           "arena": "Jarhallen",
           "age_group": "U10",
@@ -213,7 +213,7 @@
           ]
         },
         {
-          "id": "d5fa50f2",
+          "id": "cb79ec02",
           "date": "2026-09-26",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -329,7 +329,7 @@
           ]
         },
         {
-          "id": "dfffb482",
+          "id": "492d40be",
           "date": "2026-10-11",
           "arena": "Sandefjord",
           "age_group": "U10",
@@ -520,7 +520,7 @@
           ]
         },
         {
-          "id": "bdda695c",
+          "id": "05fb5407",
           "date": "2026-10-25",
           "arena": "Baerum ishall",
           "age_group": "U11",
@@ -636,7 +636,7 @@
           ]
         },
         {
-          "id": "d2306d15",
+          "id": "c0aa5408",
           "date": "2026-11-14",
           "arena": "Holmenkollen ishall",
           "age_group": "U10",
@@ -827,7 +827,7 @@
           ]
         },
         {
-          "id": "30e25e98",
+          "id": "44428a69",
           "date": "2026-11-28",
           "arena": "Skien ishall",
           "age_group": "U11",
@@ -943,7 +943,7 @@
           ]
         },
         {
-          "id": "6f309042",
+          "id": "64224e14",
           "date": "2026-12-13",
           "arena": "Ringerikshallen",
           "age_group": "U10",
@@ -1134,7 +1134,7 @@
           ]
         },
         {
-          "id": "e93fe72c",
+          "id": "8cb6ccaf",
           "date": "2027-01-09",
           "arena": "Kongsberghallen",
           "age_group": "U11",
@@ -1250,7 +1250,7 @@
           ]
         },
         {
-          "id": "c65ae87d",
+          "id": "80ee44e1",
           "date": "2027-01-16",
           "arena": "Tonsberghallen",
           "age_group": "U10",
@@ -1441,7 +1441,7 @@
           ]
         },
         {
-          "id": "dfe2d033",
+          "id": "96861e50",
           "date": "2027-01-31",
           "arena": "Jarhallen",
           "age_group": "U11",
@@ -1557,7 +1557,7 @@
           ]
         },
         {
-          "id": "e4a4c37d",
+          "id": "44119ea6",
           "date": "2027-02-14",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -1748,7 +1748,7 @@
           ]
         },
         {
-          "id": "38d2744e",
+          "id": "37141ef9",
           "date": "2027-03-06",
           "arena": "Sandefjord",
           "age_group": "U11",
@@ -1864,7 +1864,7 @@
           ]
         },
         {
-          "id": "a43d2483",
+          "id": "4365c697",
           "date": "2027-03-14",
           "arena": "Baerum ishall",
           "age_group": "U10",
@@ -2055,7 +2055,7 @@
           ]
         },
         {
-          "id": "6c6e80ee",
+          "id": "3777a0d5",
           "date": "2027-04-10",
           "arena": "Holmenkollen ishall",
           "age_group": "U11",
@@ -2171,7 +2171,7 @@
           ]
         },
         {
-          "id": "a266bec9",
+          "id": "e2c786b9",
           "date": "2027-04-18",
           "arena": "Skien ishall",
           "age_group": "U10",

@@ -1,7 +1,7 @@
 {
   "stage": "config",
   "status": "done",
-  "updated_at": "2026-06-09T21:32:46.402532+00:00",
+  "updated_at": "2026-06-09T22:01:43.947942+00:00",
   "data": {
     "start_date": "2026-09-01",
     "end_date": "2027-04-30",
@@ -210,6 +210,36 @@
         "name": "Ringerike",
         "type": "ical",
         "url": "https://ics.teamup.com/feed/ksr8bg1tpn5s3npskw/0.ics"
+      },
+      {
+        "name": "Frisk Asker",
+        "type": "ical",
+        "url": "https://ics.teamup.com/feed/ksdwpwxysmxwnuftoy/0.ics"
+      },
+      {
+        "name": "Jutul",
+        "type": "outlook",
+        "url": "https://baerumishall.no/kalender/"
+      },
+      {
+        "name": "Jar",
+        "type": "outlook",
+        "url": "https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true"
+      },
+      {
+        "name": "Holmen",
+        "type": "outlook",
+        "url": "https://kalender.sportello.no/booking/11055"
+      },
+      {
+        "name": "Tønsberg",
+        "type": "outlook",
+        "url": "https://www.bookup.no/utleie/Index/860"
+      },
+      {
+        "name": "Sandefjord Penguins",
+        "type": "outlook",
+        "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen"
       }
     ]
   }

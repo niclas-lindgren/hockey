@@ -360,6 +360,46 @@ def _run_outlook_scraper(
     return unique, raw_html
 
 
+def _parse_date_param_calendar(
+    html: str,
+    month_start: datetime,
+    norwegian_months: dict[str, int],
+) -> list[CalendarEvent]:
+    """Parse calendar events from a date-parameter page (brp.exigo.no-style).
+
+    Strips HTML tags and looks for visible event-like text patterns.
+    """
+    import re
+    from datetime import datetime as _dt
+
+    events: list[CalendarEvent] = []
+    text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    # Look for time ranges (HH:MM-HH:MM) that indicate bookings
+    time_pattern = r"(\d{1,2}[\.:]\d{2})\s*-\s*(\d{1,2}[\.:]\d{2})"
+    for m in re.finditer(time_pattern, text):
+        start_str, end_str = m.groups()
+        try:
+            sh, sm = (int(x) for x in start_str.replace(".", ":").split(":"))
+            eh, em = (int(x) for x in end_str.replace(".", ":").split(":"))
+        except ValueError:
+            continue
+        duration = (eh + em / 60.0) - (sh + sm / 60.0)
+        if duration < 0:
+            duration += 24
+        day = _dt(year=month_start.year, month=month_start.month, day=1)
+        events.append(CalendarEvent(
+            date=day.strftime("%d.%m.%Y"),
+            name=f"Booking {m.group()}",
+            datetime=day.replace(hour=sh, minute=sm),
+            duration_hours=duration,
+        ))
+    return events
+
+
 def _parse_outlook_calendar(
     html: str,
     norwegian_months: dict[str, int],
