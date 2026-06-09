@@ -89,6 +89,8 @@ class TestRunStage2:
                     strict=True,
                 )
         assert "HallX" in str(exc_info.value)
+        # No checkpoint file should be written when the pipeline blocks strictly
+        assert not state.checkpoint_path(StageName.SCRAPING).exists()
 
     def test_zero_events_strict_false_does_not_raise(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")

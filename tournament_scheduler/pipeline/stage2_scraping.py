@@ -144,11 +144,11 @@ def run(
     }
 
     if blocked and strict:
-        state.write_stage(StageName.SCRAPING, checkpoint, status=StageStatus.FAILED)
-        state.mark_failed(
-            StageName.SCRAPING,
-            error="; ".join(b["name"] for b in blocked),
-        )
+        # Do not persist a checkpoint when the pipeline is blocking — callers
+        # should not see a partial/failed Stage 2 artefact on disk.
+        checkpoint_file = state.checkpoint_path(StageName.SCRAPING)
+        if checkpoint_file.exists():
+            checkpoint_file.unlink()
         raise Stage2Error(blocked)
 
     status = StageStatus.DONE if not blocked else StageStatus.FAILED
