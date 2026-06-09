@@ -21,7 +21,7 @@
     - `done(events: list)` — signal completion with extracted calendar events
     Create a `DOMSnapshot` function that takes a Playwright page and returns a simplified text representation: page title, URL, visible text (truncated to ~8000 chars), list of interactive elements (buttons with text, input fields with placeholders, select elements with options, links with text), and the current viewport dimensions. Strip `<script>` and `<style>` tags.
 
-- [ ] Build the LLM agent loop — `LLMGuidedScraper` class
+- [x] Build the LLM agent loop — `LLMGuidedScraper` class
   - Files: `tournament_scheduler/pipeline/llm_scraper.py`
   - Approach: Add an `LLMGuidedScraper` class with a `run(url, start_date, end_date, max_iterations=20)` method. The loop:
     1. Open the URL with Playwright (headless Chromium)
@@ -76,6 +76,13 @@
 
 ## Log
 
+
+### 2026-06-09 — Build the LLM agent loop — `LLMGuidedScraper` class
+**Done:** Added LLMGuidedScraper class to llm_scraper.py with run(url, name, start_date, end_date, max_iterations=20) method implementing the full agent loop: (1) open URL with Playwright, (2) capture DOM snapshot, (3) send snapshot + context to LLM, (4) parse structured action from response, (5) execute action via Playwright, (6) loop until done with events or max iterations, (7) block with Norwegian message when exhausted.
+**Rationale:** Follows existing codebase patterns (Playwright sync API, LMStudioClient). System prompt describes ice hall bookings in Norwegian, lists 7 action types with JSON examples. User message includes DOM snapshot with interactive elements table. Action executor maps to Playwright click/select_option/fill/scroll/wait operations.
+**Findings:** All 171 tests pass. LLM endpoint configurable via constructor — LMStudioClient is created with the given base_url and model. The run() method handles graceful degradation on page load errors and LLM failures. Max iterations default 20.
+**Files:** M tournament_scheduler/pipeline/llm_scraper.py (+498)
+**Commit:** 11d6e59
 ### 2026-06-09 — Define LLM action schema and create a DOM snapshotter utility
 **Done:** Created tournament_scheduler/pipeline/llm_scraper.py with LLMAction dataclass (7 action types), action_from_dict parser with snake_case/camelCase fallback, capture_dom_snapshot() function with <script>/<style> stripping and interactive element extraction.
 **Rationale:** Follows existing codebase patterns (dataclasses, type hints, docstrings). action_from_dict tolerates LLM output variations (camelCase, extra keys). DOM snapshot strips script/style tags, extracts buttons/links/inputs/selects, and generates Playwright-compatible selectors.

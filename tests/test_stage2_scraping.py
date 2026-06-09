@@ -75,8 +75,8 @@ class TestRunStage2:
         ])
 
         with patch(
-            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
-            return_value=([], ""),
+            "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
+            return_value=[],
         ):
             with pytest.raises(Stage2Error) as exc_info:
                 run(
@@ -95,8 +95,8 @@ class TestRunStage2:
         ])
 
         with patch(
-            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
-            return_value=([], ""),
+            "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
+            return_value=[],
         ):
             result = run(
                 cfg, state,
@@ -113,12 +113,9 @@ class TestRunStage2:
         ])
         events = [_make_event("Hockey practice")]
 
-        with (
-            patch(
-                "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
-                return_value=(events, "<html/>"),
-            ),
-            patch("tournament_scheduler.pipeline.stage2_scraping._LLM_AVAILABLE", False),
+        with patch(
+            "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
+            return_value=events,
         ):
             result = run(
                 cfg, state,
@@ -130,79 +127,54 @@ class TestRunStage2:
         assert src["event_count"] == 1
         assert src["blocked"] is False
 
-    def test_outlook_source_llm_confidence_logged_when_available(self, tmp_path):
-        """LLM confidence is logged for outlook sources when LM Studio is available."""
+    def test_html_source_dispatches_to_agent(self, tmp_path):
+        """'html' source type dispatches to the agentic scraper (same as 'outlook')."""
         state = PipelineState(tmp_path / "pipeline")
         cfg = _make_config_with_sources([
-            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+            {"name": "Jutul", "type": "html", "url": "https://baerumishall.no/kalender/"},
         ])
-        events = [_make_event("Hockey practice")]
+        events = [_make_event("Jutul booking")]
 
-        with (
-            patch(
-                "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
-                return_value=(events, "<html/>"),
-            ),
-            patch("tournament_scheduler.pipeline.stage2_scraping._LLM_AVAILABLE", True),
-            patch(
-                "tournament_scheduler.pipeline.stage2_scraping._make_default_client",
-            ) as mock_factory,
+        with patch(
+            "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
+            return_value=events,
         ):
-            mock_client = MagicMock()
-            mock_client.complete.return_value = MagicMock(
-                text='{"confidence": 0.8, "valid": true, "reasoning": "looks good"}'
-            )
-            mock_factory.return_value = mock_client
-
             result = run(
                 cfg, state,
                 datetime(2025, 9, 1), datetime(2025, 12, 1),
             )
 
+        assert state.is_done(StageName.SCRAPING)
         src = result["sources"][0]
-        assert src["llm_confidence"] == pytest.approx(0.8)
         assert src["event_count"] == 1
-
-
-    def test_outlook_zero_events_with_html_fallback(self, tmp_path):
-        """When scraper returns 0 events but raw HTML exists, LLM fallback is used."""
-        state = PipelineState(tmp_path / "pipeline")
-        cfg = _make_config_with_sources([
-            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
-        ])
-        raw = "<html>calendar content with events</html>"
-
-        # Responses for the two LLM calls: first quality-gate (low conf),
-        # second HTML fallback (extracted events).
-        responses = [
-            MagicMock(text='{"confidence": 0.2, "valid": false, "reasoning": "no events found by scraper"}'),  # quality gate
-            MagicMock(text='[{"date": "01.01.2025", "name": "LLM-extracted", "duration_hours": 1.5}]'),  # html fallback
-        ]
-
-        with (
-            patch(
-                "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
-                return_value=([], raw),
-            ),
-            patch("tournament_scheduler.pipeline.stage2_scraping._LLM_AVAILABLE", True),
-            patch(
-                "tournament_scheduler.pipeline.stage2_scraping._make_default_client",
-            ) as mock_factory,
-        ):
-            mock_client = MagicMock()
-            mock_client.complete.side_effect = responses
-            mock_factory.return_value = mock_client
-
-            result = run(
-                cfg, state,
-                datetime(2025, 9, 1), datetime(2025, 12, 1),
-            )
-
-        src = result["sources"][0]
-        assert src["llm_fallback_used"] is True
-        assert src["event_count"] == 1
-        assert src["events"][0]["name"] == "LLM-extracted"
         assert src["blocked"] is False
+        assert src["type"] == "html"
+
+    def test_ical_source_skipped_by_agent(self, tmp_path):
+        """iCal sources are NOT dispatched to the agentic scraper."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Teamup", "type": SOURCE_ICAL, "url": "https://ics.teamup.com/feed/key"},
+        ])
+
+        with (
+            patch(
+                "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+                return_value=[_make_event("iCal event")],
+            ),
+            patch(
+                "tournament_scheduler.pipeline.llm_scraper.LLMGuidedScraper.run",
+            ) as mock_agent,
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+            )
+
+        mock_agent.assert_not_called()
+        src = result["sources"][0]
+        assert src["event_count"] == 1
+        assert src["events"][0]["name"] == "iCal event"
 
 
 class TestEventsToDict:

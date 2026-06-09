@@ -1,26 +1,20 @@
-"""Stage 2 — scraping with LLM-guided navigation and HTML fallback.
+"""Stage 2 — scraping with LLM-guided agentic navigation for JS-rendered SPAs.
 
 For each configured calendar source:
-  1. Run the Playwright/Outlook scraper. For each month, the raw HTML
-     is captured and an LLM analyzes the page to determine:
-     - Which month/year is currently displayed
-     - Which CSS selector / button label navigates to the next month
-     - Whether events are visible in the current view
-  2. The LLM's navigation instructions guide the scraper through every
-     month in the requested date range.
-  3. If the scraper's built-in regex extraction returns zero events, the
-     raw HTML for the *entire* range is sent to the LLM for manual event
-     extraction (HTML fallback).
-  4. iCal and Google Calendar sources skip the LLM path entirely.
-  5. If both the scraper and LLM fallback return zero events, block with a
-     clear Norwegian-language error message rather than proceeding silently.
+  1. ``outlook`` / ``html`` sources use the :class:`LLMGuidedScraper` agent
+     loop — the LLM examines the DOM snapshot, decides what Playwright action
+     to take (click a button, select a dropdown, etc.), and loops until
+     calendar events are extracted or the iteration limit is hit.
+  2. ``ical`` / ``google`` sources use the deterministic ICAL scraper (no LLM).
+  3. If the agent returns zero events, block with a Norwegian-language error
+     message rather than proceeding silently.
 
 Source config format (inside the validated Stage 1 config or provided directly)::
 
     "sources": [
         {
             "name": "Kongsberg ishall",
-            "type": "outlook",   // "outlook" | "ical" | "google"
+            "type": "outlook",   // "outlook" | "html" | "ical" | "google"
             "url": "https://kongsberghallen.no/webkalender/ishall/"
         },
         ...
@@ -57,8 +51,12 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 SOURCE_OUTLOOK = "outlook"
+SOURCE_HTML = "html"
 SOURCE_ICAL = "ical"
 SOURCE_GOOGLE = "google"
+
+# Agentic-scraper source types (LLM-guided Playwright navigation)
+_AGENTIC_SOURCE_TYPES = {SOURCE_OUTLOOK, SOURCE_HTML}
 
 # Sources that skip the LLM path entirely
 _ICAL_SOURCE_TYPES = {SOURCE_ICAL, SOURCE_GOOGLE}
@@ -173,10 +171,14 @@ def _scrape_source(
 ) -> dict[str, Any]:
     """Scrape a single source and return a per-source result dict.
 
-    For Outlook/Playwright sources the LLM guides month-by-month navigation
-    and provides a confidence log. If the scraper returns zero events, an
-    LLM-based HTML fallback attempts to extract events from the raw HTML.
+    For ``outlook`` / ``html`` sources the :class:`LLMGuidedScraper` agent
+    loop is used -- the LLM examines the DOM snapshot, decides what Playwright
+    action to take, and loops until events are extracted or the iteration
+    limit is hit.  ``ical`` / ``google`` sources use the deterministic iCal
+    scraper directly.
     """
+    from .llm_scraper import LLMGuidedScraper
+
     name = source_cfg.get("name", "ukjent kilde")
     url = source_cfg.get("url", "")
     source_type = source_cfg.get("type", SOURCE_OUTLOOK).lower()
@@ -191,15 +193,18 @@ def _scrape_source(
         "block_reason": "",
     }
 
-    # --- Step 1: Run the scraper (with LLM-guided navigation for Outlook) ---
     events: list[CalendarEvent] = []
-    raw_html: str = ""
     scraper_error: str = ""
 
     try:
-        if source_type == SOURCE_OUTLOOK:
-            events, raw_html = _run_outlook_scraper(
-                url, name, start_date, end_date,
+        if source_type in _AGENTIC_SOURCE_TYPES:
+            # LLM-guided agentic scraper for JS-rendered calendars
+            scraper = LLMGuidedScraper()
+            events = scraper.run(
+                url=url,
+                name=name,
+                start_date=start_date,
+                end_date=end_date,
             )
         elif source_type in _ICAL_SOURCE_TYPES:
             events = _run_ical_scraper(url, name, start_date, end_date, source_type)
@@ -211,46 +216,11 @@ def _scrape_source(
     if scraper_error:
         result["scraper_error"] = scraper_error
 
-    # --- Step 2: LLM quality gate (informational only, Outlook sources) ---
-    if source_type not in _ICAL_SOURCE_TYPES:
-        result["llm_confidence"] = None
-        result["llm_fallback_used"] = False
-        if _LLM_AVAILABLE:
-            try:
-                client = _make_default_client()
-                llm_result = _llm_quality_gate(
-                    events=events,
-                    source_name=name,
-                    start_date=start_date,
-                    end_date=end_date,
-                    client=client,
-                )
-                result["llm_confidence"] = llm_result["confidence"]
-            except LMStudioUnavailableError:
-                result["llm_skipped"] = True
-
-    # --- Step 3: HTML fallback if scraper returned nothing (Outlook only) ---
-    if source_type not in _ICAL_SOURCE_TYPES and not events and raw_html and _LLM_AVAILABLE:
-        try:
-            client = _make_default_client()
-            fallback_events = _llm_html_fallback(
-                raw_html=raw_html,
-                source_name=name,
-                start_date=start_date,
-                end_date=end_date,
-                client=client,
-            )
-            if fallback_events:
-                result["llm_fallback_used"] = True
-                events = fallback_events
-        except LMStudioUnavailableError:
-            pass  # fallback unavailable — block below
-
-    # --- Step 4: Block check ---
+    # --- Block check ---
     if not events:
         block_reason = (
-            f"Kilde '{name}' returnerte 0 hendelser — "
-            "skraper ødelagt eller hallen er stengt?"
+            f"Kilde '{name}' returnerte 0 hendelser -- "
+            "skraper odelagt eller hallen er stengt?"
         )
         result["blocked"] = True
         result["block_reason"] = block_reason
@@ -258,6 +228,9 @@ def _scrape_source(
     result["events"] = _events_to_dicts(events)
     result["event_count"] = len(events)
     return result
+
+
+
 
 
 def _run_ical_scraper(

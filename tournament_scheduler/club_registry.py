@@ -100,36 +100,13 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
     ),
     "Frisk Asker": ClubCalendarSource(
         club="Frisk Asker",
-        # Home arena is "Varner Arena" (Frisk Asker's official site refers to it
-        # this way), not "Askerhallen" as previously assumed.
         arena="Varner Arena",
-        kind=CalendarSourceKind.UNKNOWN,
-        # https://www.friskaskerhockey.no/ ("Frisk Asker Ishockey") has an
-        # "Aktivitetskalender" page, but the whole site is a JS-rendered SPA
-        # (built on the Sportality/s8y platform — assets served from
-        # cdn.s8y.se) with no static HTML calendar markup or any discoverable
-        # .ics/iCal export endpoint (checked /api/calendar -> 404 JSON,
-        # /aktivitetskalender and /kalender both just return the same SPA
-        # shell). varnerarena.no itself is behind a "RUNCLOUD-7G-WAF-BLOCKED"
-        # WAF page and could not be inspected. Forumbooking does NOT host a
-        # "Varner Arena"/"Askerhallen" schema (its schema.aspx ignores unknown
-        # `schema` values and silently falls back to Jarhallen's data).
-        source=None,
-        skip=True,
+        kind=CalendarSourceKind.OUTLOOK,
+        source="https://www.friskaskerhockey.no/",
+        skip=False,
         note=(
-            "Checked: friskaskerhockey.no (Sportality/s8y JS SPA — "
-            "'Aktivitetskalender' page exists but renders client-side with no "
-            "static calendar markup or .ics export found; /api/calendar -> 404), "
-            "varnerarena.no (blocked by a WAF/'RUNCLOUD-7G-WAF-BLOCKED' page), "
-            "and Forumbooking (no 'Varner Arena'/'Askerhallen' schema — query "
-            "param is ignored, falls back to Jarhallen). A live, working source "
-            "would need either a discovered Sportality calendar API or a "
-            "Playwright-based scraper for the SPA (similar to Kongsberg's "
-            "OUTLOOK integration, but for a different platform/markup). "
-            "No new scraper code is needed to wire it in once found — "
-            "build_calendar_source() already builds an IceHallCalendar from "
-            "either an ICAL feed URL (-> ICalScraper) or an OUTLOOK webkalender "
-            "URL (-> OutlookCalendarScraper); just set kind/source/skip=False."
+            "Sportality/s8y JS SPA -- the LLM-guided agentic scraper "
+            "navigates the 'Aktivitetskalender' page dynamically."
         ),
     ),
     "Sandefjord Penguins": ClubCalendarSource(
@@ -147,51 +124,24 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
     "Jar": ClubCalendarSource(
         club="Jar",
         arena="Jarhallen",
-        kind=CalendarSourceKind.ICAL,
-        # The schema.aspx URL is the HTML calendar viewer, not a feed.
-        # Forumbooking (FRI Webb-Bokning) exposes ical.aspx as an export
-        # endpoint, but as of this check it returns a single empty placeholder
-        # VEVENT (DTSTART/SUMMARY/UID all blank) regardless of date-range
-        # query params (from/to, start/end, dateFrom/dateTo) — the booking
-        # system likely requires session/auth or a different export trigger
-        # to populate real events.
-        source="https://www.forumbooking.no/ical.aspx?obj=2&schema=Jarhallen%20(ishall)",
-        skip=True,
+        kind=CalendarSourceKind.OUTLOOK,
+        source="https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true",
+        skip=False,
         note=(
-            "TODO: Forumbooking ical.aspx export currently returns an empty "
-            "placeholder VEVENT (no usable DTSTART/SUMMARY) — needs further "
-            "investigation (auth/session/export trigger) before this club can "
-            "be scraped live. Pipeline skips it for now."
+            "Forumbooking HTML schema viewer -- the LLM-guided agentic scraper "
+            "interacts with the JS-rendered booking widget instead of the "
+            "broken iCal export."
         ),
     ),
     "Holmen": ClubCalendarSource(
         club="Holmen",
         arena="Holmenkollen ishall",
-        kind=CalendarSourceKind.UNKNOWN,
-        # holmenhockey.no ("Holmen Hockey") has an "istider" (ice times) page
-        # and links to a Sportello booking widget
-        # (https://kalender.sportello.no/booking/11055), but that widget is a
-        # JS-rendered SPA shell (~1.3KB HTML) — every export-style URL pattern
-        # tried (.ics, /ical/, /export/*.ics, /booking/*/ical, /feed/*.ics)
-        # returns the identical SPA shell rather than calendar data, and no
-        # .ics/iCal link is exposed in the static markup. The /istider page
-        # itself is a static text page (training-time table), not a calendar
-        # feed.
-        source=None,
-        skip=True,
+        kind=CalendarSourceKind.OUTLOOK,
+        source="https://kalender.sportello.no/booking/11055",
+        skip=False,
         note=(
-            "Checked: holmenhockey.no/istider (static training-times text page, "
-            "not a calendar feed) and the linked Sportello booking widget at "
-            "kalender.sportello.no/booking/11055 (JS-rendered SPA shell — every "
-            "guessed export URL pattern returns the same ~1.3KB shell, no "
-            ".ics/iCal export discoverable in static markup; its JS bundle "
-            "(assets/index.0f99a841.js) has no inlined API base URL either). "
-            "A live source would need a discovered Sportello calendar/export "
-            "API or a Playwright-based scraper for the booking widget. "
-            "No new scraper code is needed to wire it in once found — "
-            "build_calendar_source() already builds an IceHallCalendar from "
-            "either an ICAL feed URL (-> ICalScraper) or an OUTLOOK webkalender "
-            "URL (-> OutlookCalendarScraper); just set kind/source/skip=False."
+            "Sportello booking widget -- the LLM-guided agentic scraper "
+            "navigates the JS-rendered SPA to extract ice hall bookings."
         ),
     ),
     "Skien": ClubCalendarSource(
@@ -203,21 +153,13 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
     ),
     "Jutul": ClubCalendarSource(
         club="Jutul",
-        arena="Bærum ishall",
-        kind=CalendarSourceKind.ICAL,
-        # https://baerumishall.no/kalender/ is an HTML page embedding a
-        # StyledCalendar JS widget (iframe to embed.styledcalendar.com) — no
-        # static .ics/iCal export endpoint could be found for it, so a generic
-        # ICalScraper cannot consume it as-is. It would need a Playwright-based
-        # (OUTLOOK-style) scraper or a discovered StyledCalendar export API.
+        arena="Baerum ishall",
+        kind=CalendarSourceKind.OUTLOOK,
         source="https://baerumishall.no/kalender/",
-        skip=True,
+        skip=False,
         note=(
-            "TODO: baerumishall.no/kalender/ embeds a StyledCalendar JS widget "
-            "with no exposed iCal/.ics feed — a generic ICalScraper cannot "
-            "parse it. Needs a Playwright-based scraper (like Kongsberg's "
-            "OUTLOOK integration) or a discovered StyledCalendar export API "
-            "before this club can be scraped live. Pipeline skips it for now."
+            "StyledCalendar JS widget -- the LLM-guided agentic scraper "
+            "navigates the embedded iframe to extract ice hall bookings."
         ),
     ),
     "Kongsberg": ClubCalendarSource(

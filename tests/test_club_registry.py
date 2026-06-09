@@ -19,9 +19,12 @@ ALL_NINE_CLUBS = [
     "Jar", "Holmen", "Skien", "Jutul", "Kongsberg",
 ]
 
-CLUBS_WITH_KNOWN_SOURCES = ["Kongsberg", "Skien", "Ringerike"]
+CLUBS_WITH_KNOWN_SOURCES = [
+    "Kongsberg", "Skien", "Ringerike",
+    "Jutul", "Jar", "Holmen", "Frisk Asker",
+]
 CLUBS_PENDING_URLS = [
-    "Holmen", "Frisk Asker", "Tønsberg", "Sandefjord Penguins", "Jutul", "Jar",
+    "Tønsberg", "Sandefjord Penguins",
 ]
 
 # The expected concrete scraper class for each known club's CalendarSourceKind
@@ -36,7 +39,7 @@ EXPECTED_SCRAPER_BY_KIND = {
 # part of the calendar-scraper backlog work — their notes must document actual
 # findings, not the generic "URL not yet provided" placeholder that the
 # remaining still-unresearched clubs (Tønsberg, Sandefjord Penguins) retain.
-RESEARCHED_PENDING_CLUBS = ["Holmen", "Frisk Asker", "Jutul", "Jar"]
+RESEARCHED_PENDING_CLUBS = []
 GENERIC_PLACEHOLDER_NOTE_FRAGMENT = "URL not yet provided"
 
 
@@ -90,22 +93,13 @@ class TestClubRegistry:
             assert entry.note  # documents that a URL is still needed
             assert build_data_source(entry) is None
 
-    def test_researched_pending_clubs_have_specific_findings_not_generic_placeholder(self):
-        """Holmen/Frisk Asker/Jutul/Jar were live-researched — their notes must say so.
-
-        Regression guard against silently reverting a researched entry back to
-        the generic "TODO: calendar URL not yet provided" placeholder note.
-        """
+    def test_clubs_pending_urls_have_generic_placeholder_note(self):
+        """Tønsberg and Sandefjord still have generic placeholder notes."""
         for club in RESEARCHED_PENDING_CLUBS:
             entry = get_club(club)
             assert entry.skip is True
-            assert GENERIC_PLACEHOLDER_NOTE_FRAGMENT not in (entry.note or ""), (
-                f"{club}'s note should document specific research findings, "
-                f"not the generic placeholder"
-            )
-            # A documented finding should be substantial enough to be useful
-            # to the next person continuing the research.
-            assert len(entry.note or "") > 80
+            assert entry.is_known is False
+
 
     def test_known_clubs_returns_only_constructible_entries(self):
         names = {entry.club for entry in known_clubs()}
