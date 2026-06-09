@@ -1,98 +1,78 @@
-# Plan: Tournament update and rescheduling
+# Plan: LLM-guided browser scraper for SPA calendars
 
-**Goal:** Support modifying specific tournaments after the season plan is generated — drop a team from a tournament (rebalancing round-robin games) and move a tournament to a different weekend (with conflict re-checking and cascade handling).
+**Goal:** Build an agentic scraper that uses Pi's configured LLM model to interact with JS-rendered calendar SPAs — the LLM examines the page, decides what Playwright action to take (click a button, select a dropdown, etc.), and loops until calendar events are extracted. Replaces the brittle per-source Outlook scraper for all 6 unsupported clubs with JS-rendered booking widgets.
 
 **Created:** 2026-06-09
-**Intent:** After a season plan is generated, organisers need to handle real-world changes: a team drops out, an arena becomes unavailable. This feature adds CLI and interactive support for targeted tournament modifications without regenerating the entire plan from scratch.
+**Intent:** The current Stage 2 scraper assumes an Outlook-style iframe with month-navigation buttons. 6 clubs (Jutul, Jar, Frisk Asker, Holmen, Tønsberg, Sandefjord) have calendars behind JS-rendered SPAs that require interaction to reveal bookings. An LLM-guided agent loop can handle these dynamically — examining the rendered DOM, deciding what to click, and iterating until events are found — replacing the need for 6 hand-crafted scrapers. The Pi extension handles LLM provider/model configuration; no provider-specific references live in the extension or plan.
 
-**Backlog-ref:** 23
+**Backlog-ref:** 21
 
 ## Tasks
 
-- [x] Add `id` field to the `Tournament` model and propagate it through checkpoint serialisation
-  - Files: `tournament_scheduler/models.py`, `tournament_scheduler/pipeline/stage3_planning.py`
-  - Approach: Add an `id: str` field to `Tournament` with a default factory generating UUIDs (`field(default_factory=lambda: uuid.uuid4().hex[:8])`). Update `_plan_to_dict` in `stage3_planning.py` to serialise the id, and the `_tournament_from_dict` (new) helper to reconstruct it. The id should also be stored in the Stage 3 checkpoint JSON so downstream tools can reference tournaments by stable ID.
+- [ ] Define LLM action schema and create a DOM snapshotter utility
+  - Files: `tournament_scheduler/pipeline/llm_scraper.py` (new)
+  - Approach: Create a new module `llm_scraper.py` in the pipeline subpackage. Define a typed dict / dataclass for the LLM's structured action response with the following action types:
+    - `click(selector: str)` — click an element by Playwright selector
+    - `select(selector: str, value: str)` — select a dropdown option
+    - `type(selector: str, text: str)` — type text into an input
+    - `wait(ms: int)` — wait for a given duration
+    - `scroll(direction: str, amount: int)` — scroll the page
+    - `extract` — extract visible calendar-like data from current DOM
+    - `done(events: list)` — signal completion with extracted calendar events
+    Create a `DOMSnapshot` function that takes a Playwright page and returns a simplified text representation: page title, URL, visible text (truncated to ~8000 chars), list of interactive elements (buttons with text, input fields with placeholders, select elements with options, links with text), and the current viewport dimensions. Strip `<script>` and `<style>` tags.
 
-- [x] Create `tournament_updater.py` with a `TournamentUpdater` class supporting (a) team-drop and (b) date-move operations
-  - Files: `tournament_scheduler/pipeline/tournament_updater.py`, `tournament_scheduler/pipeline/__init__.py`
-  - Approach: Create a new module `tournament_updater.py` in the pipeline subpackage with a `TournamentUpdater` class. It reads a `SeasonPlan` from a Stage 3 checkpoint, resolves a tournament by ID, and supports two operations:
-    - `drop_team(tournament_id, team_label)`: removes the team from `t.teams`, regenerates round-robin games via `SeasonPlanner.generate_round_robin_games`, and re-scores the plan (diversity, month-balance). Returns a diff summary.
-    - `move_date(tournament_id, new_date, scheduler)`: updates `t.date`, re-runs conflict checking against the new date, and optionally cascades to downstream tournaments if the date is occupied. Conflict re-checking uses `TournamentScheduler.find_available_dates` with the specific tournament's date excluded. Returns a diff summary and conflict report.
-    Both operations write a structured log entry (JSON) to the pipeline logs directory for traceability in `/rvv-miniputt logs`.
+- [ ] Build the LLM agent loop — `LLMGuidedScraper` class
+  - Files: `tournament_scheduler/pipeline/llm_scraper.py`
+  - Approach: Add an `LLMGuidedScraper` class with a `run(url, start_date, end_date, max_iterations=20)` method. The loop:
+    1. Open the URL with Playwright (headless Chromium)
+    2. Capture DOM snapshot via the snapshotter
+    3. Send snapshot + date range + instruction prompt to LLM
+    4. Parse the structured action from LLM response
+    5. If action is `done` with events → return events and exit
+    6. If action is an interaction → execute via Playwright, wait for page to settle, loop back to step 2
+    7. If max iterations exceeded → log the final DOM state and return empty events (block)
+    The system prompt describes what ice hall bookings look like (date ranges, time slots, team names, Norwegian hall names), tells the LLM the available actions with their selectors, and instructs it to keep trying different approaches when calendar data isn't found. The user message includes the DOM snapshot, the date range, the source name, and the iteration count.
+    The LLM endpoint is not hardcoded — `LMStudioClient` (or a Pi-provided equivalent) receives the endpoint from the Pi extension's configuration, which Pi manages. The `llm_scraper.py` module accepts an `llm_endpoint` parameter and defaults to whatever Pi passes through.
 
-- [x] Add `--update-tournament` CLI flag to `tournament_scheduler.py` with tournament ID, update type (team-drop or new-date), and related options
-  - Files: `tournament_scheduler.py`, `tournament_scheduler/cli/update_command.py`, `tournament_scheduler/cli/__init__.py`
-  - Approach: Add a new `UpdateCommand` class in `cli/update_command.py` following the `SeasonCommand`/`RescheduleCommand` pattern. The CLI flag signature is `--update-tournament ID --team-drop TeamLabel` (drop a team) or `--update-tournament ID --new-date YYYY-MM-DD` (move date). The command reads the latest Stage 3 checkpoint from `.pipeline/`, applies the update via `TournamentUpdater`, writes a new Stage 3 checkpoint, and prints a summary (Norwegian) of what changed. Wire the flag into `tournament_scheduler.py`'s `build_arg_parser` and `main`.
+- [ ] Integrate the agentic scraper into Stage 2 as a replacement for the Outlook-specific scraper for HTML-based sources
+  - Files: `tournament_scheduler/pipeline/stage2_scraping.py`, `tournament_scheduler/pipeline/llm_scraper.py`
+  - Approach: In `_scrape_source`, when `source_type == "outlook"` (which covers all Playwright-based HTML sources), dispatch to `LLMGuidedScraper` instead of `_run_outlook_scraper`. Keep the existing iCal path unchanged. The LLM quality gate and HTML fallback in Stage 2 become redundant since the agentic loop already handles both verification and fallback extraction — remove them or fold them into the scraper's internal logic. Update source config to include a new source type `"html"` (distinct from `"outlook"`) for JS-rendered SPAs that need the full agentic loop; keep `"outlook"` as an alias for backward compatibility but internally both go through the agent. Also update the `club_registry.py` entries for Jutul, Jar, Frisk Asker, and Holmen to set `kind=OUTLOOK` and `skip=False` (since the agentic scraper can handle them now), with a note that they use the LLM-guided scraper rather than the old regex parser.
 
-- [x] Add interactive tournament update flow to `tournament_scheduler_interactive.py`
-  - Files: `tournament_scheduler_interactive.py`
-  - Approach: Add a new menu option "Oppdater turnering" after the season plan is generated (mode "3"). The interactive flow first checks for a Stage 3 checkpoint, lists tournaments with their IDs, dates, age groups, and teams, then lets the user select a tournament and choose: (a) drop a team — pick from the team list, or (b) flytt dato — enter a new date. Shows a diff summary and asks for confirmation before applying. Logs the operation via the pipeline logging system.
+- [ ] Make LLM endpoint and max iterations configurable via the Pi extension
+  - Files: `tournament_scheduler/pipeline/llm_scraper.py`, `.pi/extensions/rvv-miniputt.ts`
+  - Approach: `LLMGuidedScraper.__init__` accepts `llm_endpoint` and `max_iterations` params. The Pi extension (`rvv-miniputt.ts`) passes the LLM endpoint through based on Pi's own model configuration (Pi handles provider selection — the extension just passes the endpoint to Python). The Stage 1 config (input.json) can include optional fields `llm_endpoint` and `scraper_max_iterations` to override. The extension's `/rvv-miniputt run` handler reads `--llm-endpoint` and `--scraper-max-iterations` flags and passes them as env vars or CLI args to the Python stage. No hardcoded provider or model names anywhere in the extension or Python code.
 
-- [x] Ensure pipeline logging surfaces tournament modifications in `/rvv-miniputt logs`
-  - Files: `.pi/extensions/rvv-miniputt.ts`
-  - Approach: The `TournamentUpdater` already writes structured log entries to the pipeline logs directory. Extend the `/rvv-miniputt logs show <run-id>` output to display tournament-update events (type `tournament_update`) alongside stage meta and LLM interactions. Also add a `logs show latest` shorthand that shows the most recent run.
+- [ ] Activate all 6 currently-skipped clubs in the club registry (Jutul, Jar, Frisk Asker, Holmen, Tønsberg, Sandefjord)
+  - Files: `tournament_scheduler/club_registry.py`
+  - Approach: Update the registry entries for all 6 clubs that currently have `skip=True`:
+    - **Jutul** (baerumishall.no/kalender/ — StyledCalendar JS widget): set `kind=OUTLOOK, skip=False`, use existing URL as source.
+    - **Jar** (forumbooking.no — Forumbooking ical.aspx returns empty): set `kind=OUTLOOK, skip=False`, use existing `https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true` as source URL. The LLM agent will interact with the HTML schema viewer instead of the broken iCal export.
+    - **Frisk Asker** (friskaskerhockey.no — Sportality/s8y SPA): set `kind=OUTLOOK, skip=False`, source URL `https://www.friskaskerhockey.no/`.
+    - **Holmen** (kalender.sportello.no/booking/11055 — Sportello SPA): set `kind=OUTLOOK, skip=False`, source URL `https://kalender.sportello.no/booking/11055`.
+    - **Tønsberg** (BookUp SPA, was missing source URL — now known via PROJECT.md): set `kind=OUTLOOK, skip=False`, source URL `https://www.bookup.no/utleie/Index/860`.
+    - **Sandefjord Penguins** (BookUp SPA, was missing source URL — now known via PROJECT.md): set `kind=OUTLOOK, skip=False`, source URL `https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen`.
+    Update their `note` fields to document that they use the LLM-guided agentic scraper. The source type is `OUTLOOK` (meaning Playwright + LLM agent, not literal Outlook scraping) — may need a new source kind like `AGENTIC` for clarity, but `OUTLOOK` works as an alias since the dispatch in Stage 2 will route all Playwright-based sources to the agent.
 
-- [x] Test tournament update and rescheduling with 4 scenarios
-  - Files: `tests/test_tournament_updater.py`
-  - Approach: Create `tests/test_tournament_updater.py` with tests for: (1) dropping a team from a 6-team tournament generates correct round-robin games (5 teams, full round-robin), (2) dropping a non-existent team raises clear error, (3) moving a date re-checks conflicts and returns a conflict report, (4) cascading move — moving tournament A to tournament B's date updates both. Mock the `TournamentScheduler` for date-move tests.
+- [ ] Test the LLM-guided scraper with mocked LLM responses
+  - Files: `tests/test_llm_scraper.py`
+  - Approach: Create tests that mock the `LMStudioClient.complete` method to return controlled action responses. Test scenarios: (1) LLM immediately finds events and returns `done` with event data, (2) LLM needs a "click 'Vis kalender'" action before finding events, (3) LLM needs a "select month/year" action before finding events, (4) max iterations exceeded without finding events — verify blocking behavior, (5) a source that's iCal-based bypasses the agent entirely. Use the existing patch pattern from `test_stage2_scraping.py`. Also test that non-Playwright sources (iCal) are not passed to the agent.
 
 ## Notes
-- Tournament IDs are 8-char hex UUIDs generated at plan creation time, stable across checkpoint writes.
-- Team-drop re-generates round-robin games using the existing `SeasonPlanner.generate_round_robin_games` static method — no new game-generation code needed.
-- Date-move re-runs conflict checking via `TournamentScheduler.find_available_dates` with the new date as target and the tournament's current date as excluded. If the new date has conflicts, they are surfaced but the user can still force the move with `--force`.
-- Cascade handling: when moving a tournament to a date that another existing tournament already occupies, the user can opt to swap dates (the displaced tournament gets the original tournament's old date) or to re-schedule the displaced tournament on the next available free date.
-- The interactive flow shows changes as a Rich diff table before applying.
-- Log entries for updates go to `.pipeline/logs/<run-id>.jsonl` with type `tournament_update` so `/rvv-miniputt logs show` can display them.
+- The LLM action schema uses Playwright-compatible selectors (CSS, `:text()`, etc.) so the agent loop can directly call `page.click()`, `page.select_option()`, `page.fill()`, etc.
+- The DOM snapshot is a text representation, not raw HTML — the LLM only sees what's useful for interaction decisions (buttons, links, inputs) plus the visible page text.
+- Max iterations default of 20 should be enough for most SPAs (typical flow: 1-3 clicks to reveal calendar + 1-12 month navigations). Each iteration takes ~2-5 seconds (LLM inference + Playwright action).
+- The existing `_run_outlook_scraper` function is kept during transition but can be removed once the agentic scraper is validated against real Outlook calendars.
+- Cache check happens at the source level (before the agent loop) — cached results skip LLM interaction entirely.
 
 ## Acceptance Criteria
-- [ ] A `Tournament` model has an `id` field populated during plan generation, serialised in the Stage 3 checkpoint, and reconstructable when reading a checkpoint.
-- [ ] Running `python3 -m tournament_scheduler.pipeline.tournament_updater --plan <checkpoint> --tournament-id <id> --drop-team "Jar 1"` removes the team and writes an updated checkpoint.
-- [ ] Running `--update-tournament <id> --new-date 2027-02-20` on the CLI entry point reads the latest checkpoint, applies the date-move with conflict re-checking, and writes an updated checkpoint.
-- [ ] The interactive flow (mode "3" → "Oppdater turnering") lists tournaments from the checkpoint, accepts user selection, applies the update, and shows a Norwegian-language summary of what changed.
-- [ ] `/rvv-miniputt logs show latest` displays tournament-update events when the most recent run includes them.
-- [ ] All update operations are logged as `tournament_update` entries in `.pipeline/logs/` and are visible via `/rvv-miniputt logs show <run-id>`.
+- [ ] `LLMGuidedScraper` opens a URL with Playwright, captures DOM snapshot, sends to LLM, executes returned action, and loops until events are extracted.
+- [ ] The LLM can return `click`, `select`, `type`, `wait`, `scroll`, `extract`, and `done` structured actions.
+- [ ] Running Stage 2 with a source configured as `"type": "html"` dispatches to the agentic scraper instead of the old Outlook scraper.
+- [ ] Jutul, Jar, Frisk Asker, and Holmen are activated in the club registry with `skip=False, kind=OUTLOOK`.
+- [ ] iCal sources (Teamup, Google Calendar) still bypass the LLM agent entirely.
+- [ ] Max iterations exceeded produces a Norwegian blocking message with the final page state.
+- [ ] All existing pipeline tests (Stage 1, Stage 3, Stage 4, tournament updater) still pass.
+- [ ] 5+ tests in `tests/test_llm_scraper.py` cover immediate extraction, multi-step discovery, iCal bypass, and iteration limits.
 
 ## Log
-
-
-
-
-
-
-### 2026-06-09 — Test tournament update and rescheduling with 4 scenarios
-**Done:** Created tests/test_tournament_updater.py with 10 tests covering: (1) dropping a team from 6-team tourn. produces correct 5-team round-robin (10 games, all 10 unique pairings), (2) dropping non-existent team returns non-success with descriptive message, (3) dropping too many teams (only 1 left) is rejected, (4) date move without conflicts succeeds, (5) non-weekend date is blocked without force, (6) force=True overrides non-weekend conflict, (7) plan-internal date conflict is detected, (8) cascade swaps dates between displaced tournaments, (9) no-cascade keeps both on same date, (10) checkpoint write + re-read round-trips correctly, (11) log_update writes valid JSONL.
-**Rationale:** Each test covers a specific acceptance criterion from the plan. The round-robin verification (test 1) checks every pair of teams plays exactly once using Counter. A bug was found and fixed during testing: _check_date_conflicts was gated behind if self.scheduler, causing weekend/plan-internal checks to be skipped when no scheduler was available.
-**Findings:** Bug fix: moved conflict checking outside the `if self.scheduler:` guard so weekend and plan-internal checks always run. 171/172 tests pass (1 pre-existing skip).
-**Files:** tests/test_tournament_updater.py (+317), tournament_scheduler/pipeline/tournament_updater.py (+2/-2)
-**Commit:** not committed
-### 2026-06-09 — Ensure pipeline logging surfaces tournament modifications in `/rvv-miniputt logs`
-**Done:** Extended /rvv-miniputt logs show to display tournament_update entries (loadTournamentUpdates loader, rendered with operation type icons and first-line summary). Added "show latest" shorthand that resolves to the most recent run log file. Updated the logs command description to mention both features.
-**Rationale:** TournamentUpdater already writes structured tournament_update entries to .pipeline/logs/. The extension needed to surface them in the log display. The latest shorthand uses cwd() + .pipeline/logs/ to find the most recent file.
-**Findings:** TypeScript extension compiles without syntax errors. All 36 Python tests pass.
-**Files:** .pi/extensions/rvv-miniputt.ts (+40)
-**Commit:** not committed
-### 2026-06-09 — Add interactive tournament update flow to `tournament_scheduler_interactive.py`
-**Done:** Added `run_tournament_update()` function to the interactive CLI and a new main menu option "Oppdater turnering i sesongplanen" (mode 4). The flow: lists all tournaments from the Stage 3 checkpoint with IDs, dates, age groups, arenas, teams, and game counts; lets the user select a tournament; offers team-drop or date-move with confirmation before persisting.
-**Rationale:** The function follows the existing interactive patterns (ask_choice, ask_text, ask_date, ask_yes_no). Uses TournamentUpdater from the pipeline subpackage. Checks for Stage 3 checkpoint before showing the menu. All operations are confirmed before writing back. Norwegian-language throughout.
-**Findings:** The interactive module imports correctly. All 36 pipeline tests pass. The update flow handles the common edge cases: no checkpoint found, invalid tournament selection, team not found, cancellation at any step.
-**Files:** tournament_scheduler_interactive.py (+147)
-**Commit:** not committed
-### 2026-06-09 — Add `--update-tournament` CLI flag to `tournament_scheduler.py` with tournament ID, update type (team-drop or new-date), and related options
-**Done:** Added --update-tournament, --team-drop, --new-date, --force, --no-cascade, and --work-dir CLI flags to tournament_scheduler.py. Created cli/update_command.py with UpdateCommand class following SeasonCommand/RescheduleCommand pattern, dispatching to TournamentUpdater and printing Norwegian-language results.
-**Rationale:** The new flags follow the existing CLI pattern: parse in build_arg_parser, validate in _validate_args, dispatch in main(). UpdateCommand reads Stage 3 checkpoint, applies update via TournamentUpdater, writes back. All 36 pipeline tests pass.
-**Findings:** Mutually exclusive validation works: --team-drop and --new-date cannot be used together. At least one must be specified. --update-tournament without either produces a clear error. All flag names use lowercase with hyphens (e.g. --no-cascade) matching the existing convention.
-**Files:** tournament_scheduler/cli/update_command.py (+82), tournament_scheduler.py (+19)
-**Commit:** not committed
-### 2026-06-09 — Create `tournament_updater.py` with a `TournamentUpdater` class supporting (a) team-drop and (b) date-move operations
-**Done:** Created tournament_scheduler/pipeline/tournament_updater.py with TournamentUpdater class supporting drop_team (removes team, regenerates round-robin) and move_date (conflict re-checking, cascade/swap handling). Includes CLI entry point (--tournament-id, --drop-team, --new-date, --force), structured JSON logging to pipeline logs dir, and write_updated_checkpoint for persisting modified plans.
-**Rationale:** TournamentUpdater reads a SeasonPlan from the Stage 3 checkpoint, resolves tournaments by their UUID id, applies modifications in-place, and writes back. drop_team reuses the existing SeasonPlanner.generate_round_robin_games static method. move_date uses the TournamentScheduler.find_available_dates with a narrow date window for conflict re-checking. Cascade handling swaps dates between displaced tournaments.
-**Findings:** The update module compiles and drop_team works correctly in smoke tests. The tournament_updater.py includes a rich CLI entry point for python3 -m invocation. Pipeline __init__.py updated to export TournamentUpdater and UpdateResult.
-**Files:** tournament_scheduler/pipeline/tournament_updater.py (+371), tournament_scheduler/pipeline/__init__.py (+5)
-**Commit:** not committed
-### 2026-06-09 — Add `id` field to the `Tournament` model and propagate it through checkpoint serialisation
-**Done:** Added `id: str` field (8-char hex UUID) to Tournament model; updated `_plan_to_dict` serialisation and added `_tournament_from_dict`/`_find_team` helpers for checkpoint round-tripping.
-**Rationale:** The id field uses a UUID hex default factory so existing code that creates Tournament objects without specifying id continues to work. Serialised and deserialised through the Stage 3 checkpoint so downstream tools (updater, interactive flow) can reference tournaments by stable ID.
-**Findings:** Dataclass ordering requires defaultless fields (date, arena, age_group) before defaulted field (id). All 26 pipeline tests pass.
-**Files:** tournament_scheduler/models.py (+1/-1), tournament_scheduler/pipeline/stage3_planning.py (+39)
-**Commit:** not committed
 <!-- pi-next appends entries here after each task -->
