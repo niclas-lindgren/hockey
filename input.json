@@ -1,0 +1,7 @@
+{
+  "start_date": "2026-09-01",
+  "end_date": "2027-04-30",
+  "age_groups": ["U10", "U11"],
+  "parallel_games": {"U10": 3, "U11": 2},
+  "teams": "documentation/input.json"
+}

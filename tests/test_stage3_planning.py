@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from tournament_scheduler.pipeline.stage3_planning import (
-    MAX_RETRIES,
     Stage3Error,
     run,
 )
@@ -38,7 +37,6 @@ class TestRunStage3:
             _make_config(), {},
             state,
             datetime(2025, 9, 1), datetime(2025, 12, 15),
-            llm_client=None,
         )
         assert state.is_done(StageName.PLANNING)
         assert "plan" in result
@@ -50,60 +48,82 @@ class TestRunStage3:
             _make_config(), {},
             state,
             datetime(2025, 9, 1), datetime(2025, 12, 15),
-            llm_client=None,
         )
         plan = result["plan"]
         assert "tournaments" in plan
         assert "diversity_score" in plan
         assert "month_balance_score" in plan
 
-    def test_accepts_plan_with_high_confidence_llm(self, tmp_path):
-        state = PipelineState(tmp_path / "pipeline")
-
-        # Mock LLM returning high confidence
+    @patch("tournament_scheduler.pipeline.stage3_planning._LLM_AVAILABLE", True)
+    @patch(
+        "tournament_scheduler.pipeline.stage3_planning._make_default_client",
+    )
+    def test_llm_confidence_logged_when_available(self, mock_factory, tmp_path):
+        """LLM evaluation logs confidence but does NOT gate acceptance."""
         mock_client = MagicMock()
         mock_client.complete.return_value = MagicMock(
             text='{"confidence": 0.9, "valid": true, "reasoning": "great plan"}'
         )
+        mock_factory.return_value = mock_client
 
+        state = PipelineState(tmp_path / "pipeline")
         result = run(
             _make_config(), {},
             state,
             datetime(2025, 9, 1), datetime(2025, 12, 15),
-            llm_client=mock_client,
         )
 
         assert state.is_done(StageName.PLANNING)
         assert result["llm_confidence"] == pytest.approx(0.9)
+        assert result["llm_skipped"] is False
 
-    def test_retries_on_low_confidence(self, tmp_path):
-        state = PipelineState(tmp_path / "pipeline")
-
-        call_count = 0
-
-        def fake_complete(system, user, temperature=0.2):
-            nonlocal call_count
-            call_count += 1
-            # Low confidence for first two calls, high on third
-            conf = 0.9 if call_count >= 3 else 0.3
-            return MagicMock(
-                text=f'{{"confidence": {conf}, "valid": true, "reasoning": "test"}}'
-            )
-
+    @patch("tournament_scheduler.pipeline.stage3_planning._LLM_AVAILABLE", True)
+    @patch(
+        "tournament_scheduler.pipeline.stage3_planning._make_default_client",
+    )
+    def test_low_confidence_does_not_reject_plan(self, mock_factory, tmp_path):
+        """LLM confidence is informational only — low score never rejects plan."""
         mock_client = MagicMock()
-        mock_client.complete.side_effect = fake_complete
+        mock_client.complete.return_value = MagicMock(
+            text='{"confidence": 0.1, "valid": false, "reasoning": "looks wrong"}'
+        )
+        mock_factory.return_value = mock_client
 
+        state = PipelineState(tmp_path / "pipeline")
         result = run(
             _make_config(), {},
             state,
             datetime(2025, 9, 1), datetime(2025, 12, 15),
-            llm_client=mock_client,
-            max_retries=3,
         )
 
-        # Should have retried and eventually accepted
+        # Plan is accepted regardless of low LLM confidence
         assert state.is_done(StageName.PLANNING)
-        assert mock_client.complete.call_count >= 2
+        assert "plan" in result
+        assert len(result["plan"]["tournaments"]) > 0
+        assert result["llm_confidence"] == pytest.approx(0.1)
+
+    @patch("tournament_scheduler.pipeline.stage3_planning._LLM_AVAILABLE", True)
+    @patch(
+        "tournament_scheduler.pipeline.stage3_planning._make_default_client",
+    )
+    def test_llm_offline_skips_gate(self, mock_factory, tmp_path):
+        """When LM Studio is unreachable, skip LLM gate without error."""
+        from tournament_scheduler.llm.lm_studio_client import (
+            LMStudioUnavailableError,
+        )
+
+        mock_factory.side_effect = LMStudioUnavailableError("offline")
+
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+        )
+
+        assert state.is_done(StageName.PLANNING)
+        assert result["llm_skipped"] is True
+        assert result["llm_confidence"] == 0.0
 
     def test_marks_checkpoint_done(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -111,6 +131,5 @@ class TestRunStage3:
             _make_config(), {},
             state,
             datetime(2025, 9, 1), datetime(2025, 12, 15),
-            llm_client=None,
         )
         assert state.is_done(StageName.PLANNING)

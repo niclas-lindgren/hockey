@@ -18,14 +18,57 @@
  * configurable directory (default: <cwd>/.pipeline).
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const execFileAsync = promisify(execFile);
+
+// ---------------------------------------------------------------------------
+// Simple arg parser for command handler (args is a raw string)
+// ---------------------------------------------------------------------------
+
+interface RunArgs {
+  input?: string;
+  work_dir?: string;
+  resume_from?: string;
+  export_dir?: string;
+}
+
+function parseRunArgs(args: string): RunArgs {
+  const result: RunArgs = {};
+  const tokens = args.trim().split(/\s+/);
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === "--input" && i + 1 < tokens.length) {
+      result.input = tokens[++i];
+    } else if (t === "--work-dir" && i + 1 < tokens.length) {
+      result.work_dir = tokens[++i];
+    } else if (t === "--resume-from" && i + 1 < tokens.length) {
+      result.resume_from = tokens[++i];
+    } else if (t === "--export-dir" && i + 1 < tokens.length) {
+      result.export_dir = tokens[++i];
+    }
+  }
+  return result;
+}
+
+interface StatusArgs {
+  work_dir?: string;
+}
+
+function parseStatusArgs(args: string): StatusArgs {
+  const result: StatusArgs = {};
+  const tokens = args.trim().split(/\s+/);
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i] === "--work-dir" && i + 1 < tokens.length) {
+      result.work_dir = tokens[++i];
+    }
+  }
+  return result;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -117,166 +160,159 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
   // -------------------------------------------------------------------------
   // /rvv-miniputt run
   // -------------------------------------------------------------------------
-  pi.registerCommand({
-    name: "rvv-miniputt run",
+  pi.registerCommand("rvv-miniputt run", {
     description:
       "Kjør den firetrinns sesongplanleggingspipelinen for RVV-hockeyklubber. " +
-      "Hvert trinn har en LLM-kvalitetskontroll. Støtter gjenopptak fra et bestemt trinn.",
-    parameters: Type.Object({
-      input: Type.Optional(
-        Type.String({ description: "Sti til input.json (standard: <cwd>/input.json)" }),
-      ),
-      work_dir: Type.Optional(
-        Type.String({ description: "Arbeidskatalog for checkpoint-filer (standard: .pipeline)" }),
-      ),
-      resume_from: Type.Optional(
-        Type.String({
-          description:
-            'Gjenoppta fra et bestemt trinn. Gyldige verdier: config/1, scraping/2, planning/3, export/4',
-        }),
-      ),
-      export_dir: Type.Optional(
-        Type.String({ description: "Katalog for eksporterte filer (standard: export)" }),
-      ),
-    }),
-    async execute(_callId, params, _signal, onUpdate, ctx) {
-      const cwd = ctx.cwd;
-      const inputPath  = resolve(cwd, params.input     ?? "input.json");
-      const workDir    = resolve(cwd, params.work_dir  ?? ".pipeline");
-      const exportDir  = resolve(cwd, params.export_dir ?? "export");
-      const resumeFrom = params.resume_from ? resolveResumeStage(params.resume_from) : 1;
-
-      mkdirSync(workDir, { recursive: true });
-
-      const lines: string[] = [];
-      function log(msg: string) {
-        lines.push(msg);
-        onUpdate?.({ content: [{ type: "text", text: lines.join("\n") }] });
-      }
-
-      log(`=== RVV Miniputt Pipeline ===`);
-      log(`Arbeidskatalog: ${workDir}`);
-      log(`Input: ${inputPath}`);
-      if (resumeFrom > 1) log(`Gjenopptar fra: Trinn ${resumeFrom}`);
-      log("");
-
-      const baseArgs = ["--work-dir", workDir];
-
-      // -------------------------------------------------------------------
-      // Stage 1 — Config
-      // -------------------------------------------------------------------
-      if (resumeFrom <= 1) {
-        log("Trinn 1: Laster og validerer konfigurasjon...");
-        try {
-          const { stdout, stderr } = await runStage(
-            cwd,
-            "tournament_scheduler.pipeline.stage1_config",
-            [...baseArgs, "--input", inputPath],
-          );
-          if (stdout) log(stdout);
-          if (stderr) log(`[stderr] ${stderr}`);
-          log("Trinn 1: OK\n");
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          log(`Trinn 1 FEILET:\n${msg}`);
-          return { content: [{ type: "text", text: lines.join("\n") }], isError: true };
-        }
-      } else {
-        log("Trinn 1: Hoppet over (gjenopptatt)\n");
-      }
-
-      // -------------------------------------------------------------------
-      // Stage 2 — Scraping
-      // -------------------------------------------------------------------
-      if (resumeFrom <= 2) {
-        log("Trinn 2: Skraper kalenderkilder med LLM-kvalitetskontroll...");
-        try {
-          const { stdout, stderr } = await runStage(
-            cwd,
-            "tournament_scheduler.pipeline.stage2_scraping",
-            [...baseArgs],
-          );
-          if (stdout) log(stdout);
-          if (stderr) log(`[stderr] ${stderr}`);
-          log("Trinn 2: OK\n");
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          log(`Trinn 2 FEILET:\n${msg}`);
-          return { content: [{ type: "text", text: lines.join("\n") }], isError: true };
-        }
-      } else {
-        log("Trinn 2: Hoppet over (gjenopptatt)\n");
-      }
-
-      // -------------------------------------------------------------------
-      // Stage 3 — Planning
-      // -------------------------------------------------------------------
-      if (resumeFrom <= 3) {
-        log("Trinn 3: Bygger sesongplan og evaluerer med LLM...");
-        try {
-          const { stdout, stderr } = await runStage(
-            cwd,
-            "tournament_scheduler.pipeline.stage3_planning",
-            [...baseArgs],
-          );
-          if (stdout) log(stdout);
-          if (stderr) log(`[stderr] ${stderr}`);
-          log("Trinn 3: OK\n");
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          log(`Trinn 3 FEILET:\n${msg}`);
-          return { content: [{ type: "text", text: lines.join("\n") }], isError: true };
-        }
-      } else {
-        log("Trinn 3: Hoppet over (gjenopptatt)\n");
-      }
-
-      // -------------------------------------------------------------------
-      // Stage 4 — Export
-      // -------------------------------------------------------------------
-      if (resumeFrom <= 4) {
-        log("Trinn 4: Eksporterer til Excel, iCal og CSV...");
-        try {
-          const { stdout, stderr } = await runStage(
-            cwd,
-            "tournament_scheduler.pipeline.stage4_export",
-            [...baseArgs, "--export-dir", exportDir],
-          );
-          if (stdout) log(stdout);
-          if (stderr) log(`[stderr] ${stderr}`);
-          log("Trinn 4: OK\n");
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          log(`Trinn 4 FEILET:\n${msg}`);
-          return { content: [{ type: "text", text: lines.join("\n") }], isError: true };
-        }
-      } else {
-        log("Trinn 4: Hoppet over (gjenopptatt)\n");
-      }
-
-      log("=== Pipeline fullfort ===");
-      log(buildStatusText(workDir));
-
-      return { content: [{ type: "text", text: lines.join("\n") }] };
+      "Hvert trinn har en LLM-kvalitetskontroll. Støtter gjenopptak fra et bestemt trinn.\n" +
+      "Valgfrie flagg: --input <sti> --work-dir <sti> --resume-from <trinn> --export-dir <sti>",
+    getArgumentCompletions: (prefix) => {
+      const words = ["--input", "--work-dir", "--resume-from", "--export-dir"];
+      const filtered = words.filter((w) => w.startsWith(prefix));
+      return filtered.length ? filtered.map((value) => ({ value, label: value })) : null;
+    },
+    handler: async (args, ctx) => {
+      await runPipeline(args, ctx);
     },
   });
 
   // -------------------------------------------------------------------------
   // /rvv-miniputt status
   // -------------------------------------------------------------------------
-  pi.registerCommand({
-    name: "rvv-miniputt status",
+  pi.registerCommand("rvv-miniputt status", {
     description:
-      "Vis gjeldende status for alle fire trinn i sesongplanleggingspipelinen.",
-    parameters: Type.Object({
-      work_dir: Type.Optional(
-        Type.String({ description: "Arbeidskatalog for checkpoint-filer (standard: .pipeline)" }),
-      ),
-    }),
-    async execute(_callId, params, _signal, _onUpdate, ctx) {
+      "Vis gjeldende status for alle fire trinn i sesongplanleggingspipelinen.\n" +
+      "Valgfritt flagg: --work-dir <sti>",
+    handler: async (args, ctx) => {
+      const params = parseStatusArgs(args);
       const workDir = resolve(ctx.cwd, params.work_dir ?? ".pipeline");
       const text = buildStatusText(workDir);
-      return { content: [{ type: "text", text }] };
+      ctx.ui.notify(text, "info");
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline runner (extracted so the handler stays lean)
+// ---------------------------------------------------------------------------
+
+async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promise<void> {
+  const params = parseRunArgs(rawArgs);
+  const cwd = ctx.cwd;
+  const inputPath  = resolve(cwd, params.input     ?? "input.json");
+  const workDir    = resolve(cwd, params.work_dir  ?? ".pipeline");
+  const exportDir  = resolve(cwd, params.export_dir ?? "export");
+  const resumeFrom = params.resume_from ? resolveResumeStage(params.resume_from) : 1;
+
+  mkdirSync(workDir, { recursive: true });
+
+  const lines: string[] = [];
+
+  lines.push(`=== RVV Miniputt Pipeline ===`);
+  lines.push(`Arbeidskatalog: ${workDir}`);
+  lines.push(`Input: ${inputPath}`);
+  if (resumeFrom > 1) lines.push(`Gjenopptar fra: Trinn ${resumeFrom}`);
+  lines.push("");
+
+  const baseArgs = ["--work-dir", workDir];
+
+  // -------------------------------------------------------------------
+  // Stage 1 — Config
+  // -------------------------------------------------------------------
+  if (resumeFrom <= 1) {
+    lines.push("Trinn 1: Laster og validerer konfigurasjon...");
+    try {
+      const { stdout, stderr } = await runStage(
+        cwd,
+        "tournament_scheduler.pipeline.stage1_config",
+        [...baseArgs, "--input", inputPath],
+      );
+      if (stdout) lines.push(stdout);
+      if (stderr) lines.push(`[stderr] ${stderr}`);
+      lines.push("Trinn 1: OK\n");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lines.push(`Trinn 1 FEILET:\n${msg}`);
+      ctx.ui.notify(lines.join("\n"), "error");
+      return;
+    }
+  } else {
+    lines.push("Trinn 1: Hoppet over (gjenopptatt)\n");
+  }
+
+  // -------------------------------------------------------------------
+  // Stage 2 — Scraping
+  // -------------------------------------------------------------------
+  if (resumeFrom <= 2) {
+    lines.push("Trinn 2: Skraper kalenderkilder med LLM-kvalitetskontroll...");
+    try {
+      const { stdout, stderr } = await runStage(
+        cwd,
+        "tournament_scheduler.pipeline.stage2_scraping",
+        [...baseArgs],
+      );
+      if (stdout) lines.push(stdout);
+      if (stderr) lines.push(`[stderr] ${stderr}`);
+      lines.push("Trinn 2: OK\n");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lines.push(`Trinn 2 FEILET:\n${msg}`);
+      ctx.ui.notify(lines.join("\n"), "error");
+      return;
+    }
+  } else {
+    lines.push("Trinn 2: Hoppet over (gjenopptatt)\n");
+  }
+
+  // -------------------------------------------------------------------
+  // Stage 3 — Planning
+  // -------------------------------------------------------------------
+  if (resumeFrom <= 3) {
+    lines.push("Trinn 3: Bygger sesongplan og evaluerer med LLM...");
+    try {
+      const { stdout, stderr } = await runStage(
+        cwd,
+        "tournament_scheduler.pipeline.stage3_planning",
+        [...baseArgs],
+      );
+      if (stdout) lines.push(stdout);
+      if (stderr) lines.push(`[stderr] ${stderr}`);
+      lines.push("Trinn 3: OK\n");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lines.push(`Trinn 3 FEILET:\n${msg}`);
+      ctx.ui.notify(lines.join("\n"), "error");
+      return;
+    }
+  } else {
+    lines.push("Trinn 3: Hoppet over (gjenopptatt)\n");
+  }
+
+  // -------------------------------------------------------------------
+  // Stage 4 — Export
+  // -------------------------------------------------------------------
+  if (resumeFrom <= 4) {
+    lines.push("Trinn 4: Eksporterer til Excel, iCal og CSV...");
+    try {
+      const { stdout, stderr } = await runStage(
+        cwd,
+        "tournament_scheduler.pipeline.stage4_export",
+        [...baseArgs, "--export-dir", exportDir],
+      );
+      if (stdout) lines.push(stdout);
+      if (stderr) lines.push(`[stderr] ${stderr}`);
+      lines.push("Trinn 4: OK\n");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      lines.push(`Trinn 4 FEILET:\n${msg}`);
+      ctx.ui.notify(lines.join("\n"), "error");
+      return;
+    }
+  } else {
+    lines.push("Trinn 4: Hoppet over (gjenopptatt)\n");
+  }
+
+  lines.push("=== Pipeline fullfort ===");
+  lines.push(buildStatusText(workDir));
+
+  ctx.ui.notify(lines.join("\n"), "info");
 }

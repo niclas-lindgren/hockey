@@ -1,16 +1,17 @@
-"""Stage 3 — planning with LLM evaluation and retry loop.
+"""Stage 3 — planning with LLM confidence log (informational only).
 
 Calls :class:`~tournament_scheduler.season_planner.SeasonPlanner` to produce a
-:class:`~tournament_scheduler.models.SeasonPlan`, then asks the LLM to evaluate
-the plan for:
+:class:`~tournament_scheduler.models.SeasonPlan` and asks the LLM to evaluate
+it for:
 
 - **Coverage** — every team plays enough games
 - **Opponent diversity** — varied opponents across the season
 - **Time balance** — no month is overloaded with tournaments
 
-If the LLM returns low confidence, the stage re-runs the planner up to
-``MAX_RETRIES`` (default 3) times. The planner is re-initialised on each retry
-so its internal opponent-history state is reset, giving a fresh draw.
+The LLM confidence score is recorded in the checkpoint for debugging
+purposes but NEVER gates plan acceptance. The deterministic plan from
+:class:`SeasonPlanner` is always authoritative — it already computes
+diversity, balance, and pairwise-matchup scores deterministically.
 
 The accepted plan is written to the Stage 3 checkpoint as JSON.
 
@@ -37,7 +38,7 @@ from ..roster_loader import RosterLoader
 from ..club_registry import CLUB_REGISTRY
 from .state import PipelineState, StageName, StageStatus
 
-# LLM client — optional; quality gate is skipped if unavailable
+# LLM client — optional; quality gate is skipped when unavailable
 try:
     from ..llm.lm_studio_client import (
         LMStudioClient,
@@ -50,26 +51,16 @@ except ImportError:
     _LLM_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-MAX_RETRIES = 3
-CONFIDENCE_THRESHOLD = 0.65
-
-# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 
 
 class Stage3Error(RuntimeError):
-    """Raised when Stage 3 cannot produce a plan that passes the LLM gate."""
+    """Raised when Stage 3 cannot produce a plan."""
 
-    def __init__(self, reason: str, attempts: int) -> None:
+    def __init__(self, reason: str) -> None:
         self.reason = reason
-        self.attempts = attempts
-        super().__init__(
-            f"Stage 3 feilet etter {attempts} forsøk: {reason}"
-        )
+        super().__init__(f"Stage 3 feilet: {reason}")
 
 
 # ---------------------------------------------------------------------------
@@ -84,11 +75,13 @@ def run(
     start_date: datetime,
     end_date: datetime,
     *,
-    llm_client: "LMStudioClient | None" = None,
-    max_retries: int = MAX_RETRIES,
     strict: bool = True,
 ) -> dict[str, Any]:
-    """Build a season plan and validate it with the LLM quality gate.
+    """Build a season plan and optionally log an LLM confidence score.
+
+    The plan is always produced by the deterministic Python algorithm
+    (:class:`SeasonPlanner`). The LLM quality gate is informational only —
+    it never rejects a plan or triggers a retry.
 
     Parameters
     ----------
@@ -101,72 +94,58 @@ def run(
         :class:`PipelineState` managing the work directory.
     start_date / end_date:
         Season planning window.
-    llm_client:
-        Optional injected client (useful for testing).
-    max_retries:
-        Number of planning+evaluation attempts before giving up.
     strict:
-        If ``True``, raise :class:`Stage3Error` when no acceptable plan is
-        produced within ``max_retries``.
+        If ``True``, raise :class:`Stage3Error` when no plan can be built.
 
     Returns
     -------
     dict
-        The accepted plan serialised to a JSON-compatible dict.
+        The plan serialised to a JSON-compatible dict.
     """
     state.write_stage(StageName.PLANNING, {}, status=StageStatus.RUNNING)
-
-    client = llm_client or (_make_default_client() if _LLM_AVAILABLE else None)
 
     roster = _build_roster(config)
     pg_config = _build_parallel_games(config)
     club_arenas = _build_club_arenas(config)
 
-    last_plan: SeasonPlan | None = None
-    last_confidence: float = 0.0
-    last_reasoning: str = ""
+    planner = _make_planner(roster, pg_config, club_arenas)
+    plan = planner.build_plan(start_date, end_date)
 
-    for attempt in range(1, max_retries + 1):
-        planner = _make_planner(roster, pg_config, club_arenas)
-        plan = planner.build_plan(start_date, end_date)
-        last_plan = plan
+    if plan is None or not plan.tournaments:
+        reason = "Klarte ikke å generere noen plan."
+        state.mark_failed(StageName.PLANNING, error=reason)
+        if strict:
+            raise Stage3Error(reason)
+        return {}
 
-        if client is None:
-            # No LLM available — accept the first plan
-            break
+    plan_dict = _plan_to_dict(plan)
 
+    # --- LLM evaluation (informational only) ---
+    llm_confidence = 0.0
+    llm_reasoning = ""
+    llm_skipped = True
+
+    if _LLM_AVAILABLE:
         try:
+            client = _make_default_client()
             confidence, reasoning = _evaluate_plan(
                 plan=plan,
                 client=client,
                 start_date=start_date,
                 end_date=end_date,
             )
+            llm_confidence = confidence
+            llm_reasoning = reasoning
+            llm_skipped = False
         except LMStudioUnavailableError:
-            # LM Studio offline — accept the plan as-is
-            break
+            pass  # keep defaults
 
-        last_confidence = confidence
-        last_reasoning = reasoning
-
-        if confidence >= CONFIDENCE_THRESHOLD:
-            break
-        # Low confidence — try again (planner is reset on next iteration)
-
-    if last_plan is None:
-        reason = "Klarte ikke å generere noen plan."
-        state.mark_failed(StageName.PLANNING, error=reason)
-        if strict:
-            raise Stage3Error(reason, max_retries)
-        return {}
-
-    plan_dict = _plan_to_dict(last_plan)
     checkpoint: dict[str, Any] = {
         "plan": plan_dict,
-        "llm_confidence": last_confidence,
-        "llm_reasoning": last_reasoning,
-        "attempts": min(max_retries, max_retries),  # final attempt number
-        "llm_skipped": client is None,
+        "llm_confidence": llm_confidence,
+        "llm_reasoning": llm_reasoning,
+        "attempts": 1,
+        "llm_skipped": llm_skipped,
     }
 
     state.write_stage(StageName.PLANNING, checkpoint, status=StageStatus.DONE)
@@ -186,7 +165,11 @@ def _evaluate_plan(
     start_date: datetime,
     end_date: datetime,
 ) -> tuple[float, str]:
-    """Ask the LLM to evaluate the plan. Returns (confidence, reasoning)."""
+    """Ask the LLM to evaluate the plan. Returns (confidence, reasoning).
+
+    This is informational only — the plan is already accepted by the time
+    this runs. Confidence is logged in the checkpoint for debugging.
+    """
     summary = _plan_summary_for_llm(plan)
 
     system = (
@@ -292,7 +275,6 @@ def _build_parallel_games(config: dict[str, Any]) -> dict[str, int]:
 
 def _build_club_arenas(config: dict[str, Any]) -> dict[str, str]:
     """Build club→arena mapping, falling back to the global club registry."""
-    # Build club→arena mapping from the global registry
     return {
         club: entry.arena
         for club, entry in CLUB_REGISTRY.items()
@@ -305,7 +287,7 @@ def _make_planner(
     pg_config: dict[str, int],
     club_arenas: dict[str, str],
 ) -> SeasonPlanner:
-    """Construct a fresh :class:`SeasonPlanner` (resets opponent history)."""
+    """Construct a :class:`SeasonPlanner`."""
     from ..scheduler import TournamentScheduler
     from ..conflict_checkers.holiday_checker import HolidayConflictChecker
     from ..utils.date_parser import DateParser
