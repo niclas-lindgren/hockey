@@ -53,7 +53,7 @@
     - **Sandefjord Penguins** (BookUp SPA, was missing source URL — now known via PROJECT.md): set `kind=OUTLOOK, skip=False`, source URL `https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen`.
     Update their `note` fields to document that they use the LLM-guided agentic scraper. The source type is `OUTLOOK` (meaning Playwright + LLM agent, not literal Outlook scraping) — may need a new source kind like `AGENTIC` for clarity, but `OUTLOOK` works as an alias since the dispatch in Stage 2 will route all Playwright-based sources to the agent.
 
-- [ ] Test the LLM-guided scraper with mocked LLM responses
+- [x] Test the LLM-guided scraper with mocked LLM responses
   - Files: `tests/test_llm_scraper.py`
   - Approach: Create tests that mock the `LMStudioClient.complete` method to return controlled action responses. Test scenarios: (1) LLM immediately finds events and returns `done` with event data, (2) LLM needs a "click 'Vis kalender'" action before finding events, (3) LLM needs a "select month/year" action before finding events, (4) max iterations exceeded without finding events — verify blocking behavior, (5) a source that's iCal-based bypasses the agent entirely. Use the existing patch pattern from `test_stage2_scraping.py`. Also test that non-Playwright sources (iCal) are not passed to the agent.
 
@@ -80,6 +80,13 @@
 
 
 
+
+### 2026-06-09 — Test the LLM-guided scraper with mocked LLM responses
+**Done:** Created tests/test_llm_scraper.py with 52 tests covering: immediate done (1), click-then-done (2), select-then-done (3), max iterations (4), iCal bypass (via Stage 2 test), invalid JSON handling, all action types, JSON extraction edge cases, event conversion, prompt building, and empty page/exception edge cases.
+**Rationale:** Uses the existing patch pattern: mock LMStudioClient.complete for controlled LLM responses, mock Playwright page/locators for DOM interaction. All 52 tests pass without needing a real LLM or browser.
+**Findings:** 230 total tests pass (52 new + 178 existing). All planned scenarios covered. The test for 'source that bypasses agent entirely' is covered by the existing Stage 2 test (test_ical_source_skipped_by_agent).
+**Files:** A tests/test_llm_scraper.py (+354)
+**Commit:** 4a336ca
 ### 2026-06-09 — Activate all 6 currently-skipped clubs in the club registry (Jutul, Jar, Frisk Asker, Holmen, Tønsberg, Sandefjord)
 **Done:** Updated Tønsberg (BookUp SPA, kind=OUTLOOK, source=https://www.bookup.no/utleie/Index/860) and Sandefjord Penguins (BookUp SPA, kind=OUTLOOK, source=https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen). All 4 clubs from Task 3 were already active. All 9 RVV clubs now have active calendar sources — none are skipped.
 **Rationale:** The LLM-guided agentic scraper can handle BookUp SPAs (Tønsberg, Sandefjord), Sportality/s8y (Frisk Asker), Sportello (Holmen), Forumbooking (Jar), and StyledCalendar (Jutul). All use OUTLOOK kind which routes to the agent in Stage 2.
