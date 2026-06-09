@@ -22,10 +22,9 @@ ALL_NINE_CLUBS = [
 CLUBS_WITH_KNOWN_SOURCES = [
     "Kongsberg", "Skien", "Ringerike",
     "Jutul", "Jar", "Holmen", "Frisk Asker",
-]
-CLUBS_PENDING_URLS = [
     "Tønsberg", "Sandefjord Penguins",
 ]
+CLUBS_PENDING_URLS = []
 
 # The expected concrete scraper class for each known club's CalendarSourceKind
 # — guards against drift between the registry's declared `kind` and the
@@ -35,10 +34,6 @@ EXPECTED_SCRAPER_BY_KIND = {
     CalendarSourceKind.ICAL: ICalScraper,
 }
 
-# Clubs whose registry entries were specifically researched (live-checked) as
-# part of the calendar-scraper backlog work — their notes must document actual
-# findings, not the generic "URL not yet provided" placeholder that the
-# remaining still-unresearched clubs (Tønsberg, Sandefjord Penguins) retain.
 RESEARCHED_PENDING_CLUBS = []
 GENERIC_PLACEHOLDER_NOTE_FRAGMENT = "URL not yet provided"
 

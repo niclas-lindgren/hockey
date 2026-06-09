@@ -92,11 +92,14 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
     ),
     "Tønsberg": ClubCalendarSource(
         club="Tønsberg",
-        arena="Tønsberghallen",
-        kind=CalendarSourceKind.UNKNOWN,
-        source=None,
-        skip=True,
-        note="TODO: calendar URL not yet provided — add a registry entry once known.",
+        arena="Tonsberghallen",
+        kind=CalendarSourceKind.OUTLOOK,
+        source="https://www.bookup.no/utleie/Index/860",
+        skip=False,
+        note=(
+            "BookUp SPA -- the LLM-guided agentic scraper navigates the "
+            "JS-rendered booking widget to extract ice hall bookings."
+        ),
     ),
     "Frisk Asker": ClubCalendarSource(
         club="Frisk Asker",
@@ -112,13 +115,12 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
     "Sandefjord Penguins": ClubCalendarSource(
         club="Sandefjord Penguins",
         arena="Sandefjord ishall",
-        kind=CalendarSourceKind.UNKNOWN,
-        source=None,
-        skip=True,
+        kind=CalendarSourceKind.OUTLOOK,
+        source="https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen",
+        skip=False,
         note=(
-            "TODO: calendar URL not yet provided. Sandefjord already appears as an "
-            "opponent in existing_schedule/U10_ETTER_JUL_Klar_-_Kongsberg_Sandefjord.xlsx "
-            "but has no live calendar scraper yet."
+            "BookUp SPA -- the LLM-guided agentic scraper navigates the "
+            "JS-rendered booking widget to extract ice hall bookings."
         ),
     ),
     "Jar": ClubCalendarSource(

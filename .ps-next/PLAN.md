@@ -38,7 +38,7 @@
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`, `tournament_scheduler/pipeline/llm_scraper.py`
   - Approach: In `_scrape_source`, when `source_type == "outlook"` (which covers all Playwright-based HTML sources), dispatch to `LLMGuidedScraper` instead of `_run_outlook_scraper`. Keep the existing iCal path unchanged. The LLM quality gate and HTML fallback in Stage 2 become redundant since the agentic loop already handles both verification and fallback extraction — remove them or fold them into the scraper's internal logic. Update source config to include a new source type `"html"` (distinct from `"outlook"`) for JS-rendered SPAs that need the full agentic loop; keep `"outlook"` as an alias for backward compatibility but internally both go through the agent. Also update the `club_registry.py` entries for Jutul, Jar, Frisk Asker, and Holmen to set `kind=OUTLOOK` and `skip=False` (since the agentic scraper can handle them now), with a note that they use the LLM-guided scraper rather than the old regex parser.
 
-- [ ] Make LLM endpoint and max iterations configurable via the Pi extension
+- [x] Make LLM endpoint and max iterations configurable via the Pi extension
   - Files: `tournament_scheduler/pipeline/llm_scraper.py`, `.pi/extensions/rvv-miniputt.ts`
   - Approach: `LLMGuidedScraper.__init__` accepts `llm_endpoint` and `max_iterations` params. The Pi extension (`rvv-miniputt.ts`) passes the LLM endpoint through based on Pi's own model configuration (Pi handles provider selection — the extension just passes the endpoint to Python). The Stage 1 config (input.json) can include optional fields `llm_endpoint` and `scraper_max_iterations` to override. The extension's `/rvv-miniputt run` handler reads `--llm-endpoint` and `--scraper-max-iterations` flags and passes them as env vars or CLI args to the Python stage. No hardcoded provider or model names anywhere in the extension or Python code.
 
@@ -78,6 +78,13 @@
 
 
 
+
+### 2026-06-09 — Make LLM endpoint and max iterations configurable via the Pi extension
+**Done:** Added llm_endpoint/max_iterations params to stage2_scraping.run(), _scrape_source(), and LLMGuidedScraper. Added --llm-endpoint and --scraper-max-iterations CLI args to __main__. Resolves in priority: CLI arg > input.json config > defaults. Updated rvv-miniputt.ts extension to parse and pass these flags.
+**Rationale:** Pi manages LLM provider/model configuration; the extension just passes the endpoint through. No hardcoded provider or model references in either the extension or Python code. The resolution chain (CLI > config > default) follows the existing pattern.
+**Findings:** 178 tests pass. The input.json can include optional 'llm_endpoint' and 'scraper_max_iterations' fields. LLMGuidedScraper already accepted these params — the change was in the wiring.
+**Files:** M tournament_scheduler/pipeline/stage2_scraping.py, M .pi/extensions/rvv-miniputt.ts
+**Commit:** 765fb94
 ### 2026-06-09 — Integrate the agentic scraper into Stage 2 as a replacement for the Outlook-specific scraper for HTML-based sources
 **Done:** Modified _scrape_source in stage2_scraping.py to dispatch outlook/html sources to LLMGuidedScraper.run(). Added SOURCE_HTML constant. Removed legacy LLM quality gate and HTML fallback (redundant with agentic loop). Updated club_registry.py: Jutul, Jar, Holmen, Frisk Asker now set to kind=OUTLOOK, skip=False with LLM-agent docs. Updated tests for the new code path.
 **Rationale:** The agentic scraper replaces the brittle regex-based Outlook scraper + LLM fallback for all JS-rendered calendars. The quality gate and HTML fallback are redundant because the agent loop already validates by iterating until events are found (or blocking).
