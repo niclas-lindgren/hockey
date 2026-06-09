@@ -29,7 +29,7 @@
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: Call `SeasonPlanner.build_plan(start, end)` using calendar events from the Stage 2 checkpoint; pass the resulting `SeasonPlan` as JSON to `lm_studio_client.complete()` asking it to evaluate coverage, opponent diversity, and monthly load balance; if the LLM returns low confidence retry up to `MAX_RETRIES` (default 3) times with adjusted `diversity_weight` params; write the accepted plan to the Stage 3 checkpoint.
 
-- [ ] Implement Stage 4 — multi-format export (Excel, iCal, CSV)
+- [x] Created stage4_export.py, ICalExporter (ical/ subpackage), and CsvExporter (csv/ subpackage); Stage 4 run() reconstructs SeasonPlan from checkpoint dict and calls all three exporters, writing file paths to the Stage 4 checkpoint. — 2026-06-09
   - Files: `tournament_scheduler/pipeline/stage4_export.py`, `tournament_scheduler/excel/plan_exporter.py`, `tournament_scheduler/ical/ical_exporter.py`, `tournament_scheduler/ical/__init__.py`, `tournament_scheduler/csv/csv_exporter.py`, `tournament_scheduler/csv/__init__.py`
   - Approach: Extend Stage 4 to call the existing `SeasonPlanExporter().export()` for Excel; add `ICalExporter` in a new `ical/` subpackage that writes one VEVENT per game using the `icalendar` library already in requirements; add `CsvExporter` in a new `csv/` subpackage using stdlib `csv`; write output file paths to the Stage 4 checkpoint.
 
@@ -87,4 +87,11 @@ LESSONS: LMStudioUnavailableError must be imported from lm_studio_client not fro
 **Findings:** All 108 tests pass; Stage3 imports verified.
 LESSONS: CLUB_REGISTRY (not CLUB_ARENAS) is the arena source; Game has parallel_slot not time_slot
 **Files:** tournament_scheduler/pipeline/stage3_planning.py (+329)
+**Commit:** 6733fac (hockey)
+
+### 2026-06-09 — Created stage4_export.py, ICalExporter (ical/ subpackage), and CsvExporter (csv/ subpackage); Stage 4 run() reconstructs SeasonPlan from checkpoint dict and calls all three exporters, writing file paths to the Stage 4 checkpoint.
+**Rationale:** Relative imports in ical/csv subpackages use .. not ... since they are one level below tournament_scheduler.
+**Findings:** All 108 tests pass; all imports verified.
+LESSONS: ical/ and csv/ subpackages live inside tournament_scheduler/ (one level deep), so use  not  for relative imports
+**Files:** stage4_export.py (+193), ical/__init__.py (+5), ical/ical_exporter.py (+128), csv/__init__.py (+5), csv/csv_exporter.py (+86)
 **Commit:** [pending — fill after commit]
