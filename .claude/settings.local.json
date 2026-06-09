@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__llm-bridge__discover",
+      "mcp__llm-bridge__code_task_files",
+      "mcp__llm-bridge__web_fetch",
+      "mcp__llm-bridge__chat",
+      "mcp__llm-bridge__summarize_directory",
+      "mcp__llm-bridge__git_log_analyze",
+      "mcp__llm-bridge__shell_analyze",
+      "mcp__llm-bridge__search_task",
+      "mcp__llm-bridge__diff_review",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs"
+    ]
+  }
+}
