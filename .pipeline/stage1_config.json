@@ -1,7 +1,7 @@
 {
   "stage": "config",
   "status": "done",
-  "updated_at": "2026-06-09T15:32:21.172691+00:00",
+  "updated_at": "2026-06-09T21:32:46.402532+00:00",
   "data": {
     "start_date": "2026-09-01",
     "end_date": "2027-04-30",
@@ -203,8 +203,8 @@
       },
       {
         "name": "Skien ishall",
-        "type": "google",
-        "url": "istiderskienhockey@gmail.com"
+        "type": "outlook",
+        "url": "https://skienfritidspark.brp.exigo.no/ishallen"
       },
       {
         "name": "Ringerike",

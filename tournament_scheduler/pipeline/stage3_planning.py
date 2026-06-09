@@ -1,19 +1,11 @@
-"""Stage 3 — planning with LLM confidence log (informational only).
+"""Stage 3 — deterministic season planning.
 
 Calls :class:`~tournament_scheduler.season_planner.SeasonPlanner` to produce a
-:class:`~tournament_scheduler.models.SeasonPlan` and asks the LLM to evaluate
-it for:
-
-- **Coverage** — every team plays enough games
-- **Opponent diversity** — varied opponents across the season
-- **Time balance** — no month is overloaded with tournaments
-
-The LLM confidence score is recorded in the checkpoint for debugging
-purposes but NEVER gates plan acceptance. The deterministic plan from
-:class:`SeasonPlanner` is always authoritative — it already computes
-diversity, balance, and pairwise-matchup scores deterministically.
+:class:`~tournament_scheduler.models.SeasonPlan` with built-in deterministic
+quality scores (diversity, balance, pairwise-matchup).
 
 The accepted plan is written to the Stage 3 checkpoint as JSON.
+LLM-based quality gates are handled by the pi extension, not by this module.
 
 Minimal usage::
 
@@ -27,28 +19,14 @@ Minimal usage::
 
 from __future__ import annotations
 
-import json
 from datetime import date, datetime
 from typing import Any
 
 from ..models import Game, Roster, SeasonPlan, Team, Tournament
 from ..season_planner import SeasonPlanner
-from ..season_config import ParallelGamesConfig
 from ..roster_loader import RosterLoader
 from ..club_registry import CLUB_REGISTRY
 from .state import PipelineState, StageName, StageStatus
-
-# LLM client — optional; quality gate is skipped when unavailable
-try:
-    from ..llm.lm_studio_client import (
-        LMStudioClient,
-        LMStudioUnavailableError,
-        extract_confidence,
-    )
-
-    _LLM_AVAILABLE = True
-except ImportError:
-    _LLM_AVAILABLE = False
 
 # ---------------------------------------------------------------------------
 # Errors
@@ -77,11 +55,7 @@ def run(
     *,
     strict: bool = True,
 ) -> dict[str, Any]:
-    """Build a season plan and optionally log an LLM confidence score.
-
-    The plan is always produced by the deterministic Python algorithm
-    (:class:`SeasonPlanner`). The LLM quality gate is informational only —
-    it never rejects a plan or triggers a retry.
+    """Build a season plan using the deterministic Python algorithm.
 
     Parameters
     ----------
@@ -120,97 +94,13 @@ def run(
 
     plan_dict = _plan_to_dict(plan)
 
-    # --- LLM evaluation (informational only) ---
-    llm_confidence = 0.0
-    llm_reasoning = ""
-    llm_skipped = True
-
-    if _LLM_AVAILABLE:
-        try:
-            client = _make_default_client()
-            confidence, reasoning = _evaluate_plan(
-                plan=plan,
-                client=client,
-                start_date=start_date,
-                end_date=end_date,
-            )
-            llm_confidence = confidence
-            llm_reasoning = reasoning
-            llm_skipped = False
-        except LMStudioUnavailableError:
-            pass  # keep defaults
-
     checkpoint: dict[str, Any] = {
         "plan": plan_dict,
-        "llm_confidence": llm_confidence,
-        "llm_reasoning": llm_reasoning,
-        "attempts": 1,
-        "llm_skipped": llm_skipped,
     }
 
     state.write_stage(StageName.PLANNING, checkpoint, status=StageStatus.DONE)
     state.mark_done(StageName.PLANNING)
     return checkpoint
-
-
-# ---------------------------------------------------------------------------
-# LLM evaluation
-# ---------------------------------------------------------------------------
-
-
-def _evaluate_plan(
-    *,
-    plan: SeasonPlan,
-    client: "LMStudioClient",
-    start_date: datetime,
-    end_date: datetime,
-) -> tuple[float, str]:
-    """Ask the LLM to evaluate the plan. Returns (confidence, reasoning).
-
-    This is informational only — the plan is already accepted by the time
-    this runs. Confidence is logged in the checkpoint for debugging.
-    """
-    summary = _plan_summary_for_llm(plan)
-
-    system = (
-        "Du er en kvalitetskontroll-assistent for ishockeysesongplaner. "
-        "Evaluer planen etter tre kriterier:\n"
-        "1. Dekning (coverage): spiller hvert lag nok kamper?\n"
-        "2. Motstandervariasjon (diversity): varierer motstanderne gjennom sesongen?\n"
-        "3. Månedlig belastningsbalanse: er turneringene jevnt fordelt over månedene?\n\n"
-        "Svar KUN med et JSON-objekt på formen: "
-        '{"confidence": 0.0-1.0, "valid": true/false, "reasoning": "..."}'
-    )
-
-    user_msg = (
-        f"Sesong: {start_date.strftime('%d.%m.%Y')} til {end_date.strftime('%d.%m.%Y')}\n\n"
-        f"{summary}"
-    )
-
-    response = client.complete(system=system, user=user_msg, temperature=0.1)
-    result = extract_confidence(response.text)
-    return result.confidence, result.reasoning
-
-
-def _plan_summary_for_llm(plan: SeasonPlan) -> str:
-    """Build a concise text summary of the plan for LLM evaluation."""
-    lines: list[str] = [
-        f"Antall turneringer: {len(plan.tournaments)}",
-        f"Diversity score: {plan.diversity_score:.2f}",
-        f"Month balance score: {plan.month_balance_score:.2f}",
-        f"Pairwise matchup score: {plan.pairwise_matchup_score:.2f}",
-        "",
-        "Turneringer:",
-    ]
-    for t in plan.tournaments:
-        team_names = ", ".join(team.label for team in t.teams[:6])
-        if len(t.teams) > 6:
-            team_names += f" (+{len(t.teams) - 6})"
-        lines.append(
-            f"  {t.date.strftime('%d.%m.%Y')} | {t.arena} | {t.age_group} | "
-            f"{len(t.teams)} lag | {len(t.games)} kamper — {team_names}"
-        )
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -306,12 +196,6 @@ def _make_planner(
     )
 
 
-def _make_default_client() -> "LMStudioClient":
-    from ..llm.lm_studio_client import LMStudioClient
-
-    return LMStudioClient()
-
-
 def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
     """Reconstruct a :class:`Tournament` from a serialised dict."""
     teams = [
@@ -346,19 +230,23 @@ def _find_team(teams: list[Team], label: str) -> Team:
 
 
 # ---------------------------------------------------------------------------
-# CLI entry point — supports: python3 -m tournament_scheduler.pipeline.stage3_planning
+# CLI entry point
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":  # pragma: no cover
     import argparse
     import sys
 
-    parser = argparse.ArgumentParser(description="Stage 3: season planning with LLM evaluation")
-    parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
+    parser = argparse.ArgumentParser(
+        description="Stage 3: deterministic season planning"
+    )
+    parser.add_argument(
+        "--work-dir", default=".pipeline", help="Pipeline work directory"
+    )
     cli_args = parser.parse_args()
 
     from .state import PipelineState, StageName  # noqa: E402
-    from datetime import datetime as _dt
+    from datetime import datetime as _dt  # noqa: E402
 
     _state = PipelineState(cli_args.work_dir)
     _cfg = _state.read_stage(StageName.CONFIG)
@@ -374,8 +262,7 @@ if __name__ == "__main__":  # pragma: no cover
         _result = run(_cfg, _scraping, _state, _start, _end)
         plan = _result.get("plan", {})
         n = len(plan.get("tournaments", []))
-        conf = _result.get("llm_confidence", None)
-        print(f"Stage 3 OK — {n} turneringer planlagt, LLM confidence: {conf}")
+        print(f"Stage 3 OK — {n} turneringer planlagt")
         sys.exit(0)
     except Stage3Error as _e:
         print(str(_e), file=sys.stderr)

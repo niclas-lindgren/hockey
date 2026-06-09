@@ -62,8 +62,6 @@ interface RunArgs {
   resume_from?: string;
   export_dir?: string;
   log_level?: string;
-  llm_endpoint?: string;
-  scraper_max_iterations?: string;
 }
 
 interface LogEntry {
@@ -130,8 +128,6 @@ function parseRunArgs(args: string): RunArgs {
     else if (t === "--resume-from" && i + 1 < tokens.length) result.resume_from = tokens[++i];
     else if (t === "--export-dir" && i + 1 < tokens.length) result.export_dir = tokens[++i];
     else if (t === "--log-level" && i + 1 < tokens.length) result.log_level = tokens[++i];
-    else if (t === "--llm-endpoint" && i + 1 < tokens.length) result.llm_endpoint = tokens[++i];
-    else if (t === "--scraper-max-iterations" && i + 1 < tokens.length) result.scraper_max_iterations = tokens[++i];
   }
   return result;
 }
@@ -844,14 +840,12 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
   pi.registerCommand("rvv-miniputt run", {
     description:
       "Kjør den firetrinns sesongplanleggingspipelinen for RVV-hockeyklubber. " +
-      "Hvert trinn har en LLM-kvalitetskontroll. Støtter gjenopptak fra et bestemt trinn.\n" +
+      "Støtter gjenopptak fra et bestemt trinn.\n" +
       "Valgfrie flagg: --input <sti> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
-      "--log-level <info|verbose> --llm-endpoint <url> --scraper-max-iterations <N>\n" +
-      "--llm-endpoint: overstyr LLM API-base-URL (f.eks. http://localhost:1234)\n" +
-      "--scraper-max-iterations: maks antall LLM-iterasjoner per kilde (standard: 20)\n" +
+      "--log-level <info|verbose>\n" +
       "Hver kjøring logges strukturelt til .pipeline/logs/run-<dato>.jsonl for selvforbedringsanalyse.",
     getArgumentCompletions: (prefix) => {
-      const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level", "--llm-endpoint", "--scraper-max-iterations"];
+      const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level"];
       const filtered = words.filter((w) => w.startsWith(prefix));
       if (prefix.startsWith("--log-level")) {
         return LOG_LEVELS.map((value) => ({ value, label: value }));
@@ -1020,7 +1014,6 @@ async function interactiveGuide(ctx: ExtensionCommandContext): Promise<void> {
       "Vanlige flagg for /rvv-miniputt run:",
       "  --input <fil>            — konfigurasjonsfil (standard: input.json)",
       "  --resume-from <trinn>    — gjenoppta fra trinn 1-4",
-      "  --llm-endpoint <url>     — overstyr LLM API-URL",
       "",
       "Nokkel-filer:",
       "  input.json               — klubb-/lag-konfigurasjon",
@@ -1072,33 +1065,7 @@ async function interactiveRunPipeline(ctx: ExtensionCommandContext): Promise<voi
   else if (resumeChoice?.startsWith("Start fra trinn 3")) resumeFrom = 3;
   else if (resumeChoice?.startsWith("Start fra trinn 4")) resumeFrom = 4;
 
-  // Step 4: LLM endpoint (optional)
-  const useCustomEndpoint = await ctx.ui.confirm(
-    "LLM-tilpasning",
-    "Vil du overstyre standard LLM-endepunkt? (Ellers brukes Pi sin konfigurasjon)",
-  );
-  let llmEndpoint: string | undefined;
-  if (useCustomEndpoint) {
-    llmEndpoint = await ctx.ui.input(
-      "LLM API-base-URL (f.eks. http://localhost:1234):",
-      "",
-    );
-  }
-
-  // Step 5: Max iterations
-  const tuneIterations = await ctx.ui.confirm(
-    "Antall iterasjoner",
-    "Vil du justere maks antall LLM-iterasjoner per kalenderkilde? (Standard: 20)",
-  );
-  let maxIterations: string | undefined;
-  if (tuneIterations) {
-    maxIterations = await ctx.ui.input(
-      "Maks iterasjoner per kilde (anbefalt: 10-30):",
-      "20",
-    );
-  }
-
-  // Step 6: Export directory
+  // Step 4: Export directory
   const customExport = await ctx.ui.confirm(
     "Eksportmappe",
     "Vil du spesifisere en egen eksportmappe? (Standard: ./export)",
@@ -1111,7 +1078,7 @@ async function interactiveRunPipeline(ctx: ExtensionCommandContext): Promise<voi
     );
   }
 
-  // Step 7: Work directory
+  // Step 5: Work directory
   const customWorkDir = await ctx.ui.confirm(
     "Arbeidskatalog",
     "Vil du bruke en annen arbeidskatalog enn ./.pipeline?",
@@ -1131,8 +1098,7 @@ async function interactiveRunPipeline(ctx: ExtensionCommandContext): Promise<voi
     `  Starter fra:  Trinn ${resumeFrom}`,
     `  Arbeidskatalog: ${workDir || ".pipeline"}`,
     `  Eksportmappe: ${exportDir || "export"}`,
-    `  LLM-endepunkt: ${llmEndpoint || "(standard — Pi sin konfigurasjon)"}`,
-    `  Maks iterasjoner: ${maxIterations || "20"}`,
+
     "",
     "Vil du starte pipelinen med disse innstillingene?",
   ];
@@ -1152,8 +1118,7 @@ async function interactiveRunPipeline(ctx: ExtensionCommandContext): Promise<voi
   if (workDir) argsParts.push(`--work-dir ${workDir}`);
   if (exportDir) argsParts.push(`--export-dir ${exportDir}`);
   if (resumeFrom > 1) argsParts.push(`--resume-from ${resumeFrom}`);
-  if (llmEndpoint) argsParts.push(`--llm-endpoint ${llmEndpoint}`);
-  if (maxIterations) argsParts.push(`--scraper-max-iterations ${maxIterations}`);
+
 
   ctx.ui.notify(
     `Starter pipeline: /rvv-miniputt run ${argsParts.join(" ")}`,
@@ -1245,16 +1210,13 @@ async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promi
   // Stage 2 — Scraping
   // -------------------------------------------------------------------
   if (resumeFrom <= 2) {
-    lines.push("Trinn 2: Skraper kalenderkilder med LLM-kvalitetskontroll...");
+    lines.push("Trinn 2: Skraper kalenderkilder...");
     logger.stageStart("scraping");
     try {
-      const stage2Args = [...baseArgs];
-      if (params.llm_endpoint) stage2Args.push("--llm-endpoint", params.llm_endpoint);
-      if (params.scraper_max_iterations) stage2Args.push("--scraper-max-iterations", params.scraper_max_iterations);
       const { stdout, stderr } = await runStage(
         cwdPath,
         "tournament_scheduler.pipeline.stage2_scraping",
-        stage2Args,
+        [...baseArgs],
       );
       if (verbose) logger.logStageOutput("scraping", stdout, stderr);
       if (stdout) lines.push(stdout);
@@ -1295,7 +1257,7 @@ async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promi
   // Stage 3 — Planning
   // -------------------------------------------------------------------
   if (resumeFrom <= 3) {
-    lines.push("Trinn 3: Bygger sesongplan og evaluerer med LLM...");
+    lines.push("Trinn 3: Bygger sesongplan...");
     logger.stageStart("planning");
     try {
       const { stdout, stderr } = await runStage(

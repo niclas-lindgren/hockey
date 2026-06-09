@@ -1,7 +1,4 @@
-"""HTTP client for the local LM Studio instance (OpenAI-compatible API).
-
-Endpoint: http://host.lima.internal:1234/v1/chat/completions
-Model: Qwen2.5-32B-Instruct (Q4_K_M) loaded in LM Studio.
+"""HTTP client for an OpenAI-compatible chat completion API.
 
 Provides:
   - LMStudioClient  — class-based client (injectable for testing)
@@ -21,8 +18,6 @@ from typing import Any
 # Configuration
 # ---------------------------------------------------------------------------
 
-DEFAULT_BASE_URL = "http://host.lima.internal:1234"
-DEFAULT_MODEL = "qwen2.5-32b-instruct"
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_TIMEOUT_SECONDS = 120
 
@@ -64,17 +59,17 @@ class LMStudioClient:
     Parameters
     ----------
     base_url:
-        Base URL of the LM Studio server.  Defaults to the Lima VM host.
+        Base URL of the OpenAI-compatible chat API server.
     model:
-        Model identifier as configured in LM Studio.
+        Model identifier to use.
     timeout:
         Request timeout in seconds.
     """
 
     def __init__(
         self,
-        base_url: str = DEFAULT_BASE_URL,
-        model: str = DEFAULT_MODEL,
+        base_url: str,
+        model: str,
         timeout: int = DEFAULT_TIMEOUT_SECONDS,
     ) -> None:
         self.base_url = base_url.rstrip("/")
@@ -176,32 +171,6 @@ class LMStudioClient:
 
 class LMStudioUnavailableError(RuntimeError):
     """Raised when the LM Studio server cannot be reached or returns an error."""
-
-
-# ---------------------------------------------------------------------------
-# Module-level convenience helpers
-# ---------------------------------------------------------------------------
-
-_default_client: LMStudioClient | None = None
-
-
-def _get_default_client() -> LMStudioClient:
-    global _default_client
-    if _default_client is None:
-        _default_client = LMStudioClient()
-    return _default_client
-
-
-def complete(
-    system: str,
-    user: str,
-    temperature: float = DEFAULT_TEMPERATURE,
-) -> LLMResponse:
-    """Module-level convenience wrapper around :class:`LMStudioClient`.
-
-    Uses a lazily-created default client pointing at the Lima VM host.
-    """
-    return _get_default_client().complete(system, user, temperature)
 
 
 def extract_confidence(response_text: str) -> ConfidenceResult:
