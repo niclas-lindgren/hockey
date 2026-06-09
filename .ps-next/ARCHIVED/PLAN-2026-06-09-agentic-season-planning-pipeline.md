@@ -1,3 +1,12 @@
+---
+date: 2026-06-09
+status: done
+feature: "Agentic season-planning pipeline"
+goal: "Agentic season-planning pipeline — restructure the tool as a four-stage pipeline where each stage has an LLM quality gate before the next stage runs. Stage 1 (Config): parse and validate input.json — teams, clubs, age groups, date range, parallel-games config — and surface clear Norwegian-language errors on bad input. Stage 2 (Scraping): per calendar source, run the existing Playwright/iCal scraper, then pass the result to a local LLM (host.lima.internal:1234, Qwen2.5-32B-Instruct Q4_K_M via LM Studio) that evaluates 'do these look like valid ice hall bookings in the expected date range?'; on low confidence or empty result the LLM attempts its own extraction from the raw HTML; if both fail, gate blocks with a clear message ('Source X returned 0 events — scraper broken or hall closed?') rather than silently proceeding with bad data. iCal sources (Teamup, Google Calendar) skip the LLM path. Stage 3 (Planning): run the season scheduler, then LLM evaluates the output for coverage (every team plays enough games), diversity (varied opponents), and time balance (no month overloaded); can re-run scheduler with adjusted params if result looks poor, up to N retries. Stage 4 (Export): generate Excel + iCal + CSV outputs. Each stage writes its output to a structured intermediate file so the pipeline can be resumed from any stage without re-running earlier stages."
+tags:
+  - ps-next
+---
+
 # Plan: Agentic season-planning pipeline
 
 **Intent:** Build the `rvv-miniputt` pi extension — a four-stage agentic pipeline running inside pi.dev that orchestrates the existing Python season scheduler. Each stage has an LLM quality gate. The extension is a TypeScript file at `.pi/extensions/rvv-miniputt.ts` that registers pi tools/commands and invokes the Python stage modules via `execFile`. The pipeline has resumable intermediate state and multi-format export.
@@ -114,24 +123,6 @@ LESSONS: HolidayConflictChecker not HolidayChecker; stage1 strictFalse must retu
 **Files:** tests/test_pipeline_state.py (+87), test_lm_studio_client.py (+99), test_stage1_config.py (+147), test_stage2_scraping.py (+142), test_stage3_planning.py (+116), test_stage4_export.py (+116), pipeline fixes (+18)
 **Commit:** 034f89b (hockey)
 
-## Verification Report
-**Date:** 2026-06-09
-
-| Criterion | Verdict | Notes |
-|-----------|---------|-------|
-| .pi/extensions/rvv-miniputt.ts exists and exports default function with /rvv-miniputt run and /rvv-miniputt status commands | PASS | File confirmed at /Users/niclasl/src/hockey/.pi/extensions/rvv-miniputt.ts |
-| Running pipeline with valid input.json completes all four stages, writes four checkpoints, produces Excel/iCal/CSV | MANUAL | Tests pass (166/167); end-to-end with real calendar sources requires live environment |
-| Pipeline prints Norwegian error and exits without creating checkpoint when teams or date_range missing | FAIL | stage1_config.py calls state.write_stage with FAILED status before raising Stage1Error; a FAILED-status checkpoint IS written to disk |
-| When Playwright source returns zero events and LLM fallback also returns zero, Stage 2 prints blocking message and does not write Stage 2 checkpoint | PASS | Fixed in commit 0bc8a62: checkpoint deleted in strict-blocking path; test_stage2_scraping.py line 93 asserts checkpoint absent |
-| iCal sources skip LLM quality gate and produce valid Stage 2 checkpoint results | PASS | source_type not in _ICAL_SOURCE_TYPES check in stage2_scraping.py confirmed unchanged |
-| --resume-from stage3 with valid Stage 1/2 checkpoints skips scraping and runs Stage 3 and Stage 4 | PASS | Extension checks resumeFrom index; stages 1 and 2 skipped when value is 3 |
-
-**Shell checks (ps-verify-plan):** all passed
-```
-no embedded shell checks found
-```
-**Git history:** 9 tasks with matching commits / 9 tasks total
-**Tests:** passed (23/23 stage1+stage2 tests)
 - 2026-06-09 Auto-verify attempt 2 found 1 failing criterion — added remediation task
 
 ### 2026-06-09 — Removed state.write_stage/mark_failed calls before raising Stage1Error so no checkpoint is written on validation error; updated test to assert checkpoint file absent after missing-field error.
@@ -139,4 +130,23 @@ no embedded shell checks found
 **Findings:** All 166 tests pass; checkpoint_path does not exist after missing-field Stage1Error.
 LESSONS: none
 **Files:** tests/test_stage1_config.py (+4/-3), tournament_scheduler/pipeline/stage1_config.py (+1/-8)
-**Commit:** [pending — fill after commit]
+**Commit:** c875307 (hockey)
+
+## Verification Report
+**Date:** 2026-06-09
+
+| Criterion | Verdict | Notes |
+|-----------|---------|-------|
+| .pi/extensions/rvv-miniputt.ts exists and exports default function with /rvv-miniputt run and /rvv-miniputt status commands | PASS | File confirmed; exports default rvvMiniputt function registering both commands |
+| Running pipeline with valid input.json completes all four stages, writes four checkpoints, produces Excel/iCal/CSV | MANUAL | 58 pipeline tests pass; end-to-end with live calendar sources requires real environment |
+| Pipeline prints Norwegian error and exits without creating checkpoint when teams or date_range missing | PASS | strict=True raises Stage1Error before any state.write_stage call; no checkpoint written |
+| When Playwright source returns zero events and LLM fallback also returns zero, Stage 2 prints blocking message and does not write Stage 2 checkpoint | PASS | Checkpoint deleted before Stage2Error raised in strict-blocking path |
+| iCal sources skip LLM quality gate and produce valid Stage 2 checkpoint results | PASS | _ICAL_SOURCE_TYPES set checked before LLM gate dispatch |
+| --resume-from stage3 with valid Stage 1/2 checkpoints skips scraping and runs Stage 3 and Stage 4 | PASS | Extension checks resumeFrom index and skips stages below threshold |
+
+**Shell checks (ps-verify-plan):** all passed
+```
+no embedded shell checks found
+```
+**Git history:** 10 tasks with matching commits / 10 tasks total
+**Tests:** passed (58/58 pipeline tests)
