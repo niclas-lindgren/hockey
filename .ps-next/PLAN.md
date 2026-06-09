@@ -17,7 +17,7 @@
   - Files: `tournament_scheduler/pipeline/__init__.py`, `tournament_scheduler/pipeline/state.py`
   - Approach: Create a `PipelineState` class that reads/writes JSON checkpoint files to a configurable `--work-dir` (default `.pipeline/`); one file per stage (`stage1_config.json`, `stage2_scraping.json`, `stage3_plan.json`, `stage4_export.json`) with a `status` field (`pending`, `done`, `failed`) so a `--resume-from` flag can skip completed stages.
 
-- [ ] Implement Stage 1 — config parsing and Norwegian-language validation
+- [x] Created stage1_config.py with run(), validate_config(), and _parse_config() covering date parsing, age group validation, parallel_games limits vs federation defaults, team list and external file references — all error messages in Norwegian. — 2026-06-09
   - Files: `tournament_scheduler/pipeline/stage1_config.py`
   - Approach: Load `input.json` (new canonical input format) using existing `RosterLoader` and `ParallelGamesConfig` from `season_config.py`; add a validation pass that emits Norwegian error messages for missing fields, invalid date ranges, unknown age groups, and parallel-games rule violations, then writes a validated config object to the Stage 1 checkpoint.
 
@@ -66,4 +66,11 @@ LESSONS: none
 **Findings:** All 108 tests pass; round-trip and resume-logic unit checks verified manually.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/__init__.py (+9), tournament_scheduler/pipeline/state.py (+299)
+**Commit:** b2802a3 (hockey)
+
+### 2026-06-09 — Created stage1_config.py with run(), validate_config(), and _parse_config() covering date parsing, age group validation, parallel_games limits vs federation defaults, team list and external file references — all error messages in Norwegian.
+**Rationale:** Reused KNOWN_AGE_GROUPS and FEDERATION_PARALLEL_GAMES_DEFAULTS from season_config.py; kept _parse_config separate from validation for clarity.
+**Findings:** All 108 tests pass; manual smoke test confirms Norwegian error messages and valid-config pass.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage1_config.py (+304)
 **Commit:** [pending — fill after commit]
