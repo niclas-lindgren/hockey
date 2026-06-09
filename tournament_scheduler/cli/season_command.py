@@ -38,7 +38,6 @@ class SeasonCommand:
 
         parallel_games_for_age_group = federation_defaults.get('parallelGames', {})
         max_teams_per_tournament = federation_defaults.get('maxTeamsPerTournament', {})
-        max_games_per_team = federation_defaults.get('maxGamesPerTeam', {})
 
         sources, club_arenas = self._build_calendar_sources()
         if not sources:
@@ -57,7 +56,6 @@ class SeasonCommand:
             club_arenas=club_arenas,
             parallel_games_for_age_group=parallel_games_for_age_group,
             max_teams_per_tournament_for_age_group=max_teams_per_tournament,
-            max_games_per_team_for_age_group=max_games_per_team,
         )
 
         TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")

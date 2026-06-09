@@ -59,7 +59,6 @@ class SeasonPlanner:
         parallel_games_for_age_group: Optional[Dict[str, int]] = None,
         target_tournament_count: Optional[int] = None,
         max_teams_per_tournament_for_age_group: Optional[Dict[str, int]] = None,
-        max_games_per_team_for_age_group: Optional[Dict[str, int]] = None,
     ):
         """Initialize the planner.
 
@@ -81,10 +80,6 @@ class SeasonPlanner:
                 group -> maximum number of teams invited to a single
                 tournament. When set for an age group, takes precedence over
                 the parallel-games heuristic in `_max_teams_for`.
-            max_games_per_team_for_age_group: Optional mapping of age group
-                -> maximum number of games a single team plays per
-                tournament. Caps the round-robin at that many rounds so
-                single-day events stay manageable (e.g. 3 games per team).
         """
         self.scheduler = scheduler
         self.roster = roster
@@ -92,7 +87,6 @@ class SeasonPlanner:
         self.parallel_games_for_age_group = parallel_games_for_age_group or {}
         self.target_tournament_count = target_tournament_count
         self.max_teams_per_tournament_for_age_group = max_teams_per_tournament_for_age_group or {}
-        self.max_games_per_team_for_age_group = max_games_per_team_for_age_group or {}
 
         # Tracks, per team, the set of other teams it has already been
         # grouped with in a tournament this season — used by the
@@ -167,8 +161,7 @@ class SeasonPlanner:
             self._record_grouping(participants)
 
             parallel_games = self.parallel_games_for_age_group.get(age_group, DEFAULT_MAX_TEAMS_PER_TOURNAMENT)
-            max_rounds = self.max_games_per_team_for_age_group.get(age_group)
-            games = self.generate_round_robin_games(participants, parallel_games, max_rounds=max_rounds)
+            games = self.generate_round_robin_games(participants, parallel_games)
             self._record_opponent_history(games)
 
             tournament = Tournament(
@@ -575,7 +568,6 @@ class SeasonPlanner:
     def generate_round_robin_games(
         teams: Sequence[Team],
         parallel_games: int,
-        max_rounds: Optional[int] = None,
     ) -> List[Game]:
         """Generate a round-robin schedule for `teams` using the circle method.
 
@@ -583,17 +575,9 @@ class SeasonPlanner:
         once), and within each round games are assigned to `parallel_slot`
         indices so that up to `parallel_games` games run concurrently.
 
-        When `max_rounds` is set the schedule is cut after that many rounds,
-        producing a *partial* round-robin where each team plays at most
-        `max_rounds` games.  This keeps single-day tournaments to a
-        manageable size (e.g. `max_rounds=3` → each team plays 3 games).
-        Without the cap every pair meets exactly once (full round-robin).
-
         Args:
             teams: The participating teams (all the same age group).
             parallel_games: Max number of games that can run concurrently.
-            max_rounds: Maximum number of rounds to schedule. None means
-                full round-robin.
 
         Returns:
             A flat list of `Game`, each with its `parallel_slot` set to its
@@ -614,8 +598,6 @@ class SeasonPlanner:
 
         slot_count = len(roster)
         num_rounds = slot_count - 1
-        if max_rounds is not None:
-            num_rounds = min(num_rounds, max_rounds)
         half = slot_count // 2
 
         games: List[Game] = []
