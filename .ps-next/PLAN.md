@@ -42,7 +42,7 @@
   - Files: `tournament_scheduler/pipeline/llm_scraper.py`, `.pi/extensions/rvv-miniputt.ts`
   - Approach: `LLMGuidedScraper.__init__` accepts `llm_endpoint` and `max_iterations` params. The Pi extension (`rvv-miniputt.ts`) passes the LLM endpoint through based on Pi's own model configuration (Pi handles provider selection — the extension just passes the endpoint to Python). The Stage 1 config (input.json) can include optional fields `llm_endpoint` and `scraper_max_iterations` to override. The extension's `/rvv-miniputt run` handler reads `--llm-endpoint` and `--scraper-max-iterations` flags and passes them as env vars or CLI args to the Python stage. No hardcoded provider or model names anywhere in the extension or Python code.
 
-- [ ] Activate all 6 currently-skipped clubs in the club registry (Jutul, Jar, Frisk Asker, Holmen, Tønsberg, Sandefjord)
+- [x] Activate all 6 currently-skipped clubs in the club registry (Jutul, Jar, Frisk Asker, Holmen, Tønsberg, Sandefjord)
   - Files: `tournament_scheduler/club_registry.py`
   - Approach: Update the registry entries for all 6 clubs that currently have `skip=True`:
     - **Jutul** (baerumishall.no/kalender/ — StyledCalendar JS widget): set `kind=OUTLOOK, skip=False`, use existing URL as source.
@@ -79,6 +79,13 @@
 
 
 
+
+### 2026-06-09 — Activate all 6 currently-skipped clubs in the club registry (Jutul, Jar, Frisk Asker, Holmen, Tønsberg, Sandefjord)
+**Done:** Updated Tønsberg (BookUp SPA, kind=OUTLOOK, source=https://www.bookup.no/utleie/Index/860) and Sandefjord Penguins (BookUp SPA, kind=OUTLOOK, source=https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen). All 4 clubs from Task 3 were already active. All 9 RVV clubs now have active calendar sources — none are skipped.
+**Rationale:** The LLM-guided agentic scraper can handle BookUp SPAs (Tønsberg, Sandefjord), Sportality/s8y (Frisk Asker), Sportello (Holmen), Forumbooking (Jar), and StyledCalendar (Jutul). All use OUTLOOK kind which routes to the agent in Stage 2.
+**Findings:** All 9 RVV clubs now active. Tønsberg and Sandefjord both use BookUp which the LLM agent can handle. 178 tests pass.
+**Files:** M tournament_scheduler/club_registry.py, M tests/test_club_registry.py
+**Commit:** 90765ba
 ### 2026-06-09 — Make LLM endpoint and max iterations configurable via the Pi extension
 **Done:** Added llm_endpoint/max_iterations params to stage2_scraping.run(), _scrape_source(), and LLMGuidedScraper. Added --llm-endpoint and --scraper-max-iterations CLI args to __main__. Resolves in priority: CLI arg > input.json config > defaults. Updated rvv-miniputt.ts extension to parse and pass these flags.
 **Rationale:** Pi manages LLM provider/model configuration; the extension just passes the endpoint through. No hardcoded provider or model references in either the extension or Python code. The resolution chain (CLI > config > default) follows the existing pattern.
