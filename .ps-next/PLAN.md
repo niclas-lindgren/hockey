@@ -21,7 +21,7 @@
   - Files: `tournament_scheduler/pipeline/stage1_config.py`
   - Approach: Load `input.json` (new canonical input format) using existing `RosterLoader` and `ParallelGamesConfig` from `season_config.py`; add a validation pass that emits Norwegian error messages for missing fields, invalid date ranges, unknown age groups, and parallel-games rule violations, then writes a validated config object to the Stage 1 checkpoint.
 
-- [ ] Implement Stage 2 — scraping with LLM quality gate and raw-HTML fallback
+- [x] Created stage2_scraping.py with run(), per-source scraping dispatch (Playwright/iCal/Google), LLM quality gate with confidence threshold (0.6), HTML fallback extraction, and Norwegian block messages on zero events. — 2026-06-09
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`, `tournament_scheduler/data_sources/calendar_scraper.py`
   - Approach: For each Playwright/Outlook source run the existing `CalendarScraper.scrape_calendar`; expose raw HTML from the `iframe.content()` call via an optional `return_raw_html=True` param so the LLM fallback can attempt extraction; pass scraped events to `lm_studio_client.complete()` for validation; skip LLM for iCal sources (`ical_scraper.py`); block with a Norwegian message if both scraper and LLM return zero events, writing per-source results to the Stage 2 checkpoint.
 
@@ -73,4 +73,11 @@ LESSONS: none
 **Findings:** All 108 tests pass; manual smoke test confirms Norwegian error messages and valid-config pass.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage1_config.py (+304)
+**Commit:** 07bf518 (hockey)
+
+### 2026-06-09 — Created stage2_scraping.py with run(), per-source scraping dispatch (Playwright/iCal/Google), LLM quality gate with confidence threshold (0.6), HTML fallback extraction, and Norwegian block messages on zero events.
+**Rationale:** Used monkey-patch on _parse_outlook_calendar to capture raw HTML without modifying base scraper; LMStudioUnavailableError handled gracefully — skips LLM gate and logs reason.
+**Findings:** All 108 tests pass; Stage2 imports verified.
+LESSONS: LMStudioUnavailableError must be imported from lm_studio_client not from llm/__init__.py since __init__.py does not re-export it
+**Files:** tournament_scheduler/pipeline/stage2_scraping.py (+477)
 **Commit:** [pending — fill after commit]
