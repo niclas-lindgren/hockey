@@ -287,6 +287,18 @@ class BrowserWorker:
 
         return {"ok": True, "events": events}
 
+    def cmd_eval(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Execute JavaScript in the page context and return the result."""
+        self.start()
+        js = params.get("js", "")
+        if not js:
+            return {"ok": False, "error": "eval krever en 'js'-parameter"}
+        try:
+            result = self._page.evaluate(js)
+            return {"ok": True, "result": result}
+        except Exception as exc:
+            return {"ok": False, "error": f"eval feilet: {exc}"}
+
     def cmd_screenshot(self, params: dict[str, Any]) -> dict[str, Any]:
         self.start()
         try:
@@ -469,6 +481,8 @@ def main() -> None:
                 resp = worker.cmd_click(params)
             elif cmd == "extract":
                 resp = worker.cmd_extract(params)
+            elif cmd == "eval":
+                resp = worker.cmd_eval(params)
             elif cmd == "screenshot":
                 resp = worker.cmd_screenshot(params)
             elif cmd == "exit":
