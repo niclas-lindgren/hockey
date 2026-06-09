@@ -120,15 +120,16 @@ class TestRunStage1:
             run(input_file, state)
         assert len(exc_info.value.errors) > 0
 
-    def test_run_marks_failed_on_error(self, tmp_path):
-        raw = {}
+    def test_run_raises_on_missing_field_no_checkpoint(self, tmp_path):
+        raw = _make_valid_raw()
+        del raw["start_date"]
         input_file = tmp_path / "input.json"
         input_file.write_text(json.dumps(raw))
 
         state = PipelineState(tmp_path / "pipeline")
         with pytest.raises(Stage1Error):
             run(input_file, state)
-        assert state.is_failed(StageName.CONFIG)
+        assert not state.checkpoint_path(StageName.CONFIG).exists()
 
     def test_run_raises_on_missing_file(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")

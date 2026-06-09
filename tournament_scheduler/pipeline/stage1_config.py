@@ -88,19 +88,11 @@ def run(
     FileNotFoundError
         When *input_path* does not exist.
     """
-    state.write_stage(StageName.CONFIG, {}, status=StageStatus.RUNNING)
-
     raw = _load_json(input_path)
     errors = validate_config(raw)
 
     if errors:
         if strict:
-            state.write_stage(
-                StageName.CONFIG,
-                {"errors": errors, "raw": raw},
-                status=StageStatus.FAILED,
-            )
-            state.mark_failed(StageName.CONFIG, error="; ".join(errors))
             raise Stage1Error(errors)
         # Non-strict: record errors but continue with best-effort parsing
         state.write_stage(
@@ -111,6 +103,7 @@ def run(
         return {"errors": errors}
 
     # Parse validated config into structured objects
+    state.write_stage(StageName.CONFIG, {}, status=StageStatus.RUNNING)
     config = _parse_config(raw)
 
     state.write_stage(StageName.CONFIG, config, status=StageStatus.DONE)

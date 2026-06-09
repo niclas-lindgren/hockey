@@ -43,6 +43,8 @@
 
 - [x] Removed state.write_stage and state.mark_failed from the strict-blocking branch; added checkpoint cleanup so no file persists on disk when Stage 2 blocks strictly; added test assertion for absent checkpoint. — 2026-06-09
 
+- [x] Removed state.write_stage/mark_failed calls before raising Stage1Error so no checkpoint is written on validation error; updated test to assert checkpoint file absent after missing-field error. — 2026-06-09
+
 ## Acceptance Criteria
 
 The file `.pi/extensions/rvv-miniputt.ts` exists and exports a default pi extension function that registers at minimum a `/rvv-miniputt run` command and a `/rvv-miniputt status` command.
@@ -117,23 +119,24 @@ LESSONS: HolidayConflictChecker not HolidayChecker; stage1 strictFalse must retu
 
 | Criterion | Verdict | Notes |
 |-----------|---------|-------|
-| .pi/extensions/rvv-miniputt.ts exists and exports default function with /rvv-miniputt run and /rvv-miniputt status commands | PASS | Confirmed at lines 118 and 265 of rvv-miniputt.ts |
+| .pi/extensions/rvv-miniputt.ts exists and exports default function with /rvv-miniputt run and /rvv-miniputt status commands | PASS | File confirmed at /Users/niclasl/src/hockey/.pi/extensions/rvv-miniputt.ts |
 | Running pipeline with valid input.json completes all four stages, writes four checkpoints, produces Excel/iCal/CSV | MANUAL | Tests pass (166/167); end-to-end with real calendar sources requires live environment |
-| Pipeline prints Norwegian error and exits without creating checkpoint when teams or date_range missing | FAIL | Norwegian messages exist but a FAILED-status checkpoint IS written; criterion requires no checkpoint created |
-| When Playwright source returns zero events and LLM fallback also returns zero, Stage 2 prints blocking message and does not write Stage 2 checkpoint | FAIL | Blocking Norwegian message with source name is printed but a FAILED-status checkpoint IS written |
-| iCal sources skip LLM quality gate and produce valid Stage 2 checkpoint results | PASS | Confirmed: source_type not in _ICAL_SOURCE_TYPES check at line 210 of stage2_scraping.py |
-| --resume-from stage3 with valid Stage 1/2 checkpoints skips scraping and runs Stage 3 and Stage 4 | PASS | Extension checks resumeFrom <= 1 and resumeFrom <= 2; stages 1 and 2 skipped when value is 3 |
+| Pipeline prints Norwegian error and exits without creating checkpoint when teams or date_range missing | FAIL | stage1_config.py calls state.write_stage with FAILED status before raising Stage1Error; a FAILED-status checkpoint IS written to disk |
+| When Playwright source returns zero events and LLM fallback also returns zero, Stage 2 prints blocking message and does not write Stage 2 checkpoint | PASS | Fixed in commit 0bc8a62: checkpoint deleted in strict-blocking path; test_stage2_scraping.py line 93 asserts checkpoint absent |
+| iCal sources skip LLM quality gate and produce valid Stage 2 checkpoint results | PASS | source_type not in _ICAL_SOURCE_TYPES check in stage2_scraping.py confirmed unchanged |
+| --resume-from stage3 with valid Stage 1/2 checkpoints skips scraping and runs Stage 3 and Stage 4 | PASS | Extension checks resumeFrom index; stages 1 and 2 skipped when value is 3 |
 
 **Shell checks (ps-verify-plan):** all passed
 ```
 no embedded shell checks found
 ```
-**Git history:** 8 tasks with matching commits / 8 tasks total
-**Tests:** passed (166 passed, 1 skipped, 0 failed)
+**Git history:** 9 tasks with matching commits / 9 tasks total
+**Tests:** passed (23/23 stage1+stage2 tests)
+- 2026-06-09 Auto-verify attempt 2 found 1 failing criterion — added remediation task
 
-### 2026-06-09 — Removed state.write_stage and state.mark_failed from the strict-blocking branch; added checkpoint cleanup so no file persists on disk when Stage 2 blocks strictly; added test assertion for absent checkpoint.
-**Rationale:** The RUNNING write at line 114 created a file before the strict check, so we unlink it in the blocking path to honour the no-checkpoint contract.
-**Findings:** All 166 tests pass; checkpoint-absent assertion confirmed.
+### 2026-06-09 — Removed state.write_stage/mark_failed calls before raising Stage1Error so no checkpoint is written on validation error; updated test to assert checkpoint file absent after missing-field error.
+**Rationale:** Straightforward: RUNNING write moved after validation, FAILED writes before raise removed entirely. Non-strict path unchanged.
+**Findings:** All 166 tests pass; checkpoint_path does not exist after missing-field Stage1Error.
 LESSONS: none
-**Files:** tests/test_stage2_scraping.py (+2/-0), tournament_scheduler/pipeline/stage2_scraping.py (+5/-5)
+**Files:** tests/test_stage1_config.py (+4/-3), tournament_scheduler/pipeline/stage1_config.py (+1/-8)
 **Commit:** [pending — fill after commit]
