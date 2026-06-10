@@ -5,7 +5,7 @@
 **Backlog-ref:** 30
 
 ## Tasks
-- [ ] Pass scraper strategy initial_navigation to the ScraperAgent and execute pre-loop
+- [x] Pass scraper strategy initial_navigation to the ScraperAgent and execute pre-loop
   - Files: .pi/lib/scraper-agent.ts, .pi/extensions/rvv-miniputt.ts, tournament_scheduler/pipeline/scraper_strategies.py, tournament_scheduler/pipeline/browser_worker.py
   - Approach: (1) Create a Python CLI entry point in `scraper_strategies.py` that dumps a named strategy as JSON (with initial_navigation steps). (2) In `scraper-agent.ts`, add `initialNavigation` param to the `scrape()` method — the agent executes these steps before starting the LLM agent loop, substituting `$BOOKUP_EMAIL`/`$BOOKUP_PASSWORD` from `process.env`. (3) In `rvv-miniputt.ts`, before creating the ScraperAgent, call the Python JSON dump to get the strategy, extract initial_navigation, and pass it to `agent.scrape()`.
 
@@ -29,4 +29,11 @@
 - [ ] run: python3 -m tournament_scheduler.pipeline.scraper_strategies --name "Tønsberg" 2>&1 | python3 -m json.tool (valid JSON output)
 
 ## Log
+
+### 2026-06-10 — Pass scraper strategy initial_navigation to the ScraperAgent and execute pre-loop
+**Done:** Added strategy JSON CLI to scraper_strategies.py (--name/--all flags), NavigationStep type and initialNavigation support in scraper-agent.ts with env-var substitution, and dynamic strategy fetching in rvv-miniputt.ts that passes initial_navigation to agent.scrape().
+**Rationale:** The BrowserWorker already supported `type` and `click` commands, so only three files needed changes: the Python side for JSON export, the TS agent for executing pre-loop steps, and the extension for wiring them together. Env-var substitution uses process.env lookup with regex ${NAME} pattern matching the strategy format.
+**Findings:** scraper-agent.ts was untracked (from backlog item 24), so git diff didn't show it. browser_worker.py already supports the `type` command used by initial_navigation — no changes needed there.
+**Files:** ts/scraper_strategies.py (+62), .pi/lib/scraper-agent.ts (+48), .pi/extensions/rvv-miniputt.ts (+34/-17)
+**Commit:** 4a78467
 <!-- pi-next appends entries here after each task -->
