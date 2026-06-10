@@ -130,6 +130,7 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
             "home": g.home.label,
             "away": g.away.label,
             "parallel_slot": g.parallel_slot,
+            "round_number": g.round_number,
         }
 
     def _team_to_dict(t: Team) -> dict[str, Any]:
