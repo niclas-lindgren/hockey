@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rvv-miniputt"
+version = "2.0.0"
+description = "RVV Miniputt tournament scheduler pipeline"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "openpyxl>=3.1",
+    "holidays>=0.38",
+    "playwright>=1.40",
+    "icalendar>=6.0",
+    "recurring-ical-events>=3.0",
+    "rich>=14.0",
+]
+
+[project.scripts]
+rvv-miniputt = "tournament_scheduler.cli.rvv_cli:main"
+
+[tool.setuptools.packages.find]
+include = ["tournament_scheduler*"]

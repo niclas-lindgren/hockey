@@ -197,11 +197,6 @@
         "url": "https://kongsberghallen.no/webkalender/ishall/"
       },
       {
-        "name": "Kongsberg ballhall (garderobe)",
-        "type": "outlook",
-        "url": "https://kongsberghallen.no/webkalender/ballhall-dagtid-og-helg/"
-      },
-      {
         "name": "Skien ishall",
         "type": "outlook",
         "url": "https://skienfritidspark.brp.exigo.no/ishallen"
@@ -241,6 +236,7 @@
         "type": "outlook",
         "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen"
       }
-    ]
+    ],
+    "source_count": 9
   }
 }
