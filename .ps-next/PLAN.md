@@ -22,7 +22,7 @@
   - Files: `tournament_scheduler/conflict_checkers/timeslot_checker.py`, new `tournament_scheduler/utils/slot_finder.py`
   - Acceptance: A new `find_available_slots(events: List[CalendarEvent], check_date: date, required_minutes: int, earliest_start="09:00", latest_start="20:00") -> List[Tuple[str,str]]` function (or class) is extracted/generalized from `TimeSlotChecker._find_available_slots`, parameterized by required duration in minutes (not just hours) so it can consume `Tournament.duration_minutes(round_length)` directly; `TimeSlotChecker` is refactored to call this shared function so behavior is unchanged for existing callers.
 
-- [ ] Add multi-arena lookup support to `club_registry`
+- [x] Added arenas_for_date_search(host_club) to club_registry.py, returning the host club's known ClubCalendarSource entry first followed by all other clubs with known calendar sources, in CLUB_REGISTRY order, for use as fallback hosts during slot finding. — 2026-06-10
   - Files: `tournament_scheduler/club_registry.py`
   - Acceptance: `club_registry.py` exposes a function (e.g. `arenas_for_date_search(host_club: str) -> List[ClubCalendarSource]`) returning the host club's own entry first followed by other known clubs' entries (fallback candidates), without requiring a structural rewrite of `CLUB_REGISTRY` to support multiple arenas per club (single-arena-per-club model is preserved per club entry).
 
@@ -70,4 +70,11 @@ LESSONS: none
 **Findings:** Full pytest suite passes (288 passed, 1 skipped) except the same pre-existing unrelated failure (test_zero_events_blocks_source) seen before this change.
 LESSONS: none
 **Files:** tournament_scheduler/conflict_checkers/timeslot_checker.py (+8/-73), tournament_scheduler/utils/slot_finder.py (+132 new file)
+**Commit:** 169e013 (hockey)
+
+### 2026-06-10 — Added arenas_for_date_search(host_club) to club_registry.py, returning the host club's known ClubCalendarSource entry first followed by all other clubs with known calendar sources, in CLUB_REGISTRY order, for use as fallback hosts during slot finding.
+**Rationale:** Preserved the single-arena-per-club model as specified -- no structural rewrite of CLUB_REGISTRY needed; clubs with skipTrue or no source are simply omitted from the candidate list.
+**Findings:** Verified ordering with a manual smoke test (host first, host's own entry omitted from the fallback tail); full pytest suite passes (288 passed, 1 skipped) except the same pre-existing unrelated failure (test_zero_events_blocks_source).
+LESSONS: none
+**Files:** tournament_scheduler/club_registry.py (+35)
 **Commit:** [pending — fill after commit]

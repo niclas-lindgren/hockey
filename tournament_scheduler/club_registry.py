@@ -196,6 +196,41 @@ def club_for_source_name(source_name: str) -> Optional[str]:
     return None
 
 
+def arenas_for_date_search(host_club: str) -> List[ClubCalendarSource]:
+    """Return arena candidates for a date/slot search, host first.
+
+    Returns the *host_club*'s own :class:`ClubCalendarSource` entry first
+    (if it has a known calendar source), followed by every other club with a
+    known calendar source as fallback hosts -- in :data:`CLUB_REGISTRY`
+    iteration order.
+
+    This preserves the existing single-arena-per-club model (each registry
+    entry still has exactly one ``arena``); it simply orders the known
+    entries so a slot-finder can try the preferred host first and fall back
+    to other clubs' arenas/calendars for the same date if needed.
+
+    Clubs without a usable calendar source (``skip=True`` or ``source is
+    None``) are omitted entirely, including the host itself if it has no
+    known source.
+
+    Raises ``KeyError`` (via :func:`get_club`) if *host_club* is not in
+    :data:`CLUB_REGISTRY`.
+    """
+    host_entry = get_club(host_club)
+
+    candidates: List[ClubCalendarSource] = []
+    if host_entry.is_known:
+        candidates.append(host_entry)
+
+    for club_name, entry in CLUB_REGISTRY.items():
+        if club_name == host_club:
+            continue
+        if entry.is_known:
+            candidates.append(entry)
+
+    return candidates
+
+
 def get_club(name: str) -> ClubCalendarSource:
     """Look up a club's registry entry by name.
 
