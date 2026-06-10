@@ -27,7 +27,7 @@
   - In `tests/test_stage3_planning.py`, add a test asserting `_game_to_dict()` includes `round_number` for a `Game` with a non-zero `round_number`. In `tests/test_stage4_export.py`, add or extend a test that builds a checkpoint dict containing `"round_number"` for a game and asserts the reconstructed `Game.round_number` matches (not 0).
   - Acceptance: `pytest tests/test_stage3_planning.py tests/test_stage4_export.py` passes, including the new/updated test cases.
 
-- [ ] Re-run the export pipeline and confirm the 'Runde' column is fixed end-to-end
+- [x] Ran an end-to-end Stage3-serialize -> Stage4-deserialize -> Excel export round trip with a SeasonPlan containing games with round_number1 and round_number2; confirmed the 'Runde' column in the generated tournament sheet shows 1 and 2 respectively (not 0). — 2026-06-10
   - Files: tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/pipeline/stage4_export.py
   - Run the season-plan pipeline (or the relevant unit/integration test) on existing checkpoint data and confirm the Excel and HTML 'Runde' column now shows the correct per-game round numbers (matching `season_planner.py`'s assigned `round_number`, not all zeros).
   - Acceptance: the generated Excel/HTML output for a multi-round tournament shows distinct, non-zero round numbers in the 'Runde' column corresponding to each game's actual round.
@@ -63,4 +63,11 @@ LESSONS: none
 **Findings:** pytest tests/test_stage3_planning.py tests/test_stage4_export.py passes (12 tests).
 LESSONS: none
 **Files:** tests/test_stage3_planning.py (+24/-1), tests/test_stage4_export.py (+2/-1)
+**Commit:** 734085e (hockey)
+
+### 2026-06-10 — Ran an end-to-end Stage3-serialize -> Stage4-deserialize -> Excel export round trip with a SeasonPlan containing games with round_number1 and round_number2; confirmed the 'Runde' column in the generated tournament sheet shows 1 and 2 respectively (not 0).
+**Rationale:** none
+**Findings:** Verified end-to-end: serialized round_numbers [1, 2] -> reconstructed [1, 2] -> Excel 'Runde' column rows show 1 and 2, matching the games' assigned round numbers.
+LESSONS: none
+**Files:** (no files changed)
 **Commit:** [pending — fill after commit]
