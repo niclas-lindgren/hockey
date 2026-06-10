@@ -71,6 +71,18 @@ class CsvExporter:
                         game.away.label,
                         game.parallel_slot,
                     ])
+                # Bye rows for odd-numbered tournaments.
+                bye_rounds = tournament.get_bye_rounds()
+                for round_num in sorted(bye_rounds):
+                    for team_label in bye_rounds[round_num]:
+                        writer.writerow([
+                            date_str,
+                            tournament.arena,
+                            tournament.age_group,
+                            "(Pause)",
+                            team_label,
+                            "",
+                        ])
 
     def _write_overview(self, plan: SeasonPlan, path: Path) -> None:
         with path.open("w", newline="", encoding="utf-8") as fh:

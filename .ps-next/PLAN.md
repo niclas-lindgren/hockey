@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/excel/plan_exporter.py
   - Approach: After the game rows in `_write_tournament_sheet`, append bye rows when the tournament has an odd number of teams. Format: `[round_number, "(Pause)", team_label, ""]` for each team with a bye that round. The "Kamp-tabell" section already lists rounds — bye rows fit naturally alongside game rows.
 
-- [ ] Include bye rows in CSV games export
+- [x] Include bye rows in CSV games export
   - Files: tournament_scheduler/csv/csv_exporter.py
   - Approach: In `_write_games`, append rows with `home="(Pause)"` and `away=team_label` for each bye. Keep date/arena/age_group consistent.
 
@@ -45,6 +45,13 @@
 
 
 
+
+### 2026-06-10 — Include bye rows in CSV games export
+**Done:** Add bye rows to `_write_games` in CsvExporter: after regular game rows, append `[date, arena, age_group, "(Pause)", team_label, ""]` for each bye.
+**Rationale:** Consistent with Excel format: "(Pause)" as home, bye team as away, empty parallel_slot. Keeps the same CSV column structure.
+**Findings:** Verified 5 bye rows exported for 5-team tournament. All 50 existing tests pass.
+**Files:** tournament_scheduler/csv/csv_exporter.py (+12)
+**Commit:** not committed
 ### 2026-06-10 — Show bye rows in Excel per-tournament game sheets
 **Done:** Append bye rows after game rows in `_write_tournament_sheet`: `[round_number, "(Pause)", team_label, ""]` for each team with a bye. Only runs when tournament.get_bye_rounds() is non-empty.
 **Rationale:** Bye rows fit naturally alongside game rows — they share the same column structure (Runde/Hjemmelag/Bortelag/Parallellbane), with "(Pause)" as home and the bye team as away.
