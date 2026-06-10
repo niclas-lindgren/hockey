@@ -1319,23 +1319,37 @@ async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promi
         const agent = new ScraperAgent(ctx);
         await agent.start();
 
-        const strategies: Record<string, { url: string; strategy: string; iframe: boolean }> = {
-          "Jutul": { url: "https://embed.styledcalendar.com/#rYk5U1FtYNByMIMz2AoR", strategy: "styledcalendar", iframe: false },
-          "Tønsberg": { url: "https://www.bookup.no/utleie/Index/860", strategy: "auto", iframe: false },
-          "Sandefjord Penguins": { url: "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen", strategy: "auto", iframe: false },
-        };
+        // Fetch strategies from Python for blocked sources
+        async function fetchStrategy(clubName: string): Promise<Record<string, unknown> | null> {
+          try {
+            const { execFile } = await import("node:child_process");
+            const { promisify } = await import("node:util");
+            const efa = promisify(execFile);
+            const python = resolve(cwdPath, "venv", "bin", "python3");
+            const exe = existsSync(python) ? python : "python3";
+            const { stdout } = await efa(exe, [
+              "-m", "tournament_scheduler.pipeline.scraper_strategies",
+              "--name", clubName,
+            ], { cwd: cwdPath, timeout: 10_000 });
+            return JSON.parse(stdout) as Record<string, unknown>;
+          } catch {
+            return null;
+          }
+        }
 
         for (const name of blocked) {
-          const strat = strategies[name];
-          if (!strat) {
+          const strat = await fetchStrategy(name);
+          if (!strat || !strat.url) {
             lines.push(`  ${name}: ingen strategi — hopper over`);
             continue;
           }
           lines.push(`  ${name}: skraper med ScraperAgent...`);
-          const events = await agent.scrape(strat.url, {
-            strategy: strat.strategy as any,
-            iframe: strat.iframe,
+          const initialNav = (strat.initial_navigation as Array<Record<string, unknown>>) ?? [];
+          const events = await agent.scrape(strat.url as string, {
+            strategy: (strat.engine === "styled_calendar" ? "styledcalendar" : "auto") as any,
+            iframe: (strat.has_iframe as boolean) ?? false,
             maxIterations: 25,
+            initialNavigation: initialNav.length > 0 ? initialNav as any : undefined,
           });
           lines.push(`  ${name}: ${events.length} events funnet\n`);
 

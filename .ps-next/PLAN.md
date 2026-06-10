@@ -1,66 +1,32 @@
-# Plan: Spond season-plan export
-**Goal:** The generated season plan can be exported to Spond's Excel-import format (one sheet with game-level rows), integrated into Stage 4 pipeline and CLI/interactive flows.
+# Plan: BookUp authentication & 100% calendar fidelity
+**Goal:** BookUp clubs (Tønsberg, Sandefjord Penguins) can be scraped with authentication via the ScraperAgent, and a new comparison tool audits all 9 club scrapers for fidelity against source calendars.
 **Created:** 2026-06-10
-**Intent:** Spond is the de facto team-management app for Norwegian youth sports. Organizers need to import the season plan into Spond's Season Planner so coaches and parents see tournament dates in the app. This export produces a single-sheet Excel workbook that Spond's import dialog accepts directly.
-**Backlog-ref:** 8
+**Intent:** Enable scraping of the two BookUp SPA clubs that require login, and build a deterministic comparison tool to catch scraper regressions — ensuring every event visible on the source calendar appears in scraped output.
+**Backlog-ref:** 30
 
 ## Tasks
-- [x] Build Spond Excel exporter module
-  - Files: tournament_scheduler/spond/spond_exporter.py, tournament_scheduler/spond/__init__.py
-  - Approach: Create a new `spond/` package with a `SpondExporter` class. Generate an Excel workbook with one sheet containing game-level rows. Spond's season-plan import expects columns: Date (DD.MM.YYYY), Activity name (age group + home vs away), Location (arena), Start time (optional placeholder), End time (optional placeholder). The Activity name follows the pattern "<age_group>: <home> vs <away>" for game-level export, and tournament-level summary rows as "<age_group> Turnering — <arena>". Use openpyxl (already in requirements). Follow the same exporter pattern as `CsvExporter` and `SeasonPlanExporter`. Include an `export()` method taking `SeasonPlan` and output path, returning the path.
+- [ ] Pass scraper strategy initial_navigation to the ScraperAgent and execute pre-loop
+  - Files: .pi/lib/scraper-agent.ts, .pi/extensions/rvv-miniputt.ts, tournament_scheduler/pipeline/scraper_strategies.py, tournament_scheduler/pipeline/browser_worker.py
+  - Approach: (1) Create a Python CLI entry point in `scraper_strategies.py` that dumps a named strategy as JSON (with initial_navigation steps). (2) In `scraper-agent.ts`, add `initialNavigation` param to the `scrape()` method — the agent executes these steps before starting the LLM agent loop, substituting `$BOOKUP_EMAIL`/`$BOOKUP_PASSWORD` from `process.env`. (3) In `rvv-miniputt.ts`, before creating the ScraperAgent, call the Python JSON dump to get the strategy, extract initial_navigation, and pass it to `agent.scrape()`.
 
-- [x] Wire Spond export into Stage 4 pipeline
-  - Files: tournament_scheduler/pipeline/stage4_export.py
-  - Approach: Import `SpondExporter` and add a Spond export block after the existing HTML export. Write to `<export_dir>/<basename>_spond.xlsx`. Add to `output_files` dict under key `"spond"`. Follow the same try/except pattern as the other exports.
-
-- [x] Add `--export-spond PATH` CLI flag
-  - Files: tournament_scheduler.py, tournament_scheduler/cli/season_command.py
-  - Approach: Add `--export-spond` to argparse in tournament_scheduler.py. In `SeasonCommand.run()`, after existing exports, call `SpondExporter().export()`. Follow the same pattern as `--export-csv` / `--export-ical`.
-
-- [x] Add interactive Spond export flow
-  - Files: tournament_scheduler_interactive.py
-  - Approach: After the iCal export question in `run_season_plan()`, add a Spond export question "Vil du eksportere sesongplanen til Spond-format (.xlsx)?" with default=True (since Spond is primary target). Call `SpondExporter().export()`.
+- [ ] Build calendar fidelity comparison tool
+  - Files: tournament_scheduler/tools/calendar_compare.py, tournament_scheduler/pipeline/scraper_strategies.py
+  - Approach: Create `tournament_scheduler/tools/calendar_compare.py` as a standalone CLI that (a) reads source configs from `input.json` (or Stage 1 checkpoint via `--work-dir`), (b) for each source, runs its deterministic scraper (or ScraperAgent for non-deterministic sources) for a fixed target week (default to a known week, configurable via `--week YYYY-MM-DD`), (c) outputs a structured JSON diff with scraped events per source and fidelity warnings (zero events, date-range anomalies, missing days-of-week patterns), and (d) generates a human-readable summary. Expose as `python3 -m tournament_scheduler.tools.calendar_compare`.
 
 ## Notes
-- Spond's season-plan Excel import uses a single-sheet format. Each row is an activity/event. The exact column order from Spond's documented import template is: **Dato** (DD.MM.YYYY), **Aktivitet**, **Sted**, **Start**, **Slutt**. We fill Date, Activity (= "<age_group>: <home> vs <away>"), and Location (= arena). Start/End are left empty since game times aren't in the model yet.
-- The iCal export (backlog #18) already provides a calendar-import path into Spond, but Spond's Season Planner specifically works with this Excel format for structured season planning.
-- openpyxl is already in requirements.txt and used by SeasonPlanExporter.
-- The existing `existing_schedule/U10_ETTER_JUL_Klar_-_Kongsberg_Sandefjord.xlsx` is a real schedule that was managed via Spond — the column structure there informs this format.
+- BookUp SPA: The two BookUp clubs (Tønsberg and Sandefjord Penguins) require login. The `scraper_strategies.py` already defines `initial_navigation` steps with env var placeholders. The ScraperAgent must execute these before the LLM loop.
+- Env vars: `BOOKUP_EMAIL` and `BOOKUP_PASSWORD` are expected in the process environment when running the ScraperAgent with BookUp clubs.
+- Calendar compare: The comparison tool uses the existing Stage 2 scrapers for deterministic sources; BookUp/Jutul/Jar/Holmen (non-deterministic) will need the ScraperAgent, so the compare tool provides a `--use-agent` flag.
+- Fidelity warnings include: zero events for a source that historically had bookings, events outside the requested date range, duplicate events, and sources where every day is empty (potential scraper failure).
+- The compare tool writes results to `.pipeline/compare/<source>_<week>.json` for archival and trend tracking.
 
 ## Acceptance Criteria
-- [ ] `python3 -c 'from tournament_scheduler.spond.spond_exporter import SpondExporter; assert SpondExporter() is not None'` succeeds.
-- [ ] `python3 -m pytest tests/ -x -q` passes.
-- [ ] `grep: "spond" in tournament_scheduler/pipeline/stage4_export.py` shows Spond export wired into Stage 4.
-- [ ] `grep: "export-spond" in tournament_scheduler.py` shows the CLI flag.
-- [ ] `grep: "Spond" in tournament_scheduler_interactive.py` shows interactive flow.
-- [ ] Run: `python3 -c 'from tournament_scheduler.spond.spond_exporter import SpondExporter; from tournament_scheduler.models import SeasonPlan, Tournament, Team, Game; from datetime import date; t = Tournament(date=date(2026,9,6), arena="Jarhallen", age_group="U10", teams=[Team(club="Jar",label="Jar 1",age_group="U10"), Team(club="Jar",label="Jar 2",age_group="U10")], games=[Game(home=Team(club="Jar",label="Jar 1",age_group="U10"), away=Team(club="Jar",label="Jar 2",age_group="U10"))]); p = SeasonPlan(tournaments=[t]); SpondExporter().export(p, "/tmp/test_spond.xlsx"); print("OK")'` produces no error.
+- [ ] ScraperAgent's `scrape()` method accepts `initialNavigation` array, executes login steps before the LLM loop, and substitutes `$BOOKUP_EMAIL`/`$BOOKUP_PASSWORD` from process.env
+- [ ] `python3 -m tournament_scheduler.pipeline.scraper_strategies --name "Tønsberg"` outputs valid JSON with the full strategy including `initial_navigation`
+- [ ] `python3 -m tournament_scheduler.tools.calendar_compare --week 2026-10-05` runs against all 9 sources and produces a fidelity report
+- [ ] Calendar compare tool reports fidelity warnings for zero-event sources and date-range anomalies as structured JSON
+- [ ] run: python3 -m tournament_scheduler.tools.calendar_compare --week 2026-10-05 2>&1 | head -30 (syntax check)
+- [ ] run: python3 -m tournament_scheduler.pipeline.scraper_strategies --name "Tønsberg" 2>&1 | python3 -m json.tool (valid JSON output)
 
 ## Log
-
-
-
-
-### 2026-06-10 — Add interactive Spond export flow
-**Done:** Added Spond export question after iCal export in run_season_plan(), with default=True since Spond is the primary target. Follows the same ask_yes_no/ask_text pattern.
-**Rationale:** Spond is the main platform Norwegian hockey teams use — the export should be prominent and default-on in interactive mode.
-**Findings:** none
-**Files:** tournament_scheduler_interactive.py (+5)
-**Commit:** not committed
-### 2026-06-10 — Add `--export-spond PATH` CLI flag
-**Done:** Added --export-spond PATH to argparse in tournament_scheduler.py and wired SpondExporter().export() into SeasonCommand.run() after existing exports.
-**Rationale:** Follows the same pattern as --export-csv and --export-ical flags.
-**Findings:** none
-**Files:** tournament_scheduler.py (+2), tournament_scheduler/cli/season_command.py (+5)
-**Commit:** not committed
-### 2026-06-10 — Wire Spond export into Stage 4 pipeline
-**Done:** Added SpondExporter import and export block to stage4_export.py. Spond export runs after HTML export, writes to <export_dir>/<basename>_spond.xlsx, output key "spond". Same try/except pattern as other exports.
-**Rationale:** Follows the established pattern — each export format gets its own try/except block in run(). Spond is the last export since it's the newest addition.
-**Findings:** none
-**Files:** tournament_scheduler/pipeline/stage4_export.py (+2 import, +7 export block)
-**Commit:** not committed
-### 2026-06-10 — Build Spond Excel exporter module
-**Done:** Created tournament_scheduler/spond/ package with SpondExporter class. Generates a single-sheet Excel workbook with Spond's season-plan import columns: Dato, Aktivitet, Sted, Start, Slutt. Supports game-level (one row per game: "U10: Jar 1 vs Jar 2") and tournament-level modes. Uses openpyxl, follows existing exporter conventions.
-**Rationale:** Spond's format is well-known in Norwegian sports: Date | Activity | Location | Start | End. openpyxl already in requirements.txt.
-**Findings:** Spond help pages are JS-rendered and behind auth — format confirmed via domain knowledge. Existing schedule Excel (existing_schedule/U10_ETTER_JUL_Klar_-_Kongsberg_Sandefjord.xlsx) was Spond-exported but shows the opposite direction (export from Spond, not import).
-**Files:** tournament_scheduler/spond/__init__.py (+4), tournament_scheduler/spond/spond_exporter.py (+99), tournament_scheduler/pipeline/stage4_export.py (+9)
-**Commit:** not committed
+<!-- pi-next appends entries here after each task -->

@@ -221,6 +221,25 @@ def needs_llm_agent(strategy: ScraperStrategy) -> bool:
     return not has_direct_scraper(strategy)
 
 
+def strategy_to_dict(strategy: ScraperStrategy) -> dict[str, Any]:
+    """Serialize a :class:`ScraperStrategy` to a JSON-safe dict.
+
+    Includes ``initial_navigation`` steps for the Pi ScraperAgent.
+    """
+    return {
+        "engine": strategy.engine.value,
+        "url": strategy.url,
+        "has_iframe": strategy.has_iframe,
+        "date_param": strategy.date_param,
+        "month_selector": strategy.month_selector,
+        "event_pattern": strategy.event_pattern,
+        "direct_ical_feed": strategy.direct_ical_feed,
+        "direct_scraper": strategy.direct_scraper,
+        "initial_navigation": strategy.initial_navigation,
+        "note": strategy.note,
+    }
+
+
 def list_strategies() -> dict[str, dict[str, Any]]:
     """Return a JSON-serialisable summary of all strategies."""
     return {
@@ -233,3 +252,46 @@ def list_strategies() -> dict[str, dict[str, Any]]:
         }
         for name, s in STRATEGIES.items()
     }
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point — dumps strategy JSON for the Pi ScraperAgent
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":  # pragma: no cover
+    import argparse
+    import json
+    import sys
+
+    parser = argparse.ArgumentParser(
+        description="Eksporter scraper-strategi som JSON for Pi ScraperAgent"
+    )
+    parser.add_argument(
+        "--name", type=str, default="",
+        help="Klubbnavn (f.eks. 'Tønsberg', 'Sandefjord Penguins')"
+    )
+    parser.add_argument(
+        "--all", action="store_true",
+        help="Eksporter alle strategier"
+    )
+    args = parser.parse_args()
+
+    if args.all:
+        result = {
+            name: strategy_to_dict(s)
+            for name, s in STRATEGIES.items()
+        }
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+        sys.exit(0)
+
+    if args.name:
+        strategy = get_strategy(args.name)
+        if not strategy:
+            print(f"Ukjent klubb: '{args.name}'. Kjente: {', '.join(STRATEGIES.keys())}",
+                  file=sys.stderr)
+            sys.exit(1)
+        print(json.dumps(strategy_to_dict(strategy), indent=2, ensure_ascii=False))
+        sys.exit(0)
+
+    parser.print_help()
+    sys.exit(0)
