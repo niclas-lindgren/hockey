@@ -1,99 +1,66 @@
-# Plan: Tournament start time and computed duration/end time
-**Goal:** Add a `start_time` field per tournament (e.g. 09:00), compute its duration/end-time from a configurable per-age-group `round_length_minutes` × the number of rounds scheduled for that tournament's age group, and surface start/end time in season_plan.html, calendars.html, the Excel export, and the iCal export (DTSTART/DTEND).
-**Created:** 2026-06-10
-**Intent:** Organizers and families currently only see a tournament date with no time-of-day information, making it impossible to plan travel or schedule around tournaments without contacting the host club.
-**Backlog-ref:** 48
+# PLAN
+
+**Feature:** Time-of-day-aware arena slot finding for tournaments — depends on #48 (computed tournament duration per age group). Currently `find_available_dates` in `season_planner.py` only checks whole-day conflicts via `club_registry`, where each club has exactly one arena and calendar. Once #48 provides the required total duration for a tournament (round length × rounds for its age group), extend the scheduler to: (1) parse hour-level booking data from each arena's ice calendar (already scraped) to find actual free timeslots within a candidate date that fit the required duration, (2) if the preferred/host arena (e.g. Varner) has no free slot of sufficient length on that date, check other clubs'/arenas' calendars for the same date as fallback hosts, (3) among arenas with a fitting slot, pick the one offering the most optimal time-of-day (e.g. avoiding very early/late slots) while still respecting existing fairness constraints — proportional hosting per club team count (#11), travel distance (#46), and even per-team game spread. May require extending `club_registry`/`ClubCalendarSource` to support multiple arenas per club/region and exposing per-slot (not just per-day) availability from the calendar scrapers.
+
+**Goal:** Time-of-day-aware arena slot finding for tournaments — depends on #48 (computed tournament duration per age group). Currently `find_available_dates` in `season_planner.py` only checks whole-day conflicts via `club_registry`, where each club has exactly one arena and calendar. Once #48 provides the required total duration for a tournament (round length × rounds for its age group), extend the scheduler to: (1) parse hour-level booking data from each arena's ice calendar (already scraped) to find actual free timeslots within a candidate date that fit the required duration, (2) if the preferred/host arena (e.g. Varner) has no free slot of sufficient length on that date, check other clubs'/arenas' calendars for the same date as fallback hosts, (3) among arenas with a fitting slot, pick the one offering the most optimal time-of-day (e.g. avoiding very early/late slots) while still respecting existing fairness constraints — proportional hosting per club team count (#11), travel distance (#46), and even per-team game spread. May require extending `club_registry`/`ClubCalendarSource` to support multiple arenas per club/region and exposing per-slot (not just per-day) availability from the calendar scrapers.
+
+**Backlog-ref:** 51
+
+**Constraints:** none
+
+**Date:** 2026-06-10
+
+**Intent:** Replace the fixed 09:00 start time and whole-day-only availability checks with real per-arena hour-level slot finding, so generated tournaments are scheduled at arenas and times that are actually free for the duration #48 computes, with sensible fallback hosts when the preferred arena is busy.
 
 ## Tasks
-- [x] Added FEDERATION_ROUND_LENGTH_DEFAULTS dict to season_config.py with per-age-group default round lengths (U7/U8: 8min, U9/U10/JU10/JU11: 10min, U11/U12/JU12/JU13: 12min), and added round_length_minutes parsing/validation to stage1_config.py mirroring the parallel_games pattern, with federation defaults as fallback for missing age groups. — 2026-06-10
-  - Files: tournament_scheduler/season_config.py, tournament_scheduler/pipeline/stage1_config.py
-  - Approach: Mirror the `FEDERATION_PARALLEL_GAMES_DEFAULTS` pattern in season_config.py (lines 39-50): add a `FEDERATION_ROUND_LENGTH_DEFAULTS: Dict[str, int]` dict with sensible per-age-group minute values (e.g. U7/U8: 8, U9/U10: 10, U11/U12: 12, JU10/JU11: 10, JU12/JU13: 12), then in stage1_config.py add `round_length_minutes` parsing/validation in `validate_config()` (lines 165-187) and `_parse_config()` (lines 275-280) following the same dict-of-int validation as `parallel_games`, falling back to the federation defaults when a key is absent.
 
-- [x] Added an optional start_time field (HH:MM string) to the Tournament dataclass plus duration_minutes(round_length) and end_time(round_length) helper methods that compute total duration from round_length * max round_number and the resulting end time via datetime/timedelta arithmetic. — 2026-06-10
-  - Files: tournament_scheduler/models.py
-  - Approach: Add `start_time: Optional[str] = None` (HH:MM string, e.g. "09:00") to the Tournament dataclass (around lines 131-139). Add a helper method or property (e.g. `duration_minutes(round_length: int) -> int` returning `round_length * len({g.round_number for g in self.games})` or `round_length * max(round_numbers, default=0)`, and `end_time(round_length: int) -> Optional[str]` that adds `duration_minutes` to `start_time` using `datetime`/`timedelta` and returns an HH:MM string, or None if `start_time` is unset.
+- [x] Added club_for_source_name() to club_registry.py to map Stage 1 source names to CLUB_REGISTRY club names, and a new _group_events_by_club() helper in stage2_scraping.py that groups serialized per-source events into a Dict[str, List[CalendarEvent dict]] keyed by club name, written to the checkpoint as 'events_by_club' alongside the existing flat 'sources' list. — 2026-06-10
+  - Files: `tournament_scheduler/pipeline/stage2_scraping.py`, `tournament_scheduler/club_registry.py`
+  - Acceptance: `stage2_scraping.py` produces (or returns alongside the flat event list) a `Dict[str, List[CalendarEvent]]` keyed by club name (using `CLUB_REGISTRY` club names), so downstream code can look up "all events for Frisk Asker's Varner Arena" without re-filtering a flat list; existing flat-list consumers continue to work unchanged.
 
-- [x] Added round_length_for_age_group param to SeasonPlanner.__init__, set a DEFAULT_TOURNAMENT_START_TIME ("09:00") on each generated Tournament, and threaded round_length_minutes config through stage3_planning.py (_build_round_length, _make_planner) alongside parallel_games. Also added start_time to tournament serialization (_tournament_to_dict/_tournament_from_dict). — 2026-06-10
-  - Files: tournament_scheduler/season_planner.py, tournament_scheduler/pipeline/stage3_planning.py
-  - Approach: When tournaments are constructed in season_planner.py (where `parallel_games` is currently consumed, around lines 120/229-230/518-519), set a default `start_time` (e.g. "09:00", configurable later) on each Tournament, and pass the resolved `round_length_minutes` config through stage3_planning.py (line 213, alongside how `parallel_games` is passed) so the planner has access to the per-age-group round length for duration calculations.
+- [ ] Extract a reusable per-arena slot-finder from `TimeSlotChecker`
+  - Files: `tournament_scheduler/conflict_checkers/timeslot_checker.py`, new `tournament_scheduler/utils/slot_finder.py`
+  - Acceptance: A new `find_available_slots(events: List[CalendarEvent], check_date: date, required_minutes: int, earliest_start="09:00", latest_start="20:00") -> List[Tuple[str,str]]` function (or class) is extracted/generalized from `TimeSlotChecker._find_available_slots`, parameterized by required duration in minutes (not just hours) so it can consume `Tournament.duration_minutes(round_length)` directly; `TimeSlotChecker` is refactored to call this shared function so behavior is unchanged for existing callers.
 
-- [x] Added round_length_for_age_group param to ICalExporter and two helper methods (_tournament_start_datetime, _tournament_end_datetime) that derive DTSTART from tournament.start_time (falling back to start_hour) and DTEND from Tournament.duration_minutes()/end_time() driven by per-age-group round_length_minutes, falling back to the existing game_duration_minutes-based calculation when start_time or round length is unavailable. Applied to per-game events, the cancelled-tournament event, and the per-tournament summary event. — 2026-06-10
-  - Files: tournament_scheduler/ical/ical_exporter.py
-  - Approach: Replace the fixed `self.start_hour`/`self.game_duration_minutes` logic at lines 137-148 — build `dt_start` from `tournament.date` plus `tournament.start_time` (parsed HH:MM, falling back to `self.start_hour` if `start_time` is None for backward compatibility), and compute `dt_end` using the tournament's `end_time()`/`duration_minutes()` (driven by the per-age-group `round_length_minutes` passed into the exporter) instead of the flat `game_duration_minutes` constant.
+- [ ] Add multi-arena lookup support to `club_registry`
+  - Files: `tournament_scheduler/club_registry.py`
+  - Acceptance: `club_registry.py` exposes a function (e.g. `arenas_for_date_search(host_club: str) -> List[ClubCalendarSource]`) returning the host club's own entry first followed by other known clubs' entries (fallback candidates), without requiring a structural rewrite of `CLUB_REGISTRY` to support multiple arenas per club (single-arena-per-club model is preserved per club entry).
 
-- [x] Added "Starttid" and "Sluttid" columns to _OVERVIEW_HEADERS, added an optional round_length_for_age_group param to export()/_write_overview_sheet(), and appended tournament.start_time and the computed end time (via Tournament.end_time(round_length)) to each overview row, falling back to empty strings when unavailable. Updated test_overview_rows_match_plan_tournaments for the new columns. — 2026-06-10
-  - Files: tournament_scheduler/excel/plan_exporter.py
-  - Approach: Extend `_OVERVIEW_HEADERS` (line 37) with "Starttid" and "Sluttid" columns, and in `_write_overview_sheet` (lines 96-110) append `tournament.start_time or ""` and the computed end time string (via the Tournament model's `end_time()` using the resolved `round_length_minutes` for `tournament.age_group`) for each row.
+- [ ] Implement `find_arena_slot_for_date` in the scheduler combining duration + fallback + time-of-day scoring
+  - Files: `tournament_scheduler/scheduler.py`, `tournament_scheduler/utils/slot_finder.py`
+  - Approach: New method `TournamentScheduler.find_arena_slot_for_date(check_date: date, host_club: str, required_minutes: int, events_by_club: Dict[str, List[CalendarEvent]]) -> Optional[Tuple[str, str, str]]` (returns `(host_club_used, start_HH:MM, end_HH:MM)`). Tries the host club's arena first via `find_available_slots`; if no slot of `required_minutes` fits, iterates `club_registry.arenas_for_date_search(host_club)` fallback candidates in order. Among all arenas with a fitting slot, scores each candidate slot's start time against an "optimal window" (e.g. closest to 11:00, penalizing slots starting before ~10:00 or after ~16:00) and picks the best-scoring (host-arena ties broken in favor of the original host).
+  - Acceptance: Calling `find_arena_slot_for_date` with a host club whose arena is fully booked on a date, but where another known club's arena has a fitting gap, returns that other club as `host_club_used` with valid `start_HH:MM`/`end_HH:MM` strings; calling it when the host arena has a fitting slot returns the host arena's slot without checking fallbacks unless that slot scores worse than a fallback's.
 
-- [x] Added an optional round_length_for_age_group param to HtmlExporter.export()/_plan_to_json, which now includes 'ts' (start_time) and 'te' (computed end_time via Tournament.end_time(round_length)) in the per-tournament JSON when available. Updated script.js to render a '.time-range' badge (e.g. '09:00–10:30') in the tournament-date block, and added matching CSS in styles.css. calendar_viewer.py (calendars.html) operates on raw scraped arena calendar events, not Tournament objects, and already shows per-event start/end times via its existing _format_time helper — no Tournament-specific change applies there. — 2026-06-10
-  - Files: tournament_scheduler/pipeline/calendar_viewer.py, tournament_scheduler/html/html_exporter.py, tournament_scheduler/html/templates/styles.css
-  - Approach: Locate where tournament cards/date blocks are rendered (the `.tournament-date` markup referenced in styles.css) in calendar_viewer.py and html_exporter.py, and add a small time-range element (e.g. "09:00–10:30") computed from `tournament.start_time` and the model's `end_time()` helper using the per-age-group `round_length_minutes`; add minimal supporting CSS rules alongside the existing `.tournament-date` styles.
+- [ ] Wire slot-aware host/time selection into `SeasonPlanner.build_plan`
+  - Files: `tournament_scheduler/season_planner.py`
+  - Approach: After `_assign_hosts(chosen_dates)` produces `host_assignments`, for each `(tournament_date, host_club)` compute `required_minutes` from `round_length_for_age_group.get(age_group)` × number of rounds (estimate rounds from `_max_teams_for`/participant count via `generate_round_robin_games`, consistent with how `Tournament.duration_minutes` is computed post-hoc) and call `scheduler.find_arena_slot_for_date(...)`. If a fallback host is selected, use that club's arena/host_club for the `Tournament` and adjust `arena_counts`/hosting bookkeeping accordingly (still counted toward `_assign_hosts`'s proportional totals via the originally assigned host_club where reasonable — document the tradeoff). Set `Tournament.start_time` to the selected slot's start time instead of `DEFAULT_TOURNAMENT_START_TIME`.
+  - Acceptance: `SeasonPlanner.build_plan()` produces `Tournament` objects whose `start_time` reflects the actual computed free slot (not always `"09:00"`) when calendar events constrain the date, and falls back to `DEFAULT_TOURNAMENT_START_TIME` when no calendar data is available for any candidate arena (preserving current behavior for clubs with `skip=True`/unknown sources).
 
-- [x] Added TestTournamentDurationAndEndTime in test_models.py covering Tournament.duration_minutes (zero with no games, max-round scaling, round-length scaling) and Tournament.end_time (computed from start_time, hour rollover, None when start_time unset). Added TestTournamentStartTimeAndRoundLength in test_season_planner.py verifying generated tournaments default to start_time'09:00', round_length_for_age_group is stored on the planner (and defaults to {}), and generated tournament durations/end times are consistent with the configured round lengths. — 2026-06-10
-  - Files: tests/test_season_planner.py, tests/test_models.py
-  - Approach: Add a test verifying `round_length_minutes` is loaded/validated with federation defaults (mirroring existing `parallel_games` tests), and tests for the Tournament model's `duration_minutes`/`end_time` helpers across different age groups and round counts (including the no-`start_time` backward-compatible case returning None).
+- [ ] Surface slot/host-fallback decisions in exports and rules report
+  - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/pipeline/stage4_export.py`
+  - Approach: Extend the existing rules/decisions report (from the prior "rules-decisions-report" feature) with an entry explaining the time-of-day slot-finding rule and any fallback-host substitutions made (date, original host, fallback host, reason); ensure Excel/iCal/HTML exports already keyed off `Tournament.start_time`/`end_time(round_length)` (#48) automatically reflect the new computed times with no further export-layer changes needed beyond verification.
+  - Acceptance: When `SeasonPlanner` substitutes a fallback host for a date, the rules/decisions report (CLI output and Excel sheet) contains a Norwegian-language line naming the original host, the fallback host, and the date; exporters produce Excel/iCal/HTML output reflecting the slot-derived `start_time` without additional per-exporter code changes.
 
-## Notes
-- No prior plan covers start_time/duration; this is new ground beyond the existing `parallel_games`, `round_number`, and iCal/Excel export work already in HISTORY.
-- Keep `start_time` optional/backward-compatible: existing tournaments without a start_time should not break exports (iCal falls back to its current fixed `self.start_hour` behavior, Excel/HTML show blank time columns).
-- Federation default round lengths should be documented similarly to the `FEDERATION_PARALLEL_GAMES_DEFAULTS` comment block in season_config.py.
+- [ ] Add tests for per-arena slot finding, fallback hosting, and time-of-day scoring
+  - Files: `tests/test_slot_finder.py` (new), `tests/test_scheduler.py`, `tests/test_season_planner.py`
+  - Approach: Unit-test `find_available_slots` with synthetic `CalendarEvent` lists (fully booked day, single gap, multiple gaps) asserting correct `(start,end)` tuples for given `required_minutes`; test `TournamentScheduler.find_arena_slot_for_date` for host-has-slot, host-fully-booked-fallback-succeeds, and no-arena-has-slot cases; test `SeasonPlanner.build_plan` end-to-end with mocked `events_by_club` producing tournaments with non-default `start_time` and a fallback-host substitution recorded.
+  - Acceptance: `pytest tests/test_slot_finder.py tests/test_scheduler.py tests/test_season_planner.py` passes, including new tests covering fully-booked-host-with-fallback and no-arena-available scenarios.
 
 ## Acceptance Criteria
-- [ ] `tournament_scheduler/season_config.py` contains a `FEDERATION_ROUND_LENGTH_DEFAULTS` dict with an entry for every age group present in `FEDERATION_PARALLEL_GAMES_DEFAULTS`.
-- [ ] The `Tournament` dataclass in `tournament_scheduler/models.py` has a `start_time` field and a duration/end-time helper that returns a computed HH:MM end time when `start_time` and round length are provided, and returns `None` when `start_time` is not set.
-- [ ] `tournament_scheduler/ical/ical_exporter.py` produces VEVENTs with DTSTART set from `tournament.start_time` (when set) and DTEND set from the computed end time, falling back to the existing fixed-hour behavior when `start_time` is not set.
-- [ ] The Excel overview sheet produced by `tournament_scheduler/excel/plan_exporter.py` contains "Starttid" and "Sluttid" columns with non-empty values for tournaments that have a `start_time`.
-- [ ] Running `pytest` passes, including new tests covering `round_length_minutes` config validation and the Tournament duration/end-time computation.
+
+- `find_available_slots` returns hour-level `(start, end)` time slot tuples per arena that fit the required tournament duration, derived from each arena's `CalendarEvent` list.
+- When the host arena has no slot of sufficient length on a candidate date, `find_arena_slot_for_date` returns a fallback club/arena that does have a fitting slot, or reports that none is available.
+- `SeasonPlanner.build_plan()` produces `Tournament.start_time` values that reflect the actual computed free slot rather than always defaulting to `"09:00"`, while still passing `_scan_hosting_warnings` and `_scan_game_count_warnings` checks.
+- Running `pytest tests/test_slot_finder.py tests/test_scheduler.py tests/test_season_planner.py` exits with code 0 and the new fallback-host and no-slot-available test cases pass.
+- The rules/decisions report output contains a line naming the original host, the fallback host, and the date whenever a fallback-host substitution occurs.
 
 ## Log
-<!-- PS:next appends entries here after each task is executed -->
-<!-- Entry format: ### YYYY-MM-DD — [task name] / **Done:** / **Rationale:** / **Findings:** / **Files:** / **Commit:** -->
 
-### 2026-06-10 — Added FEDERATION_ROUND_LENGTH_DEFAULTS dict to season_config.py with per-age-group default round lengths (U7/U8: 8min, U9/U10/JU10/JU11: 10min, U11/U12/JU12/JU13: 12min), and added round_length_minutes parsing/validation to stage1_config.py mirroring the parallel_games pattern, with federation defaults as fallback for missing age groups.
-**Rationale:** Mirrored the existing FEDERATION_PARALLEL_GAMES_DEFAULTS pattern for consistency with the codebase's existing config validation and merging conventions.
-**Findings:** Added FEDERATION_ROUND_LENGTH_DEFAULTS dict, round_length_minutes validation in validate_config(), and merged round_length_minutes dict (defaults overridden by user config) into the parsed config output. Full test suite: 277 passed, 2 pre-existing failures in test_stage2_scraping.py unrelated to this change (confirmed failing on unmodified code too).
+(no entries yet)
+
+### 2026-06-10 — Added club_for_source_name() to club_registry.py to map Stage 1 source names to CLUB_REGISTRY club names, and a new _group_events_by_club() helper in stage2_scraping.py that groups serialized per-source events into a Dict[str, List[CalendarEvent dict]] keyed by club name, written to the checkpoint as 'events_by_club' alongside the existing flat 'sources' list.
+**Rationale:** Matching is done by exact club name first, then case-insensitive prefix match (handles legacy source names like 'Kongsberg ishall' / 'Skien ishall' which append the hall name to the club name).
+**Findings:** Verified mapping and grouping logic with a manual smoke test; full pytest suite passes (288 passed, 1 skipped) except one pre-existing unrelated failure (test_zero_events_blocks_source) that fails identically on main before this change.
 LESSONS: none
-**Files:** tournament_scheduler/pipeline/stage1_config.py (+29), tournament_scheduler/season_config.py (+18)
-**Commit:** 67044b4 (hockey)
-
-### 2026-06-10 — Added an optional start_time field (HH:MM string) to the Tournament dataclass plus duration_minutes(round_length) and end_time(round_length) helper methods that compute total duration from round_length * max round_number and the resulting end time via datetime/timedelta arithmetic.
-**Rationale:** Followed the approach exactly as specified in the plan; kept start_time optional for backward compatibility, returning None from end_time when unset.
-**Findings:** Tournament model now exposes start_time, duration_minutes(), and end_time(). Full test suite: 278 passed, 1 pre-existing flaky failure in test_stage2_scraping.py unrelated to this change.
-LESSONS: none
-**Files:** tournament_scheduler/models.py (+25/-1)
-**Commit:** 7c1357a (hockey)
-
-### 2026-06-10 — Added round_length_for_age_group param to SeasonPlanner.__init__, set a DEFAULT_TOURNAMENT_START_TIME ("09:00") on each generated Tournament, and threaded round_length_minutes config through stage3_planning.py (_build_round_length, _make_planner) alongside parallel_games. Also added start_time to tournament serialization (_tournament_to_dict/_tournament_from_dict).
-**Rationale:** Followed the plan's approach of mirroring how parallel_games is passed through; added start_time to (de)serialization so the field round-trips through the pipeline checkpoint, since duration/end-time consumers downstream will need it.
-**Findings:** SeasonPlanner now stores round_length_for_age_group and assigns start_time09:00 to every generated Tournament; stage3_planning passes round_length_minutes config through. Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
-LESSONS: none
-**Files:** tournament_scheduler/pipeline/stage3_planning.py (+18/-1), tournament_scheduler/season_planner.py (+10)
-**Commit:** 09c48f9 (hockey)
-
-### 2026-06-10 — Added round_length_for_age_group param to ICalExporter and two helper methods (_tournament_start_datetime, _tournament_end_datetime) that derive DTSTART from tournament.start_time (falling back to start_hour) and DTEND from Tournament.duration_minutes()/end_time() driven by per-age-group round_length_minutes, falling back to the existing game_duration_minutes-based calculation when start_time or round length is unavailable. Applied to per-game events, the cancelled-tournament event, and the per-tournament summary event.
-**Rationale:** Centralized the start/end datetime computation into two helper methods to avoid duplicating fallback logic across the three event-generation code paths (per-game, cancelled, summary).
-**Findings:** ICalExporter now derives event times from tournament.start_time and round_length_minutes when available, with full backward-compatible fallback to the prior start_hour/game_duration_minutes behavior. Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
-LESSONS: ICalExporter call sites (stage4_export.py, cli/season_command.py) do not yet pass round_length_for_age_group — they will use the start_hour/game_duration_minutes fallback until wired up.
-**Files:** tournament_scheduler/ical/ical_exporter.py (+72/-33)
-**Commit:** 3ee1797 (hockey)
-
-### 2026-06-10 — Added "Starttid" and "Sluttid" columns to _OVERVIEW_HEADERS, added an optional round_length_for_age_group param to export()/_write_overview_sheet(), and appended tournament.start_time and the computed end time (via Tournament.end_time(round_length)) to each overview row, falling back to empty strings when unavailable. Updated test_overview_rows_match_plan_tournaments for the new columns.
-**Rationale:** Made round_length_for_age_group an optional kwarg defaulting to {} for backward compatibility with existing call sites in stage4_export.py and cli/season_command.py.
-**Findings:** Excel overview sheet now has 9 columns (added Starttid/Sluttid). Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
-LESSONS: SeasonPlanExporter.export() and ICalExporter both now accept an optional round_length_for_age_group kwarg defaulting to {}/None — existing call sites (stage4_export.py, cli/season_command.py) don't pass it yet and will see empty Sluttid / fallback iCal times until wired up.
-**Files:** tests/test_plan_exporter.py (+5/-1), tournament_scheduler/excel/plan_exporter.py (+27/-4)
-**Commit:** 6267f30 (hockey)
-
-### 2026-06-10 — Added an optional round_length_for_age_group param to HtmlExporter.export()/_plan_to_json, which now includes 'ts' (start_time) and 'te' (computed end_time via Tournament.end_time(round_length)) in the per-tournament JSON when available. Updated script.js to render a '.time-range' badge (e.g. '09:00–10:30') in the tournament-date block, and added matching CSS in styles.css. calendar_viewer.py (calendars.html) operates on raw scraped arena calendar events, not Tournament objects, and already shows per-event start/end times via its existing _format_time helper — no Tournament-specific change applies there.
-**Rationale:** Followed the established pattern (optional round_length_for_age_group kwarg defaulting to {}/None) from the iCal/Excel exporter tasks for consistency and backward compatibility. Committed pre-existing uncommitted refactor changes to html_exporter.py/calendar_viewer.py and new template files (templates/__init__.py, script.js, styles.css) alongside this task's changes since they were part of the same in-progress template-extraction work this task's Files: list anticipated.
-**Findings:** season_plan.html tournament cards now show a time-range badge when start_time/round_length are available. calendars.html already had per-event time display unrelated to Tournament objects, confirmed no further change needed there. Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
-LESSONS: calendar_viewer.py renders calendars.html from raw scraped arena events (not SeasonPlan/Tournament objects) — Tournament.start_time/end_time() do not apply there. HtmlExporter.export()/SeasonPlanExporter.export()/ICalExporter all now accept round_length_for_age_group but stage4_export.py/cli/season_command.py call sites still need wiring to pass it through.
-**Files:** tournament_scheduler/html/html_exporter.py (+157/-1014 net incl. pre-existing refactor), tournament_scheduler/pipeline/calendar_viewer.py (+10/-5), tournament_scheduler/html/templates/__init__.py (+39), tournament_scheduler/html/templates/script.js (+309), tournament_scheduler/html/templates/styles.css (+170)
-**Commit:** 2859c3e (hockey)
-
-### 2026-06-10 — Added TestTournamentDurationAndEndTime in test_models.py covering Tournament.duration_minutes (zero with no games, max-round scaling, round-length scaling) and Tournament.end_time (computed from start_time, hour rollover, None when start_time unset). Added TestTournamentStartTimeAndRoundLength in test_season_planner.py verifying generated tournaments default to start_time'09:00', round_length_for_age_group is stored on the planner (and defaults to {}), and generated tournament durations/end times are consistent with the configured round lengths.
-**Rationale:** Scoped strictly to the Files: list (test_models.py, test_season_planner.py) per the plan; export-level (iCal/Excel/HTML) tests were already covered implicitly by the prior tasks' full test-suite runs.
-**Findings:** 9 new tests added (56 in test_models.py+test_season_planner.py combined run all pass). Full test suite: 287 passed (up from 278), 2 pre-existing failures in test_stage2_scraping.py unrelated to this change.
-LESSONS: none
-**Files:** tests/test_models.py (+81/-1), tests/test_season_planner.py (+78)
+**Files:** tournament_scheduler/club_registry.py (+21), tournament_scheduler/pipeline/stage2_scraping.py (+31)
 **Commit:** [pending — fill after commit]

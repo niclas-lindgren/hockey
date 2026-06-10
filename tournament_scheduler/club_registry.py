@@ -175,6 +175,27 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
 }
 
 
+def club_for_source_name(source_name: str) -> Optional[str]:
+    """Map a Stage 1 calendar-source ``name`` to its RVV club name.
+
+    Source names in ``input.json`` are usually the club name itself
+    (e.g. ``"Jutul"``, ``"Frisk Asker"``), but some legacy entries append the
+    arena/hall (e.g. ``"Kongsberg ishall"``, ``"Skien ishall"``). This looks
+    up ``CLUB_REGISTRY`` for an exact match first, then falls back to a
+    case-insensitive prefix match against each registered club name.
+
+    Returns ``None`` if no club matches.
+    """
+    if source_name in CLUB_REGISTRY:
+        return source_name
+
+    lowered = source_name.strip().lower()
+    for club_name in CLUB_REGISTRY:
+        if lowered.startswith(club_name.lower()):
+            return club_name
+    return None
+
+
 def get_club(name: str) -> ClubCalendarSource:
     """Look up a club's registry entry by name.
 
