@@ -22,7 +22,7 @@
   - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/models.py`
   - Rewrite the `_diversity_score` docstring (season_planner.py:1209-1221) to describe the new opponent-variety-per-team calculation and remove the claim that it is "equivalent to `_pairwise_matchup_score`". Update the `diversity_score` field comment in `models.py` (near line 171, above the `pairwise_matchup_score` docstring at 172-176) to describe the new metric (opponent variety per team) as distinct from the pairwise novel-pairing fraction.
 
-- [ ] Update HTML template label/description so 'Spredning' clearly reflects opponent variety
+- [x] Updated scores.html: relabeled 'Spredning' to 'Spredning (motstandervariasjon)' and 'Nye matchups' to 'Nye matchups (ferske motstanderpar)', and added title tooltips on each score-item explaining the distinct underlying calculation, so the two metrics no longer appear to measure the same thing. — 2026-06-10
   - Files: `tournament_scheduler/html/templates/scores.html`
   - In `scores.html` (line 5, `Spredning: <strong>$DIVERSITY_SCORE$%</strong>`), keep the existing `$DIVERSITY_SCORE$` token (already wired in `html_exporter.py:323` to `plan.diversity_score`) but adjust the label text if needed (e.g. add a short tooltip/title attribute or adjacent text such as "Spredning (motstandervariasjon)") so it is visually distinguishable from "Nye matchups" (line 13, `$PAIRWISE_SCORE$`) now that the underlying values genuinely differ.
 
@@ -63,3 +63,10 @@ LESSONS: none
 LESSONS: none
 **Files:** tournament_scheduler/models.py (+8/-0)
 **Commit:** bd273a7 (hockey)
+
+### 2026-06-10 — Updated scores.html: relabeled 'Spredning' to 'Spredning (motstandervariasjon)' and 'Nye matchups' to 'Nye matchups (ferske motstanderpar)', and added title tooltips on each score-item explaining the distinct underlying calculation, so the two metrics no longer appear to measure the same thing.
+**Rationale:** The scores.html template was previously untracked and matched the repo's *.html gitignore rule; force-added it since it is a source template consumed by html_exporter.py, not a generated artifact.
+**Findings:** All 14 html/export tests pass; labels and tooltips now clearly differentiate diversity_score (opponent-pool coverage) from pairwise_matchup_score (first-time pairings).
+LESSONS: scores.html and other files under tournament_scheduler/html/templates/ are blocked by the repo's '*.html' gitignore rule and were untracked before this task; use 'git add -f' for any further edits to template .html files in that directory until the gitignore is fixed.
+**Files:** tournament_scheduler/html/templates/scores.html (+19/-0, force-added, was gitignored by *.html)
+**Commit:** [pending — fill after commit]
