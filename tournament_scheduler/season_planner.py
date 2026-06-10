@@ -426,6 +426,181 @@ class SeasonPlanner:
                 )
 
     # ------------------------------------------------------------------
+    # Rules report — transparent audit of all constraints and decisions
+    # ------------------------------------------------------------------
+
+    def rules_report(self) -> List[Dict[str, str]]:
+        """Return a structured report of every constraint, rule, and
+        automatic decision made by the scheduler, with Norwegian-language
+        explanations.
+
+        Each entry is a dict with keys ``regel`` (short rule name),
+        ``forklaring`` (Norwegian rationale), and ``kategori`` (one of
+        ``"Hard krav"``, ``"Automatisk avgjørelse"``, or ``"Anbefaling"``).
+        """
+        report: List[Dict[str, str]] = []
+
+        # ------------------------------------------------------------------
+        # Hard constraints — enforced at code level, cannot be violated.
+        # ------------------------------------------------------------------
+
+        report.append({
+            "regel": f"Maks {self.max_club_teams_per_tournament} lag per klubb per turnering",
+            "forklaring": (
+                f"Høyst {self.max_club_teams_per_tournament} lag fra samme klubb kan delta "
+                f"i én og samme turnering. Dette er et hardt krav som forhindrer "
+                f"at to lag fra samme klubb møter hverandre — slike kamper er "
+                f"uønsket fordi de ikke gir variasjon for spillerne."
+            ),
+            "kategori": "Hard krav",
+        })
+
+        # Federation-mandated parallel-games defaults.
+        if self.parallel_games_for_age_group:
+            for ag, pg in sorted(self.parallel_games_for_age_group.items()):
+                report.append({
+                    "regel": f"Parallelle kamper for {ag}: {pg}",
+                    "forklaring": (
+                        f"For aldersgruppen {ag} spilles det {pg} kamper samtidig "
+                        f"per runde. Dette følger forbundets anbefalinger og påvirker "
+                        f"hvor mange lag som inviteres til hver turnering."
+                    ),
+                    "kategori": "Hard krav",
+                })
+        else:
+            report.append({
+                "regel": "Parallelle kamper: ingen spesifisert",
+                "forklaring": (
+                    "Ingen aldersgrupper har spesifisert antall parallelle kamper. "
+                    f"Planleggeren bruker et standard tak på {DEFAULT_MAX_TEAMS_PER_TOURNAMENT} lag "
+                    f"per turnering."
+                ),
+                "kategori": "Hard krav",
+            })
+
+        # Per-age-group max teams.
+        if self.max_teams_per_tournament_for_age_group:
+            for ag, mt in sorted(self.max_teams_per_tournament_for_age_group.items()):
+                report.append({
+                    "regel": f"Maks lag per turnering for {ag}: {mt}",
+                    "forklaring": (
+                        f"For {ag} inviteres maksimalt {mt} lag til hver turnering. "
+                        f"Dette bestemmes av konfigurasjonen og sikrer at alle lag får "
+                        f"spille mot hverandre innenfor tilgjengelig tid."
+                    ),
+                    "kategori": "Hard krav",
+                })
+
+        # Skill-level divisions.
+        report.append({
+            "regel": f"Ferdighetsnivå-bånd: ±{self.division_skill_band}",
+            "forklaring": (
+                f"Lag med registrert ferdighetsnivå (1–10) grupperes med lag innenfor "
+                f"±{self.division_skill_band} nivåer av hverandre. Dette motvirker "
+                f"ensidige kamper og sikrer jevnere motstand. Lag uten registrert "
+                f"nivå påvirkes ikke."
+            ),
+            "kategori": "Hard krav",
+        })
+
+        # ------------------------------------------------------------------
+        # Automatic decisions — the algorithm chooses, but the rationale is
+        # deterministic and explained here.
+        # ------------------------------------------------------------------
+
+        report.append({
+            "regel": "Minst mulig gjentatte grupperinger",
+            "forklaring": (
+                "Når planleggeren velger hvilke lag som skal møtes i en turnering, "
+                "prioriterer den lag som ikke har vært i samme turnering tidligere "
+                "i sesongen. Målet er at hvert lag skal møte flest mulig forskjellige "
+                "motstandere gjennom sesongen."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        report.append({
+            "regel": f"Jevn fordeling av turneringer over sesongen",
+            "forklaring": (
+                f"Sesongvinduet deles i omtrent like store tidsbolker, og én "
+                f"turnering legges til hver bolk. Dette sikrer at turneringene "
+                f"er spredt jevnt utover og at ingen periode blir overbelastet. "
+                f"Månedsbalansen veies også inn i datovalget."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        report.append({
+            "regel": f"Rettferdig fordeling av hjemmeturneringer",
+            "forklaring": (
+                f"Arena-vertskap fordeles proporsjonalt etter antall lag hver klubb "
+                f"stiller. Klubber med flere lag får hjemmeturnering oftere. "
+                f"Maksimalt tillatt avvik fra forventet antall er "
+                f"{self.max_hosting_deviation} turnering(er)."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        report.append({
+            "regel": f"Jevnt antall kamper per lag",
+            "forklaring": (
+                f"Planleggeren teller opp alle kamper hvert lag spiller i løpet av "
+                f"sesongen. Forskjellen mellom laget med flest og færrest kamper "
+                f"skal være maksimalt {self.max_game_count_spread}. "
+                f"Lag som blir ferdige for tidlig (mer enn "
+                f"{self.max_early_finish_gap_days} dager før sesongslutt) flagges "
+                f"som et varsel."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        report.append({
+            "regel": "Ingen overlappende aldersgrupper",
+            "forklaring": (
+                "Aldersgrupper som deler spillerbase (for eksempel JU11 og U10) "
+                "skal helst ikke ha turnering samme helg, fordi noen spillere "
+                "tilhører begge grupper og ville blitt dobbeltbooket. "
+                "Planleggeren forsøker å unngå dette; kollisjoner som ikke kan "
+                "løses, rapporteres."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        report.append({
+            "regel": "Round-robin: alle mot alle innen turneringen",
+            "forklaring": (
+                "Innenfor hver turnering spiller alle inviterte lag mot hverandre "
+                "nøyaktig én gang (round-robin). Turneringens størrelse og antall "
+                "parallelle kamper avgjør hvor mange runder som trengs. "
+                "Hjemme/borte byttes annenhver runde for rettferdig fordeling."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        report.append({
+            "regel": "Sikkerhetsfilter mot klubb-interne kamper",
+            "forklaring": (
+                "Som en ekstra sikkerhet (belt-and-suspenders) hoppes det over "
+                "kamper mellom to lag fra samme klubb under round-robin-genereringen, "
+                "selv om deltakerutvelgelsen allerede skal ha forhindret dette."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        report.append({
+            "regel": f"Minst {MIN_TOURNAMENTS} og maks {MAX_TOURNAMENTS} turneringer per sesong",
+            "forklaring": (
+                f"Sesongplanen skal inneholde mellom {MIN_TOURNAMENTS} og "
+                f"{MAX_TOURNAMENTS} turneringer, avhengig av hvor mange ledige "
+                f"helger som finnes i sesongvinduet. Antallet bestemmes automatisk "
+                f"basert på en andel av tilgjengelige helger."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        return report
+
+    # ------------------------------------------------------------------
     # Step 1: pick dates spread evenly across the window
     # ------------------------------------------------------------------
 

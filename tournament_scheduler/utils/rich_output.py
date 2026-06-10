@@ -459,3 +459,47 @@ class TournamentOutput:
                 TournamentOutput.print_warning(
                     f"  • {label}: {count} kamper, siste kamp {gap} dager før sesongslutt"
                 )
+
+    @staticmethod
+    def print_rules_report(rules: "list[dict[str, str]]") -> None:
+        """Print a structured rules-and-decisions report.
+
+        Each rule dict has keys ``regel``, ``forklaring``, ``kategori``.
+        Rules are grouped by ``kategori`` and printed as a Rich Panel
+        with a table for each category.
+
+        Args:
+            rules: The list returned by ``SeasonPlanner.rules_report()``.
+        """
+        if not rules:
+            return
+
+        # Group by kategori, preserving order of first appearance.
+        groups: dict[str, list[dict[str, str]]] = {}
+        group_order: list[str] = []
+        for rule in rules:
+            kat = rule.get("kategori", "Annet")
+            if kat not in groups:
+                groups[kat] = []
+                group_order.append(kat)
+            groups[kat].append(rule)
+
+        for kat in group_order:
+            entries = groups[kat]
+            table = Table(
+                title=f"{kat} ({len(entries)})",
+                box=box.ROUNDED,
+                show_header=True,
+                header_style="bold cyan",
+                title_style="bold white",
+            )
+            table.add_column("Regel", style="cyan", no_wrap=True, width=40)
+            table.add_column("Forklaring", style="white")
+
+            for rule in entries:
+                table.add_row(
+                    rule.get("regel", ""),
+                    rule.get("forklaring", ""),
+                )
+
+            console.print(table)

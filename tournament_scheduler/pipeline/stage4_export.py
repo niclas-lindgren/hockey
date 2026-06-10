@@ -95,7 +95,8 @@ def run(
     # --- Excel ---
     try:
         excel_path = str(export_path / f"{basename}.xlsx")
-        SeasonPlanExporter().export(plan, excel_path)
+        rules_report = plan_checkpoint.get("rules_report")
+        SeasonPlanExporter().export(plan, excel_path, rules_report=rules_report)
         output_files["excel"] = excel_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Excel-eksport feilet: {exc}")

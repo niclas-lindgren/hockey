@@ -15,7 +15,7 @@ The resulting workbook is saved to a user-specified `.xlsx` path.
 """
 
 from datetime import date
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
@@ -36,6 +36,7 @@ _NORWEGIAN_WEEKDAYS = [
 _OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengste reise"]
 _GAMES_HEADERS = ["Runde", "Hjemmelag", "Bortelag", "Parallellbane"]
 _CLUB_SUMMARY_HEADERS = ["Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena"]
+_RULES_HEADERS = ["Regel", "Forklaring", "Kategori"]
 
 # Club worksheet titles are prefixed to distinguish them from tournament
 # sheets and to keep them grouped together when sorted alphabetically.
@@ -51,8 +52,12 @@ class SeasonPlanExporter:
     def __init__(self):
         self.workbook: Optional[openpyxl.Workbook] = None
 
-    def export(self, plan: SeasonPlan, output_path: str) -> str:
+    def export(self, plan: SeasonPlan, output_path: str, *, rules_report: Optional[List[Dict[str, str]]] = None) -> str:
         """Build and save the workbook for `plan` to `output_path`.
+
+        Optionally includes a ``Regler og avgjørelser`` sheet when
+        ``rules_report`` (from ``SeasonPlanner.rules_report()``) is
+        provided.
 
         Returns the path the workbook was saved to.
         """
@@ -63,6 +68,12 @@ class SeasonPlanExporter:
         self._write_overview_sheet(overview_sheet, plan)
 
         used_titles = {overview_sheet.title}
+
+        if rules_report:
+            rules_sheet = self.workbook.create_sheet(title="Regler og avgjørelser")
+            used_titles.add(rules_sheet.title)
+            self._write_rules_sheet(rules_sheet, rules_report)
+
         for index, tournament in enumerate(plan.tournaments, start=1):
             sheet = self.workbook.create_sheet(title=self._unique_sheet_title(tournament, index, used_titles))
             used_titles.add(sheet.title)
@@ -95,6 +106,27 @@ class SeasonPlanExporter:
                 tournament.host_club or "",
                 ", ".join(team.label for team in tournament.teams),
                 travel_info,
+            ])
+
+        self._autosize_columns(sheet)
+
+    # ------------------------------------------------------------------
+    # Rules-and-decisions sheet
+    # ------------------------------------------------------------------
+
+    def _write_rules_sheet(self, sheet: Worksheet, rules_report: List[Dict[str, str]]) -> None:
+        """Write the rules-and-decisions transparency report.
+
+        Expected keys per rule dict: ``regel``, ``forklaring``, ``kategori``.
+        """
+        sheet.append(_RULES_HEADERS)
+        self._style_header_row(sheet)
+
+        for rule in rules_report:
+            sheet.append([
+                rule.get("regel", ""),
+                rule.get("forklaring", ""),
+                rule.get("kategori", ""),
             ])
 
         self._autosize_columns(sheet)

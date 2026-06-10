@@ -95,9 +95,11 @@ def run(
         return {}
 
     plan_dict = _plan_to_dict(plan)
+    rules_report = planner.rules_report()
 
     checkpoint: dict[str, Any] = {
         "plan": plan_dict,
+        "rules_report": rules_report,
     }
 
     state.write_stage(StageName.PLANNING, checkpoint, status=StageStatus.DONE)

@@ -83,9 +83,12 @@ class SeasonCommand:
         self._print_hosting_warnings(planner)
         self._print_travel_warnings(plan)
 
+        # Print the rules-and-decisions audit report.
+        TournamentOutput.print_rules_report(planner.rules_report())
+
         if args.export_excel:
             from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
-            SeasonPlanExporter().export(plan, args.export_excel)
+            SeasonPlanExporter().export(plan, args.export_excel, rules_report=planner.rules_report())
 
         if args.export_csv:
             from tournament_scheduler.csv.csv_exporter import CsvExporter

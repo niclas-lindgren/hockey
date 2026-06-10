@@ -888,3 +888,93 @@ class TestProportionalHosting:
 
         warnings = planner.hosting_warnings
         assert isinstance(warnings, list)
+
+
+class TestRulesReport:
+    """Tests for the rules-and-decisions transparency report."""
+
+    def test_returns_nonempty_list_with_required_keys(self):
+        """rules_report() returns a non-empty list; every entry has regel, forklaring, kategori."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10", age_group="U10", skill_level=5),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10", skill_level=6),
+        ])
+        club_arenas = {"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"}
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas=club_arenas,
+        )
+        report = planner.rules_report()
+
+        assert isinstance(report, list)
+        assert len(report) >= 8, f"expected at least 8 rules, got {len(report)}"
+
+        for entry in report:
+            assert isinstance(entry, dict), f"each entry must be a dict, got {type(entry)}"
+            assert "regel" in entry, f"missing 'regel' key in {entry}"
+            assert "forklaring" in entry, f"missing 'forklaring' key in {entry}"
+            assert "kategori" in entry, f"missing 'kategori' key in {entry}"
+            assert entry["kategori"] in {"Hard krav", "Automatisk avgjørelse", "Anbefaling"}, (
+                f"unexpected kategori: {entry['kategori']}"
+            )
+
+    def test_parallel_games_appear_in_report(self):
+        """When parallel_games_for_age_group is configured, it shows in the report."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Jar", label="Jar U12", age_group="U12"),
+        ])
+        club_arenas = {"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"}
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3, "U12": 2},
+        )
+        report = planner.rules_report()
+
+        u10_found = any("U10" in r["regel"] and "3" in r["regel"] for r in report)
+        u12_found = any("U12" in r["regel"] and "2" in r["regel"] for r in report)
+        assert u10_found, f"U10 parallel games not found in report"
+        assert u12_found, f"U12 parallel games not found in report"
+
+    def test_hard_constraints_have_correct_category(self):
+        """Rules with kategori='Hard krav' cover club limit, skill band, parallel games."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10", age_group="U10", skill_level=5),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10", skill_level=6),
+        ])
+        club_arenas = {"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"}
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 4},
+            division_skill_band=3,
+        )
+        report = planner.rules_report()
+
+        hard = [r for r in report if r["kategori"] == "Hard krav"]
+        assert len(hard) >= 3, f"expected at least 3 hard constraints, got {len(hard)}"
+
+        # Check that key hard constraints are present
+        regel_texts = " ".join(r["regel"] for r in hard)
+        assert "lag per klubb" in regel_texts.lower(), "missing club limit constraint"
+        assert "ferdighet" in regel_texts.lower(), "missing skill band constraint"
+
+    def test_works_before_build_plan(self):
+        """rules_report() does not require build_plan() to have been called."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+        ])
+        club_arenas = {"Jar": "Jarhallen"}
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas=club_arenas,
+        )
+        # No build_plan() call — should still work
+        report = planner.rules_report()
+        assert len(report) > 0, "rules_report should work before build_plan"
