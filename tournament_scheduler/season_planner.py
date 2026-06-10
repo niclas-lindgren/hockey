@@ -47,6 +47,10 @@ MAX_TOURNAMENTS = 15
 # timeslots × parallelGames where that information is available).
 DEFAULT_MAX_TEAMS_PER_TOURNAMENT = 6
 
+# Default start time assigned to generated tournaments when no per-arena/
+# per-age-group scheduling is available yet.
+DEFAULT_TOURNAMENT_START_TIME = "09:00"
+
 
 def _cap_at_one_per_club(teams: Sequence[Team]) -> List[Team]:
     """Return at most one team per club from *teams*, keeping first occurrence.
@@ -72,6 +76,7 @@ class SeasonPlanner:
         roster: Roster,
         club_arenas: Dict[str, str],
         parallel_games_for_age_group: Optional[Dict[str, int]] = None,
+        round_length_for_age_group: Optional[Dict[str, int]] = None,
         target_tournament_count: Optional[int] = None,
         max_teams_per_tournament_for_age_group: Optional[Dict[str, int]] = None,
         max_club_teams_per_tournament: int = 1,
@@ -93,6 +98,9 @@ class SeasonPlanner:
                 configured parallel-games count, used to derive a practical
                 round-robin subset size per age group. Falls back to
                 `DEFAULT_MAX_TEAMS_PER_TOURNAMENT` when not provided.
+            round_length_for_age_group: Optional mapping of age group ->
+                round length in minutes, used to set each generated
+                tournament's `start_time` and compute its duration/end time.
             target_tournament_count: Optional override for how many
                 tournaments to propose (default: spread between
                 `MIN_TOURNAMENTS` and `MAX_TOURNAMENTS` based on how many
@@ -118,6 +126,7 @@ class SeasonPlanner:
         self.roster = roster
         self.club_arenas = club_arenas
         self.parallel_games_for_age_group = parallel_games_for_age_group or {}
+        self.round_length_for_age_group = round_length_for_age_group or {}
         self.target_tournament_count = target_tournament_count
         self.max_teams_per_tournament_for_age_group = max_teams_per_tournament_for_age_group or {}
         self.max_club_teams_per_tournament = max_club_teams_per_tournament
@@ -237,6 +246,7 @@ class SeasonPlanner:
                 teams=participants,
                 games=games,
                 host_club=host_club,
+                start_time=DEFAULT_TOURNAMENT_START_TIME,
             )
             plan.tournaments.append(tournament)
 

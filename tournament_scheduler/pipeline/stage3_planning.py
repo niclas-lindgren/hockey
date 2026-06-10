@@ -80,11 +80,19 @@ def run(
 
     roster = _build_roster(config)
     pg_config = _build_parallel_games(config)
+    round_length_config = _build_round_length(config)
     club_arenas = _build_club_arenas(config)
     division_skill_band = config.get("divisionSkillBand", 2)
     max_hosting_deviation = config.get("maxHostingDeviation", 1)
 
-    planner = _make_planner(roster, pg_config, club_arenas, division_skill_band, max_hosting_deviation)
+    planner = _make_planner(
+        roster,
+        pg_config,
+        club_arenas,
+        division_skill_band,
+        max_hosting_deviation,
+        round_length_config,
+    )
     plan = planner.build_plan(start_date, end_date)
 
     if plan is None or not plan.tournaments:
@@ -137,6 +145,7 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
             "host_club": t.host_club,
             "teams": [_team_to_dict(team) for team in t.teams],
             "games": [_game_to_dict(g) for g in t.games],
+            "start_time": t.start_time,
         }
         if t.cancelled:
             d["cancelled"] = True
@@ -180,6 +189,11 @@ def _build_parallel_games(config: dict[str, Any]) -> dict[str, int]:
     return dict(config.get("parallel_games", {}))
 
 
+def _build_round_length(config: dict[str, Any]) -> dict[str, int]:
+    """Extract round-length-minutes mapping from config."""
+    return dict(config.get("round_length_minutes", {}))
+
+
 def _build_club_arenas(config: dict[str, Any]) -> dict[str, str]:
     """Build club→arena mapping, falling back to the global club registry."""
     return {
@@ -195,6 +209,7 @@ def _make_planner(
     club_arenas: dict[str, str],
     division_skill_band: int = 2,
     max_hosting_deviation: int = 1,
+    round_length_config: dict[str, int] | None = None,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner`."""
     from ..scheduler import TournamentScheduler
@@ -211,6 +226,7 @@ def _make_planner(
         roster=roster,
         club_arenas=club_arenas,
         parallel_games_for_age_group=pg_config or None,
+        round_length_for_age_group=round_length_config or None,
         division_skill_band=division_skill_band,
         max_hosting_deviation=max_hosting_deviation,
     )
@@ -246,6 +262,7 @@ def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
         games=games,
         cancelled=bool(data.get("cancelled", False)),
         cancellation_reason=data.get("cancellation_reason"),
+        start_time=data.get("start_time"),
     )
 
 

@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/models.py
   - Approach: Add `start_time: Optional[str] = None` (HH:MM string, e.g. "09:00") to the Tournament dataclass (around lines 131-139). Add a helper method or property (e.g. `duration_minutes(round_length: int) -> int` returning `round_length * len({g.round_number for g in self.games})` or `round_length * max(round_numbers, default=0)`, and `end_time(round_length: int) -> Optional[str]` that adds `duration_minutes` to `start_time` using `datetime`/`timedelta` and returns an HH:MM string, or None if `start_time` is unset.
 
-- [ ] Assign default start_time and compute duration when generating tournaments in season_planner
+- [x] Added round_length_for_age_group param to SeasonPlanner.__init__, set a DEFAULT_TOURNAMENT_START_TIME ("09:00") on each generated Tournament, and threaded round_length_minutes config through stage3_planning.py (_build_round_length, _make_planner) alongside parallel_games. Also added start_time to tournament serialization (_tournament_to_dict/_tournament_from_dict). — 2026-06-10
   - Files: tournament_scheduler/season_planner.py, tournament_scheduler/pipeline/stage3_planning.py
   - Approach: When tournaments are constructed in season_planner.py (where `parallel_games` is currently consumed, around lines 120/229-230/518-519), set a default `start_time` (e.g. "09:00", configurable later) on each Tournament, and pass the resolved `round_length_minutes` config through stage3_planning.py (line 213, alongside how `parallel_games` is passed) so the planner has access to the per-age-group round length for duration calculations.
 
@@ -61,4 +61,11 @@ LESSONS: none
 **Findings:** Tournament model now exposes start_time, duration_minutes(), and end_time(). Full test suite: 278 passed, 1 pre-existing flaky failure in test_stage2_scraping.py unrelated to this change.
 LESSONS: none
 **Files:** tournament_scheduler/models.py (+25/-1)
+**Commit:** 7c1357a (hockey)
+
+### 2026-06-10 — Added round_length_for_age_group param to SeasonPlanner.__init__, set a DEFAULT_TOURNAMENT_START_TIME ("09:00") on each generated Tournament, and threaded round_length_minutes config through stage3_planning.py (_build_round_length, _make_planner) alongside parallel_games. Also added start_time to tournament serialization (_tournament_to_dict/_tournament_from_dict).
+**Rationale:** Followed the plan's approach of mirroring how parallel_games is passed through; added start_time to (de)serialization so the field round-trips through the pipeline checkpoint, since duration/end-time consumers downstream will need it.
+**Findings:** SeasonPlanner now stores round_length_for_age_group and assigns start_time09:00 to every generated Tournament; stage3_planning passes round_length_minutes config through. Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage3_planning.py (+18/-1), tournament_scheduler/season_planner.py (+10)
 **Commit:** [pending — fill after commit]
