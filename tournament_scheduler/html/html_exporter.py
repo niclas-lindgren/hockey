@@ -406,7 +406,31 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       <span class="score-dot" style="background:var(--amber)"></span>
       Nye matchups: <strong>$PAIRWISE_SCORE$%</strong>
     </span>
+    <span class="score-item">
+      <span class="score-dot" style="background:var(--rose)"></span>
+      Kamper per lag: <strong>$GAME_COUNT_SPREAD$</strong>
+    </span>
   </div>
+
+  <!-- Team game counts table -->
+  <details class="team-stats" id="teamStats" style="margin-bottom:24px">
+    <summary style="cursor:pointer;padding:12px 16px;background:var(--ice-light);border:1px solid var(--ice-surface);border-radius:var(--radius);font-size:14px;color:var(--accent);font-weight:600;user-select:none">
+      🏒 Kamper per lag ($TEAM_COUNT$ lag) — klikk for å vise
+    </summary>
+    <div style="margin-top:8px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--ice-surface)">
+            <th style="text-align:left;padding:8px 12px;color:var(--text-dim);font-weight:600">Lag</th>
+            <th style="text-align:right;padding:8px 12px;color:var(--text-dim);font-weight:600">Kamper</th>
+            <th style="text-align:left;padding:8px 12px;color:var(--text-dim);font-weight:600">Siste kamp</th>
+          </tr>
+        </thead>
+        <tbody id="teamGameCountsBody">
+        </tbody>
+      </table>
+    </div>
+  </details>
 
   <!-- Filters -->
   <div class="filters">
@@ -451,6 +475,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <script>
 // Data embedded as JSON
 const TOURNAMENTS = $TOURNAMENTS_JSON$;
+const TEAM_GAME_COUNTS = $TEAM_GAME_COUNTS_JSON$;
 
 // Helpers
 const MONTHS = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
@@ -491,6 +516,39 @@ function getClubFromTeam(team) {
   arenas.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; arenaSel.appendChild(o); });
   const clubSel = document.getElementById('filterClub');
   [...clubs].sort().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; clubSel.appendChild(o); });
+})();
+
+// Render team game counts table
+(function() {
+  const body = document.getElementById('teamGameCountsBody');
+  if (!body) return;
+  const sorted = Object.entries(TEAM_GAME_COUNTS).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  sorted.forEach(([label, count]) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--ice-surface)';
+    const tdLabel = document.createElement('td');
+    tdLabel.style.padding = '6px 12px';
+    tdLabel.textContent = label;
+    const tdCount = document.createElement('td');
+    tdCount.style.padding = '6px 12px';
+    tdCount.style.textAlign = 'right';
+    tdCount.textContent = count;
+    const tdLast = document.createElement('td');
+    tdLast.style.padding = '6px 12px';
+    tdLast.style.color = 'var(--text-dim)';
+    // Find last tournament date for this team
+    let lastDate = '';
+    for (const t of TOURNAMENTS) {
+      if (t.m.some(([h, a]) => h === label || a === label)) {
+        lastDate = t.d;
+      }
+    }
+    tdLast.textContent = lastDate || '-';
+    tr.appendChild(tdLabel);
+    tr.appendChild(tdCount);
+    tr.appendChild(tdLast);
+    body.appendChild(tr);
+  });
 })();
 
 function buildMatchHTML(matches) {
@@ -605,6 +663,14 @@ class HtmlExporter:
                 all_teams.add(g.home.label)
                 all_teams.add(g.away.label)
 
+        # Build team game counts JSON for HTML template
+        team_game_counts: dict[str, int] = {}
+        for t in plan.tournaments:
+            for g in t.games:
+                for team_label in (g.home.label, g.away.label):
+                    team_game_counts[team_label] = team_game_counts.get(team_label, 0) + 1
+        team_game_counts_json = json.dumps(team_game_counts, ensure_ascii=False)
+
         season_label = _season_label(plan)
         age_groups = sorted({t.age_group for t in plan.tournaments})
 
@@ -644,6 +710,12 @@ class HtmlExporter:
             "$TOURNAMENT_COUNT$": str(len(plan.tournaments)),
             "$GAME_COUNT$": str(sum(len(t.games) for t in plan.tournaments)),
             "$UNIQUE_TEAMS$": str(len(all_teams)),
+            "$TEAM_COUNT$": str(len(team_game_counts)),
+            "$GAME_COUNT_SPREAD$": (
+                f"{max(team_game_counts.values()) - min(team_game_counts.values())} spread"
+                if team_game_counts else "-"
+            ),
+            "$TEAM_GAME_COUNTS_JSON$": team_game_counts_json,
             "$DIVERSITY_SCORE$": str(int((plan.diversity_score or 0) * 100)),
             "$MONTH_BALANCE_SCORE$": str(int((plan.month_balance_score or 0) * 100)),
             "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),

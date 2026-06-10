@@ -44,9 +44,11 @@ class CsvExporter:
 
         stem = games_path.stem
         overview_path = games_path.parent / f"{stem}_overview.csv"
+        team_counts_path = games_path.parent / f"{stem}_team_counts.csv"
 
         self._write_games(plan, games_path)
         self._write_overview(plan, overview_path)
+        self._write_team_game_counts(plan, team_counts_path)
 
         return str(games_path), str(overview_path)
 
@@ -89,3 +91,26 @@ class CsvExporter:
                     len(tournament.games),
                     travel_str,
                 ])
+
+    def _write_team_game_counts(self, plan: SeasonPlan, path: Path) -> None:
+        """Write per-team game count data to a separate CSV file.
+
+        Columns: team, games_played, last_game_date.
+        Rows are sorted by games_played descending.
+        """
+        if not plan.team_game_counts:
+            path.write_text("team,games_played,last_game_date\n", encoding="utf-8")
+            return
+
+        sorted_teams = sorted(
+            plan.team_game_counts.items(),
+            key=lambda kv: (-kv[1], kv[0]),
+        )
+        with path.open("w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["team", "games_played", "last_game_date"])
+            for label, count in sorted_teams:
+                last_date = plan.team_last_game_dates.get(label)
+                date_str = last_date.isoformat() if last_date else ""
+                writer.writerow([label, count, date_str])
+        return path

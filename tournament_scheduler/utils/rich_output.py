@@ -382,3 +382,80 @@ class TournamentOutput:
             border_style="cyan",
             box=box.DOUBLE
         ))
+
+    @staticmethod
+    def print_game_count_table(plan: "SeasonPlan") -> None:
+        """Print a table showing per-team round-robin game counts.
+
+        One row per team: team label, total games played across the season,
+        and the date of their last game. Useful for spotting uneven game
+        load at a glance.
+
+        Args:
+            plan: The proposed SeasonPlan with ``team_game_counts`` populated.
+        """
+        if not plan.team_game_counts:
+            return
+
+        table = Table(
+            title=f"🏒 Kamper per lag ({len(plan.team_game_counts)} lag)",
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold magenta",
+        )
+        table.add_column("Lag", style="cyan", no_wrap=True)
+        table.add_column("Kamper totalt", style="green", justify="right")
+        table.add_column("Siste kamp", style="yellow")
+
+        sorted_teams = sorted(
+            plan.team_game_counts.items(),
+            key=lambda kv: (-kv[1], kv[0]),
+        )
+        for label, count in sorted_teams:
+            last_date = plan.team_last_game_dates.get(label)
+            date_str = last_date.strftime("%Y-%m-%d") if last_date else "-"
+            table.add_row(label, str(count), date_str)
+
+        if plan.game_count_spread > 0:
+            table.caption = (
+                f"Spredning: {plan.game_count_spread} kamper "
+                f"(min={min(plan.team_game_counts.values())}, "
+                f"maks={max(plan.team_game_counts.values())})"
+            )
+
+        console.print(table)
+
+    @staticmethod
+    def print_game_count_warnings(warnings: "list[tuple[str, int, int, str]]") -> None:
+        """Print game-count spread and early-finish warnings.
+
+        Each entry is ``(team_label, value, threshold_or_gap, warning_type)``.
+        ``warning_type`` is ``"spread"`` (value=games_played, threshold=spread_diff)
+        or ``"early_finish"`` (value=games_played, gap=days_before_season_end).
+
+        Args:
+            warnings: The structured warnings from
+                ``SeasonPlanner.game_count_warnings``.
+        """
+        if not warnings:
+            return
+
+        spread_entries = [w for w in warnings if w[3] == "spread"]
+        early_entries = [w for w in warnings if w[3] == "early_finish"]
+
+        if spread_entries:
+            spread = spread_entries[0][2]
+            TournamentOutput.print_warning(
+                f"Spredning i kampantall ({spread} kamper) overstiger grensen:"
+            )
+            for label, count, _, _ in spread_entries:
+                TournamentOutput.print_warning(f"  • {label}: {count} kamper")
+
+        if early_entries:
+            TournamentOutput.print_warning(
+                "Disse lagene spiller sin siste kamp lenge før sesongen slutt:"
+            )
+            for label, count, gap, _ in early_entries:
+                TournamentOutput.print_warning(
+                    f"  • {label}: {count} kamper, siste kamp {gap} dager før sesongslutt"
+                )

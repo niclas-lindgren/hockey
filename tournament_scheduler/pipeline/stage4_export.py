@@ -208,6 +208,11 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
         pairwise_matchup_score=float(d.get("pairwise_matchup_score", 0.0)),
         month_balance_score=float(d.get("month_balance_score", 0.0)),
         arena_counts=dict(d.get("arena_counts", {})),
+        team_game_counts=dict(d.get("team_game_counts", {})),
+        game_count_spread=int(d.get("game_count_spread", 0)),
+        team_last_game_dates={
+            k: date.fromisoformat(v) for k, v in d.get("team_last_game_dates", {}).items()
+        },
     )
 
 

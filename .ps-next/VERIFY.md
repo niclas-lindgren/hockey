@@ -1,12 +1,12 @@
 # Verification Report
 
-STATUS: PASS
+STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `test_clubs_with_more_teams_host_more_tournaments` passes | PASS | `pytest tests/test_season_planner.py::TestProportionalHosting::test_clubs_with_more_teams_host_more_tournaments` — verified (226/226 passed) |
-| `test_every_club_hosts_at_least_once` passes | PASS | `pytest tests/test_season_planner.py::TestProportionalHosting::test_every_club_hosts_at_least_once` — verified |
-| `test_equal_team_counts_get_equal_hosting` passes | PASS | `pytest tests/test_season_planner.py::TestProportionalHosting::test_equal_team_counts_get_equal_hosting` — verified |
-| Warnings fire when deviation exceeds max_hosting_deviation | PASS | `test_hosting_warnings_fire_on_deviation` passes (max_hosting_deviation=0 triggers warnings) |
-| Existing tests for even hosting pass | PASS | All 28 existing tests pass unchanged (34 total, 6 new) |
-| hosting_warnings property returns list | PASS | `test_hosting_warnings_property_returns_list` passes |
+| `max_club_teams_per_tournament` defaults to `1` everywhere. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `_pick_least_recently_grouped` never selects a second team from the same club unless no other candidates exist. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `_select_participants` returns at most 1 team per club even on the small-roster fast path. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `generate_round_robin_games` skips any pair where `game.home.club == game.away.club`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Existing tests continue to pass. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| New tests verify the hard-constraint behavior. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
