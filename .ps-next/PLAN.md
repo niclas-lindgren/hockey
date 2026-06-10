@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/html/templates/script.js
   - Approach: In the existing DOMContentLoaded init function (~line 150), read a saved theme preference from `localStorage` (e.g. key `rvv-theme`) and apply it by setting `document.documentElement.dataset.theme` (or toggling a `theme-light` class on `<html>`/`<body>`) before first paint where possible; wire a click handler on `#themeToggle` that flips the theme, updates the `localStorage` value, and updates the toggle icon/aria-state, following the same event-handler registration style already used in script.js.
 
-- [ ] Style the theme-toggle button and ensure light-theme contrast for navbar/cards/badges
+- [x] Added .theme-toggle button styles consistent with .stat-badge/.navbar a (same padding/radius/hover transitions using CSS vars), added a --hover-overlay variable (light overlay in dark theme, dark overlay in light theme) and replaced the hardcoded rgba(255,255,255,0.06) hover background in .navbar a:hover with it, and added CSS rules to swap the sun/moon icon visibility based on [data-themelight]. — 2026-06-10
   - Files: tournament_scheduler/html/templates/styles.css
   - Approach: Add `.theme-toggle` styles consistent with `.stat-badge`/`.navbar a` (same padding, radius, hover transition using CSS vars), and review/adjust any hardcoded colors in styles.css (e.g. `rgba(255,255,255,0.06)` hover states, `color: #fff` on `.logo-icon`) so they remain legible against the light palette — replace with CSS-variable-driven values or add light-theme-specific overrides where a hardcoded value would break contrast.
 
@@ -65,4 +65,11 @@ LESSONS: none
 **Findings:** Theme toggle logic added and verified with node --check (no syntax errors).
 LESSONS: none
 **Files:** tournament_scheduler/html/templates/script.js (+17/-0)
+**Commit:** c87a12f (hockey)
+
+### 2026-06-10 — Added .theme-toggle button styles consistent with .stat-badge/.navbar a (same padding/radius/hover transitions using CSS vars), added a --hover-overlay variable (light overlay in dark theme, dark overlay in light theme) and replaced the hardcoded rgba(255,255,255,0.06) hover background in .navbar a:hover with it, and added CSS rules to swap the sun/moon icon visibility based on [data-themelight].
+**Rationale:** Introduced --hover-overlay instead of separately overriding .navbar a:hover and .theme-toggle:hover per theme, keeping the override surface small and consistent.
+**Findings:** Hardcoded hover overlay color replaced with theme-aware variable; toggle button styling added; sun/moon icon swap wired via CSS attribute selector.
+LESSONS: none
+**Files:** tournament_scheduler/html/templates/styles.css (+11/-1)
 **Commit:** [pending — fill after commit]
