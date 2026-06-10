@@ -94,6 +94,7 @@ class ScraperStrategy:
     direct_ical_feed: str | None = None
     direct_scraper: bool = False
     initial_navigation: list[dict[str, Any]] = field(default_factory=list)
+    credential_env_vars: list[str] = field(default_factory=list)
     note: str = ""
 
 
@@ -152,6 +153,7 @@ STRATEGIES: dict[str, ScraperStrategy] = {
             {"cmd": "click", "selector": "button:text('Logg inn'), input[type='submit']",
              "wait_ms": 3000},
         ],
+        credential_env_vars=["BOOKUP_EMAIL", "BOOKUP_PASSWORD"],
         note="Bookup SPA med login-krav. Krever innlogging for å se kalenderen. Skraping ikke mulig uten autentisering. Set miljøvariablene BOOKUP_EMAIL og BOOKUP_PASSWORD for credential-basert scraping.",
     ),
     "Sandefjord Penguins": ScraperStrategy(
@@ -170,6 +172,7 @@ STRATEGIES: dict[str, ScraperStrategy] = {
             {"cmd": "click", "selector": "button:text('Logg inn'), input[type='submit']",
              "wait_ms": 3000},
         ],
+        credential_env_vars=["BOOKUP_EMAIL", "BOOKUP_PASSWORD"],
         note="Bookup SPA med login-krav. Krever innlogging for å se kalenderen. Skraping ikke mulig uten autentisering. Set miljøvariablene BOOKUP_EMAIL og BOOKUP_PASSWORD for credential-basert scraping.",
     ),
     "Jar": ScraperStrategy(
@@ -216,6 +219,11 @@ def has_direct_scraper(strategy: ScraperStrategy) -> bool:
     return strategy.direct_scraper or strategy.direct_ical_feed is not None
 
 
+def requires_credentials(strategy: ScraperStrategy) -> bool:
+    """Whether this strategy needs environment-variable credentials for scraping."""
+    return len(strategy.credential_env_vars) > 0
+
+
 def needs_llm_agent(strategy: ScraperStrategy) -> bool:
     """Whether this strategy requires the Pi-driven LLM agent to scrape."""
     return not has_direct_scraper(strategy)
@@ -236,6 +244,8 @@ def strategy_to_dict(strategy: ScraperStrategy) -> dict[str, Any]:
         "direct_ical_feed": strategy.direct_ical_feed,
         "direct_scraper": strategy.direct_scraper,
         "initial_navigation": strategy.initial_navigation,
+        "credential_env_vars": strategy.credential_env_vars,
+        "requires_credentials": requires_credentials(strategy),
         "note": strategy.note,
     }
 
@@ -249,6 +259,8 @@ def list_strategies() -> dict[str, dict[str, Any]]:
             "direct_ical_feed": bool(s.direct_ical_feed),
             "has_iframe": s.has_iframe,
             "date_param": bool(s.date_param),
+            "requires_credentials": requires_credentials(s),
+            "credential_env_vars": s.credential_env_vars,
         }
         for name, s in STRATEGIES.items()
     }

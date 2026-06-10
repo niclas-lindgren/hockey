@@ -1348,6 +1348,24 @@ async function runPipeline(rawArgs: string, ctx: ExtensionCommandContext): Promi
             lines.push(`  ${name}: ingen strategi — hopper over`);
             continue;
           }
+
+          // Credential pre-flight: prompt for missing env vars
+          const credEnvVars = (strat.credential_env_vars as string[]) ?? [];
+          for (const envVar of credEnvVars) {
+            if (!process.env[envVar]) {
+              const value = await ctx.ui.input(
+                `Innlogging kreves for ${name}. Angi ${envVar}:`,
+                "",
+              );
+              if (value) {
+                process.env[envVar] = value;
+                lines.push(`  ${name}: ${envVar} satt (${value.length} tegn)`);
+              } else {
+                lines.push(`  ${name}: ${envVar} ikke angitt — scraping kan feile`);
+              }
+            }
+          }
+
           lines.push(`  ${name}: skraper med ScraperAgent...`);
           const initialNav = (strat.initial_navigation as Array<Record<string, unknown>>) ?? [];
           const events = await agent.scrape(strat.url as string, {

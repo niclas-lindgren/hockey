@@ -29,6 +29,7 @@ from datetime import datetime
 from typing import Any
 
 from ..models import CalendarEvent
+from .scraper_strategies import get_strategy, requires_credentials
 from .state import PipelineState, StageName, StageStatus
 
 # ---------------------------------------------------------------------------
@@ -190,9 +191,12 @@ def _scrape_source(
         result["scraper_error"] = scraper_error
 
     if not events:
+        # Look up the scraper strategy to provide a helpful credential hint
+        credential_hint = _credential_hint_for_source(name)
         block_reason = (
             f"Kilde '{name}' returnerte 0 hendelser -- "
             "skraper odelagt eller hallen er stengt?"
+            + (f" {credential_hint}" if credential_hint else "")
         )
         result["blocked"] = True
         result["block_reason"] = block_reason
@@ -200,6 +204,27 @@ def _scrape_source(
     result["events"] = _events_to_dicts(events)
     result["event_count"] = len(events)
     return result
+
+
+def _credential_hint_for_source(source_name: str) -> str:
+    """Return a Norwegian credential hint for a source, or empty string.
+
+    Looks up the scraper strategy and, if it requires environment-variable
+    credentials, returns a message naming them so the user knows what to set.
+    """
+    try:
+        strategy = get_strategy(source_name)
+        if strategy and requires_credentials(strategy):
+            vars_list = ", ".join(strategy.credential_env_vars)
+            engine = strategy.engine.value.replace("_", " ")
+            return (
+                f"Kilden bruker {engine} og krever innlogging. "
+                f"Angi miljovariablene {vars_list}, "
+                f"eller kjor pipeline interaktivt for a bli spurt."
+            )
+    except Exception:
+        pass
+    return ""
 
 
 def _run_ical_scraper(

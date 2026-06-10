@@ -9,7 +9,7 @@
     "Kongsberg ishall": {
       "name": "Kongsberg ishall",
       "url": "https://kongsberghallen.no/webkalender/ishall/",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 11,
       "blocked": false,
@@ -85,7 +85,7 @@
     "Skien ishall": {
       "name": "Skien ishall",
       "url": "https://skienfritidspark.brp.exigo.no/ishallen",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 1,
       "blocked": false,
@@ -101,7 +101,7 @@
     "Ringerike": {
       "name": "Ringerike",
       "url": "https://ics.teamup.com/feed/ksr8bg1tpn5s3npskw/0.ics",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 1642,
       "blocked": false,
@@ -9963,7 +9963,7 @@
     "Frisk Asker": {
       "name": "Frisk Asker",
       "url": "https://ics.teamup.com/feed/ksdwpwxysmxwnuftoy/0.ics",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 976,
       "blocked": false,
@@ -15829,7 +15829,7 @@
     "Jutul": {
       "name": "Jutul",
       "url": "https://baerumishall.no/kalender/",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 240,
       "blocked": false,
@@ -17279,7 +17279,7 @@
     "Jar": {
       "name": "Jar",
       "url": "https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 368,
       "blocked": false,
@@ -19497,7 +19497,7 @@
     "Holmen": {
       "name": "Holmen",
       "url": "https://kalender.sportello.no/booking/11055",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 176,
       "blocked": false,
@@ -20563,7 +20563,7 @@
     "Tønsberg": {
       "name": "Tønsberg",
       "url": "https://www.bookup.no/utleie/Index/860",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 0,
       "blocked": true,
@@ -20572,7 +20572,7 @@
     "Sandefjord Penguins": {
       "name": "Sandefjord Penguins",
       "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen",
-      "scrape_timestamp": "2026-06-10T10:47:58.620776",
+      "scrape_timestamp": "2026-06-10T04:21:11.676605",
       "ttl_hours": 6.0,
       "event_count": 0,
       "blocked": true,

@@ -1,12 +1,12 @@
 # Verification Report
 
-STATUS: NEEDS_REVIEW
+STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `python3 -c 'from tournament_scheduler.spond.spond_exporter import SpondExporter; assert SpondExporter() is not None'` succeeds. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `python3 -m pytest tests/ -x -q` passes. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `grep: "spond" in tournament_scheduler/pipeline/stage4_export.py` shows Spond export wired into Stage 4. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `grep: "export-spond" in tournament_scheduler.py` shows the CLI flag. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `grep: "Spond" in tournament_scheduler_interactive.py` shows interactive flow. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Run: `python3 -c 'from tournament_scheduler.spond.spond_exporter import SpondExporter; from tournament_scheduler.models import SeasonPlan, Tournament, Team, Game; from datetime import date; t = Tournament(date=date(2026,9,6), arena="Jarhallen", age_group="U10", teams=[Team(club="Jar",label="Jar 1",age_group="U10"), Team(club="Jar",label="Jar 2",age_group="U10")], games=[Game(home=Team(club="Jar",label="Jar 1",age_group="U10"), away=Team(club="Jar",label="Jar 2",age_group="U10"))]); p = SeasonPlan(tournaments=[t]); SpondExporter().export(p, "/tmp/test_spond.xlsx"); print("OK")'` produces no error. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `ScraperStrategy` has `credential_env_vars` field with default empty list, exported in `strategy_to_dict()` | PASS | Python confirmed: field_names contains 'credential_env_vars'. strategy_to_dict exports 'credential_env_vars' and 'requires_credentials'. |
+| BookUp strategies (Tønsberg, Sandefjord) have `credential_env_vars=["BOOKUP_EMAIL", "BOOKUP_PASSWORD"]` | PASS | Python confirmed: Tønsberg ['BOOKUP_EMAIL', 'BOOKUP_PASSWORD'], Sandefjord Penguins ['BOOKUP_EMAIL', 'BOOKUP_PASSWORD']. |
+| `stage2_scraping.py` blocked messages contain credential-env-var names when a blocked source requires auth | PASS | Source contains _credential_hint_for_source() that returns message with env var names. block_reason appends credential_hint. |
+| `rvv-miniputt.ts` shows interactive credential prompts for missing environment variables before launching the ScraperAgent | PASS | Source contains ctx.ui.input() prompt loop checking process.env for each credential_env_vars entry before agent.scrape(). |
+| `scraper-agent.ts` emits a warning when credential placeholders resolve to empty strings during initial navigation | PASS | Source contains console.warn() after scanning navSteps for ${VAR} placeholders and checking process.env. |
+| `grep -r 'BOOKUP_EMAIL\|BOOKUP_PASSWORD' tournament_scheduler/pipeline/scraper_strategies.py` shows both on BookUp strategies | PASS | grep returns 8 matches: lines 150, 152, 156, 157 (Tønsberg) and 169, 171, 175, 176 (Sandefjord) in scraper_strategies.py. |
