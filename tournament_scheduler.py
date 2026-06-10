@@ -69,8 +69,22 @@ Examples:
                         help='Fjern et lag fra turneringen (lagets label, f.eks. "Jar 1"). Krever --update-tournament.')
     parser.add_argument('--new-date', type=str,
                         help='Ny dato for turneringen (YYYY-MM-DD). Krever --update-tournament.')
+    parser.add_argument('--add-tournament', action='store_true',
+                        help='Legg til en ny turnering i sesongplanen. Krever --age-group, --add-teams, --add-date og --arena.')
+    parser.add_argument('--age-group', type=str,
+                        help='Aldersgruppe for ny turnering (f.eks. U10, JU12). Krever --add-tournament.')
+    parser.add_argument('--add-teams', type=str,
+                        help='Kommaseparert liste over lag for ny turnering (f.eks. "Jar 1,Kongsberg 1,Skien 1"). Krever --add-tournament.')
+    parser.add_argument('--add-date', type=str,
+                        help='Dato for ny turnering (YYYY-MM-DD). Krever --add-tournament.')
+    parser.add_argument('--arena', type=str,
+                        help='Arena for ny turnering (f.eks. Kongsberghallen). Krever --add-tournament.')
+    parser.add_argument('--host-club', type=str,
+                        help='Vertsklubb for ny turnering. Hentes automatisk fra lagene hvis ikke angitt. Brukes med --add-tournament.')
+    parser.add_argument('--remove-tournament', type=str,
+                        help='Fjern en turnering helt fra sesongplanen (turnerings-ID).')
     parser.add_argument('--force', action='store_true',
-                        help='Tving flytting av turnering selv om det er konflikter.')
+                        help='Tving flytting/legging til av turnering selv om det er konflikter.')
     parser.add_argument('--no-cascade', action='store_true',
                         help='Ikke kaskader til andre turneringer ved datoflytting.')
     parser.add_argument('--work-dir', type=str, default='.pipeline',
@@ -115,6 +129,18 @@ def _validate_args(args) -> None:
             print("Error: --team-drop and --new-date cannot be used together", file=sys.stderr)
             sys.exit(1)
 
+    if args.add_tournament:
+        if not args.age_group or not args.add_teams or not args.add_date or not args.arena:
+            print("Error: --add-tournament requires --age-group, --add-teams, --add-date, and --arena", file=sys.stderr)
+            print("Usage: --add-tournament --age-group U10 --add-teams \"Jar 1,Kongsberg 1\" --add-date 2027-03-14 --arena Kongsberghallen", file=sys.stderr)
+            sys.exit(1)
+
+    # Mutually exclusive operations
+    update_ops = sum([bool(args.update_tournament), bool(args.add_tournament), bool(args.remove_tournament)])
+    if update_ops > 1:
+        print("Error: --update-tournament, --add-tournament, and --remove-tournament are mutually exclusive", file=sys.stderr)
+        sys.exit(1)
+
 
 def main():
     """Main CLI entry point — parses arguments and dispatches to the matching command."""
@@ -133,6 +159,21 @@ def main():
             new_date=args.new_date,
             force=args.force,
             no_cascade=args.no_cascade,
+            work_dir=args.work_dir,
+        )
+        return
+
+    if args.add_tournament or args.remove_tournament:
+        UpdateCommand().run(
+            tournament_id="",  # not used for add/remove
+            add_tournament=args.add_tournament,
+            age_group=args.age_group,
+            add_teams=args.add_teams,
+            add_date=args.add_date,
+            add_arena=args.arena,
+            host_club=args.host_club,
+            remove_tournament_id=args.remove_tournament,
+            force=args.force,
             work_dir=args.work_dir,
         )
         return

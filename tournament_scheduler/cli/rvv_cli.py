@@ -112,6 +112,80 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Export output directory (default: export)",
     )
 
+    # replan — one-shot cancel + move + re-export
+    replan = sub.add_parser("replan", help="One-shot replan: move a tournament to a new date and re-export")
+    replan.add_argument("--tournament-id", required=True, help="ID of the tournament to replan")
+    replan.add_argument(
+        "--new-date", default=None,
+        help="New date for the tournament (YYYY-MM-DD). Required unless --suggest.",
+    )
+    replan.add_argument(
+        "--suggest", action="store_true",
+        help="Show suggested makeup dates instead of applying a move",
+    )
+    replan.add_argument("--reason", default=None, help="Reason for the replan (e.g. 'Ishall stengt')")
+    replan.add_argument("--force", action="store_true", help="Force the move even when conflicts are detected")
+    replan.add_argument(
+        "--work-dir", default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    replan.add_argument(
+        "--export-dir", default="export",
+        help="Export output directory (default: export)",
+    )
+
+    # tournament — add/remove/list/cancel tournaments
+    t_sub = sub.add_parser("tournament", help="Manage tournaments: list, add, remove, cancel")
+    t_cmds = t_sub.add_subparsers(dest="t_command", title="tournament commands")
+
+    t_list = t_cmds.add_parser("list", help="List all tournaments in the season plan")
+    t_list.add_argument(
+        "--work-dir", default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
+    t_add = t_cmds.add_parser("add", help="Add a new tournament to the season plan")
+    t_add.add_argument("--age-group", required=True, help="Age group (e.g. U10, JU12)")
+    t_add.add_argument("--teams", required=True, help="Comma-separated team labels (e.g. 'Jar 1,Kongsberg 1')")
+    t_add.add_argument("--date", required=True, help="Tournament date (YYYY-MM-DD)")
+    t_add.add_argument("--arena", required=True, help="Host arena (e.g. Kongsberghallen)")
+    t_add.add_argument("--host-club", default=None, help="Host club (inferred from teams if omitted)")
+    t_add.add_argument("--force", action="store_true", help="Skip conflict checking")
+    t_add.add_argument(
+        "--work-dir", default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    t_add.add_argument(
+        "--export-dir", default="export",
+        help="Export output directory (default: export)",
+    )
+
+    t_remove = t_cmds.add_parser("remove", help="Remove a tournament entirely from the season plan")
+    t_remove.add_argument("--tournament-id", required=True, help="ID of the tournament to remove")
+    t_remove.add_argument(
+        "--work-dir", default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    t_remove.add_argument(
+        "--export-dir", default="export",
+        help="Export output directory (default: export)",
+    )
+
+    t_cancel = t_cmds.add_parser("cancel", help="Cancel a tournament and suggest/reschedule makeup dates")
+    t_cancel.add_argument("--tournament-id", default=None, help="ID to cancel (omit to list)")
+    t_cancel.add_argument("--reason", default=None, help="Cancellation reason")
+    t_cancel.add_argument("--makeup-date", default=None, help="Makeup date (YYYY-MM-DD)")
+    t_cancel.add_argument("--no-export", action="store_true", help="Skip re-export")
+    t_cancel.add_argument("--force", action="store_true", help="Force date move")
+    t_cancel.add_argument(
+        "--work-dir", default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    t_cancel.add_argument(
+        "--export-dir", default="export",
+        help="Export output directory (default: export)",
+    )
+
     return parser
 
 
@@ -427,6 +501,245 @@ def _cmd_cancel(args: argparse.Namespace) -> int:
     return 0
 
 
+def _do_re_export(work_dir: str, export_dir: str) -> int:
+    """Re-export Stage 4 from the current plan checkpoint. Returns exit code."""
+    from ..pipeline.state import PipelineState, StageName
+    from ..pipeline.stage4_export import run as run_export
+
+    state = PipelineState(work_dir)
+    plan_checkpoint = state.read_stage(StageName.PLANNING)
+    if not plan_checkpoint:
+        _console.print("[red]✗[/red] Ingen Stage 3-plan funnet.")
+        return 1
+
+    try:
+        result = run_export(plan_checkpoint, state=state, export_dir=export_dir, strict=True)
+        files = result.get("output_files", {})
+        _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")
+        for label, path in files.items():
+            _console.print(f"    → {path}")
+        return 0
+    except Exception as exc:
+        _console.print(f"  [red]✗[/red] Eksport feilet: {exc}")
+        return 1
+
+
+def _load_plan_and_updater(work_dir: str):
+    """Load the season plan and return (plan, updater, state). Raises SystemExit on error."""
+    from ..pipeline.state import PipelineState
+    from ..pipeline.tournament_updater import TournamentUpdater
+
+    work_path = Path(work_dir)
+    if not (work_path / "stage3_plan.json").exists():
+        _console.print(
+            f"[red]✗[/red] Ingen Stage 3-plan funnet i {work_path}/. "
+            f"Kjør [bold]rvv-miniputt run[/bold] først."
+        )
+        sys.exit(1)
+
+    state = PipelineState(work_dir)
+    updater = TournamentUpdater(state=state)
+    try:
+        plan = updater.load_plan()
+    except ValueError as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        sys.exit(1)
+    return plan, updater, state
+
+
+# ---------------------------------------------------------------------------
+# tournament subcommand handlers
+# ---------------------------------------------------------------------------
+
+
+def _cmd_tournament(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt tournament ...`` — dispatches to sub-subcommands."""
+    if args.t_command == "list":
+        return _cmd_tournament_list(args)
+    elif args.t_command == "add":
+        return _cmd_tournament_add(args)
+    elif args.t_command == "remove":
+        return _cmd_tournament_remove(args)
+    elif args.t_command == "cancel":
+        return _cmd_cancel(args)  # reuse existing cancel handler
+    else:
+        _console.print("[yellow]Bruk: rvv-miniputt tournament {list|add|remove|cancel}[/yellow]")
+        return 1
+
+
+def _cmd_tournament_list(args: argparse.Namespace) -> int:
+    """List all tournaments in the season plan."""
+    plan, _updater, _state = _load_plan_and_updater(args.work_dir)
+
+    _console.print(f"[bold]Turneringer i sesongplanen[/bold]")
+    if not plan.tournaments:
+        _console.print("  [dim]Ingen turneringer i planen.[/dim]")
+        return 0
+
+    _console.print(f"  {len(plan.tournaments)} turneringer")
+    if plan.start_date and plan.end_date:
+        _console.print(f"  Sesong: {plan.start_date.isoformat()} → {plan.end_date.isoformat()}")
+    _console.print()
+
+    for t in plan.tournaments:
+        status = ""
+        if t.cancelled:
+            status = f" [red](AVLYST: {t.cancellation_reason or 'ingen grunn'})[/red]"
+        _console.print(
+            f"  [cyan]{t.id}[/cyan]  {t.date.isoformat()}  "
+            f"{t.age_group:5s}  {t.arena:20s}  "
+            f"{len(t.teams)} lag  ({len(t.games)} kamper){status}"
+        )
+        _console.print(f"       Lag: {', '.join(t.label for t in t.teams)}")
+
+    return 0
+
+
+def _cmd_tournament_add(args: argparse.Namespace) -> int:
+    """Add a new tournament to the season plan."""
+    from datetime import date
+
+    plan, updater, _state = _load_plan_and_updater(args.work_dir)
+
+    # Parse date
+    try:
+        tournament_date = date.fromisoformat(args.date)
+    except ValueError:
+        _console.print(f"[red]✗[/red] Ugyldig datoformat '{args.date}'. Bruk YYYY-MM-DD.")
+        return 1
+
+    # Parse teams
+    team_labels = [t.strip() for t in args.teams.split(",") if t.strip()]
+    if len(team_labels) < 2:
+        _console.print(f"[red]✗[/red] Trenger minst 2 lag. Fikk: {team_labels}")
+        return 1
+
+    _console.print(
+        f"[bold]Legger til turnering:[/bold] {args.age_group} "
+        f"på {tournament_date.isoformat()} i {args.arena}"
+    )
+    _console.print(f"  Lag ({len(team_labels)}): {', '.join(team_labels)}")
+
+    result = updater.add_tournament(
+        plan=plan,
+        age_group=args.age_group,
+        team_labels=team_labels,
+        tournament_date=tournament_date,
+        arena=args.arena,
+        host_club=args.host_club,
+        force=args.force,
+    )
+
+    if not result.success:
+        _console.print(f"[red]✗[/red] {result.summary_nb}")
+        return 1
+
+    updater.write_updated_checkpoint(plan, log_entry=result)
+    updater.log_update(result)
+
+    _console.print(f"[green]✓[/green] {result.summary_nb}")
+
+    # Re-export
+    _console.print("\n[bold]Re-eksporterer...[/bold]")
+    return _do_re_export(args.work_dir, args.export_dir)
+
+
+def _cmd_tournament_remove(args: argparse.Namespace) -> int:
+    """Remove a tournament entirely from the season plan."""
+    plan, updater, _state = _load_plan_and_updater(args.work_dir)
+
+    tournament_id = args.tournament_id
+    _console.print(f"[bold]Fjerner turnering {tournament_id}...[/bold]")
+
+    try:
+        result = updater.remove_tournament(plan, tournament_id)
+    except ValueError as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        return 1
+
+    updater.write_updated_checkpoint(plan, log_entry=result)
+    updater.log_update(result)
+
+    _console.print(f"[green]✓[/green] {result.summary_nb}")
+
+    # Re-export
+    _console.print("\n[bold]Re-eksporterer...[/bold]")
+    return _do_re_export(args.work_dir, args.export_dir)
+
+
+def _cmd_replan(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt replan`` — one-shot cancel + move + re-export."""
+    from datetime import date
+    from ..pipeline.cancellation_workflow import CancellationWorkflow
+
+    if not args.new_date and not args.suggest:
+        _console.print("[red]✗[/red] Angi --new-date <YYYY-MM-DD> eller --suggest.")
+        return 1
+
+    plan, _updater, state = _load_plan_and_updater(args.work_dir)
+    wf = CancellationWorkflow(state)
+
+    tid = args.tournament_id
+
+    # Find and describe the tournament
+    try:
+        tournament = wf._find_tournament(plan, tid)
+    except ValueError as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        return 1
+
+    _console.print(
+        f"[bold]Replan:[/bold] {tid} ({tournament.age_group}, {tournament.arena}, "
+        f"{tournament.date.isoformat()})"
+    )
+
+    # --- Suggest mode ---
+    if args.suggest:
+        _console.print("\n[bold]Foreslåtte datoer:[/bold]")
+        suggestions = wf.suggest_makeup_dates(tournament, plan)
+        if not suggestions:
+            _console.print("  [dim]Ingen ledige helger funnet.[/dim]")
+        else:
+            for s in suggestions:
+                day_nb = ["man", "tir", "ons", "tor", "fre", "lør", "søn"]
+                day = day_nb[s.date.weekday()]
+                delta = f"+{s.days_from_original}d" if s.days_from_original >= 0 else f"{s.days_from_original}d"
+                _console.print(f"  [cyan]{s.date.isoformat()}[/cyan] ({day}, {delta})")
+                for c in s.conflicts:
+                    _console.print(f"    [dim]Advarsel: {c['reason']}[/dim]")
+        _console.print(f"\nBruk --new-date <dato> for å velge en dato.")
+        return 0
+
+    # --- Apply move mode ---
+    try:
+        new_date_obj = date.fromisoformat(args.new_date)
+    except ValueError:
+        _console.print(f"[red]✗[/red] Ugyldig datoformat '{args.new_date}'. Bruk YYYY-MM-DD.")
+        return 1
+
+    _console.print(f"  Ny dato: {new_date_obj.isoformat()}")
+
+    reason = args.reason or "Replan via rvv-miniputt replan"
+
+    # Apply the date move directly (does not require cancellation first —
+    # just moves the tournament to the new date with conflict checking).
+    move_result = wf.apply_makeup(
+        tid, new_date_obj, plan=plan, force=args.force, cascade=True
+    )
+
+    if not move_result.success:
+        _console.print(f"[red]✗[/red] {move_result.summary_nb}")
+        return 1
+
+    _console.print(f"[green]✓[/green] {move_result.summary_nb}")
+
+    wf.write_plan(plan, log_entry=move_result)
+
+    # Re-export
+    _console.print("\n[bold]Re-eksporterer...[/bold]")
+    return _do_re_export(args.work_dir, args.export_dir)
+
+
 def _cmd_logs(args: argparse.Namespace) -> int:  # noqa: ARG001
     """Handle ``rvv-miniputt logs`` — show pipeline update logs."""
     from pathlib import Path
@@ -474,6 +787,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_logs(args)
     elif args.command == "cancel":
         return _cmd_cancel(args)
+    elif args.command == "replan":
+        return _cmd_replan(args)
+    elif args.command == "tournament":
+        return _cmd_tournament(args)
     else:
         parser.print_help()
         return 0

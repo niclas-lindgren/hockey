@@ -1,7 +1,8 @@
 """--update-tournament CLI mode: modify a generated season plan.
 
-Supports dropping a team from a tournament or moving a tournament to a
-different weekend, reading from and writing back to the Stage 3 checkpoint.
+Supports dropping a team from a tournament, moving a tournament to a
+different weekend, adding a new tournament, or removing a tournament
+entirely — reading from and writing back to the Stage 3 checkpoint.
 """
 
 from datetime import date, datetime
@@ -21,21 +22,20 @@ class UpdateCommand:
         tournament_id: str,
         team_drop: Optional[str] = None,
         new_date: Optional[str] = None,
+        add_tournament: bool = False,
+        age_group: Optional[str] = None,
+        add_teams: Optional[str] = None,
+        add_date: Optional[str] = None,
+        add_arena: Optional[str] = None,
+        host_club: Optional[str] = None,
+        remove_tournament_id: Optional[str] = None,
         force: bool = False,
         no_cascade: bool = False,
         work_dir: str = ".pipeline",
     ) -> None:
         TournamentOutput.print_header("OPPDATER TURNERING")
 
-        if not team_drop and not new_date:
-            TournamentOutput.print_error("Angi --team-drop <lag> eller --new-date <YYYY-MM-DD>.")
-            return
-
-        if team_drop and new_date:
-            TournamentOutput.print_error("Kan ikke bruke --team-drop og --new-date samtidig.")
-            return
-
-        # Resolve work directory
+        # Resolve work directory (used by all operations)
         work_path = Path(work_dir)
         if not (work_path / "stage3_plan.json").exists():
             TournamentOutput.print_error(
@@ -58,11 +58,75 @@ class UpdateCommand:
             f"({plan.start_date} til {plan.end_date})"
         )
 
+        # --- Validate mutually exclusive operations ---
+        operations = sum([
+            bool(team_drop),
+            bool(new_date),
+            bool(add_tournament),
+            bool(remove_tournament_id),
+        ])
+        if operations == 0:
+            TournamentOutput.print_error(
+                "Angi --team-drop, --new-date, --add-tournament eller --remove-tournament."
+            )
+            return
+        if operations > 1:
+            TournamentOutput.print_error(
+                "Kan ikke bruke flere operasjoner samtidig. "
+                "Velg en av --team-drop, --new-date, --add-tournament eller --remove-tournament."
+            )
+            return
+
         result: Optional[UpdateResult] = None
 
-        if team_drop:
+        # --- Add tournament ---
+        if add_tournament:
+            if not age_group or not add_teams or not add_date or not add_arena:
+                TournamentOutput.print_error(
+                    "--add-tournament krever --age-group, --add-teams, --add-date og --arena."
+                )
+                return
+
+            try:
+                parsed_add_date = date.fromisoformat(add_date)
+            except ValueError:
+                TournamentOutput.print_error(
+                    f"Ugyldig datoformat '{add_date}'. Bruk YYYY-MM-DD."
+                )
+                return
+
+            team_labels = [t.strip() for t in add_teams.split(",") if t.strip()]
+            if len(team_labels) < 2:
+                TournamentOutput.print_error(
+                    f"Trenger minst 2 lag for en turnering. Fikk: {team_labels}"
+                )
+                return
+
+            TournamentOutput.print_info(
+                f"Legger til turnering: {age_group} på {parsed_add_date.isoformat()} i {add_arena} "
+                f"med {len(team_labels)} lag..."
+            )
+            result = updater.add_tournament(
+                plan=plan,
+                age_group=age_group,
+                team_labels=team_labels,
+                tournament_date=parsed_add_date,
+                arena=add_arena,
+                host_club=host_club,
+                force=force,
+            )
+
+        # --- Remove tournament ---
+        elif remove_tournament_id:
+            TournamentOutput.print_info(f"Fjerner turnering {remove_tournament_id}...")
+            result = updater.remove_tournament(plan, remove_tournament_id)
+
+        # --- Team drop ---
+        elif team_drop:
             TournamentOutput.print_info(f"Fjerner lag '{team_drop}' fra turnering {tournament_id}...")
             result = updater.drop_team(tournament_id, team_drop, plan=plan)
+
+        # --- Date move ---
         elif new_date:
             try:
                 parsed_date = date.fromisoformat(new_date)

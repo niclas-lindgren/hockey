@@ -332,6 +332,237 @@ class TournamentUpdater:
         )
 
     # ------------------------------------------------------------------
+    # Operation: add a tournament
+    # ------------------------------------------------------------------
+
+    def add_tournament(
+        self,
+        plan: SeasonPlan,
+        age_group: str,
+        team_labels: list[str],
+        tournament_date: date,
+        arena: str,
+        host_club: Optional[str] = None,
+        *,
+        parallel_games: Optional[int] = None,
+        force: bool = False,
+    ) -> UpdateResult:
+        """Add a new tournament to the season plan.
+
+        Builds a new ``Tournament`` with the given parameters, resolves
+        ``Team`` objects from the plan's existing roster, generates
+        round-robin games, runs optional conflict checking, and appends
+        the tournament to *plan*.
+
+        Args:
+            plan: The season plan to modify.
+            age_group: Age group for the tournament (e.g. ``"U10"``).
+            team_labels: Labels of teams to invite (e.g. ``["Jar 1", "Kongsberg 1"]``).
+            tournament_date: Date of the tournament (weekend expected).
+            arena: Host arena name (e.g. ``"Kongsberghallen"``).
+            host_club: Club hosting the tournament. If ``None``, inferred
+                from *arena* by scanning plan teams.
+            parallel_games: Number of parallel games/rinks.
+                If ``None``, inferred from team count.
+            force: If ``True``, skip conflict checking (e.g. when the
+                user is certain the date is free).
+
+        Returns:
+            An ``UpdateResult`` with a Norwegian summary.
+        """
+        # Resolve teams by scanning plan tournaments for matching labels.
+        known_teams: dict[str, Team] = {}
+        for t in plan.tournaments:
+            for team in t.teams:
+                if team.label not in known_teams:
+                    known_teams[team.label] = team
+
+        teams: list[Team] = []
+        missing: list[str] = []
+        for label in team_labels:
+            stripped = label.strip()
+            if stripped in known_teams:
+                teams.append(known_teams[stripped])
+            else:
+                missing.append(stripped)
+
+        if missing:
+            return UpdateResult(
+                summary_nb=(
+                    f"Kan ikke legge til turnering — følgende lag ble ikke funnet "
+                    f"i sesongplanen: {', '.join(missing)}.\n"
+                    f"Kjente lag: {', '.join(sorted(known_teams.keys()))}"
+                ),
+                tournament_id="",
+                operation="add_tournament",
+                changes={"missing_teams": missing},
+                success=False,
+            )
+
+        if len(teams) < 2:
+            return UpdateResult(
+                summary_nb=(
+                    f"Kan ikke legge til turnering — trenger minst 2 lag, "
+                    f"fikk {len(teams)}."
+                ),
+                tournament_id="",
+                operation="add_tournament",
+                changes={"team_count": len(teams)},
+                success=False,
+            )
+
+        # Validate all teams are from the same age group.
+        mismatched = [t for t in teams if t.age_group != age_group]
+        if mismatched:
+            return UpdateResult(
+                summary_nb=(
+                    f"Kan ikke legge til turnering — følgende lag har feil aldersgruppe "
+                    f"(forventet {age_group}): {', '.join(t.label + ' (' + t.age_group + ')' for t in mismatched)}"
+                ),
+                tournament_id="",
+                operation="add_tournament",
+                changes={"mismatched_age_groups": [t.label for t in mismatched]},
+                success=False,
+            )
+
+        # Resolve host_club from teams if not provided.
+        resolved_host: Optional[str] = host_club
+        if resolved_host is None:
+            for team in teams:
+                if team.club:
+                    resolved_host = team.club
+                    break
+
+        # Conflict checking (unless forced).
+        conflicts: list[dict[str, Any]] = []
+        if not force:
+            # Build a lightweight tournament stub for conflict checking.
+            stub = Tournament(
+                date=tournament_date,
+                arena=arena,
+                age_group=age_group,
+                teams=teams,
+            )
+            conflicts = self._check_date_conflicts(tournament_date, stub, plan)
+
+        if conflicts and not force:
+            conflict_lines = []
+            for c in conflicts:
+                conflict_lines.append(f"  - {c.get('reason', 'Ukjent konflikt')}")
+            conflict_str = "\n".join(conflict_lines)
+            return UpdateResult(
+                summary_nb=(
+                    f"Kan ikke legge til turnering på {tournament_date.isoformat()} — "
+                    f"følgende konflikter ble funnet:\n{conflict_str}\n\n"
+                    f"Bruk --force for å legge til uansett."
+                ),
+                tournament_id="",
+                operation="add_tournament",
+                changes={
+                    "age_group": age_group,
+                    "team_labels": team_labels,
+                    "date": tournament_date.isoformat(),
+                    "arena": arena,
+                },
+                conflicts=conflicts,
+                success=False,
+            )
+
+        # Determine parallel games.
+        pg = parallel_games or self._infer_parallel_games_from_count(len(teams))
+
+        # Build the tournament.
+        import uuid
+        new_id = uuid.uuid4().hex[:8]
+
+        tournament = Tournament(
+            id=new_id,
+            date=tournament_date,
+            arena=arena,
+            age_group=age_group,
+            host_club=resolved_host,
+            teams=list(teams),
+        )
+        tournament.games = SeasonPlanner.generate_round_robin_games(
+            tournament.teams, pg
+        )
+
+        plan.tournaments.append(tournament)
+        plan.tournaments.sort(key=lambda t: t.date)
+
+        return UpdateResult(
+            summary_nb=(
+                f"Lagt til turnering {new_id} ({age_group}, {arena})\n"
+                f"  Dato: {tournament_date.isoformat()}\n"
+                f"  Lag ({len(teams)}): {', '.join(t.label for t in teams)}\n"
+                f"  Kamper ({len(tournament.games)}): {pg} parallelle baner"
+            ),
+            tournament_id=new_id,
+            operation="add_tournament",
+            changes={
+                "age_group": age_group,
+                "team_labels": [t.label for t in teams],
+                "team_count": len(teams),
+                "date": tournament_date.isoformat(),
+                "arena": arena,
+                "host_club": resolved_host,
+                "parallel_games": pg,
+                "game_count": len(tournament.games),
+            },
+            conflicts=conflicts,
+            success=True,
+        )
+
+    # ------------------------------------------------------------------
+    # Operation: remove a tournament
+    # ------------------------------------------------------------------
+
+    def remove_tournament(
+        self,
+        plan: SeasonPlan,
+        tournament_id: str,
+    ) -> UpdateResult:
+        """Remove an entire tournament from the season plan.
+
+        Unlike cancellation (which marks a tournament as cancelled but keeps
+        it in the plan), this operation deletes the tournament entirely.
+
+        Args:
+            plan: The season plan to modify.
+            tournament_id: ID of the tournament to remove.
+
+        Returns:
+            An ``UpdateResult`` with a Norwegian summary of what was removed.
+        """
+        tournament = self.find_tournament(plan, tournament_id)
+        idx = self.find_tournament_index(plan, tournament_id)
+
+        removed_data = {
+            "id": tournament.id,
+            "date": tournament.date.isoformat(),
+            "age_group": tournament.age_group,
+            "arena": tournament.arena,
+            "team_count": len(tournament.teams),
+            "teams": [t.label for t in tournament.teams],
+            "game_count": len(tournament.games),
+            "host_club": tournament.host_club,
+        }
+
+        del plan.tournaments[idx]
+
+        return UpdateResult(
+            summary_nb=(
+                f"Fjernet turnering {tournament_id} ({tournament.age_group}, "
+                f"{tournament.arena}, {tournament.date.isoformat()}).\n"
+                f"  Lag: {', '.join(t.label for t in tournament.teams)}"
+            ),
+            tournament_id=tournament_id,
+            operation="remove_tournament",
+            changes=removed_data,
+            success=True,
+        )
+
+    # ------------------------------------------------------------------
     # Checkpoint write
     # ------------------------------------------------------------------
 
@@ -504,10 +735,14 @@ class TournamentUpdater:
         Uses the number of teams to estimate the original parallel-games
         setting when regenerating round-robin schedules.
         """
-        n = len(tournament.teams)
-        if n < 3:
+        return self._infer_parallel_games_from_count(len(tournament.teams))
+
+    @staticmethod
+    def _infer_parallel_games_from_count(team_count: int) -> int:
+        """Infer parallel-games count from a raw team count."""
+        if team_count < 3:
             return 1
-        return max(1, min(4, n // 2))
+        return max(1, min(4, team_count // 2))
 
 
 # ---------------------------------------------------------------------------

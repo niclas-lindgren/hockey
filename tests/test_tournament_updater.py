@@ -341,3 +341,277 @@ class TestCheckpointRoundTrip:
         assert entry["operation"] == "team_drop"
         assert entry["success"] is True
         assert "Jar 1" in entry.get("changes", {}).get("team_removed", "")
+
+
+# ---------------------------------------------------------------------------
+# Test 5: Add tournament
+# ---------------------------------------------------------------------------
+
+
+class TestAddTournament:
+    def test_add_valid_tournament(self, six_team_tournament: Tournament, tmp_path: Any):
+        """Adding a tournament with valid teams should succeed and generate round-robin."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        team_labels = ["Jar 1", "Kongsberg 1", "Skien 1"]
+        new_date = date(2027, 3, 14)
+
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U10",
+            team_labels=team_labels,
+            tournament_date=new_date,
+            arena="Jarhallen",
+            host_club="Jar",
+        )
+
+        assert result.success is True, f"Add failed: {result.summary_nb}"
+        assert result.operation == "add_tournament"
+        assert result.tournament_id != ""
+
+        # Plan should now have 2 tournaments
+        assert len(plan.tournaments) == 2
+        new_t = plan.tournaments[-1]
+        assert new_t.date == new_date
+        assert new_t.age_group == "U10"
+        assert new_t.arena == "Jarhallen"
+        assert len(new_t.teams) == 3
+        assert len(new_t.games) > 0, "Should have round-robin games generated"
+
+        # Verify games are valid (every pair plays once)
+        from collections import Counter
+        pair_counts: Counter = Counter()
+        for game in new_t.games:
+            pair = frozenset((game.home.label, game.away.label))
+            pair_counts[pair] += 1
+        assert len(pair_counts) == 3  # C(3,2) = 3 pairings
+        for pair, count in pair_counts.items():
+            assert count == 1, f"Pair {pair} appears {count} times (expected 1)"
+
+    def test_add_tournament_missing_team(self, six_team_tournament: Tournament, tmp_path: Any):
+        """Adding with a team not in the plan should fail with a clear message."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U10",
+            team_labels=["Jar 1", "Nonexistent Team"],
+            tournament_date=date(2027, 3, 14),
+            arena="Jarhallen",
+        )
+
+        assert result.success is False
+        assert "ikke funnet" in result.summary_nb.lower()
+        assert "Nonexistent" in result.summary_nb
+
+    def test_add_tournament_wrong_age_group(self, six_team_tournament: Tournament, tmp_path: Any):
+        """Adding with a team from a different age group should fail."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        # All teams in six_team_tournament are U10. Try to add a U12 tournament.
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U12",
+            team_labels=["Jar 1", "Kongsberg 1"],
+            tournament_date=date(2027, 3, 14),
+            arena="Jarhallen",
+        )
+
+        assert result.success is False
+        assert "feil aldersgruppe" in result.summary_nb.lower() or "U12" in result.summary_nb
+
+    def test_add_tournament_too_few_teams(self, six_team_tournament: Tournament, tmp_path: Any):
+        """Adding with fewer than 2 teams should fail."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U10",
+            team_labels=["Jar 1"],
+            tournament_date=date(2027, 3, 14),
+            arena="Jarhallen",
+        )
+
+        assert result.success is False
+        assert "minst 2" in result.summary_nb.lower()
+
+    def test_add_tournament_date_conflict_blocked(
+        self, six_team_tournament: Tournament, tmp_path: Any
+    ):
+        """Adding on an already-occupied date should be blocked unless forced."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        same_date = six_team_tournament.date  # Same date as existing tournament
+
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U10",
+            team_labels=["Jar 1", "Ringerike 1", "Skien 1"],
+            tournament_date=same_date,
+            arena="Ringerikshallen",
+            force=False,
+        )
+
+        assert result.success is False
+        assert "konflikter" in result.summary_nb.lower() or "allerede" in result.summary_nb.lower()
+
+        # With force=True, should succeed
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U10",
+            team_labels=["Jar 1", "Ringerike 1", "Skien 1"],
+            tournament_date=same_date,
+            arena="Ringerikshallen",
+            force=True,
+        )
+
+        assert result.success is True
+        assert len(plan.tournaments) == 2
+
+    def test_add_tournament_non_weekend_blocked(
+        self, six_team_tournament: Tournament, tmp_path: Any
+    ):
+        """Adding on a weekday should be blocked."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        wednesday = date(2027, 3, 10)  # Wednesday
+        assert wednesday.weekday() == 2
+
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U10",
+            team_labels=["Jar 1", "Kongsberg 1"],
+            tournament_date=wednesday,
+            arena="Jarhallen",
+            force=False,
+        )
+
+        assert result.success is False
+
+    def test_add_tournament_plans_sorted_by_date(
+        self, six_team_tournament: Tournament, tmp_path: Any
+    ):
+        """Tournaments should remain sorted by date after adding."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        # Add a tournament earlier than the existing one
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U10",
+            team_labels=["Jar 1", "Skien 1"],
+            tournament_date=date(2026, 10, 17),  # Earlier than 2027-01-16
+            arena="Jarhallen",
+            force=True,
+        )
+        assert result.success is True
+
+        # Add one later
+        result = updater.add_tournament(
+            plan=plan,
+            age_group="U10",
+            team_labels=["Kongsberg 1", "Ringerike 1"],
+            tournament_date=date(2027, 4, 4),
+            arena="Kongsberghallen",
+            force=True,
+        )
+        assert result.success is True
+
+        # Verify sorting
+        dates = [t.date for t in plan.tournaments]
+        assert dates == sorted(dates), f"Tournaments not sorted: {dates}"
+
+
+# ---------------------------------------------------------------------------
+# Test 6: Remove tournament
+# ---------------------------------------------------------------------------
+
+
+class TestRemoveTournament:
+    def test_remove_valid_tournament(self, six_team_tournament: Tournament, tmp_path: Any):
+        """Removing a tournament should delete it from the plan."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+        tid = six_team_tournament.id
+
+        assert len(plan.tournaments) == 1
+
+        result = updater.remove_tournament(plan, tid)
+
+        assert result.success is True, f"Remove failed: {result.summary_nb}"
+        assert result.operation == "remove_tournament"
+        assert len(plan.tournaments) == 0
+
+        # Changes should contain the removed tournament's data
+        assert result.changes["id"] == tid
+        assert result.changes["age_group"] == "U10"
+
+    def test_remove_nonexistent_tournament(
+        self, six_team_tournament: Tournament, tmp_path: Any
+    ):
+        """Removing a non-existent tournament ID should raise ValueError."""
+        plan = SeasonPlan(tournaments=[six_team_tournament])
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        with pytest.raises(ValueError, match="ikke funnet"):
+            updater.remove_tournament(plan, "nonexistent-id")
+
+    def test_remove_preserves_other_tournaments(
+        self, two_tournament_plan, tmp_path: Any
+    ):
+        """Removing one tournament should leave others intact."""
+        plan, t1, t2 = two_tournament_plan
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        result = updater.remove_tournament(plan, t1.id)
+
+        assert result.success is True
+        assert len(plan.tournaments) == 1
+        remaining = plan.tournaments[0]
+        assert remaining.id == t2.id
+        assert remaining.date == t2.date
+        assert len(remaining.teams) == len(t2.teams)
+
+    def test_remove_and_add_sequence(self, two_tournament_plan, tmp_path: Any):
+        """Removing one tournament and adding a new one should work as a sequence."""
+        plan, t1, t2 = two_tournament_plan
+        state = make_state_with_plan(plan, tmp_path)
+        updater = TournamentUpdater(state=state)
+
+        original_count = len(plan.tournaments)
+
+        # Remove t1
+        result = updater.remove_tournament(plan, t1.id)
+        assert result.success is True
+        assert len(plan.tournaments) == original_count - 1
+
+        # Add a new tournament using teams from the remaining tournament (t2)
+        team_labels = [t.label for t in t2.teams]
+        # t2 tournament is U11 but its teams are U10 — use team's actual age group
+        actual_age_group = t2.teams[0].age_group if t2.teams else t2.age_group
+        result = updater.add_tournament(
+            plan=plan,
+            age_group=actual_age_group,
+            team_labels=team_labels,
+            tournament_date=date(2027, 3, 14),
+            arena="Kongsberghallen",
+            force=True,
+        )
+        assert result.success is True
+        assert len(plan.tournaments) == original_count

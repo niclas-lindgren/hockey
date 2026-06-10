@@ -16,7 +16,7 @@
 
 
 
-- [36] [ ] Uneven team count support: when number of teams is odd, one team gets a bye/pause each round. Currently the scheduler requires even teams. Need to model bye rounds in the plan and export.
+- [36] [x] Uneven team count support: when number of teams is odd, one team gets a bye/pause each round. Currently the scheduler requires even teams. Need to model bye rounds in the plan and export. (2026-06-10)
 - [35] [ ] Add/remove/replan tournaments on the fly: after initial plan, allow adding new tournaments, removing existing ones, and replanning the schedule without restarting the full pipeline. Needs CLI commands and plan checkpoint mutation.
 - [34] [ ] Export: store output in date-time subfolder (e.g. export/2026-06-10T1300/) or commit to git so changes between pipeline runs are diffable. Currently export/ is overwritten each run.
 - [33] [x] Per-team travelled distance metrics across the season in the HTML report — compute total travelled distance for each team over all their away tournaments, show it in the interactive HTML report (e.g. in the team filter sidebar or a summary table), and flag the team with the highest total travel burden. (2026-06-10)
