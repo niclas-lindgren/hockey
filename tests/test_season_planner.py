@@ -6,9 +6,11 @@ import pytest
 
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
+    Game,
     Roster,
     SchedulingResult,
     Team,
+    Tournament,
     overlapping_age_groups,
 )
 from tournament_scheduler.season_planner import SeasonPlanner, MIN_TOURNAMENTS, MAX_TOURNAMENTS
@@ -350,6 +352,69 @@ class TestOpponentHistoryTrackingAndScoring:
 
         assert total > 0
         assert plan.pairwise_matchup_score == round(novel / total, 3)
+
+    def test_diversity_score_returns_zero_when_no_games_scheduled(self):
+        clubs = ["Jar", "Holmen"]
+        age_groups = ["U10"]
+        roster = _build_roster(clubs, age_groups)
+
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+        )
+
+        # Fresh planner: _opponent_history is empty, no games scheduled.
+        assert planner._diversity_score([]) == 0.0
+
+    def test_diversity_score_and_pairwise_score_can_diverge(self):
+        """Construct a scenario where opponent-variety-per-team and
+        first-time-pairing fraction produce different numeric results."""
+        clubs = ["A", "B", "C", "D"]
+        age_groups = ["U10"]
+        roster = _build_roster(clubs, age_groups)
+
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+        )
+
+        team_a = next(t for t in roster.teams if t.club == "A")
+        team_b = next(t for t in roster.teams if t.club == "B")
+
+        # Team A has played team B once; both have 3 eligible opponents
+        # (the other clubs' U10 teams), so each has faced 1/3 of its pool.
+        planner._opponent_history = {
+            frozenset((team_a.label, team_b.label)): 1,
+        }
+        diversity = planner._diversity_score([])
+        assert diversity == round((1 / 3 + 1 / 3) / 2, 3)
+
+        # A single tournament where A and B play each other twice: only the
+        # first meeting is "novel", giving a pairwise score of 0.5.
+        tournament = Tournament(
+            date=date(2026, 10, 3),
+            arena=club_arenas["A"],
+            age_group="U10",
+            teams=[team_a, team_b],
+            games=[
+                Game(home=team_a, away=team_b),
+                Game(home=team_a, away=team_b),
+            ],
+        )
+        pairwise = SeasonPlanner._pairwise_matchup_score([tournament])
+        assert pairwise == 0.5
+
+        assert diversity != pairwise
 
 
 class TestPerTeamGameCounts:

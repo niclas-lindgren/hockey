@@ -30,7 +30,7 @@
   - Files: `tournament_scheduler/utils/rich_output.py`
   - Update the two summary lines (rich_output.py:331 and :335) so the Norwegian descriptions accurately describe each distinct metric: line 331 (`Mangfoldscore (andel nye lagkonstellasjoner)` for `plan.diversity_score`) should describe opponent-variety-per-team (e.g. "andel mulige motstandere møtt"), and line 335 (`Kampmangfold (andel ferske motstanderpar)` for `plan.pairwise_matchup_score`) should keep describing the fraction of first-time pairings — ensure the two labels no longer imply they measure the same thing.
 
-- [ ] Add unit tests verifying the two scores are computed independently and can diverge
+- [x] Added test_diversity_score_returns_zero_when_no_games_scheduled (fresh planner with empty _opponent_history) and test_diversity_score_and_pairwise_score_can_diverge (4-team scenario where opponent-variety  1/3 but pairwise-novelty  0.5, asserting they differ). — 2026-06-10
   - Files: `tests/test_season_planner.py`
   - Add a test that builds a small `tournaments`/`_opponent_history` fixture where opponent-variety-per-team and pairwise-novel-pairing-fraction produce different numeric results, and asserts `_diversity_score(tournaments) != _pairwise_matchup_score(tournaments)` for that fixture. Also add a test confirming `_diversity_score` returns `0.0` when no games were scheduled, matching the existing `_pairwise_matchup_score` empty-input behavior.
 
@@ -77,3 +77,10 @@ LESSONS: scores.html and other files under tournament_scheduler/html/templates/ 
 LESSONS: none
 **Files:** tournament_scheduler/utils/rich_output.py (+1/-1)
 **Commit:** 2c16453 (hockey)
+
+### 2026-06-10 — Added test_diversity_score_returns_zero_when_no_games_scheduled (fresh planner with empty _opponent_history) and test_diversity_score_and_pairwise_score_can_diverge (4-team scenario where opponent-variety  1/3 but pairwise-novelty  0.5, asserting they differ).
+**Rationale:** Used a from-scratch SeasonPlanner/roster fixture rather than reusing planner_and_plan, since the latter's build_plan already populates _opponent_history nonzero, making a true 'no games' zero-score case impossible to reach via that fixture.
+**Findings:** All 41 season_planner tests pass, including the two new tests confirming diversity_score and pairwise_matchup_score are independently computed and can diverge.
+LESSONS: none
+**Files:** tests/test_season_planner.py (+65/-0)
+**Commit:** [pending — fill after commit]
