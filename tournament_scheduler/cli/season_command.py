@@ -82,6 +82,7 @@ class SeasonCommand:
         self._print_club_load_warnings(planner)
         self._print_hosting_warnings(planner)
         self._print_travel_warnings(plan)
+        self._print_month_load_warnings(planner)
 
         # Print the rules-and-decisions audit report.
         TournamentOutput.print_rules_report(planner.rules_report())
@@ -213,4 +214,28 @@ class SeasonCommand:
         if longest_team:
             TournamentOutput.print_info(
                 f"Lengste enkeltreise i sesongen: {longest_team.label} ({longest_km} km)"
+            )
+
+    @staticmethod
+    def _print_month_load_warnings(planner) -> None:
+        """Print warnings for months with uneven tournament load."""
+        warnings = planner.month_load_warnings
+        if not warnings:
+            return
+
+        _NORWEGIAN_MONTHS = [
+            "", "januar", "februar", "mars", "april", "mai", "juni",
+            "juli", "august", "september", "oktober", "november", "desember",
+        ]
+        threshold_pct = int(planner.max_month_deviation_ratio * 100)
+        TournamentOutput.print_warning(
+            f"Måneder med ujevn turneringsbelastning (avvik >{threshold_pct}% fra forventet):"
+        )
+        for year, month, count, expected, deviation in warnings:
+            direction = "overbelastet" if deviation > 0 else "underbelastet"
+            month_name = _NORWEGIAN_MONTHS[month]
+            tournament_text = "turnering" if count == 1 else "turneringer"
+            TournamentOutput.print_warning(
+                f"  • {month_name} {year}: {count} {tournament_text} "
+                f"(forventet ~{expected:.1f}, {direction} med {abs(deviation):.0%})"
             )

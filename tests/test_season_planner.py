@@ -978,3 +978,34 @@ class TestRulesReport:
         # No build_plan() call — should still work
         report = planner.rules_report()
         assert len(report) > 0, "rules_report should work before build_plan"
+
+
+class TestMonthLoadWarnings:
+    """Tests for month-load imbalance detection."""
+
+    def test_returns_list_after_build_plan(self):
+        """month_load_warnings returns a list after build_plan runs."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Skien", label="Skien U10", age_group="U10"),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+            max_month_deviation_ratio=0.5,
+        )
+        plan = planner.build_plan(start, end)
+        assert len(plan.tournaments) > 0
+
+        warnings = planner.month_load_warnings
+        assert isinstance(warnings, list)
+        # Each entry: (year, month, count, expected, deviation)
+        for w in warnings:
+            assert len(w) == 5, f"expected 5-tuple, got {w}"
+            assert 1 <= w[1] <= 12, f"invalid month: {w[1]}"

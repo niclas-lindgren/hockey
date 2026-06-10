@@ -79,6 +79,7 @@ class SeasonPlanner:
         max_early_finish_gap_days: int = 60,
         division_skill_band: int = 2,
         max_hosting_deviation: int = 1,
+        max_month_deviation_ratio: float = 0.5,
     ):
         """Initialize the planner.
 
@@ -108,6 +109,10 @@ class SeasonPlanner:
                 "adjacent" for the skill-division penalty in participant
                 selection. Default 2 means levels 3 and 5 are adjacent but
                 3 and 6 are not. Set to a large value (e.g. 99) to disable.
+            max_month_deviation_ratio: A month is flagged as over- or
+                under-loaded when its tournament count deviates more than
+                this fraction from the expected seasonal average.
+                Default 0.5 means >50% deviation triggers a warning.
         """
         self.scheduler = scheduler
         self.roster = roster
@@ -165,6 +170,10 @@ class SeasonPlanner:
         # used to spot months that are already carrying more than their
         # fair share of the season's tournament load.
         self._month_counts: Dict[Tuple[int, int], int] = {}
+        # Month-load warnings collected after build_plan runs.
+        self._month_load_warnings: List[Tuple[int, int, int, float, float]] = []
+
+        self.max_month_deviation_ratio = max_month_deviation_ratio
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -253,6 +262,8 @@ class SeasonPlanner:
         self._scan_hosting_warnings(plan)
         # Scan for game-count spread violations and early-finish issues.
         self._scan_game_count_warnings(plan.start_date, plan.end_date)
+        # Scan for month-load imbalance warnings.
+        self._scan_month_load_warnings(expected_per_month, plan.start_date)
 
         if collisions:
             plan.arena_counts["_age_group_overlap_collisions"] = len(collisions)
@@ -305,6 +316,18 @@ class SeasonPlanner:
           ``max_early_finish_gap_days`` before the season end date.
         """
         return list(self._game_count_warnings)
+
+    @property
+    def month_load_warnings(self) -> List[Tuple[int, int, int, float, float]]:
+        """Month-load imbalance warnings after ``build_plan``.
+
+        Each entry is ``(year, month, count, expected, deviation_ratio)``
+        where ``deviation_ratio`` is (count - expected) / expected —
+        positive for over-loaded months, negative for under-loaded months.
+
+        Only months exceeding ``max_month_deviation_ratio`` are included.
+        """
+        return list(self._month_load_warnings)
 
     def _compute_game_counts(self, tournaments: Sequence[Tournament]) -> None:
         """Compute per-team round-robin game counts and last-game dates.
@@ -367,6 +390,42 @@ class SeasonPlanner:
                     self._game_count_warnings.append(
                         (label, self._team_game_counts.get(label, 0), gap, "early_finish")
                     )
+
+    def _scan_month_load_warnings(
+        self,
+        expected_per_month: float,
+        start_date: Optional[date],
+    ) -> None:
+        """Scan month counts for over/under-loaded months.
+
+        Appends ``(year, month, count, expected, deviation)`` tuples to
+        ``_month_load_warnings`` for every month whose tournament count
+        deviates more than ``max_month_deviation_ratio`` from the
+        seasonal average.
+        """
+        self._month_load_warnings = []
+        if expected_per_month <= 0 or not self._month_counts:
+            return
+
+        # Only check months that are within the season window.
+        if start_date is None:
+            return
+
+        from calendar import monthrange
+
+        end_month = 4  # April — season ends Apr 30
+        for (year, month), count in sorted(self._month_counts.items()):
+            # Skip months outside the Oct–Apr window.
+            # October = 10, November = 11, December = 12,
+            # January = 1, February = 2, March = 3, April = 4.
+            if not ((month >= 10) or (month <= end_month)):
+                continue
+
+            deviation = (count - expected_per_month) / expected_per_month
+            if abs(deviation) > self.max_month_deviation_ratio:
+                self._month_load_warnings.append(
+                    (year, month, count, expected_per_month, deviation)
+                )
 
     def _scan_club_load_warnings(self, tournaments: Sequence[Tournament]) -> None:
         """Scan completed tournaments for club-load violations.
@@ -525,7 +584,8 @@ class SeasonPlanner:
                 f"Sesongvinduet deles i omtrent like store tidsbolker, og én "
                 f"turnering legges til hver bolk. Dette sikrer at turneringene "
                 f"er spredt jevnt utover og at ingen periode blir overbelastet. "
-                f"Månedsbalansen veies også inn i datovalget."
+                f"Måneder som avviker mer enn {int(self.max_month_deviation_ratio * 100)}% "
+                f"fra forventet antall turneringer flagges som et varsel."
             ),
             "kategori": "Automatisk avgjørelse",
         })
