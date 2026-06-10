@@ -40,7 +40,7 @@ class SeasonCommand:
 
         parallel_games_for_age_group = federation_defaults.get('parallelGames', {})
         max_teams_per_tournament = federation_defaults.get('maxTeamsPerTournament', {})
-        max_club_teams = federation_defaults.get('maxClubTeamsPerTournament', 2)
+        max_club_teams = federation_defaults.get('maxClubTeamsPerTournament', 1)
         if hasattr(args, 'max_club_teams') and args.max_club_teams is not None:
             max_club_teams = args.max_club_teams
         max_game_count_spread = federation_defaults.get('maxGameCountSpread', 2)
@@ -183,13 +183,13 @@ class SeasonCommand:
         warnings = planner.club_load_warnings
         if not warnings:
             return
-        TournamentOutput.print_warning(
-            f"Advarsel — {len(warnings)} tilfelle(r) der en klubb har flere lag "
+        TournamentOutput.print_error(
+            f"Feil — {len(warnings)} tilfelle(r) der en klubb har flere lag "
             f"enn grensen ({planner.max_club_teams_per_tournament}) i samme turnering:"
         )
         for club, age_group, date_str, count in warnings:
-            TournamentOutput.print_warning(
-                f"  {club} ({age_group}, {date_str}): {count} lag"
+            TournamentOutput.print_error(
+                f"  {club} ({age_group}, {date_str}): {count} lag — dette er et hardt krav og burde ikke forekomme"
             )
 
     @staticmethod

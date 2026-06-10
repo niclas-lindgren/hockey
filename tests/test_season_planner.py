@@ -538,16 +538,20 @@ class TestSkillLevelDivisions:
 
     @pytest.fixture
     def skill_roster(self):
-        """8 teams in U10, 4 low-skill (1-2) and 4 high-skill (8-10)."""
+        """8 teams in U10 from distinct clubs, 4 low-skill (1-2) and 4 high-skill (8-10).
+
+        Each team has its own club so the hard max-1-per-club constraint does not
+        interfere with skill-level adjacency testing.
+        """
         return Roster(teams=[
             Team(club="Jar", label="Jar 1", age_group="U10", skill_level=1),
-            Team(club="Jar", label="Jar 2", age_group="U10", skill_level=2),
-            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=1),
-            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=2),
-            Team(club="Skien", label="Skien 1", age_group="U10", skill_level=9),
-            Team(club="Jutul", label="Jutul 1", age_group="U10", skill_level=10),
-            Team(club="Ringerike", label="Ringerike 1", age_group="U10", skill_level=8),
-            Team(club="Tønsberg", label="Tønsberg 1", age_group="U10", skill_level=9),
+            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=2),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=1),
+            Team(club="Skien", label="Skien 1", age_group="U10", skill_level=2),
+            Team(club="Jutul", label="Jutul 1", age_group="U10", skill_level=9),
+            Team(club="Ringerike", label="Ringerike 1", age_group="U10", skill_level=10),
+            Team(club="Tønsberg", label="Tønsberg 1", age_group="U10", skill_level=8),
+            Team(club="Sandefjord", label="Sandefjord 1", age_group="U10", skill_level=9),
         ])
 
     @pytest.fixture
@@ -651,9 +655,9 @@ class TestSkillLevelDivisions:
         """Unrated teams (no skill_level) are not penalised and can be selected alongside any band."""
         roster = Roster(teams=[
             Team(club="Jar", label="Jar 1", age_group="U10", skill_level=5),
-            Team(club="Jar", label="Jar 2", age_group="U10", skill_level=6),
-            Team(club="Holmen", label="Holmen 1", age_group="U10"),  # unrated
+            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=6),
             Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),  # unrated
+            Team(club="Skien", label="Skien 1", age_group="U10"),  # unrated
         ])
         club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
@@ -677,7 +681,7 @@ class TestSkillLevelDivisions:
         """A wide band (99) should effectively disable skill filtering."""
         roster = Roster(teams=[
             Team(club="Jar", label="Jar 1", age_group="U10", skill_level=1),
-            Team(club="Jar", label="Jar 2", age_group="U10", skill_level=10),
+            Team(club="Skiptvet", label="Skiptvet 1", age_group="U10", skill_level=10),
             Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=2),
             Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=9),
         ])

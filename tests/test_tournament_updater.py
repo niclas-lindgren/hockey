@@ -27,14 +27,14 @@ from tournament_scheduler.season_planner import SeasonPlanner
 
 @pytest.fixture
 def six_team_tournament() -> Tournament:
-    """A 6-team U10 tournament with round-robin games."""
+    """A 6-team U10 tournament with round-robin games (distinct clubs)."""
     teams = [
         Team(club="Jar", label="Jar 1", age_group="U10"),
-        Team(club="Jar", label="Jar 2", age_group="U10"),
+        Team(club="Holmen", label="Holmen 1", age_group="U10"),
         Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
-        Team(club="Kongsberg", label="Kongsberg 2", age_group="U10"),
         Team(club="Ringerike", label="Ringerike 1", age_group="U10"),
         Team(club="Skien", label="Skien 1", age_group="U10"),
+        Team(club="Tønsberg", label="Tønsberg 1", age_group="U10"),
     ]
     t = Tournament(
         date=date(2027, 1, 16),
@@ -158,7 +158,7 @@ class TestDropTeam:
         tid = six_team_tournament.id
 
         # First drop 4 teams (6 → 2)
-        for label in ["Jar 1", "Kongsberg 1", "Kongsberg 2", "Ringerike 1"]:
+        for label in ["Jar 1", "Holmen 1", "Kongsberg 1", "Ringerike 1"]:
             result = updater.drop_team(tid, label, plan=plan)
             assert result.success is True
 

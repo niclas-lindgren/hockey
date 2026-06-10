@@ -48,6 +48,21 @@ MAX_TOURNAMENTS = 15
 DEFAULT_MAX_TEAMS_PER_TOURNAMENT = 6
 
 
+def _cap_at_one_per_club(teams: Sequence[Team]) -> List[Team]:
+    """Return at most one team per club from *teams*, keeping first occurrence.
+
+    Used as a fast-path filter on the small-roster case to enforce the hard
+    ``max_club_teams_per_tournament`` constraint (no intra-club matchups).
+    """
+    seen_clubs: set[str] = set()
+    result: List[Team] = []
+    for team in teams:
+        if team.club not in seen_clubs:
+            seen_clubs.add(team.club)
+            result.append(team)
+    return result
+
+
 class SeasonPlanner:
     """Greedy season-plan builder on top of `TournamentScheduler`."""
 
@@ -59,7 +74,7 @@ class SeasonPlanner:
         parallel_games_for_age_group: Optional[Dict[str, int]] = None,
         target_tournament_count: Optional[int] = None,
         max_teams_per_tournament_for_age_group: Optional[Dict[str, int]] = None,
-        max_club_teams_per_tournament: int = 2,
+        max_club_teams_per_tournament: int = 1,
         max_game_count_spread: int = 2,
         max_early_finish_gap_days: int = 60,
         division_skill_band: int = 2,
@@ -85,10 +100,10 @@ class SeasonPlanner:
                 group -> maximum number of teams invited to a single
                 tournament. When set for an age group, takes precedence over
                 the parallel-games heuristic in `_max_teams_for`.
-            max_club_teams_per_tournament: Soft limit on how many teams
+            max_club_teams_per_tournament: Hard constraint on how many teams
                 from the same club can be invited to a single tournament.
-                Default 2. Helps spread multi-team clubs' load across
-                different tournament weekends.
+                Default 1 — at most one team per club per tournament,
+                guaranteeing no intra-club matchups.
             division_skill_band: Maximum skill-level difference treated as
                 "adjacent" for the skill-division penalty in participant
                 selection. Default 2 means levels 3 and 5 are adjacent but
@@ -358,7 +373,9 @@ class SeasonPlanner:
 
         Appends structured warnings to ``_club_load_warnings`` for every
         tournament where a club has more than ``max_club_teams_per_tournament``
-        teams participating.
+        teams participating.  This should never fire now that the constraint
+        is hard (``_pick_least_recently_grouped`` and ``_select_participants``
+        both enforce it), but is retained as a defensive check.
         """
         max_club = self.max_club_teams_per_tournament
         for t in tournaments:
@@ -630,11 +647,11 @@ class SeasonPlanner:
     def _select_participants(self, age_group: str) -> List[Team]:
         """Select the teams to invite to a tournament for the given age group.
 
-        Invites the whole age-group roster when it is small enough for a
-        sensible round-robin; otherwise picks a subset using a
-        least-recently-grouped-together heuristic so that, across the
-        season, each team gets varied company rather than always meeting the
-        same clubs.
+        Enforces the hard ``max_club_teams_per_tournament`` constraint:
+        at most one team per club per tournament. Invites the whole
+        age-group roster when it is small enough for a sensible
+        round-robin and club diversity allows it; otherwise picks a
+        subset using a least-recently-grouped-together heuristic.
         """
         candidates = self.roster.by_age_group(age_group)
         if not candidates:
@@ -642,7 +659,8 @@ class SeasonPlanner:
 
         max_teams = self._max_teams_for(age_group)
         if len(candidates) <= max_teams:
-            return list(candidates)
+            # Enforce club constraint even on the small-roster fast path.
+            return _cap_at_one_per_club(candidates)
 
         return self._pick_least_recently_grouped(candidates, max_teams)
 
@@ -674,11 +692,10 @@ class SeasonPlanner:
         (`_grouped_with`), then lowest overall invite count, then roster
         order.
 
-        Also applies a club-load penalty: teams from clubs that already have
-        ``max_club_teams_per_tournament`` or more teams in the selected set
-        get pushed down the priority list (soft constraint — if all
-        remaining candidates exceed the limit, the best-worst still gets
-        chosen).
+        Enforces the hard ``max_club_teams_per_tournament`` constraint:
+        teams from a club that already has a team in the selected set are
+        excluded entirely.  If that leaves no candidates at all, falls back
+        to the soft penalty to avoid deadlock.
         """
         max_club = self.max_club_teams_per_tournament
         remaining = list(candidates)
@@ -701,9 +718,18 @@ class SeasonPlanner:
                 grouped_with = self._grouped_with.get(team.label, set())
                 return sum(1 for s in selected if s.label in grouped_with)
 
-            # Club-load penalty: count how many teams from the same club
-            # are already in the selected set. If at or over the limit,
-            # push this candidate down (soft — still selectable).
+            # Hard club constraint: exclude teams from clubs already
+            # represented in the selected set.  Falls back to soft penalty
+            # when no candidates remain after filtering.
+            hard_filtered: List[Team] = [
+                t for t in remaining
+                if sum(1 for s in selected if s.club == t.club) < max_club
+            ]
+            eligible = hard_filtered if hard_filtered else remaining
+
+            # Club-load penalty for the fallback case (soft): push down
+            # candidates from clubs that already have max_club teams in
+            # the selected set.
             def club_penalty(team: Team) -> int:
                 club_count = sum(1 for s in selected if s.club == team.club)
                 if club_count >= max_club:
@@ -730,7 +756,7 @@ class SeasonPlanner:
                     return 0
                 return (dist - self.division_skill_band) * 100
 
-            remaining.sort(
+            eligible.sort(
                 key=lambda t: (
                     skill_penalty(t),
                     club_penalty(t),
@@ -740,7 +766,9 @@ class SeasonPlanner:
                     candidates.index(t),
                 )
             )
-            selected.append(remaining.pop(0))
+            chosen = eligible.pop(0)
+            remaining.remove(chosen)
+            selected.append(chosen)
 
         return selected
 
@@ -907,6 +935,10 @@ class SeasonPlanner:
                 away = rotation[slot_count - 1 - i]
                 if home is None or away is None:
                     continue  # bye — this team sits out this round
+                # Safety filter: skip intra-club matchups (belt-and-suspenders
+                # guard alongside the hard constraint in participant selection).
+                if home is not None and away is not None and home.club == away.club:
+                    continue
                 round_pairs.append((home, away))
 
             # Alternate home/away across rounds for a fairer split.
