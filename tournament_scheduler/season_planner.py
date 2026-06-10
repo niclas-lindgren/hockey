@@ -755,6 +755,37 @@ class SeasonPlanner:
             "kategori": "Automatisk avgjørelse",
         })
 
+        # Time-of-day slot finding -- only relevant when calendar data was
+        # supplied (`events_by_club`); otherwise tournaments keep the
+        # default start time and this rule has no effect.
+        if self.events_by_club:
+            report.append({
+                "regel": "Tidspunkt på dagen velges ut fra ledig hallkapasitet",
+                "forklaring": (
+                    "For hver turnering beregnes hvor lang tid hele turneringen "
+                    "tar (rundelengde × antall runder), og planleggeren ser "
+                    "etter en sammenhengende ledig luke av denne lengden i "
+                    "vertsklubbens hallkalender. Tidspunkt nærmest 11:00 "
+                    "foretrekkes, for å unngå svært tidlige eller sene "
+                    "starttider. Hvis vertsklubbens hall ikke har en passende "
+                    "ledig luke den dagen, sjekkes andre klubbers haller for "
+                    "samme dato, og turneringen flyttes dit i stedet."
+                ),
+                "kategori": "Automatisk avgjørelse",
+            })
+
+            for tournament_date, age_group, original_host, fallback_host in self._fallback_host_substitutions:
+                report.append({
+                    "regel": f"Vertsbytte {tournament_date.isoformat()} ({age_group})",
+                    "forklaring": (
+                        f"{original_host} var opprinnelig satt opp som vert "
+                        f"{tournament_date.isoformat()}, men hadde ingen ledig "
+                        f"hallkapasitet av nødvendig lengde denne datoen. "
+                        f"Turneringen ble derfor flyttet til {fallback_host} i stedet."
+                    ),
+                    "kategori": "Automatisk avgjørelse",
+                })
+
         return report
 
     # ------------------------------------------------------------------
