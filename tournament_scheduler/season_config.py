@@ -49,6 +49,24 @@ FEDERATION_PARALLEL_GAMES_DEFAULTS: Dict[str, int] = {
     "JU13": 2,
 }
 
+# Default round length (minutes) per age group, used to compute total
+# tournament duration (round_length_minutes × number of rounds scheduled).
+# Younger age groups play shorter rounds; values are sensible federation-
+# aligned defaults and act as the fallback when an age group is absent from
+# the user's config file.
+FEDERATION_ROUND_LENGTH_DEFAULTS: Dict[str, int] = {
+    "U7": 8,
+    "U8": 8,
+    "U9": 10,
+    "U10": 10,
+    "U11": 12,
+    "U12": 12,
+    "JU10": 10,
+    "JU11": 10,
+    "JU12": 12,
+    "JU13": 12,
+}
+
 # Kept for backwards-compatibility; prefer FEDERATION_PARALLEL_GAMES_DEFAULTS.
 DEFAULT_PARALLEL_GAMES = 2
 

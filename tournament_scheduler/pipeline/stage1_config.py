@@ -11,6 +11,7 @@ Input JSON format (all fields required unless marked optional)::
         "end_date": "YYYY-MM-DD",
         "age_groups": ["U10", "U12", ...],          // optional — defaults to all
         "parallel_games": {"U10": 3, "U7": 4, ...}, // optional
+        "round_length_minutes": {"U10": 10, ...},   // optional — defaults to federation values
         "teams": [                                   // list of teams (roster)
             {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
             ...
@@ -38,6 +39,7 @@ from ..roster_loader import RosterConfigError, RosterLoader
 from ..season_config import (
     KNOWN_AGE_GROUPS,
     FEDERATION_PARALLEL_GAMES_DEFAULTS,
+    FEDERATION_ROUND_LENGTH_DEFAULTS,
     ParallelGamesConfig,
     SeasonConfigError,
     AgeGroupSettings,
@@ -186,6 +188,25 @@ def validate_config(raw: dict[str, Any]) -> list[str]:
                             f"forbundets maksimum ({fed_max}) for {ag}."
                         )
 
+    # --- Round length (minutes) ---
+    if "round_length_minutes" in raw:
+        rl = raw["round_length_minutes"]
+        if not isinstance(rl, dict):
+            errors.append(
+                "'round_length_minutes' må være et objekt (f.eks. {\"U10\": 10})."
+            )
+        else:
+            for ag, minutes in rl.items():
+                if ag not in KNOWN_AGE_GROUPS:
+                    valid = ", ".join(sorted(KNOWN_AGE_GROUPS))
+                    errors.append(
+                        f"Ukjent aldersgruppe '{ag}' i 'round_length_minutes'. Gyldige verdier: {valid}."
+                    )
+                elif not isinstance(minutes, int) or minutes < 1:
+                    errors.append(
+                        f"'round_length_minutes[\"{ag}\"]' må være et positivt heltall, fikk: {minutes!r}."
+                    )
+
     # --- Teams / roster ---
     if "teams" not in raw:
         errors.append(
@@ -279,6 +300,13 @@ def _parse_config(raw: dict[str, Any]) -> dict[str, Any]:
         if isinstance(pg_raw, dict):
             pg_dict = {k: int(v) for k, v in pg_raw.items()}
 
+    # Round length (minutes) — explicit values override federation defaults
+    rl_dict: dict[str, int] = dict(FEDERATION_ROUND_LENGTH_DEFAULTS)
+    if "round_length_minutes" in raw:
+        rl_raw = raw["round_length_minutes"]
+        if isinstance(rl_raw, dict):
+            rl_dict.update({k: int(v) for k, v in rl_raw.items()})
+
     # Teams
     teams_val = raw["teams"]
     if isinstance(teams_val, str):
@@ -301,6 +329,7 @@ def _parse_config(raw: dict[str, Any]) -> dict[str, Any]:
         "end_date": raw["end_date"],
         "age_groups": age_groups,
         "parallel_games": pg_dict,
+        "round_length_minutes": rl_dict,
         "teams": teams_data,
         "sources": raw.get("sources", []),
     }

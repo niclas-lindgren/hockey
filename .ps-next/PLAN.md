@@ -1,93 +1,57 @@
-# PLAN: Fix duplicate quality metrics in season plan report (Spredning vs Nye matchups)
-
-**Feature:** Fix duplicate quality metrics in season plan report: 'Spredning' (diversity_score) and 'Nye matchups' (pairwise_matchup_score) always show the same percentage because season_planner.py _diversity_score() simply returns _pairwise_matchup_score() (season_planner.py:1209-1222) - a leftover from a refactor. Either compute a genuinely distinct diversity metric (e.g. opponent variety per team across the season) or remove the redundant 'Spredning' label/field from the report templates and exporters.
-
-**Goal:** 'Spredning' and 'Nye matchups' in the season plan HTML report no longer show the same percentage by definition. Either implement a genuinely distinct diversity metric for 'Spredning' (e.g. opponent variety per team across the season) or remove the redundant 'Spredning' label/field from the report templates and exporters.
-
-**Backlog-ref:** 47
-
-**Constraints:** none
-
-**Date:** 2026-06-10
-
-**Intent:** Resolve a leftover refactor bug where two distinct-sounding quality metrics in the season plan report are mathematically identical, misleading organizers about schedule quality.
+# Plan: Tournament start time and computed duration/end time
+**Goal:** Add a `start_time` field per tournament (e.g. 09:00), compute its duration/end-time from a configurable per-age-group `round_length_minutes` × the number of rounds scheduled for that tournament's age group, and surface start/end time in season_plan.html, calendars.html, the Excel export, and the iCal export (DTSTART/DTEND).
+**Created:** 2026-06-10
+**Intent:** Organizers and families currently only see a tournament date with no time-of-day information, making it impossible to plan travel or schedule around tournaments without contacting the host club.
+**Backlog-ref:** 48
 
 ## Tasks
+- [x] Added FEDERATION_ROUND_LENGTH_DEFAULTS dict to season_config.py with per-age-group default round lengths (U7/U8: 8min, U9/U10/JU10/JU11: 10min, U11/U12/JU12/JU13: 12min), and added round_length_minutes parsing/validation to stage1_config.py mirroring the parallel_games pattern, with federation defaults as fallback for missing age groups. — 2026-06-10
+  - Files: tournament_scheduler/season_config.py, tournament_scheduler/pipeline/stage1_config.py
+  - Approach: Mirror the `FEDERATION_PARALLEL_GAMES_DEFAULTS` pattern in season_config.py (lines 39-50): add a `FEDERATION_ROUND_LENGTH_DEFAULTS: Dict[str, int]` dict with sensible per-age-group minute values (e.g. U7/U8: 8, U9/U10: 10, U11/U12: 12, JU10/JU11: 10, JU12/JU13: 12), then in stage1_config.py add `round_length_minutes` parsing/validation in `validate_config()` (lines 165-187) and `_parse_config()` (lines 275-280) following the same dict-of-int validation as `parallel_games`, falling back to the federation defaults when a key is absent.
 
-- [x] Reworked _diversity_score to compute, per team, the ratio of distinct opponents faced (from _opponent_history) to eligible opponents (same age group, different club, per max_club_teams_per_tournament1), averaged across teams that have played; returns 0.0 if no games played. — 2026-06-10
-  - Files: `tournament_scheduler/season_planner.py`
-  - In `_diversity_score(self, tournaments)` (season_planner.py:1209-1222), replace `return self._pairwise_matchup_score(tournaments)` with a new computation: for each team appearing in `tournaments`, count its distinct opponents from `self._opponent_history` (keys are `frozenset` pairs of team labels) and divide by the number of "available opponents" for that team (other teams in the same age group from `self.roster.teams`, excluding same-club teams per the existing `max_club_teams_per_tournament=1` constraint, since intra-club matchups never occur). Average this ratio across all teams that played at least one game this season, rounded to 3 decimals (1.0 = every team has played every eligible opponent at least once; lower values indicate teams repeatedly facing a narrow set of opponents). Return `0.0` when no teams have played any games.
+- [ ] Add `start_time` and computed duration/end-time fields to the Tournament model
+  - Files: tournament_scheduler/models.py
+  - Approach: Add `start_time: Optional[str] = None` (HH:MM string, e.g. "09:00") to the Tournament dataclass (around lines 131-139). Add a helper method or property (e.g. `duration_minutes(round_length: int) -> int` returning `round_length * len({g.round_number for g in self.games})` or `round_length * max(round_numbers, default=0)`, and `end_time(round_length: int) -> Optional[str]` that adds `duration_minutes` to `start_time` using `datetime`/`timedelta` and returns an HH:MM string, or None if `start_time` is unset.
 
-- [x] Added a field-level docstring comment for diversity_score in models.py describing the opponent-variety-per-team metric and explicitly distinguishing it from pairwise_matchup_score; the _diversity_score docstring in season_planner.py was already updated as part of the prior task's implementation. — 2026-06-10
-  - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/models.py`
-  - Rewrite the `_diversity_score` docstring (season_planner.py:1209-1221) to describe the new opponent-variety-per-team calculation and remove the claim that it is "equivalent to `_pairwise_matchup_score`". Update the `diversity_score` field comment in `models.py` (near line 171, above the `pairwise_matchup_score` docstring at 172-176) to describe the new metric (opponent variety per team) as distinct from the pairwise novel-pairing fraction.
+- [ ] Assign default start_time and compute duration when generating tournaments in season_planner
+  - Files: tournament_scheduler/season_planner.py, tournament_scheduler/pipeline/stage3_planning.py
+  - Approach: When tournaments are constructed in season_planner.py (where `parallel_games` is currently consumed, around lines 120/229-230/518-519), set a default `start_time` (e.g. "09:00", configurable later) on each Tournament, and pass the resolved `round_length_minutes` config through stage3_planning.py (line 213, alongside how `parallel_games` is passed) so the planner has access to the per-age-group round length for duration calculations.
 
-- [x] Updated scores.html: relabeled 'Spredning' to 'Spredning (motstandervariasjon)' and 'Nye matchups' to 'Nye matchups (ferske motstanderpar)', and added title tooltips on each score-item explaining the distinct underlying calculation, so the two metrics no longer appear to measure the same thing. — 2026-06-10
-  - Files: `tournament_scheduler/html/templates/scores.html`
-  - In `scores.html` (line 5, `Spredning: <strong>$DIVERSITY_SCORE$%</strong>`), keep the existing `$DIVERSITY_SCORE$` token (already wired in `html_exporter.py:323` to `plan.diversity_score`) but adjust the label text if needed (e.g. add a short tooltip/title attribute or adjacent text such as "Spredning (motstandervariasjon)") so it is visually distinguishable from "Nye matchups" (line 13, `$PAIRWISE_SCORE$`) now that the underlying values genuinely differ.
+- [ ] Update iCal exporter to use tournament start_time and computed end time for DTSTART/DTEND
+  - Files: tournament_scheduler/ical/ical_exporter.py
+  - Approach: Replace the fixed `self.start_hour`/`self.game_duration_minutes` logic at lines 137-148 — build `dt_start` from `tournament.date` plus `tournament.start_time` (parsed HH:MM, falling back to `self.start_hour` if `start_time` is None for backward compatibility), and compute `dt_end` using the tournament's `end_time()`/`duration_minutes()` (driven by the per-age-group `round_length_minutes` passed into the exporter) instead of the flat `game_duration_minutes` constant.
 
-- [x] Reworded the diversity_score line in print_diversity_summary from 'Mangfoldscore (andel nye lagkonstellasjoner)' to 'Motstandervariasjon (andel mulige motstandere møtt)' to accurately describe opponent-pool coverage; left the pairwise_matchup_score line ('Kampmangfold (andel ferske motstanderpar)') unchanged since it already correctly describes first-time pairings. — 2026-06-10
-  - Files: `tournament_scheduler/utils/rich_output.py`
-  - Update the two summary lines (rich_output.py:331 and :335) so the Norwegian descriptions accurately describe each distinct metric: line 331 (`Mangfoldscore (andel nye lagkonstellasjoner)` for `plan.diversity_score`) should describe opponent-variety-per-team (e.g. "andel mulige motstandere møtt"), and line 335 (`Kampmangfold (andel ferske motstanderpar)` for `plan.pairwise_matchup_score`) should keep describing the fraction of first-time pairings — ensure the two labels no longer imply they measure the same thing.
+- [ ] Add start/end time columns to the Excel overview export
+  - Files: tournament_scheduler/excel/plan_exporter.py
+  - Approach: Extend `_OVERVIEW_HEADERS` (line 37) with "Starttid" and "Sluttid" columns, and in `_write_overview_sheet` (lines 96-110) append `tournament.start_time or ""` and the computed end time string (via the Tournament model's `end_time()` using the resolved `round_length_minutes` for `tournament.age_group`) for each row.
 
-- [x] Added test_diversity_score_returns_zero_when_no_games_scheduled (fresh planner with empty _opponent_history) and test_diversity_score_and_pairwise_score_can_diverge (4-team scenario where opponent-variety  1/3 but pairwise-novelty  0.5, asserting they differ). — 2026-06-10
-  - Files: `tests/test_season_planner.py`
-  - Add a test that builds a small `tournaments`/`_opponent_history` fixture where opponent-variety-per-team and pairwise-novel-pairing-fraction produce different numeric results, and asserts `_diversity_score(tournaments) != _pairwise_matchup_score(tournaments)` for that fixture. Also add a test confirming `_diversity_score` returns `0.0` when no games were scheduled, matching the existing `_pairwise_matchup_score` empty-input behavior.
+- [ ] Surface start/end time in season_plan.html and calendars.html
+  - Files: tournament_scheduler/pipeline/calendar_viewer.py, tournament_scheduler/html/html_exporter.py, tournament_scheduler/html/templates/styles.css
+  - Approach: Locate where tournament cards/date blocks are rendered (the `.tournament-date` markup referenced in styles.css) in calendar_viewer.py and html_exporter.py, and add a small time-range element (e.g. "09:00–10:30") computed from `tournament.start_time` and the model's `end_time()` helper using the per-age-group `round_length_minutes`; add minimal supporting CSS rules alongside the existing `.tournament-date` styles.
 
-- [x] Ran the full pytest suite (277 passed, 1 skipped, 2 pre-existing/environmental failures in test_stage2_scraping.py confirmed to fail on the unmodified tree too — unrelated to this work) and an end-to-end script confirming plan.diversity_score (1.0) and plan.pairwise_matchup_score (0.267) now genuinely differ for a realistic multi-tournament season plan; verified scores.html contains both $DIVERSITY_SCORE$ and $PAIRWISE_SCORE$ tokens wired to these distinct values via html_exporter.py. — 2026-06-10
-  - Files: `tests/test_season_planner.py`, `tournament_scheduler/season_planner.py`
-  - Run `pytest` to confirm no regressions in existing tests that reference `diversity_score` or `pairwise_matchup_score` (e.g. tests covering `build_plan`, stage3/stage4 checkpoint round-trips, or HTML export). Manually verify (or add an assertion) that `plan.diversity_score` and `plan.pairwise_matchup_score` differ for a realistic multi-tournament season plan fixture.
+- [ ] Add/update tests for round-length config, duration computation, and exports
+  - Files: tests/test_season_planner.py, tests/test_models.py
+  - Approach: Add a test verifying `round_length_minutes` is loaded/validated with federation defaults (mirroring existing `parallel_games` tests), and tests for the Tournament model's `duration_minutes`/`end_time` helpers across different age groups and round counts (including the no-`start_time` backward-compatible case returning None).
+
+## Notes
+- No prior plan covers start_time/duration; this is new ground beyond the existing `parallel_games`, `round_number`, and iCal/Excel export work already in HISTORY.
+- Keep `start_time` optional/backward-compatible: existing tournaments without a start_time should not break exports (iCal falls back to its current fixed `self.start_hour` behavior, Excel/HTML show blank time columns).
+- Federation default round lengths should be documented similarly to the `FEDERATION_PARALLEL_GAMES_DEFAULTS` comment block in season_config.py.
 
 ## Acceptance Criteria
-
-- The 'Spredning' and 'Nye matchups' fields in the season plan HTML report show different percentage values when the schedule contains varied opponent pairings, instead of always matching.
-- The `_diversity_score()` function in `tournament_scheduler/season_planner.py` no longer simply returns `_pairwise_matchup_score()` and computes opponent variety per team using `_opponent_history`.
-- Tests in `tests/test_season_planner.py` pass and include a case where `_diversity_score` and `_pairwise_matchup_score` return different values for the same set of tournaments.
-- The console summary output from `tournament_scheduler/utils/rich_output.py` no longer describes the diversity score and pairwise matchup score with overlapping wording that implies they are the same metric.
-- Running `pytest` completes with no failures related to `diversity_score`, `pairwise_matchup_score`, or season plan export/report generation.
+- [ ] `tournament_scheduler/season_config.py` contains a `FEDERATION_ROUND_LENGTH_DEFAULTS` dict with an entry for every age group present in `FEDERATION_PARALLEL_GAMES_DEFAULTS`.
+- [ ] The `Tournament` dataclass in `tournament_scheduler/models.py` has a `start_time` field and a duration/end-time helper that returns a computed HH:MM end time when `start_time` and round length are provided, and returns `None` when `start_time` is not set.
+- [ ] `tournament_scheduler/ical/ical_exporter.py` produces VEVENTs with DTSTART set from `tournament.start_time` (when set) and DTEND set from the computed end time, falling back to the existing fixed-hour behavior when `start_time` is not set.
+- [ ] The Excel overview sheet produced by `tournament_scheduler/excel/plan_exporter.py` contains "Starttid" and "Sluttid" columns with non-empty values for tournaments that have a `start_time`.
+- [ ] Running `pytest` passes, including new tests covering `round_length_minutes` config validation and the Tournament duration/end-time computation.
 
 ## Log
+<!-- PS:next appends entries here after each task is executed -->
+<!-- Entry format: ### YYYY-MM-DD — [task name] / **Done:** / **Rationale:** / **Findings:** / **Files:** / **Commit:** -->
 
-- [2026-06-10] Plan created for backlog #47.
-
-### 2026-06-10 — Reworked _diversity_score to compute, per team, the ratio of distinct opponents faced (from _opponent_history) to eligible opponents (same age group, different club, per max_club_teams_per_tournament1), averaged across teams that have played; returns 0.0 if no games played.
-**Rationale:** Pairwise-matchup score measures repeat games while diversity score now measures opponent-pool coverage per team, so the two metrics are genuinely independent.
-**Findings:** All 39 season_planner tests pass; updated test_diversity_and_month_balance_metrics_present_on_plan which previously asserted diversity_score  pairwise_matchup_score (now an outdated invariant). One pre-existing unrelated failure (test_zero_events_blocks_source) confirmed present before this change too.
+### 2026-06-10 — Added FEDERATION_ROUND_LENGTH_DEFAULTS dict to season_config.py with per-age-group default round lengths (U7/U8: 8min, U9/U10/JU10/JU11: 10min, U11/U12/JU12/JU13: 12min), and added round_length_minutes parsing/validation to stage1_config.py mirroring the parallel_games pattern, with federation defaults as fallback for missing age groups.
+**Rationale:** Mirrored the existing FEDERATION_PARALLEL_GAMES_DEFAULTS pattern for consistency with the codebase's existing config validation and merging conventions.
+**Findings:** Added FEDERATION_ROUND_LENGTH_DEFAULTS dict, round_length_minutes validation in validate_config(), and merged round_length_minutes dict (defaults overridden by user config) into the parsed config output. Full test suite: 277 passed, 2 pre-existing failures in test_stage2_scraping.py unrelated to this change (confirmed failing on unmodified code too).
 LESSONS: none
-**Files:** tests/test_season_planner.py (+3/-2), tournament_scheduler/season_planner.py (+50/-12)
-**Commit:** 55a65d0 (hockey)
-
-### 2026-06-10 — Added a field-level docstring comment for diversity_score in models.py describing the opponent-variety-per-team metric and explicitly distinguishing it from pairwise_matchup_score; the _diversity_score docstring in season_planner.py was already updated as part of the prior task's implementation.
-**Rationale:** none
-**Findings:** diversity_score field comment in models.py now accurately describes the new metric and no longer implies equivalence with pairwise_matchup_score; all 39 season_planner tests still pass.
-LESSONS: none
-**Files:** tournament_scheduler/models.py (+8/-0)
-**Commit:** bd273a7 (hockey)
-
-### 2026-06-10 — Updated scores.html: relabeled 'Spredning' to 'Spredning (motstandervariasjon)' and 'Nye matchups' to 'Nye matchups (ferske motstanderpar)', and added title tooltips on each score-item explaining the distinct underlying calculation, so the two metrics no longer appear to measure the same thing.
-**Rationale:** The scores.html template was previously untracked and matched the repo's *.html gitignore rule; force-added it since it is a source template consumed by html_exporter.py, not a generated artifact.
-**Findings:** All 14 html/export tests pass; labels and tooltips now clearly differentiate diversity_score (opponent-pool coverage) from pairwise_matchup_score (first-time pairings).
-LESSONS: scores.html and other files under tournament_scheduler/html/templates/ are blocked by the repo's '*.html' gitignore rule and were untracked before this task; use 'git add -f' for any further edits to template .html files in that directory until the gitignore is fixed.
-**Files:** tournament_scheduler/html/templates/scores.html (+19/-0, force-added, was gitignored by *.html)
-**Commit:** e7a731d (hockey)
-
-### 2026-06-10 — Reworded the diversity_score line in print_diversity_summary from 'Mangfoldscore (andel nye lagkonstellasjoner)' to 'Motstandervariasjon (andel mulige motstandere møtt)' to accurately describe opponent-pool coverage; left the pairwise_matchup_score line ('Kampmangfold (andel ferske motstanderpar)') unchanged since it already correctly describes first-time pairings.
-**Rationale:** none
-**Findings:** No tests reference the old/new label strings directly; full suite still passes (276 passed, 1 pre-existing unrelated failure in test_zero_events_blocks_source, 1 skipped).
-LESSONS: none
-**Files:** tournament_scheduler/utils/rich_output.py (+1/-1)
-**Commit:** 2c16453 (hockey)
-
-### 2026-06-10 — Added test_diversity_score_returns_zero_when_no_games_scheduled (fresh planner with empty _opponent_history) and test_diversity_score_and_pairwise_score_can_diverge (4-team scenario where opponent-variety  1/3 but pairwise-novelty  0.5, asserting they differ).
-**Rationale:** Used a from-scratch SeasonPlanner/roster fixture rather than reusing planner_and_plan, since the latter's build_plan already populates _opponent_history nonzero, making a true 'no games' zero-score case impossible to reach via that fixture.
-**Findings:** All 41 season_planner tests pass, including the two new tests confirming diversity_score and pairwise_matchup_score are independently computed and can diverge.
-LESSONS: none
-**Files:** tests/test_season_planner.py (+65/-0)
-**Commit:** d5a30d5 (hockey)
-
-### 2026-06-10 — Ran the full pytest suite (277 passed, 1 skipped, 2 pre-existing/environmental failures in test_stage2_scraping.py confirmed to fail on the unmodified tree too — unrelated to this work) and an end-to-end script confirming plan.diversity_score (1.0) and plan.pairwise_matchup_score (0.267) now genuinely differ for a realistic multi-tournament season plan; verified scores.html contains both $DIVERSITY_SCORE$ and $PAIRWISE_SCORE$ tokens wired to these distinct values via html_exporter.py.
-**Rationale:** none
-**Findings:** All season_planner-related tests (41) pass; the diversity_score/pairwise_matchup_score divergence is confirmed end-to-end (1.0 vs 0.267) and both values render via distinct HTML template tokens and Rich console labels. Backlog #47 fully resolved.
-LESSONS: none
-**Files:** none (verification-only task, no code changes)
-**Commit:** d399c9e (hockey)
+**Files:** tournament_scheduler/pipeline/stage1_config.py (+29), tournament_scheduler/season_config.py (+18)
+**Commit:** [pending — fill after commit]
