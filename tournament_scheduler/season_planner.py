@@ -622,6 +622,7 @@ class SeasonPlanner:
                         home=home,
                         away=away,
                         parallel_slot=slot_index % parallel_games,
+                        round_number=round_index + 1,
                     )
                 )
 

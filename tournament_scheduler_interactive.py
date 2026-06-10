@@ -620,6 +620,13 @@ def run_season_plan(params):
         from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
         SeasonPlanExporter().export(plan, export_path)
 
+    if ask_yes_no("\nVil du eksportere sesongplanen til CSV?", default=False):
+        csv_path = ask_text("Filnavn for CSV-eksport", default="sesongplan.csv")
+        from tournament_scheduler.csv.csv_exporter import CsvExporter
+        games_path, overview_path = CsvExporter().export(plan, csv_path)
+        TournamentOutput.print_success(f"CSV-eksport: {games_path}")
+        TournamentOutput.print_success(f"CSV-oversikt: {overview_path}")
+
 
 def run_tournament_update():
     """Interactive tournament update flow — modify a generated season plan."""

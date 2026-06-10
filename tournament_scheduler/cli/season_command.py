@@ -71,6 +71,12 @@ class SeasonCommand:
             from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
             SeasonPlanExporter().export(plan, args.export_excel)
 
+        if args.export_csv:
+            from tournament_scheduler.csv.csv_exporter import CsvExporter
+            games_path, overview_path = CsvExporter().export(plan, args.export_csv)
+            TournamentOutput.print_success(f"CSV-eksport: {games_path}")
+            TournamentOutput.print_success(f"CSV-oversikt: {overview_path}")
+
     def _resolve_season_window(self, args, default_start_date, default_end_date):
         season_start = default_start_date
         season_end = default_end_date

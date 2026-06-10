@@ -207,6 +207,7 @@ def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
             home=_find_team(teams, g["home"]),
             away=_find_team(teams, g["away"]),
             parallel_slot=g.get("parallel_slot", 0),
+            round_number=g.get("round_number", 0),
         )
         for g in data.get("games", [])
     ]

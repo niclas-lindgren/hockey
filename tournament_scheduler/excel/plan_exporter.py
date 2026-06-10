@@ -33,7 +33,7 @@ _NORWEGIAN_WEEKDAYS = [
 ]
 
 _OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag"]
-_GAMES_HEADERS = ["Kamp #", "Hjemmelag", "Bortelag", "Parallellbane"]
+_GAMES_HEADERS = ["Runde", "Hjemmelag", "Bortelag", "Parallellbane"]
 _CLUB_SUMMARY_HEADERS = ["Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena"]
 
 # Club worksheet titles are prefixed to distinguish them from tournament
@@ -115,9 +115,9 @@ class SeasonPlanExporter:
         for cell in sheet[header_row_index]:
             cell.font = cell.font.copy(bold=True)
 
-        for game_number, game in enumerate(tournament.games, start=1):
+        for game in tournament.games:
             sheet.append([
-                game_number,
+                game.round_number,
                 game.home.label,
                 game.away.label,
                 game.parallel_slot + 1,  # 1-based for human-friendly display

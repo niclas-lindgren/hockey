@@ -10,11 +10,9 @@ from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter, _NORWEG
 
 
 def _round_robin_games(teams):
-    games = []
-    for i in range(len(teams)):
-        for j in range(i + 1, len(teams)):
-            games.append(Game(home=teams[i], away=teams[j], parallel_slot=(i + j) % 2))
-    return games
+    """Generate games with round_number set so tests verify the correct column values."""
+    from tournament_scheduler.season_planner import SeasonPlanner
+    return SeasonPlanner.generate_round_robin_games(teams, parallel_games=2)
 
 
 @pytest.fixture
@@ -107,13 +105,13 @@ class TestSeasonPlanExporter:
             # Find the header row for the games table.
             header_index = next(
                 i for i, row in enumerate(rows)
-                if row[:4] == ("Kamp #", "Hjemmelag", "Bortelag", "Parallellbane")
+                if row[:4] == ("Runde", "Hjemmelag", "Bortelag", "Parallellbane")
             )
             game_rows = rows[header_index + 1:header_index + 1 + len(tournament.games)]
 
             assert len(game_rows) == len(tournament.games)
-            for game_number, (game, row) in enumerate(zip(tournament.games, game_rows), start=1):
-                assert row[0] == game_number
+            for game, row in zip(tournament.games, game_rows):
+                assert row[0] == game.round_number
                 assert row[1] == game.home.label
                 assert row[2] == game.away.label
                 assert row[3] == game.parallel_slot + 1  # exporter displays 1-based slots

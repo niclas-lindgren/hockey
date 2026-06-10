@@ -16,6 +16,9 @@ Commands
   {"cmd":"extract","strategy":"outlook"|"date_param", "month_start":"2026-09-01"}
       Parse events from the current page using the given strategy.
 
+  {"cmd":"type",   "selector":"#username", "text":"user@example.com", "wait_ms":1000}
+      Fill an input field with the given text (form field), wait, return snapshot.
+
   {"cmd":"screenshot"}
       Return a base64-encoded PNG of the current viewport.
 
@@ -139,7 +142,9 @@ class BrowserWorker:
         try:
             buttons = self._page.locator(
                 "button, a[href], input[type='submit'], input[type='button'], "
-                "[role='button'], [role='link']"
+                "[role='button'], [role='link'], "
+                "input:not([type='hidden']):not([type='submit']):not([type='button']), "
+                "textarea, select"
             )
             count = buttons.count()
             for i in range(min(count, 40)):
@@ -147,11 +152,22 @@ class BrowserWorker:
                     tag = buttons.nth(i).evaluate("el => el.tagName.toLowerCase()")
                     text = buttons.nth(i).inner_text().strip()[:80]
                     href = buttons.nth(i).get_attribute("href") or ""
-                    label = f"{text} ({href})" if href and tag == "a" else text
+                    placeholder = buttons.nth(i).get_attribute("placeholder") or ""
+                    input_type = buttons.nth(i).get_attribute("type") or ""
+                    if tag == "input":
+                        label_text = f"{input_type} input"
+                        if placeholder:
+                            label_text += f" (placeholder='{placeholder}')"
+                    elif tag == "textarea":
+                        label_text = f"textarea{ ' (' + placeholder + ')' if placeholder else '' }"
+                    elif tag == "select":
+                        label_text = f"select '{text}'"
+                    else:
+                        label_text = f"{text} ({href})" if href and tag == "a" else text
                     sel = self._build_selector(buttons.nth(i))
                     elements.append({
                         "tag": tag,
-                        "text": label[:80],
+                        "text": label_text[:80],
                         "selector": sel,
                     })
                 except Exception:
@@ -301,6 +317,25 @@ class BrowserWorker:
             return {"ok": True, "result": result}
         except Exception as exc:
             return {"ok": False, "error": f"eval feilet: {exc}"}
+
+    def cmd_type(self, params: dict[str, Any]) -> dict[str, Any]:
+        """Fill an input field with text, then wait."""
+        self.start()
+        selector = params.get("selector", "")
+        text = params.get("text", "")
+        wait_ms = int(params.get("wait_ms", 1000))
+        if not selector:
+            return {"ok": False, "error": "type krever en selector"}
+        try:
+            element = self._page.locator(selector)
+            if element.count() == 0:
+                return {"ok": False, "error": f"Fant ingen elementer med selector '{selector}'"}
+            element.first.fill(text)
+        except Exception as exc:
+            return {"ok": False, "error": f"type feilet: {exc}"}
+        time.sleep(wait_ms / 1000.0)
+        snap = self._snapshot()
+        return {"ok": True, **snap}
 
     def cmd_screenshot(self, params: dict[str, Any]) -> dict[str, Any]:
         self.start()
@@ -546,6 +581,8 @@ def main() -> None:
                 resp = worker.cmd_eval(params)
             elif cmd == "screenshot":
                 resp = worker.cmd_screenshot(params)
+            elif cmd == "type":
+                resp = worker.cmd_type(params)
             elif cmd == "exit":
                 resp = {"ok": True, "message": "avslutter"}
                 sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")

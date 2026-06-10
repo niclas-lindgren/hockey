@@ -110,6 +110,7 @@ class Game:
     home: Team
     away: Team
     parallel_slot: int = 0  # which parallel timeslot/sheet this game is played in
+    round_number: int = 0  # which round of the round-robin this game belongs to (1-based)
 
 
 @dataclass

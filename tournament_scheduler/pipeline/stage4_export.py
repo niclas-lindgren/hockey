@@ -179,6 +179,7 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
                         home=home,
                         away=away,
                         parallel_slot=int(g_dict.get("parallel_slot", 0)),
+                        round_number=int(g_dict.get("round_number", 0)),
                     )
                 )
 

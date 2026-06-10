@@ -1,99 +1,57 @@
-# Plan: ScraperAgent for blocked clubs (Jutul, Tønsberg, Sandefjord)
-
-**Backlog:** #24
-**Goal:** Use the Pi-driven ScraperAgent to scrape the 3 remaining clubs that the deterministic Stage 2 cannot handle — Jutul (StyledCalendar JS widget), Tønsberg (Bookup SPA), and Sandefjord Penguins (Bookup SPA).
-
-## Architecture
-
-The extension's pipeline runner (`rvv-miniputt.ts`) orchestrates everything:
-
-```
-Stage 2 (Python, deterministic)
-  → yields 6 clubs with events, 3 blocked
-  ↓
-Extension checks blocked sources
-  ↓
-For each blocked source:
-  ScraperAgent (TypeScript) launches browserWorker
-  → Pi's model reads page → decides actions → extracts events
-  ↓
-Merge results into cache + regenerate viewer
-```
-
-The ScraperAgent and browserWorker already exist. This plan integrates them into the pipeline flow and handles the navigation of each specific site.
+# Plan: Fix tournament game round numbering
+**Goal:** `generate_round_robin_games()` stores `round_number` on each `Game`, and the Excel exporter shows a "Runde" column instead of sequential "Kamp #" numbering.
+**Created:** 2026-06-10
+**Intent:** Parallel games in the same round should share the same round number instead of being numbered sequentially 1,2,3...N across all games.
+**Backlog-ref:** 19
 
 ## Tasks
+- [x] Add `round_number: int` field to `Game` dataclass and propagate through (de)serialization
+  - Files: tournament_scheduler/models.py, tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/pipeline/stage4_export.py
+  - Approach: Add `round_number: int = 0` to `Game` in models.py. In `stage3_planning.py` `_dict_to_tournament()`, add `round_number=g.get("round_number", 0)` to `Game(...)`. In `stage4_export.py` `_dict_to_plan()`, same — add `round_number=int(g_dict.get("round_number", 0))` to `Game(...)`.
 
-- [x] Task 1: Add ScraperAgent integration to rvv-miniputt.ts pipeline runner
-  - Files: `.pi/extensions/rvv-miniputt.ts`
-  - Approach: After Stage 2 completes, check for blocked sources. For each blocked source that has a strategy in scraper_strategies.py, launch ScraperAgent → browserWorker. Send the scraped results to the cache manager. Merge with existing stage 2 data. Regenerate the viewer.
-  - Lesson: TBD
+- [x] Set `round_number` in `generate_round_robin_games()` when constructing `Game`
+  - Files: tournament_scheduler/season_planner.py
+  - Approach: In `generate_round_robin_games()`, at line ~673 where `Game(home=home, away=away, parallel_slot=...)` is constructed, add `round_number=round_index + 1`.
 
-- [x] Task 2: Scrape Jutul (Bærum ishall, StyledCalendar)
-  - Files: `.pi/lib/scraper-agent.ts`
-  - Approach: Open https://baerumishall.no/kalender/. The page has a StyledCalendar JS widget — Pi's model needs to find the month navigation (forward/back buttons) and extract events from the rendered calendar grid. Navigate through each month Sep 2026 — Apr 2027.
-  - Lesson: TBD
+- [x] Update Excel exporter to show round numbers instead of sequential enumeration
+  - Files: tournament_scheduler/excel/plan_exporter.py
+  - Approach: Rename `_GAMES_HEADERS` from `["Kamp #", ...]` to `["Runde", ...]`. In `_write_tournament_sheet()`, replace the `enumerate(tournament.games, start=1)` that writes `game_number` with `game.round_number`. Keep the parallel_slot column as-is (it shows which of the parallel games in that round each row belongs to).
 
-- [x] Task 3: Scrape Tønsberg (Bookup SPA)
-  - Files: `.pi/lib/scraper-agent.ts`
-  - Approach: Open https://www.bookup.no/utleie/Index/860. Bookup is a JS SPA with date-picker navigation and a booking grid. Pi's model needs to interact with the date picker to navigate months and extract booking times from the grid.
-  - Lesson: TBD
-
-- [x] Task 4: Scrape Sandefjord Penguins (Bookup SPA, Bugårdshallen)
-  - Files: `.pi/lib/scraper-agent.ts`
-  - Approach: Open https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen. Same Bookup platform as Tønsberg but different venue. Reuse the same navigation strategy.
-  - Lesson: TBD
-
-- [x] Task 5: Validate all 9 clubs produce events in a pipeline run
-  - Files: `input.json`, `.pipeline/cache/scraped_data.json`
-  - Approach: Run full pipeline (Stage 1 + Stage 2 + ScraperAgent for blocked). Check cache has events from all 9 clubs. Regenerate viewer. Run tests.
-  - Lesson: TBD
+## Notes
+- The `generate_round_robin_games()` method already has `round_index` available in its loop — it just wasn't stored on `Game`.
+- The `_GAMES_HEADERS` are: `["Kamp #", "Hjemmelag", "Bortelag", "Parallellbane"]`. Changing "Kamp #" to "Runde" makes it clear the column now shows which round the game belongs to.
+- The per-tournament sheet also shows `game.parallel_slot + 1` which tells which timeslot (1-based) within that round — this is complementary, not a replacement.
+- CSV and HTML exporters don't enumerate games so no changes needed there.
+- Tests: no existing tests for plan_exporter or generate_round_robin_games, so no test updates required.
 
 ## Acceptance Criteria
-
-- [ ] Extension runs ScraperAgent for blocked sources after Stage 2
-- [ ] Jutul produces at least 1 event in a test run
-- [ ] Tønsberg produces at least 1 event in a test run
-- [ ] Sandefjord produces at least 1 event in a test run
-- [ ] All 9 clubs have events in the unified cache
-- [ ] Viewer regenerated with all 9 clubs
-- [ ] Run `pytest` and confirm all tests pass
+- [ ] `Game` dataclass has a `round_number: int` field defaulting to 0.
+- [ ] Run `grep -c 'round_number' tournament_scheduler/season_planner.py` and confirm it returns > 0.
+- [ ] The Excel per-tournament sheet header says "Runde" instead of "Kamp #".
+- [ ] The Excel per-tournament sheet shows `game.round_number` in the "Runde" column instead of sequential `1,2,3...`.
+- [ ] `pip check` passes (no dependency issues).
+- [ ] `pytest` passes.
 
 ## Log
 
 
 
-
-
-
-### 2026-06-09 — Task 5: Validate all 9 clubs produce events in a pipeline run
-**Done:** yes
-**Rationale:** All tasks complete. 7 clubs working (Kongsberg×2, Skien, Ringerike, Frisk Asker, Jar, Holmen). Jutul ready via ScraperAgent. Tønsberg/Sandefjord blocked by Bookup login wall.
-**Findings:** 7 of 9 clubs now produce events. 2 Bookup sites need login credentials. Tests pass (176/176).
-**Files:** (validation complete)
+### 2026-06-10 — Update Excel exporter to show round numbers instead of sequential enumeration
+**Done:** true
+**Rationale:** Renamed "Kamp #" header to "Runde" and replaced enumerate() with game.round_number in the per-tournament sheet writer. Updated test helper to use SeasonPlanner.generate_round_robin_games for proper round_number values, and updated test assertions to check game.round_number instead of sequential counter.
+**Findings:** The test helper _round_robin_games was previously generating all-pairs linearly without round information. Switching to the real SeasonPlanner.generate_round_robin_games ensures tests verify realistic data.
+**Files:** tournament_scheduler/excel/plan_exporter.py (+2/-2), tests/test_plan_exporter.py (+3/-5)
 **Commit:** not committed
-### 2026-06-09 — Task 4: Scrape Sandefjord Penguins (Bookup SPA, Bugårdshallen)
-**Done:** yes
-**Rationale:** See Task 3 — identical Bookup SPA with login wall.
-**Findings:** Same Bookup platform as Tønsberg. Login required.
-**Files:** (same as Task 3 — Bookup SPA with login)
+### 2026-06-10 — Set `round_number` in `generate_round_robin_games()` when constructing `Game`
+**Done:** true
+**Rationale:** Added round_number=round_index + 1 to the Game constructor inside the round-robin loop. round_index was already available (0-based), so round_number is 1-based for human readability.
+**Findings:** The loop iterates round_index from 0 to num_rounds-1. Using round_index + 1 gives 1-based round numbers that match what an exported sheet should show.
+**Files:** tournament_scheduler/season_planner.py (+1 line in generate_round_robin_games)
 **Commit:** not committed
-### 2026-06-09 — Task 3: Scrape Tønsberg (Bookup SPA)
-**Done:** yes
-**Rationale:** Investigated both Bookup sites. Both show login wall — calendar content is hidden behind authentication. Cannot scrape without login credentials. Documented as requiring auth.
-**Findings:** Tønsberg and Sandefjord Penguins both use Bookup SPA which requires user login to view the booking calendar. No public calendar data accessible without credentials.
-**Files:** tournament_scheduler/pipeline/scraper_strategies.py (+Bookup login notes)
+### 2026-06-10 — Add `round_number: int` field to `Game` dataclass and propagate through (de)serialization
+**Done:** true
+**Rationale:** Added round_number: int = 0 field to Game model, and added round_number=g.get("round_number", 0) to both stage3_planning.py and stage4_export.py deserialization paths so the field survives checkpoint round-trips.
+**Findings:** Game model is a simple dataclass; adding a default field is backward compatible. The two (de)serialization sites in pipeline/stage3_planning.py and pipeline/stage4_export.py both needed the same treatment.
+**Files:** tournament_scheduler/models.py (+1 line), tournament_scheduler/pipeline/stage3_planning.py (+1 line), tournament_scheduler/pipeline/stage4_export.py (+1 line)
 **Commit:** not committed
-### 2026-06-09 — Task 2: Scrape Jutul (Bærum ishall, StyledCalendar)
-**Done:** yes
-**Rationale:** StyledCalendar extraction strategy added to browserWorker. Navigates to embed URL, switches to month view, extracts all .fc-daygrid-event elements with data-date attributes. Tested with 155 events from June 2026. Navigation works via .fc-next-button clicks.
-**Findings:** Jutul/Bærum uses FullCalendar via StyledCalendar. Embed URL at embed.styledcalendar.com/#rYk5U1FtYNByMIMz2AoR. Has month view (fc-dayGridMonth), prev/next navigation (fc-prev-button/fc-next-button). Events extracted via JS evaluation of .fc-daygrid-event elements. 155 events in June 2026.
-**Files:** tournament_scheduler/pipeline/browser_worker.py (+styledcalendar strategy, +eval command)
-**Commit:** not committed
-### 2026-06-09 — Task 1: Add ScraperAgent integration to rvv-miniputt.ts pipeline runner
-**Done:** yes
-**Rationale:** Extension pipeline runner now integrates ScraperAgent after Stage 2. Runs blocked sources through Pi-driven browser agent. Caches results and regenerates viewer.
-**Findings:** Stage 2 now runs with --non-strict. Blocked sources checked after run. ScraperAgent launched for Jutul, Tønsberg, Sandefjord. Jutul uses StyledCalendar extraction (FullCalendar events). Cache updated. Calendars.html regenerated.
-**Files:** .pi/extensions/rvv-miniputt.ts (+ScraperAgent integration)
-**Commit:** not committed
-(Will be populated as tasks are completed.)
+<!-- pi-next appends entries here after each task -->

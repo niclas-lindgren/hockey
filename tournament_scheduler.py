@@ -49,6 +49,8 @@ Examples:
                         help='Path to a parallel-games config file (JSON/YAML) for --generate-season.')
     parser.add_argument('--export-excel', type=str,
                         help='Path to write an .xlsx export of the generated season plan (used with --generate-season).')
+    parser.add_argument('--export-csv', type=str,
+                        help='Path to write a CSV export of the generated season plan (used with --generate-season).')
 
     # Tournament update flags
     parser.add_argument('--update-tournament', type=str,
