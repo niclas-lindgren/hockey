@@ -90,4 +90,4 @@ LESSONS: none
 **Findings:** All season_planner-related tests (41) pass; the diversity_score/pairwise_matchup_score divergence is confirmed end-to-end (1.0 vs 0.267) and both values render via distinct HTML template tokens and Rich console labels. Backlog #47 fully resolved.
 LESSONS: none
 **Files:** none (verification-only task, no code changes)
-**Commit:** [pending — fill after commit]
+**Commit:** d399c9e (hockey)
