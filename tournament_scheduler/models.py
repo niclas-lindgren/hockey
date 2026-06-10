@@ -74,6 +74,7 @@ class Team:
     label: str  # e.g. "Jar 1", "Jar 2"
     age_group: str  # e.g. "U10", "JU11"
     region: str = "RVV"  # geographical region, e.g. "RVV", "Oslo"
+    skill_level: Optional[int] = None  # 1-10 skill tier (None = unrated, grouped with everyone)
 
     @property
     def name(self) -> str:
@@ -156,6 +157,15 @@ class SeasonPlan:
     month_balance_score: float = 0.0
     # Maps arena/host-club name -> number of tournaments scheduled there
     arena_counts: Dict[str, int] = field(default_factory=dict)
+    # Maps team label -> total number of round-robin games played across
+    # the entire season (computed by SeasonPlanner.build_plan).
+    team_game_counts: Dict[str, int] = field(default_factory=dict)
+    # Difference between the team with the most games and the team with
+    # the fewest games (max - min of team_game_counts values).
+    game_count_spread: int = 0
+    # Maps team label -> date of their last round-robin game in the season.
+    # Used for early-finish detection (teams that finish weeks before others).
+    team_last_game_dates: Dict[str, date] = field(default_factory=dict)
 
 
 # Mapping of age groups whose player pools are known to overlap (e.g. a player

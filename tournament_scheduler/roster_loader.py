@@ -58,6 +58,8 @@ consistently via `TournamentOutput.print_error` / Norwegian console output.
 import json
 import os
 
+from typing import Optional
+
 from tournament_scheduler.models import Roster, Team
 from tournament_scheduler.season_config import KNOWN_AGE_GROUPS, _YAML_AVAILABLE, yaml
 
@@ -166,8 +168,37 @@ class RosterLoader:
                         f"ikke-tom liste med lagnavn, men fikk {type(labels).__name__}."
                     )
 
-                for label in labels:
-                    if not isinstance(label, str) or not label.strip():
+                for entry in labels:
+                    label: str
+                    skill_level: Optional[int] = None
+                    if isinstance(entry, str):
+                        label = entry
+                    elif isinstance(entry, dict):
+                        if "label" not in entry or not isinstance(entry["label"], str) or not entry["label"].strip():
+                            raise RosterConfigError(
+                                f"Ugyldig lagoppføring for klubb '{club}' / '{age_group}': "
+                                f"{entry!r}. Når et lagnavn skrives som et objekt, må det ha "
+                                'en "label"-nøkkel med en ikke-tom tekststreng, '
+                                'f.eks. {"label": "Jar 1", "skillLevel": 5}.'
+                            )
+                        label = entry["label"]
+                        sl = entry.get("skillLevel")
+                        if sl is not None:
+                            if not isinstance(sl, int) or sl < 1 or sl > 10:
+                                raise RosterConfigError(
+                                    f"Ugyldig skillLevel for '{label}' / '{club}' / '{age_group}': "
+                                    f"{sl!r}. SkillLevel må være et heltall mellom 1 og 10."
+                                )
+                            skill_level = sl
+                    else:
+                        raise RosterConfigError(
+                            f"Ugyldig lagoppføring for klubb '{club}' / '{age_group}': "
+                            f"{entry!r}. Forventet en tekststreng (lagnavn) eller et "
+                            'objekt med "label"-nøkkel, '
+                            f"men fikk {type(entry).__name__}."
+                        )
+
+                    if not label.strip():
                         raise RosterConfigError(
                             f"Ugyldig lagnavn for klubb '{club}' / '{age_group}': {label!r}. "
                             "Lagnavn må være en ikke-tom tekststreng."
@@ -181,7 +212,7 @@ class RosterLoader:
                         )
                     seen_labels_for_club.add(key)
 
-                    teams.append(Team(club=club, label=label, age_group=age_group, region=region))
+                    teams.append(Team(club=club, label=label, age_group=age_group, region=region, skill_level=skill_level))
 
         return teams
 

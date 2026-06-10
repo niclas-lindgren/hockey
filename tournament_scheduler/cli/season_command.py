@@ -43,6 +43,8 @@ class SeasonCommand:
         max_club_teams = federation_defaults.get('maxClubTeamsPerTournament', 2)
         if hasattr(args, 'max_club_teams') and args.max_club_teams is not None:
             max_club_teams = args.max_club_teams
+        max_game_count_spread = federation_defaults.get('maxGameCountSpread', 2)
+        division_skill_band = federation_defaults.get('divisionSkillBand', 2)
 
         sources, club_arenas = self._build_calendar_sources()
         if not sources:
@@ -62,6 +64,8 @@ class SeasonCommand:
             parallel_games_for_age_group=parallel_games_for_age_group,
             max_teams_per_tournament_for_age_group=max_teams_per_tournament,
             max_club_teams_per_tournament=max_club_teams,
+            max_game_count_spread=max_game_count_spread,
+            division_skill_band=division_skill_band,
         )
 
         TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")
@@ -71,7 +75,7 @@ class SeasonCommand:
             TournamentOutput.print_no_dates_found()
             return
 
-        self._print_plan(plan)
+        self._print_plan(plan, planner=planner)
 
         self._print_club_load_warnings(planner)
         self._print_travel_warnings(plan)
@@ -148,11 +152,14 @@ class SeasonCommand:
                 pass
         return checkers
 
-    def _print_plan(self, plan):
+    def _print_plan(self, plan, planner=None):
         TournamentOutput.print_season_overview(plan)
         for tournament in sorted(plan.tournaments, key=lambda t: t.date):
             TournamentOutput.print_tournament_schedule(tournament)
+        TournamentOutput.print_game_count_table(plan)
         TournamentOutput.print_diversity_summary(plan)
+        if planner is not None:
+            TournamentOutput.print_game_count_warnings(planner.game_count_warnings)
 
     @staticmethod
     def _print_club_load_warnings(planner) -> None:

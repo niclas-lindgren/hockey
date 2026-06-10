@@ -81,8 +81,9 @@ def run(
     roster = _build_roster(config)
     pg_config = _build_parallel_games(config)
     club_arenas = _build_club_arenas(config)
+    division_skill_band = config.get("divisionSkillBand", 2)
 
-    planner = _make_planner(roster, pg_config, club_arenas)
+    planner = _make_planner(roster, pg_config, club_arenas, division_skill_band)
     plan = planner.build_plan(start_date, end_date)
 
     if plan is None or not plan.tournaments:
@@ -119,7 +120,10 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
         }
 
     def _team_to_dict(t: Team) -> dict[str, Any]:
-        return {"club": t.club, "label": t.label, "age_group": t.age_group}
+        d: dict[str, Any] = {"club": t.club, "label": t.label, "age_group": t.age_group}
+        if t.skill_level is not None:
+            d["skillLevel"] = t.skill_level
+        return d
 
     def _tournament_to_dict(t: Tournament) -> dict[str, Any]:
         return {
@@ -139,6 +143,11 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
         "pairwise_matchup_score": plan.pairwise_matchup_score,
         "month_balance_score": plan.month_balance_score,
         "arena_counts": plan.arena_counts,
+        "team_game_counts": dict(plan.team_game_counts),
+        "game_count_spread": plan.game_count_spread,
+        "team_last_game_dates": {
+            k: v.isoformat() for k, v in plan.team_last_game_dates.items()
+        },
         "tournaments": [_tournament_to_dict(t) for t in plan.tournaments],
     }
 
@@ -177,6 +186,7 @@ def _make_planner(
     roster: Roster,
     pg_config: dict[str, int],
     club_arenas: dict[str, str],
+    division_skill_band: int = 2,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner`."""
     from ..scheduler import TournamentScheduler
@@ -193,13 +203,19 @@ def _make_planner(
         roster=roster,
         club_arenas=club_arenas,
         parallel_games_for_age_group=pg_config or None,
+        division_skill_band=division_skill_band,
     )
 
 
 def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
     """Reconstruct a :class:`Tournament` from a serialised dict."""
     teams = [
-        Team(club=t["club"], label=t["label"], age_group=t["age_group"])
+        Team(
+            club=t["club"],
+            label=t["label"],
+            age_group=t["age_group"],
+            skill_level=t.get("skillLevel"),
+        )
         for t in data.get("teams", [])
     ]
     games = [

@@ -306,3 +306,67 @@ class TestFromFile:
         from_dict_roster = RosterLoader.from_dict(VALID_CONFIG)
 
         assert from_file_roster.teams == from_dict_roster.teams
+
+
+class TestSkillLevelInRoster:
+    """Tests for skill_level support in roster config parsing."""
+
+    def test_plain_strings_have_no_skill_level(self):
+        roster = RosterLoader.from_dict({"Jar": {"U10": ["Jar 1", "Jar 2"]}})
+        assert roster.teams[0].skill_level is None
+        assert roster.teams[1].skill_level is None
+
+    def test_mixed_strings_and_objects(self):
+        roster = RosterLoader.from_dict({
+            "Jar": {"U10": ["Jar 1", {"label": "Jar 2", "skillLevel": 5}]}
+        })
+        assert roster.teams[0].label == "Jar 1"
+        assert roster.teams[0].skill_level is None
+        assert roster.teams[1].label == "Jar 2"
+        assert roster.teams[1].skill_level == 5
+
+    def test_all_objects_with_skill_levels(self):
+        roster = RosterLoader.from_dict({
+            "Jar": {"U10": [
+                {"label": "Jar 1", "skillLevel": 3},
+                {"label": "Jar 2", "skillLevel": 7},
+            ]}
+        })
+        assert roster.teams[0].skill_level == 3
+        assert roster.teams[1].skill_level == 7
+
+    def test_object_without_label_is_rejected(self):
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict({"Jar": {"U10": [{"name": "Jar 1"}]}})
+        assert "label" in str(exc_info.value).lower()
+
+    def test_invalid_skill_level_below_range_is_rejected(self):
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict({"Jar": {"U10": [{"label": "Jar 1", "skillLevel": 0}]}})
+        assert "mellom 1 og 10" in str(exc_info.value)
+
+    def test_invalid_skill_level_above_range_is_rejected(self):
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict({"Jar": {"U10": [{"label": "Jar 1", "skillLevel": 15}]}})
+        assert "mellom 1 og 10" in str(exc_info.value)
+
+    def test_invalid_skill_level_type_is_rejected(self):
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict({"Jar": {"U10": [{"label": "Jar 1", "skillLevel": "høy"}]}})
+        assert "heltall" in str(exc_info.value)
+
+    def test_extended_format_with_skill_levels(self):
+        roster = RosterLoader.from_dict({
+            "federationDefaults": {"parallelGames": {}},
+            "clubs": {"Jar": {"U10": [{"label": "Jar 1", "skillLevel": 5}]}}
+        })
+        assert roster.teams[0].skill_level == 5
+        assert roster.teams[0].region == "RVV"
+
+    def test_neighbor_clubs_with_skill_levels(self):
+        roster = RosterLoader.from_dict({
+            "clubs": {"Jar": {"U10": ["Jar 1"]}},
+            "neighborClubs": {"Oslo": {"JU10": [{"label": "Oslo 1", "skillLevel": 8}]}}
+        })
+        assert roster.teams[1].skill_level == 8
+        assert roster.teams[1].region == "Oslo"

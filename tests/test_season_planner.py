@@ -349,3 +349,352 @@ class TestOpponentHistoryTrackingAndScoring:
 
         assert total > 0
         assert plan.pairwise_matchup_score == round(novel / total, 3)
+
+
+class TestPerTeamGameCounts:
+    """Tests for per-team game count tracking, spread validation, and early-finish detection."""
+
+    def test_team_game_counts_match_actual_games(self, planner_and_plan):
+        _, plan, *_ = planner_and_plan
+
+        assert plan.team_game_counts, "expected team_game_counts to be populated"
+
+        # Walk all games in the plan and recompute counts manually
+        expected_counts: dict[str, int] = {}
+        for tournament in plan.tournaments:
+            for game in tournament.games:
+                for team in (game.home, game.away):
+                    if team is None:
+                        continue
+                    expected_counts[team.label] = expected_counts.get(team.label, 0) + 1
+
+        assert plan.team_game_counts == expected_counts
+
+    def test_team_last_game_dates_match_latest_tournament(self, planner_and_plan):
+        _, plan, *_ = planner_and_plan
+
+        assert plan.team_last_game_dates, "expected team_last_game_dates to be populated"
+
+        # Recompute last-game dates manually
+        expected_last_dates: dict[str, date] = {}
+        for tournament in plan.tournaments:
+            for game in tournament.games:
+                for team in (game.home, game.away):
+                    if team is None:
+                        continue
+                    last = expected_last_dates.get(team.label)
+                    if last is None or tournament.date > last:
+                        expected_last_dates[team.label] = tournament.date
+
+        assert plan.team_last_game_dates == expected_last_dates
+
+    def test_game_count_spread_is_non_negative(self, planner_and_plan):
+        _, plan, *_ = planner_and_plan
+
+        assert isinstance(plan.game_count_spread, int)
+        assert plan.game_count_spread >= 0
+
+    def test_game_count_spread_equals_max_minus_min(self, planner_and_plan):
+        _, plan, *_ = planner_and_plan
+
+        if plan.team_game_counts:
+            expected_spread = max(plan.team_game_counts.values()) - min(plan.team_game_counts.values())
+            assert plan.game_count_spread == expected_spread
+
+    def test_game_count_warnings_fired_when_spread_exceeds_threshold(self):
+        """Build a planner with a tight max_game_count_spread=0 so even a spread
+        of 1 triggers warnings. Uses 6 teams with max_teams=3 so subsets vary."""
+        from datetime import datetime as _dt
+
+        start, end = _dt(2026, 10, 1), _dt(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]
+        age_groups = ["U10"]
+        roster = _build_roster(clubs, age_groups)
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 2},
+            max_teams_per_tournament_for_age_group={"U10": 3},
+            max_game_count_spread=0,  # any spread triggers a warning
+        )
+        planner.build_plan(start, end)
+
+        warnings = planner.game_count_warnings
+        spread_warnings = [w for w in warnings if w[3] == "spread"]
+        # With 6 teams and max 3 per tournament, subsets will vary over
+        # ~12 tournaments, creating a spread in game counts.
+        assert len(spread_warnings) >= 1, (
+            f"expected at least one spread warning with max_game_count_spread=0, "
+            f"got: {warnings}"
+        )
+
+    def test_no_game_count_warnings_when_spread_within_threshold(self):
+        """With a single age group and lenient threshold, no spread warnings should fire."""
+        from datetime import datetime as _dt
+
+        start, end = _dt(2026, 10, 1), _dt(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul"]
+        age_groups = ["U10"]
+        roster = _build_roster(clubs, age_groups)
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 2},
+            max_game_count_spread=10,  # very lenient threshold
+        )
+        plan = planner.build_plan(start, end)
+
+        warnings = planner.game_count_warnings
+        spread_warnings = [w for w in warnings if w[3] == "spread"]
+
+        # With a very lenient threshold of 10, spread warnings should not fire
+        # for a single-age-group scenario where all teams get equal invites.
+        assert len(spread_warnings) == 0, (
+            f"unexpected spread warnings with max_game_count_spread=10: {spread_warnings}"
+        )
+
+    def test_early_finish_warnings_with_tight_threshold(self):
+        """Build a planner with a tiny max_early_finish_gap_days.
+
+        Uses 6 teams with max_teams=3 so some teams skip late tournaments
+        while others participate, creating an early-finish spread."""
+        from datetime import datetime as _dt
+
+        start, end = _dt(2026, 10, 1), _dt(2026, 12, 31)
+        free_dates = _all_weekend_dates(start, end)
+
+        clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]
+        age_groups = ["U10"]
+        roster = _build_roster(clubs, age_groups)
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 2},
+            max_teams_per_tournament_for_age_group={"U10": 3},
+            max_early_finish_gap_days=0,  # any gap triggers a warning
+        )
+        planner.build_plan(start, end)
+
+        warnings = planner.game_count_warnings
+        early_warnings = [w for w in warnings if w[3] == "early_finish"]
+        # With 6 teams and max 3 per tournament, some teams will miss
+        # later tournaments, causing early-finish alerts.
+        assert len(early_warnings) >= 1, (
+            f"expected at least one early-finish warning with max_early_finish_gap_days=0, "
+            f"got: {warnings}"
+        )
+
+    def test_team_game_counts_fields_present_on_season_plan(self, planner_and_plan):
+        _, plan, *_ = planner_and_plan
+
+        assert isinstance(plan.team_game_counts, dict)
+        assert isinstance(plan.team_last_game_dates, dict)
+        assert isinstance(plan.game_count_spread, int)
+
+    def test_team_game_counts_includes_invited_teams(self, planner_and_plan):
+        _, plan, roster, *_ = planner_and_plan
+
+        # Every team that was invited to at least one tournament should have
+        # a game count entry.
+        invited_labels = set()
+        for tournament in plan.tournaments:
+            for team in tournament.teams:
+                invited_labels.add(team.label)
+
+        counted_labels = set(plan.team_game_counts.keys())
+        assert invited_labels.issubset(counted_labels), (
+            f"not all invited teams appear in team_game_counts: "
+            f"{invited_labels - counted_labels}"
+        )
+        # Every team that appears in team_game_counts must have a non-zero count.
+        for label, count in plan.team_game_counts.items():
+            assert count > 0, f"team {label} has zero game count but appears in team_game_counts"
+
+    def test_game_count_warnings_property_returns_list(self, planner_and_plan):
+        planner, *_ = planner_and_plan
+
+        warnings = planner.game_count_warnings
+        assert isinstance(warnings, list)
+        for w in warnings:
+            assert len(w) == 4  # (label, count, threshold/gap, type)
+            assert w[3] in ("spread", "early_finish")
+
+
+class TestSkillLevelDivisions:
+    """Tests for skill-level-based participant selection."""
+
+    @pytest.fixture
+    def skill_roster(self):
+        """8 teams in U10, 4 low-skill (1-2) and 4 high-skill (8-10)."""
+        return Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=1),
+            Team(club="Jar", label="Jar 2", age_group="U10", skill_level=2),
+            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=1),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=2),
+            Team(club="Skien", label="Skien 1", age_group="U10", skill_level=9),
+            Team(club="Jutul", label="Jutul 1", age_group="U10", skill_level=10),
+            Team(club="Ringerike", label="Ringerike 1", age_group="U10", skill_level=8),
+            Team(club="Tønsberg", label="Tønsberg 1", age_group="U10", skill_level=9),
+        ])
+
+    @pytest.fixture
+    def free_dates(self):
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        return _all_weekend_dates(start, end)
+
+    @pytest.fixture
+    def skill_planner(self, skill_roster, free_dates):
+        club_arenas = {t.club: f"{t.club}hallen" for t in skill_roster.teams}
+        return SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=skill_roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 2},
+            max_teams_per_tournament_for_age_group={"U10": 4},
+            division_skill_band=2,
+        )
+
+    def test_teams_without_skill_level_are_grouped_normally(self, free_dates):
+        """Plain strings with no skill_level produce identical behaviour."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Holmen", label="Holmen 1", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+            Team(club="Skien", label="Skien 1", age_group="U10"),
+            Team(club="Jutul", label="Jutul 1", age_group="U10"),
+            Team(club="Ringerike", label="Ringerike 1", age_group="U10"),
+            Team(club="Tønsberg", label="Tønsberg 1", age_group="U10"),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 2},
+            max_teams_per_tournament_for_age_group={"U10": 4},
+            division_skill_band=2,
+        )
+        plan = planner.build_plan(datetime(2026, 10, 1), datetime(2027, 4, 30))
+        assert len(plan.tournaments) > 0
+        # All teams have skill_level=None so _team_skill_levels should be empty
+        assert planner._team_skill_levels == {}
+
+    def test_teams_with_skill_level_prefer_adjacent_levels(self, skill_planner):
+        """With balanced high/low groups, first tournaments should stay within band."""
+        plan = skill_planner.build_plan(datetime(2026, 10, 1), datetime(2027, 4, 30))
+        assert len(plan.tournaments) >= 4
+
+        # The first tournament should clearly contain only low- or only high-skill teams
+        first_levels = [t.skill_level for t in plan.tournaments[0].teams if t.skill_level is not None]
+        assert len(first_levels) == 4
+        # All within band-2 of each other: max - min should be <= 2
+        assert max(first_levels) - min(first_levels) <= 2, (
+            f"first tournament levels too spread: {first_levels}"
+        )
+
+        # The second tournament should have the complementary skill group
+        second_levels = [t.skill_level for t in plan.tournaments[1].teams if t.skill_level is not None]
+        assert len(second_levels) == 4
+        assert max(second_levels) - min(second_levels) <= 2, (
+            f"second tournament levels too spread: {second_levels}"
+        )
+
+        # The two groups should be distinct (one high, one low)
+        assert set(first_levels).isdisjoint(set(second_levels)) or (
+            max(first_levels) <= 2 and max(second_levels) <= 2
+        ), f"groups not cleanly separated: {first_levels} / {second_levels}"
+
+    def test_skill_penalty_is_soft_not_hard(self):
+        """When one band has too few teams, teams from other bands are selected."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=1),
+            Team(club="Jar", label="Jar 2", age_group="U10", skill_level=9),
+            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=10),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=8),
+            Team(club="Skien", label="Skien 1", age_group="U10", skill_level=9),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 2},
+            max_teams_per_tournament_for_age_group={"U10": 4},
+            division_skill_band=2,
+        )
+        plan = planner.build_plan(start, end)
+        assert len(plan.tournaments) >= 1
+        # With only 1 low-skill team and 4 high-skill, max_teams=4 means the
+        # first tournament must include the low-skill team (soft constraint doesn't exclude)
+        first_teams = plan.tournaments[0].teams
+        levels = [t.skill_level for t in first_teams if t.skill_level is not None]
+        assert 1 in levels, (
+            f"low-skill team should have been selected (soft constraint): levels={sorted(levels)}"
+        )
+
+    def test_mixed_skill_and_unrated_teams(self):
+        """Unrated teams (no skill_level) are not penalised and can be selected alongside any band."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=5),
+            Team(club="Jar", label="Jar 2", age_group="U10", skill_level=6),
+            Team(club="Holmen", label="Holmen 1", age_group="U10"),  # unrated
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),  # unrated
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 2},
+            max_teams_per_tournament_for_age_group={"U10": 4},
+            division_skill_band=2,
+        )
+        plan = planner.build_plan(start, end)
+        assert len(plan.tournaments) >= 1
+        # All 4 teams fit in one tournament; unrated teams must be included
+        assert len(plan.tournaments[0].teams) == 4
+        unrated = [t for t in plan.tournaments[0].teams if t.skill_level is None]
+        assert len(unrated) == 2, f"unrated teams should be selected: {[t.label for t in plan.tournaments[0].teams]}"
+
+    def test_division_skill_band_configurable(self):
+        """A wide band (99) should effectively disable skill filtering."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=1),
+            Team(club="Jar", label="Jar 2", age_group="U10", skill_level=10),
+            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=2),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=9),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 2},
+            division_skill_band=99,  # effectively infinite
+        )
+        plan = planner.build_plan(start, end)
+        assert len(plan.tournaments) >= 1
+        # With a huge band, level 1 and 10 can coexist
+        first_levels = sorted([t.skill_level for t in plan.tournaments[0].teams if t.skill_level is not None])
+        assert 1 in first_levels and 10 in first_levels, (
+            f"wide band should allow all levels together: {first_levels}"
+        )

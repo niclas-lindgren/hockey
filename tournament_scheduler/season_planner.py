@@ -60,6 +60,9 @@ class SeasonPlanner:
         target_tournament_count: Optional[int] = None,
         max_teams_per_tournament_for_age_group: Optional[Dict[str, int]] = None,
         max_club_teams_per_tournament: int = 2,
+        max_game_count_spread: int = 2,
+        max_early_finish_gap_days: int = 60,
+        division_skill_band: int = 2,
     ):
         """Initialize the planner.
 
@@ -85,6 +88,10 @@ class SeasonPlanner:
                 from the same club can be invited to a single tournament.
                 Default 2. Helps spread multi-team clubs' load across
                 different tournament weekends.
+            division_skill_band: Maximum skill-level difference treated as
+                "adjacent" for the skill-division penalty in participant
+                selection. Default 2 means levels 3 and 5 are adjacent but
+                3 and 6 are not. Set to a large value (e.g. 99) to disable.
         """
         self.scheduler = scheduler
         self.roster = roster
@@ -93,14 +100,35 @@ class SeasonPlanner:
         self.target_tournament_count = target_tournament_count
         self.max_teams_per_tournament_for_age_group = max_teams_per_tournament_for_age_group or {}
         self.max_club_teams_per_tournament = max_club_teams_per_tournament
+        self.max_game_count_spread = max_game_count_spread
+        self.max_early_finish_gap_days = max_early_finish_gap_days
+        self.division_skill_band = division_skill_band
+
+        # Maps team label -> skill_level (int 1-10) for teams that have one.
+        # Used by the skill-level proximity penalty in participant selection.
+        self._team_skill_levels: Dict[str, int] = {
+            team.label: team.skill_level
+            for team in roster.teams
+            if team.skill_level is not None
+        }
 
         # Club-load warnings collected after build_plan runs.
         self._club_load_warnings: List[Tuple[str, str, str, int]] = []
+
+        # Game-count warnings collected after build_plan runs.
+        self._game_count_warnings: List[Tuple[str, int, int, str]] = []
 
         # Tracks, per team, the set of other teams it has already been
         # grouped with in a tournament this season — used by the
         # least-recently-grouped-together heuristic.
         self._grouped_with: Dict[str, Set[str]] = {}
+        # Tracks the total number of round-robin games each team has played
+        # across all tournaments. Populated in _compute_game_counts after
+        # build_plan generates all tournaments and their games.
+        self._team_game_counts: Dict[str, int] = {}
+        # Tracks the date of each team's most recent game. Used for
+        # early-finish detection.
+        self._team_last_date: Dict[str, date] = {}
         # Tracks how many times each team has been invited overall, to keep
         # invitations roughly balanced across the season.
         self._invite_counts: Dict[str, int] = {team.label: 0 for team in roster.teams}
@@ -192,8 +220,17 @@ class SeasonPlanner:
         plan.pairwise_matchup_score = self._pairwise_matchup_score(plan.tournaments)
         plan.month_balance_score = self._month_balance_score(expected_per_month)
 
+        # Compute per-team game counts and last-game dates.
+        self._compute_game_counts(plan.tournaments)
+        plan.team_game_counts = dict(self._team_game_counts)
+        plan.team_last_game_dates = dict(self._team_last_date)
+        if self._team_game_counts:
+            plan.game_count_spread = max(self._team_game_counts.values()) - min(self._team_game_counts.values())
+
         # Scan for club-load violations and record warnings.
         self._scan_club_load_warnings(plan.tournaments)
+        # Scan for game-count spread violations and early-finish issues.
+        self._scan_game_count_warnings(plan.start_date, plan.end_date)
 
         if collisions:
             plan.arena_counts["_age_group_overlap_collisions"] = len(collisions)
@@ -221,6 +258,83 @@ class SeasonPlanner:
         single club exceeds ``max_club_teams_per_tournament``.
         """
         return list(self._club_load_warnings)
+
+    @property
+    def game_count_warnings(self) -> List[Tuple[str, int, int, str]]:
+        """Game-count spread and early-finish warnings after ``build_plan``.
+
+        Each entry is ``(team_label, games_played, spread, warning_type)``
+        where ``warning_type`` is one of:
+
+        - ``"spread"`` — the team is on either the high or low extreme
+          of the game-count spread, and the spread exceeds
+          ``max_game_count_spread``.
+        - ``"early_finish"`` — the team's last game is more than
+          ``max_early_finish_gap_days`` before the season end date.
+        """
+        return list(self._game_count_warnings)
+
+    def _compute_game_counts(self, tournaments: Sequence[Tournament]) -> None:
+        """Compute per-team round-robin game counts and last-game dates.
+
+        Walks every ``Game`` in every ``Tournament``, counting how many
+        games each team plays overall and tracking the date of each team's
+        most recent game. Results are stored in ``_team_game_counts`` and
+        ``_team_last_date`` respectively.
+        """
+        self._team_game_counts = {}
+        self._team_last_date = {}
+        for tournament in tournaments:
+            for game in tournament.games:
+                for team in (game.home, game.away):
+                    if team is None:
+                        continue
+                    self._team_game_counts[team.label] = (
+                        self._team_game_counts.get(team.label, 0) + 1
+                    )
+                    last = self._team_last_date.get(team.label)
+                    if last is None or tournament.date > last:
+                        self._team_last_date[team.label] = tournament.date
+
+    def _scan_game_count_warnings(
+        self,
+        window_start: Optional[date],
+        window_end: Optional[date],
+    ) -> None:
+        """Scan computed game counts for spread and early-finish violations.
+
+        Appends structured warnings to ``_game_count_warnings``.
+
+        - **Spread warnings**: when ``max(team_game_counts) - min(team_game_counts)``
+          exceeds ``max_game_count_spread``, every team whose count is at
+          either extreme gets flagged.
+        - **Early-finish warnings**: when the season end date is known, teams
+          whose last game is more than ``max_early_finish_gap_days`` before
+          the end date are flagged.
+        """
+        self._game_count_warnings = []
+
+        if not self._team_game_counts:
+            return
+
+        max_count = max(self._team_game_counts.values())
+        min_count = min(self._team_game_counts.values())
+        spread = max_count - min_count
+
+        # Spread warnings
+        if spread > self.max_game_count_spread:
+            for label, count in self._team_game_counts.items():
+                if count == max_count or count == min_count:
+                    self._game_count_warnings.append((label, count, spread, "spread"))
+
+        # Early-finish warnings
+        if window_end is not None and self._team_last_date:
+            for label, last_date in self._team_last_date.items():
+                gap = (window_end - last_date).days
+                if gap > self.max_early_finish_gap_days:
+                    self._game_count_warnings.append(
+                        (label, self._team_game_counts.get(label, 0), gap, "early_finish")
+                    )
 
     def _scan_club_load_warnings(self, tournaments: Sequence[Tournament]) -> None:
         """Scan completed tournaments for club-load violations.
@@ -492,8 +606,29 @@ class SeasonPlanner:
                     return club_count * 100  # outweighs typical match-up scores
                 return 0
 
+            # Skill-level proximity penalty: prefer candidates whose skill
+            # level is within `division_skill_band` of the selected set's
+            # median skill level.  Unrated teams (no skill_level) are never
+            # penalised — they are treated as universally adjacent.
+            def skill_penalty(team: Team) -> int:
+                selected_levels = [
+                    self._team_skill_levels[s.label]
+                    for s in selected
+                    if s.label in self._team_skill_levels
+                ]
+                if not selected_levels:
+                    return 0  # no reference level yet
+                if team.label not in self._team_skill_levels:
+                    return 0  # unrated team — no filter
+                median = sorted(selected_levels)[len(selected_levels) // 2]
+                dist = abs(team.skill_level - median)
+                if dist <= self.division_skill_band:
+                    return 0
+                return (dist - self.division_skill_band) * 100
+
             remaining.sort(
                 key=lambda t: (
+                    skill_penalty(t),
                     club_penalty(t),
                     repeat_matchup_score(t),
                     overlap_score(t),
