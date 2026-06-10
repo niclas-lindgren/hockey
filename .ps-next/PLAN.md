@@ -34,7 +34,7 @@
   - Files: `tests/test_season_planner.py`
   - Add a test that builds a small `tournaments`/`_opponent_history` fixture where opponent-variety-per-team and pairwise-novel-pairing-fraction produce different numeric results, and asserts `_diversity_score(tournaments) != _pairwise_matchup_score(tournaments)` for that fixture. Also add a test confirming `_diversity_score` returns `0.0` when no games were scheduled, matching the existing `_pairwise_matchup_score` empty-input behavior.
 
-- [ ] Run the full test suite and verify the HTML/console outputs render distinct values end-to-end
+- [x] Ran the full pytest suite (277 passed, 1 skipped, 2 pre-existing/environmental failures in test_stage2_scraping.py confirmed to fail on the unmodified tree too — unrelated to this work) and an end-to-end script confirming plan.diversity_score (1.0) and plan.pairwise_matchup_score (0.267) now genuinely differ for a realistic multi-tournament season plan; verified scores.html contains both $DIVERSITY_SCORE$ and $PAIRWISE_SCORE$ tokens wired to these distinct values via html_exporter.py. — 2026-06-10
   - Files: `tests/test_season_planner.py`, `tournament_scheduler/season_planner.py`
   - Run `pytest` to confirm no regressions in existing tests that reference `diversity_score` or `pairwise_matchup_score` (e.g. tests covering `build_plan`, stage3/stage4 checkpoint round-trips, or HTML export). Manually verify (or add an assertion) that `plan.diversity_score` and `plan.pairwise_matchup_score` differ for a realistic multi-tournament season plan fixture.
 
@@ -84,3 +84,10 @@ LESSONS: none
 LESSONS: none
 **Files:** tests/test_season_planner.py (+65/-0)
 **Commit:** d5a30d5 (hockey)
+
+### 2026-06-10 — Ran the full pytest suite (277 passed, 1 skipped, 2 pre-existing/environmental failures in test_stage2_scraping.py confirmed to fail on the unmodified tree too — unrelated to this work) and an end-to-end script confirming plan.diversity_score (1.0) and plan.pairwise_matchup_score (0.267) now genuinely differ for a realistic multi-tournament season plan; verified scores.html contains both $DIVERSITY_SCORE$ and $PAIRWISE_SCORE$ tokens wired to these distinct values via html_exporter.py.
+**Rationale:** none
+**Findings:** All season_planner-related tests (41) pass; the diversity_score/pairwise_matchup_score divergence is confirmed end-to-end (1.0 vs 0.267) and both values render via distinct HTML template tokens and Rich console labels. Backlog #47 fully resolved.
+LESSONS: none
+**Files:** none (verification-only task, no code changes)
+**Commit:** [pending — fill after commit]
