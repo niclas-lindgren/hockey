@@ -458,6 +458,32 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   <!-- Export download links -->
   $EXPORT_LINKS_HTML$
 
+  <!-- Club dashboard (hidden until a club is selected) -->
+  <div class="club-dashboard" id="clubDashboard" style="display:none;margin-bottom:24px;padding:16px 20px;background:var(--ice-light);border:1px solid var(--ice-surface);border-left:4px solid var(--amber);border-radius:var(--radius)">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+      <h3 style="font-size:16px;color:var(--amber);font-weight:700;margin:0">🎯 <span id="clubDashName"></span></h3>
+      <span style="font-size:12px;color:var(--text-dim)">Klubb-oversikt</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px">
+      <div class="stat-badge" style="background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.2)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span style="color:var(--emerald)"><strong id="clubDashHosted">0</strong> hjemmeturneringer</span>
+      </div>
+      <div class="stat-badge" style="background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.2)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/></svg>
+        <span style="color:var(--accent)"><strong id="clubDashAway">0</strong> borteturneringer</span>
+      </div>
+      <div class="stat-badge" style="background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.2)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>
+        <span style="color:var(--amber)"><strong id="clubDashTravel">0</strong> km reise</span>
+      </div>
+      <div class="stat-badge" style="background:rgba(167,139,250,.08);border-color:rgba(167,139,250,.2)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <span style="color:#a78bfa"><strong id="clubDashTeams">0</strong> lag</span>
+      </div>
+    </div>
+  </div>
+
   <!-- Team game counts table -->
   <details class="team-stats" id="teamStats" style="margin-bottom:24px">
     <summary style="cursor:pointer;padding:12px 16px;background:var(--ice-light);border:1px solid var(--ice-surface);border-radius:var(--radius);font-size:14px;color:var(--accent);font-weight:600;user-select:none">
@@ -564,7 +590,8 @@ const TEAM_TRAVEL = $TEAM_TRAVEL_JSON$;
 const HEATMAP = $HEATMAP_JSON$;
 const HEATMAP_WEEKS = $HEATMAP_WEEKS_JSON$;
 const HEATMAP_CLUBS = $HEATMAP_CLUBS_JSON$;
-const HEATMAP_CLUB_COLORS = $HEATMAP_CLUB_COLORS_JSON$;
+const CLUB_STATS = $CLUB_STATS_JSON$;
+const ALL_CLUBS = $ALL_CLUBS_JSON$;
 
 // Helpers
 const MONTHS = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
@@ -826,13 +853,29 @@ function render() {
 
 document.getElementById('filterAge').addEventListener('change', render);
 document.getElementById('filterArena').addEventListener('change', render);
-document.getElementById('filterClub').addEventListener('change', render);
+document.getElementById('filterClub').addEventListener('change', function() {
+  const club = this.value;
+  const dashboard = document.getElementById('clubDashboard');
+  if (club && CLUB_STATS[club]) {
+    const s = CLUB_STATS[club];
+    document.getElementById('clubDashName').textContent = club;
+    document.getElementById('clubDashHosted').textContent = s.hosted;
+    document.getElementById('clubDashAway').textContent = s.away;
+    document.getElementById('clubDashTravel').textContent = (s.travel_km || 0).toLocaleString();
+    document.getElementById('clubDashTeams').textContent = s.teams;
+    dashboard.style.display = 'block';
+  } else {
+    dashboard.style.display = 'none';
+  }
+  render();
+});
 document.getElementById('filterSearch').addEventListener('input', render);
 document.getElementById('filterClear').addEventListener('click', function() {
   document.getElementById('filterAge').value = '';
   document.getElementById('filterArena').value = '';
   document.getElementById('filterClub').value = '';
   document.getElementById('filterSearch').value = '';
+  document.getElementById('clubDashboard').style.display = 'none';
   render();
 });
 
@@ -952,6 +995,57 @@ class HtmlExporter:
             club_color_map[club] = _club_colors[i % len(_club_colors)]
         heatmap_club_colors_json = json.dumps(club_color_map, ensure_ascii=False)
 
+        # --- Per-club aggregate stats for club dashboard ---
+        # hosted: count of tournaments this club hosts
+        # away: count of tournaments where this club's teams participate but don't host
+        # teams: set of team labels belonging to this club
+        # travel_km: total travel km (sum across club's teams from team_travel dict)
+        club_hosted: dict[str, int] = {}
+        club_away: dict[str, int] = {}
+        club_teams: dict[str, list[str]] = {}
+        club_travel: dict[str, int] = {}
+
+        for t in plan.tournaments:
+            if t.cancelled:
+                continue
+            host = t.host_club or ""
+            if host:
+                club_hosted[host] = club_hosted.get(host, 0) + 1
+            # Collect away clubs from participating teams
+            seen_clubs: set[str] = set()
+            for team in t.teams:
+                tc = team.club
+                if tc not in club_teams:
+                    club_teams[tc] = []
+                if team.label not in club_teams[tc]:
+                    club_teams[tc].append(team.label)
+                if host and tc != host and tc not in seen_clubs:
+                    seen_clubs.add(tc)
+                    club_away[tc] = club_away.get(tc, 0) + 1
+
+        # Aggregate travel per club from per-team travel
+        for team_label, km in team_travel.items():
+            # Derive club from team label (club is first token or known pattern)
+            for club_name in club_teams:
+                if team_label.startswith(club_name):
+                    club_travel[club_name] = club_travel.get(club_name, 0) + km
+                    break
+
+        club_stats: dict[str, dict[str, object]] = {}
+        all_clubs_set: set[str] = set()
+        for club in set(list(club_hosted.keys()) + list(club_away.keys()) + list(club_teams.keys())):
+            all_clubs_set.add(club)
+            club_stats[club] = {
+                "hosted": club_hosted.get(club, 0),
+                "away": club_away.get(club, 0),
+                "teams": len(club_teams.get(club, [])),
+                "travel_km": club_travel.get(club, 0),
+                "team_list": club_teams.get(club, []),
+            }
+        all_clubs_list = sorted(all_clubs_set)
+        club_stats_json = json.dumps(club_stats, ensure_ascii=False)
+        all_clubs_json = json.dumps(all_clubs_list, ensure_ascii=False)
+
         season_label = _season_label(plan)
         age_groups = sorted({t.age_group for t in plan.tournaments})
 
@@ -1026,6 +1120,8 @@ class HtmlExporter:
             "$HEATMAP_CLUB_COLORS_JSON$": heatmap_club_colors_json,
             "$HEATMAP_CLUBS_COUNT$": str(len(heatmap_clubs)),
             "$HEATMAP_WEEKS_COUNT$": str(len(heatmap_weeks)),
+            "$CLUB_STATS_JSON$": club_stats_json,
+            "$ALL_CLUBS_JSON$": all_clubs_json,
             "$DIVERSITY_SCORE$": str(int((plan.diversity_score or 0) * 100)),
             "$MONTH_BALANCE_SCORE$": str(int((plan.month_balance_score or 0) * 100)),
             "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),

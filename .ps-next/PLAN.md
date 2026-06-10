@@ -1,37 +1,36 @@
-# Plan: Calendar heatmap in HTML report
-**Goal:** The HTML report shows a month-grid heatmap (Oct–Apr) of tournament assignments per weekend, colour-coded by host club, so organizers can spot scheduling density at a glance.
+# Plan: Per-club dashboard view in HTML report
+**Goal:** When a user selects a club in the filter dropdown, a focused summary card appears showing that club's season at a glance: tournaments hosted, away tournaments, total travel distance, and team roster.
 **Created:** 2026-06-10
-**Intent:** The existing schedule is timeline-based; a heatmap gives a bird's-eye view of the whole season showing which weekends are busy, free, or have clashes, complementary to the tabular output.
-**Backlog-ref:** 28
+**Intent:** Each club contact can open the report, select their club, and immediately see their season summary without digging through all 9 clubs.
+**Backlog-ref:** 27
 
 ## Tasks
-- [x] Compute weekend-heatmap data in HtmlExporter.export()
+- [x] Compute per-club aggregate stats in HtmlExporter.export()
   - Files: tournament_scheduler/html/html_exporter.py
-  - Approach: Build a dict mapping ISO-week string (e.g. "2025-W40") → set of (host_club, age_group) tuples for all non-cancelled tournaments. Determine the season's month range (Oct–Apr). Serialize to JSON as `$HEATMAP_JSON$`. Also compute `$HEATMAP_CLUB_COLORS_JSON$` mapping club names to colour values.
+  - Approach: Build a `CLUB_STATS` dict from the plan tournaments. For each club: count of tournaments hosted (non-cancelled), count of tournaments where club's teams participate but are not hosting ("away"), list of team labels for that club, and total travel km (reuse existing travel dict). Serialize as `$CLUB_STATS_JSON$`. Also add `$ALL_CLUBS_JSON$` (sorted list of all host clubs).
 
-- [x] Add heatmap HTML section and JS rendering
+- [x] Add club dashboard summary card to HTML template
   - Files: tournament_scheduler/html/html_exporter.py
-  - Approach: Add a new collapsible `<details>` section "🗓️ Sesongvarmekart" between the score bar and filters. Render a month-grid table where columns are weekends (Sat+Sun date ranges) and rows are clubs. Each cell shows the age group abbreviation with club-colour background if a tournament is hosted there that weekend; empty cells are dimmed. Add a legend. Build all rendering client-side in JS from the embedded `HEATMAP` and `HEATMAP_CLUB_COLORS` JSON. Use the existing colour palette from pipeline/calendar_viewer.py.
+  - Approach: Add a hidden `#clubDashboard` div between the score bar and team-stats sections. Contains four stat badges (hostet, borte, reise, lag) that populate dynamically when a specific club is selected in the filter. Wire the club filter's `change` event to show/hide and populate the dashboard. Use amber styling for the dashboard to match the travel section.
 
 ## Acceptance Criteria
-- [ ] The HTML report contains a `<details>` section with id `heatmapSection`.
-- [ ] `run:pytest tests/test_stage4_export.py -x -q` passes unchanged.
-- [ ] The heatmap shows at least 4 club rows and October–April columns.
-- [ ] Cells with tournaments are color-coded and show the age group abbreviation.
+- [ ] Selecting a club in the filter dropdown shows a club dashboard summary card with hosted count, away count, total travel km, and team count.
+- [ ] `run:pytest tests/test_stage4_export.py -x -q` passes.
+- [ ] Clearing the club filter removes the dashboard card from view.
 
 ## Log
 
 
-### 2026-06-10 — Add heatmap HTML section and JS rendering
-**Done:** Added heatmap collapsible section (open by default) with month-grouped week columns, club rows, color-coded tournament cells, and a legend. Built as client-side JS rendering from embedded HEATMAP/HEATMAP_CLUB_COLORS JSON.
-**Rationale:** Heatmap uses a sticky first column for club names, horizontal scrolling for weeks. Week columns are grouped by month label. Cells show age group abbreviations with club-coloured backgrounds when tournaments exist; empty cells are dimmed. Legend renders below the table. Follows the dark-theme design system with var(--ice-*) CSS.
-**Findings:** All 31 tests pass. ISO week → month calculation uses UTC dates for consistency. Heatmap defaults to `open` so it's visible on page load but collapsible.
-**Files:** tournament_scheduler/html/html_exporter.py (+80 lines: HTML section, JS rendering, template markers)
+### 2026-06-10 — Add club dashboard summary card to HTML template
+**Done:** Added club dashboard card: hidden by default, appears when a club is selected in filter. Shows 4 stat badges (hosted, away, travel km, teams) with coloured icons and amber left border. Clears on filter reset.
+**Rationale:** Dashboard uses existing stat-badge component with club-specific colours. Wired to filterClub change event and filterClear click. Ambert-style left border and header make it visually distinct from surrounding sections.
+**Findings:** Added back filterSearch listener that was accidentally removed in first edit. FilterClear now hides dashboard AND resets filters as before.
+**Files:** tournament_scheduler/html/html_exporter.py (+55 lines: HTML dashboard section, JS wiring, CSS)
 **Commit:** not committed
-### 2026-06-10 — Compute weekend-heatmap data in HtmlExporter.export()
-**Done:** Computed heatmap data in export(): groups non-cancelled tournaments by ISO week and host club, collects age groups. Computes week/club ordered lists and dark-theme club colour map.
-**Rationale:** Heatmap structure: dict[week_key, dict[club, list[age_group]]]. Uses Python's isocalendar() for ISO week extraction. Club colours adapted from calendar_viewer.py palette for dark theme (dark backgrounds with bright text).
-**Findings:** html_exporter.py coverage jumps from 0% to 78% thanks to stage4_export tests exercising the full export pipeline. Uncovered lines are template strings (HTML/JS) and the CLI main block — all expected.
-**Files:** tournament_scheduler/html/html_exporter.py (+40 lines in export() method)
+### 2026-06-10 — Compute per-club aggregate stats in HtmlExporter.export()
+**Done:** Computed per-club stats: hosted count, away count, team count, travel km, team list. Serialized as CLUB_STATS_JSON and ALL_CLUBS_JSON for template.
+**Rationale:** Club hosted/away counts derived from tournament host_club and team.club membership. Travel km summed from per-team travel dict matched to clubs by label prefix. Team lists collected from tournament.teams.
+**Findings:** html_exporter.py at 82% coverage (up from 78%). All 25 tests pass.
+**Files:** tournament_scheduler/html/html_exporter.py (+44 lines: club stats computation + template markers)
 **Commit:** not committed
 <!-- pi-next appends entries here after each task -->
