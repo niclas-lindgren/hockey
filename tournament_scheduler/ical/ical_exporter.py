@@ -17,6 +17,7 @@ import os
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
+from typing import Optional
 
 from icalendar import Calendar, Event, vText
 
@@ -48,11 +49,13 @@ class ICalExporter:
         self.start_hour = start_hour
 
     # ------------------------------------------------------------------
-    # Public API
+    # Public API — per-game export (used by Stage 4 pipeline)
     # ------------------------------------------------------------------
 
     def export(self, plan: SeasonPlan, output_path: str | os.PathLike[str]) -> str:
         """Write the plan to an ``.ics`` file at *output_path*.
+
+        Generates one VEVENT per game in the plan.
 
         Returns the path written (as a string) so callers can log it.
         """
@@ -63,7 +66,53 @@ class ICalExporter:
         return str(path)
 
     # ------------------------------------------------------------------
-    # Internal helpers
+    # Public API — per-tournament summary export (CLI / interactive)
+    # ------------------------------------------------------------------
+
+    def export_tournament_summary(
+        self,
+        plan: SeasonPlan,
+        output_path: str | os.PathLike[str],
+        *,
+        age_group_filter: Optional[str] = None,
+        club: Optional[str] = None,
+    ) -> str:
+        """Write one VEVENT per tournament to an ``.ics`` file.
+
+        Unlike :meth:`export` (which creates one event per game), this
+        creates a single calendar event summarising each tournament —
+        suitable for importing into Spond, Google Calendar, or Outlook
+        where the user just wants to know *when* and *where* each
+        tournament happens, not the individual game pairings.
+
+        Parameters
+        ----------
+        plan:
+            The season plan to export.
+        output_path:
+            Path for the ``.ics`` file.
+        age_group_filter:
+            If set, only include tournaments matching this age group
+            (e.g. ``"U10"``).
+        club:
+            If set, only include tournaments where ``club`` has at least
+            one participating team. The club label is also highlighted
+            in the event description.
+
+        Returns the path written (as a string).
+        """
+        cal = self._build_tournament_summary_calendar(
+            plan,
+            age_group_filter=age_group_filter,
+            club=club,
+        )
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(cal.to_ical())
+        return str(path)
+
+    # ------------------------------------------------------------------
+    # Internal helpers — per-game calendar
     # ------------------------------------------------------------------
 
     def _build_calendar(self, plan: SeasonPlan) -> Calendar:
@@ -86,7 +135,7 @@ class ICalExporter:
 
         # Group by parallel slot to assign wall-clock times
         # parallel_slot 0 means all games in one slot (sequential)
-        # Build a mapping: slot_index → [games]
+        # Build a mapping: slot_index -> [games]
         slot_map: dict[int, list[Game]] = {}
         for game in games:
             slot = game.parallel_slot
@@ -126,3 +175,86 @@ class ICalExporter:
             events.append(event)
 
         return events
+
+    # ------------------------------------------------------------------
+    # Internal helpers — per-tournament summary calendar
+    # ------------------------------------------------------------------
+
+    def _build_tournament_summary_calendar(
+        self,
+        plan: SeasonPlan,
+        *,
+        age_group_filter: Optional[str] = None,
+        club: Optional[str] = None,
+    ) -> Calendar:
+        cal = Calendar()
+        cal.add("prodid", "-//Kongsberg Hockey Scheduler//NO")
+        cal.add("version", "2.0")
+        cal.add("calscale", "GREGORIAN")
+
+        cal_name = "RVV Sesongplan"
+        if age_group_filter:
+            cal_name += f" — {age_group_filter}"
+        if club:
+            cal_name += f" — {club}"
+        cal.add("x-wr-calname", vText(cal_name))
+
+        for tournament in plan.tournaments:
+            if age_group_filter and tournament.age_group != age_group_filter:
+                continue
+            if club and not any(team.club == club for team in tournament.teams):
+                continue
+
+            event = self._tournament_summary_event(tournament, club=club)
+            cal.add_component(event)
+
+        return cal
+
+    def _tournament_summary_event(
+        self,
+        tournament: Tournament,
+        *,
+        club: Optional[str] = None,
+    ) -> Event:
+        """Create a single VEVENT summarising one tournament.
+
+        The event spans the full tournament day (09:00-17:00 UTC as a
+        reasonable all-day placeholder). SUMMARY and DESCRIPTION are
+        built from the tournament's age group, arena, and team list.
+        """
+        dt_start = datetime(
+            tournament.date.year,
+            tournament.date.month,
+            tournament.date.day,
+            self.start_hour,
+            0,
+            0,
+            tzinfo=timezone.utc,
+        )
+        dt_end = dt_start + timedelta(hours=8)
+
+        summary = f"{tournament.age_group} — {tournament.arena}"
+
+        team_list = ", ".join(team.label for team in tournament.teams)
+        description_lines = [
+            f"Arena: {tournament.arena}",
+            f"Aldersgruppe: {tournament.age_group}",
+            f"Vert: {tournament.host_club or '—'}",
+            f"Deltakende lag ({len(tournament.teams)}): {team_list}",
+        ]
+        if club:
+            club_teams = [t.label for t in tournament.teams if t.club == club]
+            if club_teams:
+                description_lines.append(f"\nDine lag: {', '.join(club_teams)}")
+
+        description = "\n".join(description_lines)
+
+        event = Event()
+        event.add("uid", str(uuid.uuid4()))
+        event.add("summary", vText(summary))
+        event.add("dtstart", dt_start)
+        event.add("dtend", dt_end)
+        event.add("location", vText(tournament.arena))
+        event.add("categories", [tournament.age_group])
+        event.add("description", vText(description))
+        return event

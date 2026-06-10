@@ -4,6 +4,7 @@
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from pathlib import Path
 
 from tournament_scheduler.conflict_checkers.ball_hall_checker import BallHallConflictChecker
 from tournament_scheduler.conflict_checkers.excel_team_checker import ExcelTeamConflictChecker
@@ -626,6 +627,34 @@ def run_season_plan(params):
         games_path, overview_path = CsvExporter().export(plan, csv_path)
         TournamentOutput.print_success(f"CSV-eksport: {games_path}")
         TournamentOutput.print_success(f"CSV-oversikt: {overview_path}")
+
+    if ask_yes_no("\nVil du eksportere sesongplanen til iCal (.ics)?", default=False):
+        ical_path = ask_text("Filnavn for iCal-eksport", default="sesongplan.ics")
+        ical_age_group = ask_text(
+            "Filtrer på aldersgruppe (la stå tom for alle grupper)",
+            default="",
+        )
+        from tournament_scheduler.ical.ical_exporter import ICalExporter
+        exporter = ICalExporter()
+        result = exporter.export_tournament_summary(
+            plan,
+            ical_path,
+            age_group_filter=ical_age_group or None,
+        )
+        TournamentOutput.print_success(f"iCal-eksport: {result}")
+
+        if ask_yes_no("\nVil du også lage én .ics-fil per klubb?", default=False):
+            ical_dir = Path(ical_path).parent
+            ical_stem = Path(ical_path).stem
+            clubs = sorted({team.club for tournament in plan.tournaments for team in tournament.teams})
+            for club in clubs:
+                club_path = str(ical_dir / f"{ical_stem}_{club}.ics")
+                exporter.export_tournament_summary(
+                    plan, club_path,
+                    age_group_filter=ical_age_group or None,
+                    club=club,
+                )
+                TournamentOutput.print_success(f"  → {club}: {club_path}")
 
 
 def run_tournament_update():

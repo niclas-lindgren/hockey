@@ -51,6 +51,12 @@ Examples:
                         help='Path to write an .xlsx export of the generated season plan (used with --generate-season).')
     parser.add_argument('--export-csv', type=str,
                         help='Path to write a CSV export of the generated season plan (used with --generate-season).')
+    parser.add_argument('--export-ical', type=str,
+                        help='Path to write an .ics export of the generated season plan (used with --generate-season).')
+    parser.add_argument('--ical-age-group', type=str, default=None,
+                        help='Only export iCal events for this age group (e.g. U10). Requires --export-ical.')
+    parser.add_argument('--ical-per-club', action='store_true',
+                        help='Also generate one .ics file per club alongside the main .ics. Requires --export-ical.')
 
     # Tournament update flags
     parser.add_argument('--update-tournament', type=str,

@@ -2,6 +2,7 @@
 
 import sys
 from datetime import datetime
+from pathlib import Path
 
 from tournament_scheduler.club_registry import build_data_source, known_clubs, missing_clubs
 from tournament_scheduler.conflict_checkers.holiday_checker import HolidayConflictChecker
@@ -76,6 +77,28 @@ class SeasonCommand:
             games_path, overview_path = CsvExporter().export(plan, args.export_csv)
             TournamentOutput.print_success(f"CSV-eksport: {games_path}")
             TournamentOutput.print_success(f"CSV-oversikt: {overview_path}")
+
+        if args.export_ical:
+            from tournament_scheduler.ical.ical_exporter import ICalExporter
+            exporter = ICalExporter()
+            ical_path = exporter.export_tournament_summary(
+                plan, args.export_ical,
+                age_group_filter=args.ical_age_group,
+            )
+            TournamentOutput.print_success(f"iCal-eksport: {ical_path}")
+
+            if args.ical_per_club:
+                ical_dir = Path(args.export_ical).parent
+                ical_stem = Path(args.export_ical).stem
+                clubs = sorted({team.club for tournament in plan.tournaments for team in tournament.teams})
+                for club in clubs:
+                    club_path = str(ical_dir / f"{ical_stem}_{club}.ics")
+                    exporter.export_tournament_summary(
+                        plan, club_path,
+                        age_group_filter=args.ical_age_group,
+                        club=club,
+                    )
+                    TournamentOutput.print_success(f"  → {club}: {club_path}")
 
     def _resolve_season_window(self, args, default_start_date, default_end_date):
         season_start = default_start_date

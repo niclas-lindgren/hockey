@@ -1,57 +1,55 @@
-# Plan: Fix tournament game round numbering
-**Goal:** `generate_round_robin_games()` stores `round_number` on each `Game`, and the Excel exporter shows a "Runde" column instead of sequential "Kamp #" numbering.
+# Plan: iCal export for Spond and calendar apps
+**Goal:** The generated season plan can be exported as .ics with per-tournament VEVENTs, filterable by age group, exposed via `--export-ical PATH` CLI flag and interactive flow.
 **Created:** 2026-06-10
-**Intent:** Parallel games in the same round should share the same round number instead of being numbered sequentially 1,2,3...N across all games.
-**Backlog-ref:** 19
+**Intent:** Tournament organizers can import the season plan into Spond, Google Calendar, and Outlook — one calendar event per tournament (not per game).
+**Backlog-ref:** 18
 
 ## Tasks
-- [x] Add `round_number: int` field to `Game` dataclass and propagate through (de)serialization
-  - Files: tournament_scheduler/models.py, tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/pipeline/stage4_export.py
-  - Approach: Add `round_number: int = 0` to `Game` in models.py. In `stage3_planning.py` `_dict_to_tournament()`, add `round_number=g.get("round_number", 0)` to `Game(...)`. In `stage4_export.py` `_dict_to_plan()`, same — add `round_number=int(g_dict.get("round_number", 0))` to `Game(...)`.
+- [x] Add per-tournament summary export to ICalExporter with age-group and club filtering
+  - Files: tournament_scheduler/ical/ical_exporter.py
+  - Approach: Add a new `export_tournament_summary()` method to `ICalExporter` that creates one VEVENT per tournament (not per game), with DTSTART=tournament date, LOCATION=arena, SUMMARY="<age_group> — <arena>", DESCRIPTION with team list. Add optional `age_group_filter` (str) and `club` (str) parameters. Keep existing per-game export unchanged.
 
-- [x] Set `round_number` in `generate_round_robin_games()` when constructing `Game`
-  - Files: tournament_scheduler/season_planner.py
-  - Approach: In `generate_round_robin_games()`, at line ~673 where `Game(home=home, away=away, parallel_slot=...)` is constructed, add `round_number=round_index + 1`.
+- [x] Add `--export-ical PATH [--ical-age-group GROUP] [--ical-per-club]` CLI flag
+  - Files: tournament_scheduler.py, tournament_scheduler/cli/season_command.py
+  - Approach: Add `--export-ical` and `--ical-age-group` and `--ical-per-club` to argparse in tournament_scheduler.py. In SeasonCommand.run(), after the existing Excel/CSV exports, add iCal export using the new ICalExporter.export_tournament_summary() method. When --ical-per-club is set, generate one .ics per club.
 
-- [x] Update Excel exporter to show round numbers instead of sequential enumeration
-  - Files: tournament_scheduler/excel/plan_exporter.py
-  - Approach: Rename `_GAMES_HEADERS` from `["Kamp #", ...]` to `["Runde", ...]`. In `_write_tournament_sheet()`, replace the `enumerate(tournament.games, start=1)` that writes `game_number` with `game.round_number`. Keep the parallel_slot column as-is (it shows which of the parallel games in that round each row belongs to).
+- [x] Add interactive iCal export flow
+  - Files: tournament_scheduler_interactive.py
+  - Approach: After the existing "Vil du eksportere til CSV?" question, add an iCal export question "Vil du eksportere sesongplanen til iCal (.ics)?" with optional age-group filter. Call export_tournament_summary().
 
 ## Notes
-- The `generate_round_robin_games()` method already has `round_index` available in its loop — it just wasn't stored on `Game`.
-- The `_GAMES_HEADERS` are: `["Kamp #", "Hjemmelag", "Bortelag", "Parallellbane"]`. Changing "Kamp #" to "Runde" makes it clear the column now shows which round the game belongs to.
-- The per-tournament sheet also shows `game.parallel_slot + 1` which tells which timeslot (1-based) within that round — this is complementary, not a replacement.
-- CSV and HTML exporters don't enumerate games so no changes needed there.
-- Tests: no existing tests for plan_exporter or generate_round_robin_games, so no test updates required.
+- The existing `ICalExporter` already exports per-game VEVENTs used by the Stage 4 pipeline. This plan adds a complementary per-tournament summary export for the user-facing CLI/interactive flows — it does not modify the existing per-game export.
+- The `icalendar` library is already in requirements.txt.
+- Per-club .ics files should go in the same directory as the main .ics with names like `club_Jar.ics`, `club_Jutul.ics`.
 
 ## Acceptance Criteria
-- [ ] `Game` dataclass has a `round_number: int` field defaulting to 0.
-- [ ] Run `grep -c 'round_number' tournament_scheduler/season_planner.py` and confirm it returns > 0.
-- [ ] The Excel per-tournament sheet header says "Runde" instead of "Kamp #".
-- [ ] The Excel per-tournament sheet shows `game.round_number` in the "Runde" column instead of sequential `1,2,3...`.
-- [ ] `pip check` passes (no dependency issues).
+- [ ] Run `python3 -c 'from tournament_scheduler.ical.ical_exporter import ICalExporter; e = ICalExporter(); assert hasattr(e, "export_tournament_summary")'` and confirm no error.
+- [ ] `python3 tournament_scheduler.py --generate-season --roster-file <test-file> --export-ical /tmp/test.ics` succeeds (or exits gracefully if scraping unavailable).
 - [ ] `pytest` passes.
+- [ ] The generated .ics file contains one VEVENT per tournament with valid DTSTART, LOCATION, and SUMMARY fields.
+- [ ] When `--ical-age-group U10` is used, only U10 tournaments appear in the .ics.
+- [ ] When `--ical-per-club` is used, one .ics per club is generated alongside the main .ics.
 
 ## Log
 
 
 
-### 2026-06-10 — Update Excel exporter to show round numbers instead of sequential enumeration
+### 2026-06-10 — Add interactive iCal export flow
 **Done:** true
-**Rationale:** Renamed "Kamp #" header to "Runde" and replaced enumerate() with game.round_number in the per-tournament sheet writer. Updated test helper to use SeasonPlanner.generate_round_robin_games for proper round_number values, and updated test assertions to check game.round_number instead of sequential counter.
-**Findings:** The test helper _round_robin_games was previously generating all-pairs linearly without round information. Switching to the real SeasonPlanner.generate_round_robin_games ensures tests verify realistic data.
-**Files:** tournament_scheduler/excel/plan_exporter.py (+2/-2), tests/test_plan_exporter.py (+3/-5)
+**Rationale:** Added iCal export question after CSV in the interactive flow, with optional age-group filter and optional per-club .ics generation.
+**Findings:** Follows the same pattern as the existing Excel/CSV export questions. Uses ask_yes_no/ask_text for input consistency.
+**Files:** tournament_scheduler_interactive.py (+import Path, +20 lines)
 **Commit:** not committed
-### 2026-06-10 — Set `round_number` in `generate_round_robin_games()` when constructing `Game`
+### 2026-06-10 — Add `--export-ical PATH [--ical-age-group GROUP] [--ical-per-club]` CLI flag
 **Done:** true
-**Rationale:** Added round_number=round_index + 1 to the Game constructor inside the round-robin loop. round_index was already available (0-based), so round_number is 1-based for human readability.
-**Findings:** The loop iterates round_index from 0 to num_rounds-1. Using round_index + 1 gives 1-based round numbers that match what an exported sheet should show.
-**Files:** tournament_scheduler/season_planner.py (+1 line in generate_round_robin_games)
+**Rationale:** Added --export-ical, --ical-age-group, and --ical-per-club flags to argparse. Wired into SeasonCommand.run() alongside existing Excel/CSV exports. When --ical-per-club is set, generates one .ics file per club with club-filtered events.
+**Findings:** The --ical-per-club flag generates per-club .ics files in the same directory as the main .ics, named like <stem>_<club>.ics. Each contains only events where that club participates, with "Dine lag:" highlighted in the event description.
+**Files:** tournament_scheduler.py (+6 lines), tournament_scheduler/cli/season_command.py (+import Path, +22 lines)
 **Commit:** not committed
-### 2026-06-10 — Add `round_number: int` field to `Game` dataclass and propagate through (de)serialization
+### 2026-06-10 — Add per-tournament summary export to ICalExporter with age-group and club filtering
 **Done:** true
-**Rationale:** Added round_number: int = 0 field to Game model, and added round_number=g.get("round_number", 0) to both stage3_planning.py and stage4_export.py deserialization paths so the field survives checkpoint round-trips.
-**Findings:** Game model is a simple dataclass; adding a default field is backward compatible. The two (de)serialization sites in pipeline/stage3_planning.py and pipeline/stage4_export.py both needed the same treatment.
-**Files:** tournament_scheduler/models.py (+1 line), tournament_scheduler/pipeline/stage3_planning.py (+1 line), tournament_scheduler/pipeline/stage4_export.py (+1 line)
+**Rationale:** Added export_tournament_summary() method to ICalExporter that creates one VEVENT per tournament with DTSTART, LOCATION, SUMMARY, DESCRIPTION. Supports age_group_filter and club parameters. Existing per-game export() method is untouched.
+**Findings:** The existing ICalExporter already worked well for per-game events. The new per-tournament summary is a separate method so Stage 4 pipeline continues to use the per-game export unchanged.
+**Files:** tournament_scheduler/ical/ical_exporter.py (expanded with export_tournament_summary, _build_tournament_summary_calendar, _tournament_summary_event)
 **Commit:** not committed
 <!-- pi-next appends entries here after each task -->
