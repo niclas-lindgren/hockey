@@ -2,6 +2,8 @@
 
 ## Open
 
+- [52] [ ] Fix /rvv-miniputt [arg] command argument parsing for local LLM models - with remote models the command and argument are correctly picked up and dispatched, but with local models (LM Studio/Qwen) argument extraction/dispatch fails. Investigate pi.registerCommand handlers in .pi/extensions/rvv-miniputt.ts (run/status/logs/calendars handlers around lines 40-206) and how Pi passes parsed args to runPipeline/parseStatusArgs/parseLogsArgs - the manual tokenization in the calendars handler (lines 146-152) is a likely culprit. Make argument parsing robust regardless of which model (local or remote) is driving the Pi session. Top priority.
+
 - [46] [ ] Verify/improve driving distance calculation: current values look incorrect. Implement a more reliable algorithm to compute from-to distances between venues (e.g. using a proper geocoding/distance matrix approach) and aggregate per-team/season travel distances correctly.
 
 - [45] [ ] Verify tournament/match scheduling fairness: game counts per team are very skewed (e.g. Jar club gets only 13 games while Kongsberg gets 84). Investigate the matching/scheduling algorithm - it appears a club's total team count is being matched against other clubs' totals instead of pairing comparable teams within similar age groups, so each team should get a roughly similar number of games regardless of club size.

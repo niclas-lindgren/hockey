@@ -231,13 +231,20 @@ def arenas_for_date_search(host_club: str) -> List[ClubCalendarSource]:
     return candidates
 
 
+# Short-name aliases that some config files use instead of the full registry name
+_CLUB_ALIASES: Dict[str, str] = {
+    "Sandefjord": "Sandefjord Penguins",
+}
+
+
 def get_club(name: str) -> ClubCalendarSource:
     """Look up a club's registry entry by name.
 
     Raises KeyError with a helpful message if the club is not in the registry.
     """
+    resolved = _CLUB_ALIASES.get(name, name)
     try:
-        return CLUB_REGISTRY[name]
+        return CLUB_REGISTRY[resolved]
     except KeyError:
         raise KeyError(
             f"Unknown club '{name}'. Known clubs: {', '.join(sorted(CLUB_REGISTRY))}"

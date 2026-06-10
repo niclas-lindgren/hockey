@@ -1,3 +1,12 @@
+---
+date: 2026-06-10
+status: done
+feature: "PLAN: Fix 'Runde' column showing 0 for all games in season-plan exports"
+goal: "Fix 'Runde' column showing 0 for all games in season-plan exports — Game.round_number (added for backlog item #19) is correctly set during scheduling (season_planner.py:1189 / 1317), but `_game_to_dict()` in `tournament_scheduler/pipeline/stage3_planning.py` (lines 128-133) does not serialize `round_number` into the checkpoint dict, so when `stage4_export.py:237` reads it back via `g_dict.get(\"round_number\", 0)` it always defaults to 0. Fix `_game_to_dict` to include `round_number` so the Excel/HTML 'Runde' column shows the correct round number."
+tags:
+  - ps-next
+---
+
 # PLAN: Fix 'Runde' column showing 0 for all games in season-plan exports
 
 **Backlog-ref:** 49
@@ -70,4 +79,22 @@ LESSONS: none
 **Findings:** Verified end-to-end: serialized round_numbers [1, 2] -> reconstructed [1, 2] -> Excel 'Runde' column rows show 1 and 2, matching the games' assigned round numbers.
 LESSONS: none
 **Files:** (no files changed)
-**Commit:** [pending — fill after commit]
+**Commit:** 587940e (hockey)
+
+## Verification Report
+**Date:** 2026-06-10
+
+| Criterion | Verdict | Notes |
+|-----------|---------|-------|
+| After regenerating a season-plan export, the Excel and HTML 'Runde' column shows the correct round numbers for each game instead of 0 for every row. | PASS | End-to-end test confirmed serialized round_numbers [1,2] reconstructed as [1,2] and Excel 'Runde' column shows 1 and 2 (commit 587940e). |
+| The dict returned by _game_to_dict() in stage3_planning.py contains a round_number key whose value matches the source Game.round_number. | PASS | _game_to_dict() now returns `"round_number": g.round_number` (commit ff1dbf0), confirmed by code inspection. |
+| stage4_export.py reads back round_number from the Stage 3 checkpoint dict and reconstructed Game objects have a round_number matching the value originally set, not 0. | PASS | stage3_planning.py:292 (`g.get("round_number", 0)`) and stage4_export.py:237 (`int(g_dict.get("round_number", 0))`) both read the now-serialized key; plan_exporter.py reads round_number directly from reconstructed Game (commit ccd4221). |
+| Running pytest tests/test_stage3_planning.py tests/test_stage4_export.py passes, including new test cases that cover round_number serialization and deserialization. | PASS | 12 tests passed, 0 failed (commit 734085e added the new test cases). |
+| No other export format (CSV, iCal, Spond) regresses — existing tests for those exporters continue to pass. | PASS | Ran pytest tests/ -k 'export or csv or ical or spond': 26 passed, 0 failed. |
+
+**Shell checks (ps-verify-plan):** see output below
+```
+no embedded shell checks found
+```
+**Git history:** 4/4 tasks have matching commits
+**Tests:** passed (12/12 in test_stage3_planning.py + test_stage4_export.py; 26/26 export-related tests)
