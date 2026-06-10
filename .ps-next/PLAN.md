@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/season_planner.py
   - Approach: Change the fallback formula from `max(4, min(DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games - 1, parallel_games * 3))` to `max(4, min(DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games, parallel_games * 3))` — removing the `- 1` that forces evenness for pg=2 and pg=3. The round-robin generator already handles odd counts correctly.
 
-- [ ] Add `bye_teams` computed method on `Tournament` model
+- [x] Add `bye_teams` computed method on `Tournament` model
   - Files: tournament_scheduler/models.py
   - Approach: Add a `@property` or method `get_bye_rounds() -> Dict[int, List[str]]` that, for each round, finds participating teams that appear in no games for that round. These are the teams with a bye. Return `{round_number: [team_label, ...], ...}`.
 
@@ -43,6 +43,13 @@
 
 ## Log
 
+
+### 2026-06-10 — Add `bye_teams` computed method on `Tournament` model
+**Done:** Add `get_bye_rounds() -> Dict[int, List[str]]` method on Tournament that detects which teams have a bye in each round when the team count is odd.
+**Rationale:** Simple computation from existing games list: for each round, find participating teams not appearing as home/away in any game. No model changes needed beyond this method.
+**Findings:** Method correctly identifies 1 bye per round for 5-team tournaments. Even-sized tournaments return empty dict. Verified with ad-hoc test.
+**Files:** tournament_scheduler/models.py (+22)
+**Commit:** not committed
 ### 2026-06-10 — Modify `_max_teams_for` heuristic to allow odd team counts
 **Done:** Remove `- 1` from fallback heuristic so `_max_teams_for` can return odd values when parallel_games is 3 (now 9 instead of 8) or for other configs.
 **Rationale:** The `- 1` in `DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games - 1` was forcing evenness for pg=2 (6) and pg=3 (8). Removing it allows pg=3 to return 9, pg=4 to return 10, etc. The round-robin generator already handles odd counts via the circle method with None as bye placeholder.

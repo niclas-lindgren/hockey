@@ -138,6 +138,28 @@ class Tournament:
     cancelled: bool = False
     cancellation_reason: Optional[str] = None
 
+    def get_bye_rounds(self) -> Dict[int, List[str]]:
+        """Return a mapping of round_number -> list of team labels with a bye.
+
+        A team has a bye in a round if it participates in the tournament but
+        does not appear as either home or away in any game for that round.
+        This only happens with an odd number of teams; even-sized
+        tournaments return an empty dict.
+        """
+        bye_map: Dict[int, List[str]] = {}
+        if len(self.teams) % 2 == 0 or not self.games:
+            return bye_map
+
+        max_round = max(g.round_number for g in self.games)
+        for r in range(1, max_round + 1):
+            playing = {
+                g.home.label for g in self.games if g.round_number == r
+            } | {g.away.label for g in self.games if g.round_number == r}
+            byes = [t.label for t in self.teams if t.label not in playing]
+            if byes:
+                bye_map[r] = byes
+        return bye_map
+
 
 @dataclass
 class SeasonPlan:
