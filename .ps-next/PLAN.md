@@ -55,4 +55,4 @@
 **Findings:** All 39 season_planner tests pass; updated test_diversity_and_month_balance_metrics_present_on_plan which previously asserted diversity_score  pairwise_matchup_score (now an outdated invariant). One pre-existing unrelated failure (test_zero_events_blocks_source) confirmed present before this change too.
 LESSONS: none
 **Files:** tests/test_season_planner.py (+3/-2), tournament_scheduler/season_planner.py (+50/-12)
-**Commit:** [pending — fill after commit]
+**Commit:** 55a65d0 (hockey)
