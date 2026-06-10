@@ -34,7 +34,7 @@ _NORWEGIAN_WEEKDAYS = [
     "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag",
 ]
 
-_OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengste reise"]
+_OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengste reise", "Starttid", "Sluttid"]
 _GAMES_HEADERS = ["Runde", "Hjemmelag", "Bortelag", "Parallellbane"]
 _CLUB_SUMMARY_HEADERS = ["Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena"]
 _RULES_HEADERS = ["Regel", "Forklaring", "Kategori"]
@@ -53,12 +53,24 @@ class SeasonPlanExporter:
     def __init__(self):
         self.workbook: Optional[openpyxl.Workbook] = None
 
-    def export(self, plan: SeasonPlan, output_path: str, *, rules_report: Optional[List[Dict[str, str]]] = None) -> str:
+    def export(
+        self,
+        plan: SeasonPlan,
+        output_path: str,
+        *,
+        rules_report: Optional[List[Dict[str, str]]] = None,
+        round_length_for_age_group: Optional[Dict[str, int]] = None,
+    ) -> str:
         """Build and save the workbook for `plan` to `output_path`.
 
         Optionally includes a ``Regler og avgjørelser`` sheet when
         ``rules_report`` (from ``SeasonPlanner.rules_report()``) is
         provided.
+
+        ``round_length_for_age_group`` (optional mapping of age group ->
+        round length in minutes) is used to compute each tournament's end
+        time for the "Sluttid" overview column via
+        ``Tournament.end_time()``.
 
         Returns the path the workbook was saved to.
         """
@@ -66,7 +78,7 @@ class SeasonPlanExporter:
 
         overview_sheet = self.workbook.active
         overview_sheet.title = "Sesongoversikt"
-        self._write_overview_sheet(overview_sheet, plan)
+        self._write_overview_sheet(overview_sheet, plan, round_length_for_age_group or {})
 
         used_titles = {overview_sheet.title}
 
@@ -93,14 +105,23 @@ class SeasonPlanExporter:
     # Season-overview sheet
     # ------------------------------------------------------------------
 
-    def _write_overview_sheet(self, sheet: Worksheet, plan: SeasonPlan) -> None:
+    def _write_overview_sheet(
+        self,
+        sheet: Worksheet,
+        plan: SeasonPlan,
+        round_length_for_age_group: Optional[Dict[str, int]] = None,
+    ) -> None:
         sheet.append(_OVERVIEW_HEADERS)
         self._style_header_row(sheet)
+
+        round_length_for_age_group = round_length_for_age_group or {}
 
         _cancelled_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
         for tournament in plan.tournaments:
             travel_info = self._travel_info(tournament)
             status_prefix = "(AVLYST) " if tournament.cancelled else ""
+            round_length = round_length_for_age_group.get(tournament.age_group)
+            end_time = tournament.end_time(round_length) if round_length else None
             row = [
                 status_prefix + self._format_date(tournament.date),
                 self._weekday_name(tournament.date),
@@ -109,6 +130,8 @@ class SeasonPlanExporter:
                 tournament.host_club or "",
                 ", ".join(team.label for team in tournament.teams),
                 travel_info,
+                tournament.start_time or "",
+                end_time or "",
             ]
             sheet.append(row)
             if tournament.cancelled:

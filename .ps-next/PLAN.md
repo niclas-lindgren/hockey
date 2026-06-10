@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/ical/ical_exporter.py
   - Approach: Replace the fixed `self.start_hour`/`self.game_duration_minutes` logic at lines 137-148 — build `dt_start` from `tournament.date` plus `tournament.start_time` (parsed HH:MM, falling back to `self.start_hour` if `start_time` is None for backward compatibility), and compute `dt_end` using the tournament's `end_time()`/`duration_minutes()` (driven by the per-age-group `round_length_minutes` passed into the exporter) instead of the flat `game_duration_minutes` constant.
 
-- [ ] Add start/end time columns to the Excel overview export
+- [x] Added "Starttid" and "Sluttid" columns to _OVERVIEW_HEADERS, added an optional round_length_for_age_group param to export()/_write_overview_sheet(), and appended tournament.start_time and the computed end time (via Tournament.end_time(round_length)) to each overview row, falling back to empty strings when unavailable. Updated test_overview_rows_match_plan_tournaments for the new columns. — 2026-06-10
   - Files: tournament_scheduler/excel/plan_exporter.py
   - Approach: Extend `_OVERVIEW_HEADERS` (line 37) with "Starttid" and "Sluttid" columns, and in `_write_overview_sheet` (lines 96-110) append `tournament.start_time or ""` and the computed end time string (via the Tournament model's `end_time()` using the resolved `round_length_minutes` for `tournament.age_group`) for each row.
 
@@ -75,4 +75,11 @@ LESSONS: none
 **Findings:** ICalExporter now derives event times from tournament.start_time and round_length_minutes when available, with full backward-compatible fallback to the prior start_hour/game_duration_minutes behavior. Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
 LESSONS: ICalExporter call sites (stage4_export.py, cli/season_command.py) do not yet pass round_length_for_age_group — they will use the start_hour/game_duration_minutes fallback until wired up.
 **Files:** tournament_scheduler/ical/ical_exporter.py (+72/-33)
+**Commit:** 3ee1797 (hockey)
+
+### 2026-06-10 — Added "Starttid" and "Sluttid" columns to _OVERVIEW_HEADERS, added an optional round_length_for_age_group param to export()/_write_overview_sheet(), and appended tournament.start_time and the computed end time (via Tournament.end_time(round_length)) to each overview row, falling back to empty strings when unavailable. Updated test_overview_rows_match_plan_tournaments for the new columns.
+**Rationale:** Made round_length_for_age_group an optional kwarg defaulting to {} for backward compatibility with existing call sites in stage4_export.py and cli/season_command.py.
+**Findings:** Excel overview sheet now has 9 columns (added Starttid/Sluttid). Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
+LESSONS: SeasonPlanExporter.export() and ICalExporter both now accept an optional round_length_for_age_group kwarg defaulting to {}/None — existing call sites (stage4_export.py, cli/season_command.py) don't pass it yet and will see empty Sluttid / fallback iCal times until wired up.
+**Files:** tests/test_plan_exporter.py (+5/-1), tournament_scheduler/excel/plan_exporter.py (+27/-4)
 **Commit:** [pending — fill after commit]
