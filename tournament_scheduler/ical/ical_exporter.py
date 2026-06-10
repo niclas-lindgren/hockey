@@ -131,6 +131,34 @@ class ICalExporter:
     def _tournament_events(self, tournament: Tournament) -> list[Event]:
         """Generate one VEVENT per game in the tournament."""
         events: list[Event] = []
+
+        if tournament.cancelled:
+            # Emit a single CANCELLED event for the tournament weekend.
+            dt_start = datetime(
+                tournament.date.year,
+                tournament.date.month,
+                tournament.date.day,
+                self.start_hour,
+                0,
+                0,
+                tzinfo=timezone.utc,
+            )
+            dt_end = dt_start + timedelta(
+                hours=max(1, len(tournament.games) * self.game_duration_minutes / 60)
+            )
+            reason = tournament.cancellation_reason or "Avlyst"
+            event = Event()
+            event.add("uid", str(uuid.uuid4()))
+            event.add("summary", vText(f"AVLYST: {tournament.age_group} — {tournament.arena}"))
+            event.add("dtstart", dt_start)
+            event.add("dtend", dt_end)
+            event.add("location", vText(tournament.arena))
+            event.add("categories", [tournament.age_group])
+            event.add("description", vText(f"Turnering avlyst: {reason}"))
+            event.add("status", "CANCELLED")
+            events.append(event)
+            return events
+
         games = list(tournament.games)
 
         # Group by parallel slot to assign wall-clock times
@@ -249,6 +277,10 @@ class ICalExporter:
 
         description = "\n".join(description_lines)
 
+        if tournament.cancelled:
+            summary = f"AVLYST: {summary}"
+            description = f"AVLYST: {tournament.cancellation_reason or 'ingen grunn oppgitt'}\n\n{description}"
+
         event = Event()
         event.add("uid", str(uuid.uuid4()))
         event.add("summary", vText(summary))
@@ -257,4 +289,6 @@ class ICalExporter:
         event.add("location", vText(tournament.arena))
         event.add("categories", [tournament.age_group])
         event.add("description", vText(description))
+        if tournament.cancelled:
+            event.add("status", "CANCELLED")
         return event

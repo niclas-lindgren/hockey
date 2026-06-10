@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/cli/rvv_cli.py
   - Approach: Add a `cancel` subcommand to `rvv-miniputt` that takes `--tournament-id`, `--reason` (optional), `--makeup-date` (optional, auto-suggests if omitted), `--no-export` (skip re-export). Lists tournaments when no ID given. Uses CancellationWorkflow for the heavy lifting. Surfaces Norwegian-language output via TournamentOutput.
 
-- [ ] Wire cancelled state into pipeline checkpoint and export
+- [x] Wire cancelled state into pipeline checkpoint and export
   - Files: tournament_scheduler/pipeline/tournament_updater.py, tournament_scheduler/pipeline/stage4_export.py
   - Approach: Update `write_updated_checkpoint` in `TournamentUpdater` to preserve cancelled state when writing checkpoints. Ensure Stage 4 export reflects cancelled status in Excel (greyed-out rows), iCal (CANCELLED status), CSV, and HTML.
 
@@ -45,6 +45,13 @@
 
 
 
+
+### 2026-06-10 — Wire cancelled state into pipeline checkpoint and export
+**Done:** Updated all four exporters to surface cancelled state: Excel (grey fill on overview rows + cancellation banner on per-tournament sheets using PatternFill), iCal (CANCELLED status + AVLYST prefix on both game-level and summary events), CSV (cancelled/cancellation_reason columns in overview), HTML (red AVLYST badge with reason on cancelled tournament cards, dimmed card styling). Pipeline checkpoint round-trip already handled via _plan_to_dict changes from task 1.
+**Rationale:** Each exporter uses its format-native way to signal cancellation: Excel uses grey fill (PatternFill), iCal uses STATUS:CANCELLED, CSV adds boolean columns, HTML uses a red badge + dimmed card. All changes are additive and backward-compatible — non-cancelled tournaments render identically to before.
+**Findings:** All 222 tests pass. The _tournament_events method in iCal exporter needed special handling because a cancelled tournament has no games to iterate — it emits a single summary CANCELLED event instead. The HTML exporter's _plan_to_json needed updating to include cx/cr fields.
+**Files:** tournament_scheduler/excel/plan_exporter.py (+16/-3), tournament_scheduler/ical/ical_exporter.py (+34), tournament_scheduler/csv/csv_exporter.py (+3), tournament_scheduler/html/html_exporter.py (+34/-3)
+**Commit:** not committed
 ### 2026-06-10 — Add `cancel` subcommand to rvv-miniputt CLI
 **Done:** Added `cancel` subcommand to rvv-miniputt CLI with full Norwegian-language flow: listing tournaments, interactive reason prompt, suggested makeup dates ranked by proximity, applying makeup with --makeup-date, and automatic re-export. Uses CancellationWorkflow under the hood.
 **Rationale:** The cancel command provides a complete first-class flow: list → cancel → suggest → apply → re-export. Without --tournament-id it lists available tournaments. Without --reason it prompts interactively. Without --makeup-date it shows ranked suggestions. Re-export is automatic unless --no-export is given.

@@ -18,6 +18,7 @@ from datetime import date
 from typing import Dict, List, Optional
 
 import openpyxl
+from openpyxl.styles import PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 from rich.console import Console
 
@@ -96,17 +97,23 @@ class SeasonPlanExporter:
         sheet.append(_OVERVIEW_HEADERS)
         self._style_header_row(sheet)
 
+        _cancelled_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
         for tournament in plan.tournaments:
             travel_info = self._travel_info(tournament)
-            sheet.append([
-                self._format_date(tournament.date),
+            status_prefix = "(AVLYST) " if tournament.cancelled else ""
+            row = [
+                status_prefix + self._format_date(tournament.date),
                 self._weekday_name(tournament.date),
                 tournament.age_group,
                 tournament.arena,
                 tournament.host_club or "",
                 ", ".join(team.label for team in tournament.teams),
                 travel_info,
-            ])
+            ]
+            sheet.append(row)
+            if tournament.cancelled:
+                for cell in sheet[sheet.max_row]:
+                    cell.fill = _cancelled_fill
 
         self._autosize_columns(sheet)
 
@@ -136,11 +143,17 @@ class SeasonPlanExporter:
     # ------------------------------------------------------------------
 
     def _write_tournament_sheet(self, sheet: Worksheet, tournament: Tournament) -> None:
+        _cancelled_fill = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")
         title_row = (
             f"{self._format_date(tournament.date)} ({self._weekday_name(tournament.date)}) — "
             f"{tournament.age_group} — {tournament.arena}"
         )
+        if tournament.cancelled:
+            title_row = f"(AVLYST) {title_row}"
         sheet.append([title_row])
+        if tournament.cancelled:
+            reason = tournament.cancellation_reason or "ingen grunn oppgitt"
+            sheet.append([f"AVLYST: {reason}"])
         sheet.append([])
         sheet.append([f"Deltakende lag: {', '.join(team.label for team in tournament.teams)}"])
         travel_info = self._travel_info(tournament)

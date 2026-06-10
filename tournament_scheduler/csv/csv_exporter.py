@@ -78,6 +78,7 @@ class CsvExporter:
             writer.writerow([
                 "date", "arena", "age_group", "host_club",
                 "team_count", "game_count", "furthest_travel",
+                "cancelled", "cancellation_reason",
             ])
             for tournament in plan.tournaments:
                 travel = furthest_traveling_team(tournament)
@@ -90,6 +91,8 @@ class CsvExporter:
                     len(tournament.teams),
                     len(tournament.games),
                     travel_str,
+                    "ja" if tournament.cancelled else "nei",
+                    tournament.cancellation_reason or "",
                 ])
 
     def _write_team_game_counts(self, plan: SeasonPlan, path: Path) -> None:

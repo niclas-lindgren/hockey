@@ -259,6 +259,27 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   .tournament-arrow svg { width: 20px; height: 20px; display: block; }
   .tournament-card.expanded .tournament-arrow { transform: rotate(180deg); }
 
+  /* Cancelled badge */
+  .cancelled-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(239,68,68,.15);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,.3);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .tournament-card.cancelled {
+    border-left-color: rgba(239,68,68,.5);
+    opacity: .85;
+  }
+
   /* Match table */
   .matches {
     max-height: 0;
@@ -604,7 +625,12 @@ function render() {
 
     visible++;
     const di = formatDateInfo(t.d);
-    html += '<div class="tournament-card" onclick="this.classList.toggle(\'expanded\')">' +
+    const cancelledClass = t.cx ? ' cancelled' : '';
+    const cancelledBadge = t.cx
+      ? '<div class="cancelled-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>AVLYST' + (t.cr ? ': ' + t.cr : '') + '</div>'
+      : '';
+    html += '<div class="tournament-card' + cancelledClass + '" onclick="this.classList.toggle(\'expanded\')">' +
+      cancelledBadge +
       '<div class="tournament-card-header">' +
         '<div class="tournament-date"><div class="day">' + di.day + '</div><div class="month">' + di.month + '</div><div class="weekday">' + di.weekday + '</div></div>' +
         '<div class="tournament-info"><h3>' + t.h + ' <span>&middot;</span> ' + t.a + '</h3>' +
@@ -779,6 +805,7 @@ class HtmlExporter:
         return str(dest)
 
     @staticmethod
+    @staticmethod
     def _plan_to_json(plan: SeasonPlan) -> str:
         """Serialize the plan's tournaments to the compact JSON format used by the HTML."""
         data = []
@@ -789,14 +816,18 @@ class HtmlExporter:
             ]
             travel = furthest_traveling_team(t)
             travel_str = f"{travel[0].label} ~{travel[1]} km" if travel else ""
-            data.append({
+            entry: dict[str, object] = {
                 "d": t.date.isoformat(),
                 "a": t.arena,
                 "g": t.age_group,
                 "h": t.host_club or "",
                 "m": games,
                 "tr": travel_str,
-            })
+            }
+            if t.cancelled:
+                entry["cx"] = True
+                entry["cr"] = t.cancellation_reason or ""
+            data.append(entry)
         return json.dumps(data, ensure_ascii=False)
 
 
