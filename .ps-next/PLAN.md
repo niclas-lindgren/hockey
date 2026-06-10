@@ -5,7 +5,7 @@
 **Backlog-ref:** 50
 
 ## Tasks
-- [ ] Define a light theme palette as an alternate `:root` variable set in styles.css
+- [x] Added a [data-theme"light"] override block in styles.css providing light, high-contrast equivalents for all 15 themeable color variables (--bg through --violet), leaving --radius* and --font* untouched. — 2026-06-10
   - Files: tournament_scheduler/html/templates/styles.css
   - Approach: Keep the existing `:root { ... }` block as the dark theme (default), and add a `[data-theme="light"]` (or `.theme-light`) selector that overrides every color variable currently defined in `:root` (`--bg`, `--bg-raised`, `--bg-surface`, `--border`, `--border-dim`, `--text`, `--text-secondary`, `--text-muted`, `--accent`, `--accent-dim`, `--accent-glow`, `--amber`, `--emerald`, `--rose`, `--violet`) with light, high-contrast equivalents; leave `--radius*` and `--font*` untouched since they are theme-independent.
 
@@ -45,3 +45,10 @@
 ## Log
 <!-- PS:next appends entries here after each task is executed -->
 <!-- Entry format: ### YYYY-MM-DD — [task name] / **Done:** / **Rationale:** / **Findings:** / **Files:** / **Commit:** -->
+
+### 2026-06-10 — Added a [data-theme"light"] override block in styles.css providing light, high-contrast equivalents for all 15 themeable color variables (--bg through --violet), leaving --radius* and --font* untouched.
+**Rationale:** Implementation already present in repository matching the spec exactly; no further changes needed.
+**Findings:** Light theme palette confirmed present in styles.css at lines 23-39, single well-formed block, no duplicates.
+LESSONS: none
+**Files:** tournament_scheduler/html/templates/styles.css (already committed, no new changes)
+**Commit:** 16294492
