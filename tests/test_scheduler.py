@@ -1,0 +1,131 @@
+"""Tests for TournamentScheduler.find_arena_slot_for_date."""
+
+from datetime import date, datetime
+
+from tournament_scheduler.conflict_checkers.holiday_checker import HolidayConflictChecker
+from tournament_scheduler.models import CalendarEvent
+from tournament_scheduler.scheduler import TournamentScheduler
+from tournament_scheduler.utils.date_parser import DateParser
+
+
+CHECK_DATE = date(2026, 9, 5)
+
+
+def _make_scheduler():
+    return TournamentScheduler(
+        calendar_sources=[],
+        conflict_checkers=[HolidayConflictChecker()],
+        date_parser=DateParser(),
+    )
+
+
+def _busy_all_day(day=CHECK_DATE):
+    return [
+        CalendarEvent(
+            date=day.strftime("%d.%m.%Y"),
+            name="Booket hele dagen",
+            datetime=datetime(day.year, day.month, day.day, 0, 0),
+            duration_hours=24.0,
+        )
+    ]
+
+
+class TestFindArenaSlotForDate:
+    def test_host_has_a_fitting_slot(self):
+        scheduler = _make_scheduler()
+        # Frisk Asker has a small morning booking, leaving plenty of room.
+        events_by_club = {
+            "Frisk Asker": [
+                CalendarEvent(
+                    date=CHECK_DATE.strftime("%d.%m.%Y"),
+                    name="Morgentrening",
+                    datetime=datetime(2026, 9, 5, 8, 0),
+                    duration_hours=2.0,
+                )
+            ],
+        }
+
+        result = scheduler.find_arena_slot_for_date(
+            CHECK_DATE, "Frisk Asker", 120, events_by_club
+        )
+
+        assert result is not None
+        host_used, start, end = result
+        assert host_used == "Frisk Asker"
+        assert start and end
+
+    def test_host_fully_booked_falls_back_to_another_arena(self):
+        scheduler = _make_scheduler()
+        events_by_club = {
+            "Frisk Asker": _busy_all_day(),
+            "Ringerike": [],  # Ringerike has nothing booked.
+        }
+
+        result = scheduler.find_arena_slot_for_date(
+            CHECK_DATE, "Frisk Asker", 150, events_by_club
+        )
+
+        assert result is not None
+        host_used, start, end = result
+        assert host_used != "Frisk Asker"
+        assert host_used == "Ringerike"
+        assert start and end
+
+    def test_no_arena_has_a_fitting_slot_returns_none(self):
+        scheduler = _make_scheduler()
+        from tournament_scheduler.club_registry import CLUB_REGISTRY
+
+        events_by_club = {
+            club: _busy_all_day()
+            for club, entry in CLUB_REGISTRY.items()
+            if entry.is_known
+        }
+
+        result = scheduler.find_arena_slot_for_date(
+            CHECK_DATE, "Frisk Asker", 150, events_by_club
+        )
+
+        assert result is None
+
+    def test_host_with_no_calendar_data_falls_back(self):
+        scheduler = _make_scheduler()
+        # No events at all for any club -- every arena is "free", so the
+        # host's own (empty) calendar should yield a fitting slot and be
+        # returned without needing a fallback.
+        result = scheduler.find_arena_slot_for_date(
+            CHECK_DATE, "Frisk Asker", 90, {}
+        )
+
+        assert result is not None
+        host_used, _start, _end = result
+        assert host_used == "Frisk Asker"
+
+    def test_prefers_slot_closest_to_optimal_time(self):
+        scheduler = _make_scheduler()
+        # Host (Frisk Asker) is busy until late morning, leaving only an
+        # afternoon/evening slot far from the 11:00 optimum. A fallback
+        # arena (Ringerike) is completely free, so its slot starting at
+        # 08:00 should be evaluated too -- but the host's slot starting
+        # closer to 11:00 should win if it scores better.
+        events_by_club = {
+            "Frisk Asker": [
+                CalendarEvent(
+                    date=CHECK_DATE.strftime("%d.%m.%Y"),
+                    name="Morgentrening",
+                    datetime=datetime(2026, 9, 5, 8, 0),
+                    duration_hours=2.5,  # busy 08:00-10:30
+                )
+            ],
+            "Ringerike": [],
+        }
+
+        result = scheduler.find_arena_slot_for_date(
+            CHECK_DATE, "Frisk Asker", 60, events_by_club
+        )
+
+        assert result is not None
+        host_used, start, _end = result
+        # Frisk Asker's earliest fitting slot after its booking (10:30)
+        # is closer to 11:00 than Ringerike's earliest slot (08:00).
+        assert host_used == "Frisk Asker"
+        assert start == "10:30"

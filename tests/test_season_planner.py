@@ -6,6 +6,7 @@ import pytest
 
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
+    CalendarEvent,
     Game,
     Roster,
     SchedulingResult,
@@ -13,15 +14,30 @@ from tournament_scheduler.models import (
     Tournament,
     overlapping_age_groups,
 )
-from tournament_scheduler.season_planner import SeasonPlanner, MIN_TOURNAMENTS, MAX_TOURNAMENTS
+from tournament_scheduler.scheduler import TournamentScheduler
+from tournament_scheduler.season_planner import (
+    SeasonPlanner,
+    DEFAULT_TOURNAMENT_START_TIME,
+    MIN_TOURNAMENTS,
+    MAX_TOURNAMENTS,
+)
 
 
 class FakeScheduler:
     """Stand-in for TournamentScheduler that returns a fixed set of free weekend dates
-    without scraping any calendars (keeps the test fast, deterministic, and offline)."""
+    without scraping any calendars (keeps the test fast, deterministic, and offline).
+
+    `find_arena_slot_for_date` delegates to a real `TournamentScheduler`
+    instance (pure in-memory logic, no I/O) so tests that pass
+    `events_by_club` to `SeasonPlanner` exercise the real slot-finding /
+    fallback-host logic end-to-end.
+    """
 
     def __init__(self, free_dates):
         self.free_dates = free_dates
+        self._real_scheduler = TournamentScheduler(
+            calendar_sources=[], conflict_checkers=[], date_parser=None
+        )
 
     def find_available_dates(self, start_date, end_date, **kwargs):
         return SchedulingResult(
@@ -30,6 +46,11 @@ class FakeScheduler:
             exclusion_breakdown={},
             detailed_exclusions=[],
             total_weekends_checked=len(self.free_dates),
+        )
+
+    def find_arena_slot_for_date(self, check_date, host_club, required_minutes, events_by_club):
+        return self._real_scheduler.find_arena_slot_for_date(
+            check_date, host_club, required_minutes, events_by_club
         )
 
 
@@ -1152,4 +1173,162 @@ class TestMonthLoadWarnings:
         # Each entry: (year, month, count, expected, deviation)
         for w in warnings:
             assert len(w) == 5, f"expected 5-tuple, got {w}"
-            assert 1 <= w[1] <= 12, f"invalid month: {w[1]}"
+
+
+class TestSlotAwareScheduling:
+    """Tests for time-of-day-aware arena slot finding in build_plan."""
+
+    @staticmethod
+    def _basic_planner(free_dates, events_by_club=None, round_length=60):
+        roster = Roster(teams=[
+            Team(club="Frisk Asker", label="Frisk Asker U10", age_group="U10"),
+            Team(club="Ringerike", label="Ringerike U10", age_group="U10"),
+            Team(club="Holmen", label="Holmen U10", age_group="U10"),
+        ])
+        club_arenas = {
+            "Frisk Asker": "Varner Arena",
+            "Ringerike": "Ringerikshallen",
+            "Holmen": "Holmenkollen ishall",
+        }
+        return SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+            round_length_for_age_group={"U10": round_length},
+            events_by_club=events_by_club,
+        )
+
+    def test_without_events_by_club_uses_default_start_time(self):
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        planner = self._basic_planner(free_dates, events_by_club=None)
+        plan = planner.build_plan(start, end)
+
+        assert plan.tournaments
+        assert all(t.start_time == DEFAULT_TOURNAMENT_START_TIME for t in plan.tournaments)
+        assert planner.fallback_host_substitutions == []
+
+    def test_with_events_by_club_sets_non_default_start_time(self):
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        # Build the plan once without calendar data to discover the chosen
+        # tournament dates, then construct events_by_club so every host's
+        # arena has a single morning booking that pushes the available slot
+        # later than the default 09:00.
+        probe_planner = self._basic_planner(free_dates, events_by_club=None)
+        probe_plan = probe_planner.build_plan(start, end)
+        tournament_dates = [t.date for t in probe_plan.tournaments]
+
+        events_by_club = {}
+        for club in ("Frisk Asker", "Ringerike", "Holmen"):
+            events = []
+            for d in tournament_dates:
+                events.append(CalendarEvent(
+                    date=d.strftime("%d.%m.%Y"),
+                    name="Morgentrening",
+                    datetime=datetime(d.year, d.month, d.day, 8, 0),
+                    duration_hours=2.0,
+                ))
+            events_by_club[club] = events
+
+        planner = self._basic_planner(free_dates, events_by_club=events_by_club)
+        plan = planner.build_plan(start, end)
+
+        assert plan.tournaments
+        # Every host's arena is busy 08:00-10:00, so the computed slot
+        # should start at or after 10:00 -- not the default 09:00.
+        non_default = [t for t in plan.tournaments if t.start_time != DEFAULT_TOURNAMENT_START_TIME]
+        assert non_default, "expected at least one tournament with a non-default start_time"
+        for t in non_default:
+            assert t.start_time >= "10:00"
+
+    def test_fallback_host_substitution_recorded_when_host_fully_booked(self):
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        probe_planner = self._basic_planner(free_dates, events_by_club=None)
+        probe_plan = probe_planner.build_plan(start, end)
+        tournament_dates = [t.date for t in probe_plan.tournaments]
+
+        # Every known club's arena is fully booked all day on every
+        # tournament date except Holmen, which is completely free -- so any
+        # tournament originally hosted elsewhere must fall back to Holmen.
+        from tournament_scheduler.club_registry import CLUB_REGISTRY
+
+        events_by_club = {}
+        for club, entry in CLUB_REGISTRY.items():
+            if not entry.is_known:
+                continue
+            if club == "Holmen":
+                events_by_club[club] = []
+                continue
+            events = []
+            for d in tournament_dates:
+                events.append(CalendarEvent(
+                    date=d.strftime("%d.%m.%Y"),
+                    name="Booket hele dagen",
+                    datetime=datetime(d.year, d.month, d.day, 0, 0),
+                    duration_hours=24.0,
+                ))
+            events_by_club[club] = events
+
+        planner = self._basic_planner(free_dates, events_by_club=events_by_club)
+        plan = planner.build_plan(start, end)
+
+        # Any tournament originally hosted by Frisk Asker or Ringerike must
+        # have been substituted to Holmen, with a recorded substitution.
+        substitutions = planner.fallback_host_substitutions
+        assert substitutions, "expected at least one fallback-host substitution"
+        for tournament_date, age_group, original_host, fallback_host in substitutions:
+            assert original_host in ("Frisk Asker", "Ringerike")
+            assert fallback_host == "Holmen"
+
+        # The rules report should describe these substitutions.
+        report = planner.rules_report()
+        substitution_rules = [r for r in report if "Vertsbytte" in r["regel"]]
+        assert len(substitution_rules) == len(substitutions)
+        for rule in substitution_rules:
+            assert rule["kategori"] == "Automatisk avgjørelse"
+
+        # Tournaments hosted by Holmen as a fallback should reflect
+        # Holmen's arena.
+        for t in plan.tournaments:
+            if t.host_club == "Holmen" and t.date in {s[0] for s in substitutions}:
+                assert t.arena == "Holmenkollen ishall"
+
+    def test_no_arena_available_keeps_original_host_and_default_time(self):
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        probe_planner = self._basic_planner(free_dates, events_by_club=None)
+        probe_plan = probe_planner.build_plan(start, end)
+        tournament_dates = [t.date for t in probe_plan.tournaments]
+
+        # Every known club's arena is fully booked all day on every
+        # tournament date -- no fallback can succeed.
+        from tournament_scheduler.club_registry import CLUB_REGISTRY
+
+        events_by_club = {}
+        for club, entry in CLUB_REGISTRY.items():
+            if not entry.is_known:
+                continue
+            events = []
+            for d in tournament_dates:
+                events.append(CalendarEvent(
+                    date=d.strftime("%d.%m.%Y"),
+                    name="Booket hele dagen",
+                    datetime=datetime(d.year, d.month, d.day, 0, 0),
+                    duration_hours=24.0,
+                ))
+            events_by_club[club] = events
+
+        planner = self._basic_planner(free_dates, events_by_club=events_by_club)
+        plan = planner.build_plan(start, end)
+
+        # No slot is available anywhere, so every tournament keeps its
+        # originally-assigned host/arena and the default start time.
+        assert planner.fallback_host_substitutions == []
+        assert all(t.start_time == DEFAULT_TOURNAMENT_START_TIME for t in plan.tournaments)
