@@ -108,6 +108,130 @@ class TestFromDict:
         assert "unik" in message
 
 
+class TestNeighborClubs:
+    """Tests for the neighborClubs section added in cross-region expansion."""
+
+    def test_extended_format_with_neighbor_clubs(self):
+        config = {
+            "federationDefaults": {"parallelGames": {}},
+            "clubs": {
+                "Jar": {"JU10": ["Jar 1"]},
+                "Kongsberg": {"JU10": ["Kongsberg 1"]},
+            },
+            "neighborClubs": {
+                "Oslo": {"JU10": ["Oslo 1", "Oslo 2"]},
+                "Furuset": {"JU10": ["Furuset JU10"]},
+            },
+        }
+
+        roster = RosterLoader.from_dict(config)
+
+        assert len(roster.teams) == 5
+
+        # RVV clubs have region="RVV"
+        jar_team = Team(club="Jar", label="Jar 1", age_group="JU10", region="RVV")
+        kongsberg_team = Team(club="Kongsberg", label="Kongsberg 1", age_group="JU10", region="RVV")
+        assert jar_team in roster.teams
+        assert kongsberg_team in roster.teams
+
+        # Neighbor clubs have region set to their club name
+        oslo_1 = Team(club="Oslo", label="Oslo 1", age_group="JU10", region="Oslo")
+        oslo_2 = Team(club="Oslo", label="Oslo 2", age_group="JU10", region="Oslo")
+        furuset = Team(club="Furuset", label="Furuset JU10", age_group="JU10", region="Furuset")
+        assert oslo_1 in roster.teams
+        assert oslo_2 in roster.teams
+        assert furuset in roster.teams
+
+    def test_extended_format_without_neighbor_clubs_is_unchanged(self):
+        config = {
+            "federationDefaults": {"parallelGames": {}},
+            "clubs": {
+                "Jar": {"JU10": ["Jar 1"]},
+            },
+        }
+
+        roster = RosterLoader.from_dict(config)
+
+        assert len(roster.teams) == 1
+        assert roster.teams[0].region == "RVV"
+
+    def test_empty_neighbor_clubs_is_ignored(self):
+        config = {
+            "clubs": {
+                "Jar": {"JU10": ["Jar 1"]},
+            },
+            "neighborClubs": {},
+        }
+
+        roster = RosterLoader.from_dict(config)
+
+        assert len(roster.teams) == 1
+        assert roster.teams[0].region == "RVV"
+
+    def test_flat_format_ignores_neighbor_clubs_silently(self):
+        """Flat format (no 'clubs' key) does not process neighborClubs."""
+        config = {
+            "Jar": {"JU10": ["Jar 1"]},
+            "neighborClubs": {
+                "Oslo": {"JU10": ["Oslo 1"]},
+            },
+        }
+
+        # Flat format treats all top-level keys as club entries, so
+        # "neighborClubs" would be parsed as a club name and rejected
+        # because its value is a dict with "JU10" -> list, not a mapping
+        # of age group -> list.
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict(config)
+
+        assert "neighborClubs" in str(exc_info.value)
+
+    def test_neighbor_clubs_invalid_age_group(self):
+        config = {
+            "clubs": {
+                "Jar": {"JU10": ["Jar 1"]},
+            },
+            "neighborClubs": {
+                "Oslo": {"U99": ["Oslo 1"]},
+            },
+        }
+
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict(config)
+
+        assert "U99" in str(exc_info.value)
+
+    def test_neighbor_clubs_empty_entry_is_rejected(self):
+        config = {
+            "clubs": {
+                "Jar": {"JU10": ["Jar 1"]},
+            },
+            "neighborClubs": {
+                "Oslo": {},
+            },
+        }
+
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict(config)
+
+        assert "Oslo" in str(exc_info.value)
+        assert "ingen lag" in str(exc_info.value).lower()
+
+    def test_neighbor_clubs_not_a_dict_is_rejected(self):
+        config = {
+            "clubs": {
+                "Jar": {"JU10": ["Jar 1"]},
+            },
+            "neighborClubs": "bare en streng",
+        }
+
+        with pytest.raises(RosterConfigError) as exc_info:
+            RosterLoader.from_dict(config)
+
+        assert "neighborClubs" in str(exc_info.value)
+        assert "oppslagsverk" in str(exc_info.value)
+
+
 class TestFromFile:
     """Tests for RosterLoader.from_file (file discovery, parsing, delegation)."""
 

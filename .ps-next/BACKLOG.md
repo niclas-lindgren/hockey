@@ -16,7 +16,7 @@
 
 - [16] [x] Multi-team club load distribution — when a club has multiple teams (e.g. Jar 1–7), avoid scheduling several of them on the same tournament weekend. The same small parent/volunteer group has to staff arrangements, so clumping a club's teams onto one weekend is a significant burden. The season planner should spread a club's teams across different weekends as a soft constraint (warn when violated, configurable tolerance). (2026-06-10)
 
-- [15] [ ] Travel-time-aware game slot ordering — when generating per-tournament game schedules, avoid giving the last game slot to teams with the longest travel home. As a minimum, surface the furthest-traveling team in the tournament output so the host can manually assign them an earlier slot. Longer term: accept optional travel-time data per club and use it when ordering games.
+- [15] [x] Travel-time-aware game slot ordering — when generating per-tournament game schedules, avoid giving the last game slot to teams with the longest travel home. As a minimum, surface the furthest-traveling team in the tournament output so the host can manually assign them an earlier slot. Longer term: accept optional travel-time data per club and use it when ordering games. (2026-06-10)
 
 - [14] [ ] Girls' cross-region expansion — for girls' age groups (JU10, JU11, etc.) the RVV region alone has too few teams for a meaningful season. Support optionally including teams from neighboring regions in the roster config (e.g. Oslo-area clubs), so girls' tournaments can be scheduled with enough variety. Should be a simple roster-config addition — the scheduler itself needs no changes once teams are listed.
 

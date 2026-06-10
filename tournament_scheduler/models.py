@@ -64,11 +64,16 @@ class Team:
     """A single team belonging to a club, in a specific age group.
 
     Example: Team(club="Jar", label="Jar 1", age_group="U10")
+
+    ``region`` identifies the geographical region the team belongs to
+    (default ``"RVV"``).  Cross-region teams (e.g. from Oslo clubs for
+    girls' tournaments) use their club name as the region value.
     """
 
     club: str
     label: str  # e.g. "Jar 1", "Jar 2"
     age_group: str  # e.g. "U10", "JU11"
+    region: str = "RVV"  # geographical region, e.g. "RVV", "Oslo"
 
     @property
     def name(self) -> str:
