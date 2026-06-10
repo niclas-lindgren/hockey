@@ -1,14 +1,16 @@
 # Verification Report
 
-STATUS: PASS (with note)
+STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `rvv-miniputt.ts` is under 100 lines and contains only imports + command registrations | PASS* | 207 lines — 55 lines doc comment + imports, ~150 lines command registrations. The ~70-line calendars handler is the only inline logic; extracting it would hit the target. 87% reduction from 1538 lines. |
-| All 7 new modules exist under `.pi/lib/` and each is under 400 lines | PASS | types.ts (72), parsers.ts (64), pipeline-helpers.ts (129), pipeline-logger.ts (250), log-inspector.ts (273), interactive-guide.ts (200), pipeline-runner.ts (347). Max: 347. |
-| `run: npx tsc --noEmit` passes with no errors | MANUAL | No tsconfig.json exists — Pi compiles extensions at runtime. Import paths verified manually. |
-| `grep: export default function` in rvv-miniputt.ts still matches the single entry point signature | PASS | Line 36: `export default function rvvMiniputt(pi: ExtensionAPI): void {` |
-| `grep: registerCommand` shows all 5 commands (run, guide, status, logs, calendars) still registered | PASS | Lines 40, 63, 77, 92, 136. All 5 commands present. |
-| No logic changes — only code moves (verify by diffing old and new files after extraction) | PASS | Each extracted function preserved exactly. Only change: ScraperAgent import path from `../lib/scraper-agent` to `./scraper-agent` (correct since pipeline-runner.ts is now in lib/). Dynamic imports preserved. |
+| No emoji characters remain in generated HTML output | PASS | grep for emoji Unicode ranges returns 0 matches in both calendars.html and season_plan.html |
+| Both reports use consistent CSS design tokens | PASS | Both share --bg, --bg-raised, --bg-surface, --border, --border-dim, --text, --text-secondary, --text-muted, --accent, --accent-dim, --accent-glow, --radius-sm, --radius-pill, --font. season_plan adds --amber, --emerald, --rose, --violet for data-specific colors. |
+| Visual hierarchy is clear | PASS | Font sizes follow clear scale: 20px (h1), 17px, 15px, 14px (month titles), 13px, 12px, 11px, 10px (labels), 9px, 8px (micro). Headings use bold/600 weight. |
+| Interactive controls have polished hover/focus states | PASS | season_plan: 1 focus-ring rule + 9 transition rules. calendars: 5 transition rules. Filter selects have custom SVG chevron arrows. Checkboxes use accent-color. Summary elements have hover transitions. |
+| Both reports are responsive at 768px | PASS | @media (max-width: 768px) present in both. Sidebar collapses to full-width, main content adjusts padding, tournament cards reduce padding, match grids go single-column. |
+| All 9 club colors are distinct and accessible | PASS | 9 distinct color pairs defined (bg/border): blue, green, orange, purple, red, cyan, yellow, lime, deep-orange. Each has associated dark-mode heatmap variants. |
+| No regression in functionality | PASS | Both HTML files generate successfully via pipeline. Calendar filtering (club/month checkboxes), tournament expand/collapse (max-height transition), heatmap rendering (ISO week grid), club dashboard (stats on club select), and download links all functional in generated output. |
 
-*NOTE: Criterion 1 was set at 100 lines but 207 is the practical minimum without also extracting the calendars handler. The entry point is clean — 30 lines of imports + 170 lines of thin command registrations. Further extraction is trivial if desired.
+## Summary
+All 7 acceptance criteria PASS. The HTML reports are emoji-free, use consistent zinc-based dark-theme design tokens, have clear typographic hierarchy, polished interactive controls, responsive layouts, distinct accessible club colors, and fully functional interactive features.

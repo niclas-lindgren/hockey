@@ -53,38 +53,43 @@ def _age_string(iso_str: str) -> str:
         return "ukjent"
 
 
-def _cache_status(entry: dict[str, Any], ttl_hours: float = 6.0) -> str:
-    """Return a freshness badge for a cache entry.
+# Inline SVG icons (16x16 viewBox, currentColor stroke, 1.5px stroke-width)
+_ICON_CALENDAR = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><line x1="2" y1="7" x2="14" y2="7"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/></svg>'
+_ICON_CLIPBOARD = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 1.5h5a1 1 0 011 1v1h-7v-1a1 1 0 011-1z"/><rect x="3" y="3.5" width="10" height="11" rx="1.5"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="6" y1="10" x2="10" y2="10"/></svg>'
+_ICON_USERS = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="4" r="2.5"/><path d="M1.5 14v-1.5a4 4 0 014-4h1a4 4 0 014 4V14"/><circle cx="12" cy="5" r="1.5"/><path d="M12 11.5a3 3 0 012.5 2.5"/></svg>'
+_ICON_ARROW_UP = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="14" x2="8" y2="2"/><polyline points="3 7 8 2 13 7"/></svg>'
+_ICON_EXTERNAL = '<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2H3a1 1 0 00-1 1v10a1 1 0 001 1h10a1 1 0 001-1v-3"/><polyline points="10 2 14 2 14 6"/><line x1="7" y1="9" x2="14" y2="2"/></svg>'
+_ICON_REFRESH = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 1 4 1"/><path d="M1 8a7 7 0 017-7 6.8 6.8 0 015.6 3"/><polyline points="15 12 15 15 12 15"/><path d="M15 8a7 7 0 01-7 7 6.8 6.8 0 01-5.6-3"/></svg>'
+_ICON_SEARCH = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10" y1="10" x2="14.5" y2="14.5"/></svg>'
+_ICON_CLOCK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="8 4 8 8 11 10"/></svg>'
+_ICON_TERMINAL = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 6.5 8.5 4 11"/><line x1="8" y1="11" x2="12" y2="11"/><rect x="1" y="2" width="14" height="12" rx="2"/></svg>'
 
-    Determines the per-source status based on blocked flag, cache note,
-    and scrape timestamp vs TTL:
-      - Blocked source with no events → "🚫 Blokkert"
-      - Note indicates cache fallback → "📦 Cachet"
-      - Scrape within TTL → "🔄 Fersk"
-      - Scrape beyond TTL → "⚡ Utdatert"
-      - Missing timestamp → "❓ Ukjent"
+def _cache_status(entry: dict[str, Any], ttl_hours: float = 6.0) -> str:
+    """Return a freshness badge label for a cache entry.
+
+    Returns one of: Blokkert, Cachet, Fersk, Utdatert, Ukjent.
     """
     blocked = entry.get("blocked", False)
     note = entry.get("note", "")
     ts = entry.get("scrape_timestamp", "")
 
     if blocked:
-        return "🚫 Blokkert"
+        return "Blokkert"
 
     if note and ("tidligere cache" in note.lower() or "bruker" in note.lower()):
-        return "📦 Cachet"
+        return "Cachet"
 
     if not ts:
-        return "❓ Ukjent"
+        return "Ukjent"
 
     try:
         scraped_at = datetime.fromisoformat(ts)
         age = datetime.now() - scraped_at
         if age.total_seconds() <= ttl_hours * 3600:
-            return "🔄 Fersk"
-        return "⚡ Utdatert"
+            return "Fersk"
+        return "Utdatert"
     except (ValueError, TypeError):
-        return "❓ Ukjent"
+        return "Ukjent"
 
 
 def _escape_html(text: str) -> str:
@@ -213,7 +218,7 @@ def generate_html(work_dir: str = ".pipeline") -> str:
                         color = color_map.get(src, CLUB_COLORS[-1])
                         name = _escape_html(ev.get("name", "?"))
                         time_str = _format_time(ev)
-                        link = f'<a href="{_escape_html(src_url)}" target="_blank" title="Åpne {_escape_html(src)} sin kalender">🔗</a>' if src_url else ""
+                        link = f'<a class="ev-ext-link" href="{_escape_html(src_url)}" target="_blank" title="Åpne {_escape_html(src)} sin kalender">{_ICON_EXTERNAL}</a>' if src_url else ""
                         lines.append(
                             f'<div class="event" data-source="{_escape_html(src)}" style="background:{color["bg"]};border-left:3px solid {color["border"]};color:{color["text"]}" title="{_escape_html(src)} — {name}">'
                             + (f'<span class="ev-time">{time_str}</span> ' if time_str else '')
@@ -282,121 +287,278 @@ def generate_html(work_dir: str = ".pipeline") -> str:
 <title>RVV Miniputt — Skrapede kalendere</title>
 <style>
   :root {{
-    --ice: #0f172a;
-    --ice-light: #1e293b;
-    --ice-surface: #334155;
-    --ice-border: #475569;
-    --text: #f1f5f9;
-    --text-dim: #94a3b8;
-    --accent: #38bdf8;
-    --accent-dim: #0284c7;
+    --bg: #09090b;
+    --bg-raised: #18181b;
+    --bg-surface: #27272a;
+    --border: #3f3f46;
+    --border-dim: #27272a;
+    --text: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --accent: #0ea5e9;
+    --accent-dim: #0369a1;
+    --accent-glow: rgba(14, 165, 233, 0.12);
     --radius: 8px;
     --radius-sm: 4px;
+    --radius-pill: 999px;
     --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
   }}
   *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  html, body {{ height: 100%; }}
-  body {{ font-family: var(--font); background: var(--ice); color: var(--text); line-height: 1.5; }}
+  html {{ height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }}
+  body {{ font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; height: 100%; font-size: 15px; }}
   .layout {{ display: flex; height: 100vh; }}
-  
-  /* Navbar — matches season_plan */
-  .navbar {{ display: flex; align-items: center; gap: 4px;
-             background: #1a1a2e; color: #fff; padding: 8px 16px;
-             border-bottom: 1px solid #333; flex-shrink: 0; }}
-  .navbar .brand {{ font-weight: 700; font-size: 0.9em; margin-right: 20px; color: var(--accent); }}
-  .navbar a {{ color: #94a3b8; text-decoration: none; padding: 4px 12px;
-               border-radius: 4px; font-size: 0.8em; }}
-  .navbar a:hover {{ background: rgba(255,255,255,0.1); color: #fff; }}
-  .navbar a.active {{ background: var(--accent); color: #0f172a; font-weight: 600; }}
-  
-  /* Sidebar — dark theme */
-  .sidebar {{ width: 270px; min-width: 270px; background: var(--ice-light);
-              border-right: 1px solid var(--ice-surface);
-              padding: 14px; overflow-y: auto; position: sticky; top: 0; height: calc(100vh - 40px); }}
-  .sidebar h2 {{ font-size: 0.85em; margin: 14px 0 6px; color: var(--text-dim);
-                  text-transform: uppercase; letter-spacing: .08em; }}
+
+  /* Navbar */
+  .navbar {{
+    display: flex; align-items: center; gap: 2px;
+    background: var(--bg-raised); padding: 0 16px;
+    border-bottom: 1px solid var(--border-dim);
+    height: 44px; flex-shrink: 0;
+  }}
+  .navbar .brand {{
+    font-weight: 700; font-size: 13px; margin-right: 20px;
+    color: var(--text); letter-spacing: -.01em;
+    display: flex; align-items: center; gap: 6px;
+  }}
+  .nav-icon {{ display: inline-flex; align-items: center; opacity: .55; }}
+  .nav-icon svg {{ display: block; width: 14px; height: 14px; }}
+  .navbar a {{
+    color: var(--text-muted); text-decoration: none;
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    font-size: 12px; font-weight: 500;
+    transition: color .15s, background .15s;
+    display: inline-flex; align-items: center; gap: 5px;
+  }}
+  .navbar a:hover {{ background: rgba(255,255,255,0.06); color: var(--text-secondary); }}
+  .navbar a.active {{
+    background: var(--accent-glow); color: var(--accent); font-weight: 600;
+  }}
+  .navbar a.active .nav-icon {{ opacity: .85; }}
+
+  /* Sidebar */
+  .sidebar {{
+    width: 260px; min-width: 260px;
+    background: var(--bg-raised);
+    border-right: 1px solid var(--border-dim);
+    padding: 16px 14px; overflow-y: auto;
+    position: sticky; top: 0; height: calc(100vh - 44px);
+  }}
+  .sidebar h2 {{
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--text-muted);
+    margin: 18px 0 8px;
+    display: flex; align-items: center; gap: 5px;
+  }}
   .sidebar h2:first-child {{ margin-top: 0; }}
-  .filter-item {{ display: flex; align-items: center; gap: 3px;
-                  padding: 3px 8px; border-radius: var(--radius-sm);
-                  background: var(--cbg); border: 1px solid var(--cborder);
-                  cursor: pointer; font-size: 0.78em; margin-bottom: 3px; }}
-  .filter-item input {{ accent-color: var(--cborder); flex-shrink: 0; }}
-  .club-label {{ font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #111; }}
-  .club-stats {{ color: #444; font-size: 0.85em; flex-shrink: 0; }}
-  .club-freshness {{ font-size: 0.75em; padding: 1px 6px; border-radius: 3px; font-weight: 600; flex-shrink: 0; }}
-  .month-filter-item {{ display: inline-flex; align-items: center; gap: 2px;
-                        padding: 2px 6px; margin: 1px; border-radius: var(--radius-sm);
-                        cursor: pointer; font-size: 0.75em;
-                        background: var(--ice-surface); border: 1px solid var(--ice-border);
-                        color: var(--text); }}
-  .month-filter-item input {{ accent-color: var(--accent); }}
-  .sidebar .refresh-btn {{ display: block; padding: 6px 12px; background: var(--accent-dim);
-                          color: #fff; border: none; border-radius: var(--radius-sm); cursor: pointer;
-                          font-size: 0.78em; text-decoration: none; margin: 4px 0; text-align: center; }}
-  .sidebar .refresh-btn:hover {{ background: var(--accent); }}
-  .sidebar .refresh-btn.green {{ background: #2E7D32; }}
-  .sidebar .refresh-btn.green:hover {{ background: #388E3C; }}
-  .sidebar .cli-hint {{ cursor: default; padding: 6px 8px; font-size: 0.72em; line-height: 1.4; text-align: left; display: block; }}
-  .sidebar .cli-hint code {{ background: rgba(255,255,255,0.2); padding: 1px 4px; border-radius: 3px; font-size: 0.95em; }}
-  .count-badge {{ font-size: 0.7em; color: var(--text-dim); margin-top: 8px; }}
-  
-  /* Main content — dark theme */
-  .main {{ flex: 1; overflow-y: auto; padding: 20px; }}
-  h1 {{ font-size: 1.2em; margin-bottom: 4px; font-weight: 700; letter-spacing: -.02em; }}
-  h1 span {{ color: var(--accent); }}
-  .meta {{ font-size: 0.8em; color: var(--text-dim); margin-bottom: 16px; }}
-  .meta span {{ margin-right: 14px; }}
-  .month {{ margin-bottom: 28px; }}
-  .month-title {{ font-size: 1.05em; margin-bottom: 6px; color: var(--accent); font-weight: 600; }}
+  .sidebar-icon {{ display: inline-flex; align-items: center; opacity: .55; }}
+  .sidebar-icon svg {{ display: block; width: 12px; height: 12px; }}
+
+  .filter-item {{
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px; border-radius: var(--radius-sm);
+    background: var(--cbg); border: 1px solid var(--cborder);
+    cursor: pointer; font-size: 12px;
+    margin-bottom: 4px;
+    transition: box-shadow .15s, opacity .15s;
+  }}
+  .filter-item:hover {{ box-shadow: 0 0 0 1px var(--cborder); }}
+  .filter-item input[type="checkbox"] {{
+    accent-color: var(--cborder); flex-shrink: 0;
+    width: 14px; height: 14px; cursor: pointer;
+  }}
+  .club-label {{
+    font-weight: 600; font-size: 12px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: #111; flex: 1;
+  }}
+  .club-stats {{ color: #444; font-size: 10px; flex-shrink: 0; }}
+  .club-freshness {{
+    font-size: 9px; padding: 1px 5px;
+    border-radius: var(--radius-pill);
+    font-weight: 600; flex-shrink: 0;
+    text-transform: uppercase; letter-spacing: .04em;
+  }}
+
+  .month-filter-item {{
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 8px; margin: 2px 1px;
+    border-radius: var(--radius-pill);
+    cursor: pointer; font-size: 11px; font-weight: 500;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    color: var(--text-secondary);
+    transition: background .15s, border-color .15s;
+  }}
+  .month-filter-item:hover {{ border-color: var(--text-muted); }}
+  .month-filter-item input[type="checkbox"] {{
+    accent-color: var(--accent); width: 12px; height: 12px;
+  }}
+
+  .sidebar .refresh-btn {{
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 7px 12px; border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 12px; font-weight: 500;
+    text-decoration: none; margin: 6px 0;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    transition: background .15s, border-color .15s, color .15s;
+  }}
+  .sidebar .refresh-btn:hover {{
+    background: var(--accent-glow);
+    border-color: var(--accent-dim);
+    color: var(--accent);
+  }}
+  .sidebar .refresh-btn.green {{
+    background: rgba(34,197,94,.08);
+    border-color: rgba(34,197,94,.2);
+  }}
+  .sidebar .refresh-btn.green:hover {{
+    background: rgba(34,197,94,.14);
+    border-color: rgba(34,197,94,.4);
+  }}
+  .sidebar .cli-hint {{
+    cursor: default; padding: 8px 10px;
+    font-size: 11px; line-height: 1.5;
+    display: flex; align-items: flex-start; gap: 6px;
+    color: var(--text-muted);
+  }}
+  .sidebar .cli-hint code {{
+    background: rgba(255,255,255,0.08);
+    padding: 1px 5px; border-radius: var(--radius-sm);
+    font-size: 11px; font-family: var(--font-mono);
+    color: var(--text-secondary);
+  }}
+  .count-badge {{
+    font-size: 11px; color: var(--text-muted);
+    margin-top: 12px; padding: 8px 0;
+    border-top: 1px solid var(--border-dim);
+    line-height: 1.6;
+  }}
+
+  /* Main */
+  .main {{ flex: 1; overflow-y: auto; padding: 24px 28px 48px; }}
+  .main::-webkit-scrollbar {{ width: 6px; }}
+  .main::-webkit-scrollbar-track {{ background: transparent; }}
+  .main::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 3px; }}
+
+  h1 {{
+    font-size: 20px; font-weight: 700; letter-spacing: -.02em;
+    margin-bottom: 4px;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text);
+  }}
+  .header-icon {{ display: inline-flex; align-items: center; opacity: .6; }}
+  .header-icon svg {{ display: block; width: 18px; height: 18px; }}
+  .meta {{
+    font-size: 12px; color: var(--text-muted);
+    margin-bottom: 24px;
+    display: flex; flex-wrap: wrap; gap: 6px 16px;
+  }}
+  .meta span {{ display: inline-flex; align-items: center; gap: 4px; }}
+  .meta-icon {{ display: inline-flex; align-items: center; opacity: .45; }}
+  .meta-icon svg {{ display: block; width: 12px; height: 12px; }}
+
+  .month {{ margin-bottom: 32px; }}
+  .month-title {{
+    font-size: 14px; font-weight: 600; margin-bottom: 8px;
+    color: var(--text-secondary);
+    letter-spacing: -.01em;
+  }}
   table.cal {{ width: 100%; border-collapse: collapse; table-layout: fixed; }}
-  td, th {{ border: 1px solid var(--ice-border); padding: 3px; vertical-align: top; height: 70px; }}
-  th {{ background: var(--ice-light); font-size: 0.72em; font-weight: 600; text-align: center;
-        height: auto; padding: 5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .05em; }}
-  td.empty {{ background: var(--ice); }}
-  td.today {{ background: rgba(56, 189, 248, .1); border-color: var(--accent-dim); }}
-  .day-num {{ font-weight: 600; font-size: 0.8em; margin-bottom: 2px; color: var(--text-dim); }}
-  td.today .day-num {{ color: var(--accent); }}
-  .events {{ display: flex; flex-direction: column; gap: 1px; }}
-  .event {{ padding: 2px 4px; border-radius: var(--radius-sm); font-size: 0.65em; line-height: 1.3;
-            cursor: default; position: relative; }}
-  .event:hover {{ filter: brightness(1.1); }}
-  .ev-time {{ font-weight: 600; margin-right: 2px; font-size: 0.95em; }}
-  .ev-name {{ display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }}
-  .ev-meta {{ font-size: 0.85em; opacity: 0.8; }}
+  td, th {{
+    border: 1px solid var(--border-dim);
+    padding: 4px; vertical-align: top;
+    height: 74px;
+  }}
+  th {{
+    background: var(--bg-raised);
+    font-size: 10px; font-weight: 600;
+    text-align: center; height: auto;
+    padding: 6px 4px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }}
+  td.empty {{ background: transparent; }}
+  td.today {{
+    background: var(--accent-glow);
+    border-color: rgba(14, 165, 233, 0.2);
+  }}
+  .day-num {{
+    font-weight: 600; font-size: 11px;
+    margin-bottom: 3px; color: var(--text-muted);
+  }}
+  td.today .day-num {{ color: var(--accent); font-weight: 700; }}
+  .events {{ display: flex; flex-direction: column; gap: 2px; }}
+  .event {{
+    padding: 2px 5px; border-radius: 3px;
+    font-size: 9px; line-height: 1.4;
+    cursor: default; position: relative;
+    transition: filter .12s;
+  }}
+  .event:hover {{ filter: brightness(1.08); }}
+  .ev-time {{ font-weight: 600; margin-right: 2px; font-size: 9px; }}
+  .ev-name {{
+    display: block; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    font-weight: 600;
+  }}
+  .ev-meta {{ font-size: 8px; opacity: .7; }}
   .ev-meta a {{ text-decoration: none; color: inherit; }}
   .ev-meta a:hover {{ text-decoration: underline; }}
-  a {{ color: var(--accent); }}
+  .ev-ext-link {{
+    display: inline-flex; align-items: center;
+    opacity: .5; margin-left: 1px;
+  }}
+  .ev-ext-link:hover {{ opacity: .8; }}
+  .ev-ext-link svg {{ display: block; width: 8px; height: 8px; }}
+
+  a {{ color: var(--accent); text-decoration: none; }}
   a:hover {{ text-decoration: underline; }}
-  @media (max-width: 768px) {{ .layout {{ flex-direction: column; }} .navbar {{ overflow-x: auto; }} .sidebar {{ width: 100%; min-width: auto; height: auto; position: static; }} .main {{ padding: 10px; }} td {{ height: 50px; }} }}
+
+  @media (max-width: 768px) {{
+    .layout {{ flex-direction: column; }}
+    .navbar {{ overflow-x: auto; height: auto; padding: 8px 12px; }}
+    .sidebar {{
+      width: 100%; min-width: auto;
+      height: auto; position: static;
+      padding: 12px;
+    }}
+    .main {{ padding: 16px; }}
+    td {{ height: 52px; }}
+    h1 {{ font-size: 17px; }}
+  }}
 </style>
 </head>
 <body>
 <div class="navbar">
-  <span class="brand">🏒 RVV Miniputt</span>
-  <a href="calendars.html" class="active">🗓️ Skrapede kalendere</a>
-  <a href="season_plan.html" class="{'active' if not has_season_plan else ''}">📋 Sesongplan</a>
-  <a href="#" onclick="document.querySelector('.main').scrollTo(0,0);return false" style="margin-left:auto;color:#666">⬆️ Topp</a>
+  <span class="brand">RVV Miniputt</span>
+  <a href="calendars.html" class="active"><span class="nav-icon">{_ICON_CALENDAR}</span> Skrapede kalendere</a>
+  <a href="season_plan.html" class="{'active' if not has_season_plan else ''}"><span class="nav-icon">{_ICON_CLIPBOARD}</span> Sesongplan</a>
+  <a href="#" onclick="document.querySelector('.main').scrollTo(0,0);return false" style="margin-left:auto;color:var(--text-muted)"><span class="nav-icon">{_ICON_ARROW_UP}</span></a>
 </div>
 <div class="layout">
   <div class="sidebar">
-    <h2>🏒 Klubber</h2>
+    <h2><span class="sidebar-icon">{_ICON_USERS}</span> Klubber</h2>
     <div id="club-filters">{club_filter_html}</div>
-    <h2>📅 Måneder</h2>
+    <h2><span class="sidebar-icon">{_ICON_CALENDAR}</span> Måneder</h2>
     <div id="month-filters">{month_filter_html}</div>
-    <h2>🔄</h2>
+    <h2><span class="sidebar-icon">{_ICON_REFRESH}</span> Handlinger</h2>
     <a class="refresh-btn" href="#" onclick="location.reload()">Oppdater side</a>
     <span class="refresh-btn green cli-hint" title="Kjør denne kommandoen i terminalen for å tvinge re-skraping av alle kalendere">
-      💻 Kjør <code>rvv-miniputt calendars --refresh</code>
+      <span class="sidebar-icon">{_ICON_TERMINAL}</span> Kjør <code>rvv-miniputt calendars --refresh</code>
     </span>
     <p class="count-badge">{source_count} kilder, {total_events} hendelser<br>Oppdatert: {age_all}</p>
   </div>
   <div class="main">
-    <h1>🗓️ Skrapede kalendere</h1>
+    <h1><span class="header-icon">{_ICON_CALENDAR}</span> Skrapede kalendere</h1>
     <div class="meta">
-      <span>📅 {start_date_str} — {end_date_str}</span>
-      <span>🏒 {source_count} kilder</span>
-      <span>📊 {total_events} hendelser</span>
-      <span>⏱️ {age_all}</span>
+      <span><span class="meta-icon">{_ICON_CALENDAR}</span> {start_date_str} &mdash; {end_date_str}</span>
+      <span><span class="meta-icon">{_ICON_USERS}</span> {source_count} kilder</span>
+      <span><span class="meta-icon">{_ICON_SEARCH}</span> {total_events} hendelser</span>
+      <span><span class="meta-icon">{_ICON_CLOCK}</span> {age_all}</span>
     </div>
     <div id="calendars">{''.join(months_html)}</div>
   </div>

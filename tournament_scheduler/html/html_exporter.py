@@ -19,6 +19,21 @@ from tournament_scheduler.club_distances import (
 from ..models import SeasonPlan
 
 # ---------------------------------------------------------------------------
+# Inline SVG icons (14x14 or 16x16 viewBox, currentColor stroke, 1.5px)
+# ---------------------------------------------------------------------------
+
+_ICON_CALENDAR = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><line x1="2" y1="7" x2="14" y2="7"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/></svg>'
+_ICON_CLIPBOARD = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 1.5h5a1 1 0 011 1v1h-7v-1a1 1 0 011-1z"/><rect x="3" y="3.5" width="10" height="11" rx="1.5"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="6" y1="10" x2="10" y2="10"/></svg>'
+_ICON_USERS = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="4" r="2.5"/><path d="M1.5 14v-1.5a4 4 0 014-4h1a4 4 0 014 4V14"/><circle cx="12" cy="5" r="1.5"/><path d="M12 11.5a3 3 0 012.5 2.5"/></svg>'
+_ICON_TARGET = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>'
+_ICON_TRAVEL = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 13.7C17.3 9 20 5 20 2a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>'
+_ICON_WARNING = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l-7 12h14l-7-12z"/><line x1="8" y1="6" x2="8" y2="9"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg>'
+_ICON_DOWNLOAD = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10v3a1 1 0 01-1 1H3a1 1 0 01-1-1v-3"/><polyline points="5 7 8 10 11 7"/><line x1="8" y1="10" x2="8" y2="2"/></svg>'
+_ICON_FILE_SPREADSHEET = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h6l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><polyline points="9 2 9 6 13 6"/><line x1="5" y1="9" x2="11" y2="9"/><line x1="5" y1="12" x2="11" y2="12"/></svg>'
+_ICON_CLOCK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="8 4 8 8 11 10"/></svg>'
+_ICON_BAR_CHART = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="14" x2="2" y2="6"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="4"/><line x1="14" y1="14" x2="14" y2="8"/></svg>'
+
+# ---------------------------------------------------------------------------
 # Template — uses $MARKER$ placeholders replaced by .replace()
 # ---------------------------------------------------------------------------
 
@@ -29,104 +44,134 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sesongplan $SEASON_LABEL$ — RVV Hockey</title>
 <style>
-  /* Navbar */
-  .navbar { display: flex; align-items: center; gap: 4px;
-             background: #1a1a2e; color: #fff; padding: 8px 16px;
-             border-bottom: 1px solid #333; }
-  .navbar .brand { font-weight: 700; font-size: 0.9em; margin-right: 20px; color: #38bdf8; }
-  .navbar a { color: #94a3b8; text-decoration: none; padding: 4px 12px;
-               border-radius: 4px; font-size: 0.8em; }
-  .navbar a:hover { background: rgba(255,255,255,0.1); color: #fff; }
-  .navbar a.active { background: #38bdf8; color: #0f172a; font-weight: 600; }
-  .navbar .meta-nav { margin-left: auto; font-size: 0.75em; color: #666; }
   :root {
-    --ice: #0f172a;
-    --ice-light: #1e293b;
-    --ice-surface: #334155;
-    --ice-border: #475569;
-    --text: #f1f5f9;
-    --text-dim: #94a3b8;
-    --accent: #38bdf8;
-    --accent-dim: #0284c7;
-    --accent-glow: rgba(56, 189, 248, .15);
-    --amber: #fbbf24;
-    --emerald: #34d399;
-    --rose: #fb7185;
-    --radius: 12px;
-    --radius-sm: 8px;
+    --bg: #09090b;
+    --bg-raised: #18181b;
+    --bg-surface: #27272a;
+    --border: #3f3f46;
+    --border-dim: #27272a;
+    --text: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --accent: #0ea5e9;
+    --accent-dim: #0369a1;
+    --accent-glow: rgba(14, 165, 233, 0.12);
+    --amber: #f59e0b;
+    --emerald: #10b981;
+    --rose: #f43f5e;
+    --violet: #8b5cf6;
+    --radius: 8px;
+    --radius-sm: 4px;
+    --radius-pill: 999px;
     --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
   body {
     font-family: var(--font);
-    background: var(--ice);
+    background: var(--bg);
     color: var(--text);
     line-height: 1.5;
     min-height: 100dvh;
+    font-size: 15px;
   }
-  .app { max-width: 1400px; margin: 0 auto; padding: 24px 20px 64px; }
+
+  /* Navbar */
+  .navbar {
+    display: flex; align-items: center; gap: 2px;
+    background: var(--bg-raised); padding: 0 16px;
+    border-bottom: 1px solid var(--border-dim);
+    height: 44px;
+  }
+  .navbar .brand {
+    font-weight: 700; font-size: 13px; margin-right: 20px;
+    color: var(--text); letter-spacing: -.01em;
+  }
+  .nav-icon { display: inline-flex; align-items: center; opacity: .55; }
+  .nav-icon svg { display: block; width: 14px; height: 14px; }
+  .navbar a {
+    color: var(--text-muted); text-decoration: none;
+    padding: 4px 10px; border-radius: var(--radius-sm);
+    font-size: 12px; font-weight: 500;
+    transition: color .15s, background .15s;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .navbar a:hover { background: rgba(255,255,255,0.06); color: var(--text-secondary); }
+  .navbar a.active {
+    background: var(--accent-glow); color: var(--accent); font-weight: 600;
+  }
+  .navbar a.active .nav-icon { opacity: .85; }
+  .navbar .meta-nav { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+
+  .app { max-width: 1400px; margin: 0 auto; padding: 24px 28px 64px; }
 
   /* Header */
   .header {
-    display: flex;
-    align-items: center;
+    display: flex; align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 16px;
-    padding: 20px 0 32px;
-    border-bottom: 1px solid var(--ice-surface);
-    margin-bottom: 32px;
+    flex-wrap: wrap; gap: 16px;
+    padding: 0 0 28px;
+    border-bottom: 1px solid var(--border-dim);
+    margin-bottom: 28px;
   }
   .header-left { display: flex; align-items: center; gap: 16px; }
   .logo-icon {
-    width: 44px; height: 44px;
+    width: 40px; height: 40px;
     background: linear-gradient(135deg, var(--accent), var(--accent-dim));
     border-radius: var(--radius);
     display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 18px; color: #fff;
+    font-weight: 800; font-size: 16px; color: #fff;
     flex-shrink: 0;
   }
-  .header h1 { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
   .header h1 span { color: var(--accent); }
-  .header-sub { font-size: 14px; color: var(--text-dim); margin-top: 2px; }
-  .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .header-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .stat-badge {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 14px;
-    background: var(--ice-light);
-    border-radius: 999px;
-    font-size: 13px;
-    color: var(--text-dim);
-    border: 1px solid var(--ice-surface);
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 12px;
+    background: var(--bg-raised);
+    border-radius: var(--radius-pill);
+    font-size: 12px;
+    color: var(--text-muted);
+    border: 1px solid var(--border-dim);
     white-space: nowrap;
   }
-  .stat-badge strong { color: var(--text); font-weight: 600; }
-  .stat-badge svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .stat-badge strong { color: var(--text-secondary); font-weight: 600; }
+  .stat-badge svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  /* Summary/details icon helpers */
+  .summary-icon { display: inline-flex; align-items: center; margin-right: 6px; opacity: .6; }
+  .summary-icon svg { display: block; width: 14px; height: 14px; }
+  .club-dash-icon { display: inline-flex; align-items: center; }
+  .club-dash-icon svg { display: block; width: 16px; height: 16px; }
+  .travel-icon { display: inline-flex; align-items: center; margin-right: 4px; opacity: .7; }
+  .travel-icon svg { display: block; width: 12px; height: 12px; }
+  .warning-icon { display: inline-flex; align-items: center; margin-right: 6px; opacity: .6; }
+  .warning-icon svg { display: block; width: 14px; height: 14px; }
 
   /* Filters */
   .filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 32px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid var(--ice-surface);
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 24px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-dim);
   }
-  .filter-group { display: flex; flex-direction: column; gap: 6px; }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
   .filter-group label {
-    font-size: 11px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .08em;
-    color: var(--text-dim);
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em;
+    color: var(--text-muted);
   }
   .filter-select, .filter-input {
-    padding: 8px 14px;
-    background: var(--ice-light);
-    border: 1px solid var(--ice-surface);
+    padding: 7px 12px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
     border-radius: var(--radius-sm);
-    color: var(--text);
-    font-size: 14px;
+    color: var(--text-secondary);
+    font-size: 13px; font-family: var(--font);
     outline: none;
-    transition: border-color .2s, box-shadow .2s;
+    transition: border-color .15s, box-shadow .15s;
     appearance: none;
     -webkit-appearance: none;
     cursor: pointer;
@@ -137,36 +182,40 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     box-shadow: 0 0 0 3px var(--accent-glow);
   }
   .filter-input { cursor: text; min-width: 180px; }
-  .filter-input::placeholder { color: var(--text-dim); }
+  .filter-input::placeholder { color: var(--text-muted); }
+  .filter-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2371717a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
   .filter-clear {
-    padding: 8px 16px;
+    padding: 7px 14px;
     background: transparent;
-    border: 1px solid var(--ice-surface);
+    border: 1px solid var(--border-dim);
     border-radius: var(--radius-sm);
-    color: var(--text-dim);
-    font-size: 13px;
+    color: var(--text-muted);
+    font-size: 12px; font-family: var(--font);
     cursor: pointer;
-    transition: all .2s;
+    transition: all .15s;
     align-self: flex-end;
   }
-  .filter-clear:hover { background: var(--ice-surface); color: var(--text); }
+  .filter-clear:hover { background: var(--bg-surface); color: var(--text-secondary); border-color: var(--border); }
 
   /* Count bar */
   .count-bar {
-    display: flex;
-    align-items: center;
+    display: flex; align-items: center;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 12px 16px;
-    background: var(--ice-light);
-    border: 1px solid var(--ice-surface);
+    flex-wrap: wrap; gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
     border-radius: var(--radius);
     margin-bottom: 24px;
-    font-size: 14px;
-    color: var(--text-dim);
+    font-size: 13px;
+    color: var(--text-muted);
   }
-  .count-bar strong { color: var(--text); }
+  .count-bar strong { color: var(--text-secondary); }
 
   /* Timeline */
   .timeline {
@@ -176,244 +225,258 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   .timeline::before {
     content: '';
     position: absolute;
-    left: 11px;
-    top: 8px;
-    bottom: 8px;
+    left: 11px; top: 8px; bottom: 8px;
     width: 2px;
-    background: linear-gradient(to bottom, var(--accent), var(--ice-surface));
-    opacity: .5;
+    background: linear-gradient(to bottom, var(--accent), var(--border-dim));
+    opacity: .4;
   }
 
   .tournament-card {
     position: relative;
-    margin-bottom: 20px;
-    background: var(--ice-light);
-    border: 1px solid var(--ice-surface);
+    margin-bottom: 16px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
     border-radius: var(--radius);
-    padding: 20px 24px;
+    padding: 16px 20px;
     cursor: pointer;
-    transition: all .25s cubic-bezier(.16,1,.3,1);
+    transition: border-color .15s, box-shadow .15s, transform .15s;
     user-select: none;
   }
   .tournament-card:hover {
     border-color: var(--accent-dim);
-    box-shadow: 0 0 0 1px var(--accent-glow), 0 8px 32px rgba(0,0,0,.3);
-    transform: translateY(-2px);
+    box-shadow: 0 0 0 1px var(--accent-glow), 0 4px 24px rgba(0,0,0,.2);
   }
   .tournament-card.hidden { display: none; }
   .tournament-card::before {
     content: '';
     position: absolute;
-    left: -25px;
-    top: 26px;
-    width: 12px;
-    height: 12px;
+    left: -25px; top: 24px;
+    width: 12px; height: 12px;
     background: var(--accent);
-    border: 3px solid var(--ice);
+    border: 3px solid var(--bg);
     border-radius: 50%;
     z-index: 1;
   }
   .tournament-card-header {
-    display: flex;
-    align-items: flex-start;
+    display: flex; align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
   }
   .tournament-date {
-    display: flex;
-    flex-direction: column;
+    display: flex; flex-direction: column;
     align-items: center;
-    min-width: 56px;
-    padding: 8px 12px;
-    background: var(--ice);
+    min-width: 52px;
+    padding: 6px 10px;
+    background: var(--bg);
     border-radius: var(--radius-sm);
-    border: 1px solid var(--ice-surface);
+    border: 1px solid var(--border-dim);
   }
-  .tournament-date .day { font-size: 22px; font-weight: 700; line-height: 1; }
-  .tournament-date .month { font-size: 11px; text-transform: uppercase; color: var(--text-dim); letter-spacing: .06em; margin-top: 2px; }
-  .tournament-date .weekday { font-size: 10px; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-top: 4px; }
+  .tournament-date .day { font-size: 20px; font-weight: 700; line-height: 1; }
+  .tournament-date .month { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: .06em; margin-top: 2px; }
+  .tournament-date .weekday { font-size: 9px; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-top: 3px; }
   .tournament-info { flex: 1; min-width: 0; }
-  .tournament-info h3 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+  .tournament-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
   .tournament-info h3 span { color: var(--accent); }
-  .tournament-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .tournament-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 
   .tag {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 500;
-    background: var(--ice);
-    border: 1px solid var(--ice-surface);
-    color: var(--text-dim);
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    font-size: 11px; font-weight: 500;
+    background: var(--bg);
+    border: 1px solid var(--border-dim);
+    color: var(--text-muted);
   }
-  .tag--age { background: rgba(56,189,248,.1); border-color: rgba(56,189,248,.2); color: var(--accent); }
-  .tag--arena { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); color: var(--amber); }
-  .tag--teams { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.2); color: var(--emerald); }
-  .tag--travel { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); color: var(--amber); }
-  .tag svg { width: 14px; height: 14px; flex-shrink: 0; }
+  .tag--age { background: rgba(14,165,233,.08); border-color: rgba(14,165,233,.15); color: var(--accent); }
+  .tag--arena { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.15); color: var(--amber); }
+  .tag--teams { background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.15); color: var(--emerald); }
+  .tag--travel { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.15); color: var(--amber); }
+  .tag svg { width: 12px; height: 12px; flex-shrink: 0; }
 
   .tournament-arrow {
-    color: var(--text-dim);
-    transition: transform .3s cubic-bezier(.16,1,.3,1);
-    flex-shrink: 0;
-    margin-top: 4px;
+    color: var(--text-muted);
+    transition: transform .25s cubic-bezier(.16,1,.3,1);
+    flex-shrink: 0; margin-top: 4px;
   }
-  .tournament-arrow svg { width: 20px; height: 20px; display: block; }
+  .tournament-arrow svg { width: 18px; height: 18px; display: block; }
   .tournament-card.expanded .tournament-arrow { transform: rotate(180deg); }
 
   /* Cancelled badge */
   .cancelled-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    background: rgba(239,68,68,.15);
-    color: #ef4444;
-    border: 1px solid rgba(239,68,68,.3);
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    padding: 2px 8px;
-    border-radius: 4px;
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(244,63,94,.1); color: var(--rose);
+    border: 1px solid rgba(244,63,94,.2);
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 2px 8px; border-radius: var(--radius-sm);
     margin-bottom: 8px;
   }
   .tournament-card.cancelled {
-    border-left-color: rgba(239,68,68,.5);
-    opacity: .85;
+    border-left-color: rgba(244,63,94,.3);
+    opacity: .88;
   }
 
   /* Match table */
   .matches {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height .5s cubic-bezier(.16,1,.3,1), opacity .3s ease;
+    max-height: 0; overflow: hidden;
+    transition: max-height .4s cubic-bezier(.16,1,.3,1), opacity .25s ease;
     opacity: 0;
   }
-  .tournament-card.expanded .matches {
-    max-height: 2000px;
-    opacity: 1;
-  }
+  .tournament-card.expanded .matches { max-height: 2000px; opacity: 1; }
   .matches-inner {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--ice-surface);
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border-dim);
   }
   .matches-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 10px;
   }
-  .matches-header h4 { font-size: 13px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; }
-  .matches-header .count { font-size: 12px; color: var(--text-dim); }
+  .matches-header h4 { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+  .matches-header .count { font-size: 11px; color: var(--text-muted); }
   .match-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 6px;
+    gap: 5px;
   }
   .match-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: var(--ice);
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px;
+    background: var(--bg);
     border-radius: var(--radius-sm);
-    font-size: 13px;
-    color: var(--text-dim);
-  }
-  .match-row .vs { color: var(--ice-border); font-size: 10px; font-weight: 600; }
-  .match-row.bye-row {
-    background: rgba(56,189,248,.03);
-    border: 1px dashed var(--ice-border);
+    font-size: 12px;
     color: var(--text-muted);
   }
-  .match-row .bye-label { font-style: italic; opacity: .7; }
+  .match-row .vs { color: var(--border); font-size: 9px; font-weight: 600; }
+  .match-row.bye-row {
+    background: rgba(14,165,233,.03);
+    border: 1px dashed var(--border);
+    color: var(--text-muted);
+  }
+  .match-row .bye-label { font-style: italic; opacity: .6; }
   .match-row .slot {
     margin-left: auto;
-    padding: 1px 8px;
-    border-radius: 999px;
-    font-size: 10px;
-    font-weight: 600;
-    background: rgba(56,189,248,.1);
+    padding: 1px 7px;
+    border-radius: var(--radius-pill);
+    font-size: 9px; font-weight: 600;
+    background: rgba(14,165,233,.08);
     color: var(--accent);
     white-space: nowrap;
   }
 
   /* Score quality */
   .score-bar {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-    padding: 16px 20px;
-    margin-bottom: 24px;
-    background: var(--ice-light);
-    border: 1px solid var(--ice-surface);
+    display: flex; gap: 20px; flex-wrap: wrap;
+    padding: 12px 16px; margin-bottom: 20px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
     border-radius: var(--radius);
   }
-  .score-item { font-size: 13px; color: var(--text-dim); }
-  .score-item strong { color: var(--text); }
+  .score-item { font-size: 12px; color: var(--text-muted); }
+  .score-item strong { color: var(--text-secondary); }
   .score-dot {
     display: inline-block;
-    width: 8px; height: 8px;
+    width: 6px; height: 6px;
     border-radius: 50%;
-    margin-right: 4px;
+    margin-right: 3px;
   }
 
   .no-results {
     text-align: center;
     padding: 64px 24px;
-    color: var(--text-dim);
+    color: var(--text-muted);
   }
-  .no-results svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: .4; }
-  .no-results p { font-size: 15px; }
+  .no-results svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: .3; }
+  .no-results p { font-size: 14px; }
+
+  /* Export download links */
+  .export-links {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 8px 0; margin-bottom: 8px;
+  }
+  .export-link-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: var(--radius-sm);
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
+    color: var(--text-secondary); text-decoration: none;
+    font-size: 12px; font-weight: 500;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .export-link-btn:hover {
+    background: var(--link-color); color: #09090b;
+    border-color: var(--link-color);
+  }
+  .export-link-btn svg { width: 14px; height: 14px; display: block; }
+
+  /* Team stats details sections */
+  .team-stats summary {
+    cursor: pointer;
+    padding: 10px 14px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
+    border-radius: var(--radius);
+    font-size: 13px; font-weight: 600;
+    color: var(--text-secondary);
+    user-select: none;
+    display: flex; align-items: center;
+    transition: border-color .15s, background .15s;
+  }
+  .team-stats summary:hover {
+    border-color: var(--border);
+    background: var(--bg-surface);
+  }
+  .team-stats summary::-webkit-details-marker { display: none; }
+  .team-stats summary::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-right: 2px solid var(--text-muted);
+    border-bottom: 2px solid var(--text-muted);
+    margin-right: 8px;
+    transform: rotate(-45deg);
+    transition: transform .15s;
+  }
+  .team-stats[open] summary::before { transform: rotate(45deg); }
+
+  .club-dashboard {
+    margin-bottom: 20px;
+    padding: 14px 18px;
+    background: var(--bg-raised);
+    border: 1px solid var(--border-dim);
+    border-left: 3px solid var(--amber);
+    border-radius: var(--radius);
+  }
 
   @media (max-width: 768px) {
     .app { padding: 16px 12px 48px; }
+    .navbar { height: auto; padding: 8px 12px; }
     .header { flex-direction: column; align-items: flex-start; }
     .header-right { width: 100%; }
     .filters { flex-direction: column; }
     .filter-select, .filter-input { min-width: 100%; }
     .timeline { padding-left: 24px; }
-    .tournament-card { padding: 16px; }
+    .tournament-card { padding: 14px; }
     .tournament-card::before { left: -18px; width: 10px; height: 10px; }
     .timeline::before { left: 8px; }
     .tournament-card-header { flex-wrap: wrap; }
     .match-grid { grid-template-columns: 1fr; }
-    .tournament-date { min-width: 48px; padding: 6px 10px; }
+    .tournament-date { min-width: 48px; padding: 6px 8px; }
     .tournament-date .day { font-size: 18px; }
+    h1 { font-size: 18px; }
   }
 
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
   }
-
-  /* Export download links */
-  .export-links {
-    display: flex; flex-wrap: wrap; gap: 8px;
-    padding: 8px 16px; margin: 0 16px 8px;
-    background: var(--ice-light); border: 1px solid var(--ice-surface);
-    border-radius: var(--radius);
-  }
-  .export-link-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 14px; border-radius: 6px;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-    color: #cbd5e1; text-decoration: none; font-size: 0.8em;
-    transition: background 0.15s, color 0.15s;
-  }
-  .export-link-btn:hover {
-    background: var(--link-color); color: #0f172a;
-    border-color: var(--link-color);
-  }
 </style>
 </head>
 <body>
 <div class="navbar">
-  <span class="brand">🏒 RVV Miniputt</span>
-  <a href="calendars.html">🗓️ Skrapede kalendere</a>
-  <a href="season_plan.html" class="active">📋 Sesongplan</a>
+  <span class="brand">RVV Miniputt</span>
+  <a href="calendars.html"><span class="nav-icon">$ICON_CALENDAR$</span> Skrapede kalendere</a>
+  <a href="season_plan.html" class="active"><span class="nav-icon">$ICON_CLIPBOARD$</span> Sesongplan</a>
   <span class="meta-nav">$SCRAPE_META$</span>
 </div>
 <div class="app" id="app">
@@ -465,10 +528,10 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   $EXPORT_LINKS_HTML$
 
   <!-- Club dashboard (hidden until a club is selected) -->
-  <div class="club-dashboard" id="clubDashboard" style="display:none;margin-bottom:24px;padding:16px 20px;background:var(--ice-light);border:1px solid var(--ice-surface);border-left:4px solid var(--amber);border-radius:var(--radius)">
+  <div class="club-dashboard" id="clubDashboard" style="display:none;margin-bottom:24px;padding:16px 20px;background:var(--bg-raised);border:1px solid var(--border-dim);border-left:4px solid var(--amber);border-radius:var(--radius)">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px">
-      <h3 style="font-size:16px;color:var(--amber);font-weight:700;margin:0">🎯 <span id="clubDashName"></span></h3>
-      <span style="font-size:12px;color:var(--text-dim)">Klubb-oversikt</span>
+      <h3 style="font-size:16px;color:var(--amber);font-weight:700;margin:0;display:flex;align-items:center;gap:6px"><span class="club-dash-icon">$ICON_TARGET$</span> <span id="clubDashName"></span></h3>
+      <span style="font-size:12px;color:var(--text-muted)">Klubb-oversikt</span>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:12px">
       <div class="stat-badge" style="background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.2)">
@@ -492,16 +555,16 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 
   <!-- Team game counts table -->
   <details class="team-stats" id="teamStats" style="margin-bottom:24px">
-    <summary style="cursor:pointer;padding:12px 16px;background:var(--ice-light);border:1px solid var(--ice-surface);border-radius:var(--radius);font-size:14px;color:var(--accent);font-weight:600;user-select:none">
-      🏒 Kamper per lag ($TEAM_COUNT$ lag) — klikk for å vise
+    <summary>
+      <span class="summary-icon">$ICON_USERS$</span> Kamper per lag ($TEAM_COUNT$ lag) &mdash; klikk for å vise
     </summary>
     <div style="margin-top:8px;overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
-          <tr style="border-bottom:2px solid var(--ice-surface)">
-            <th style="text-align:left;padding:8px 12px;color:var(--text-dim);font-weight:600">Lag</th>
-            <th style="text-align:right;padding:8px 12px;color:var(--text-dim);font-weight:600">Kamper</th>
-            <th style="text-align:left;padding:8px 12px;color:var(--text-dim);font-weight:600">Siste kamp</th>
+          <tr style="border-bottom:2px solid var(--border-dim)">
+            <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-weight:600">Lag</th>
+            <th style="text-align:right;padding:8px 12px;color:var(--text-muted);font-weight:600">Kamper</th>
+            <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-weight:600">Siste kamp</th>
           </tr>
         </thead>
         <tbody id="teamGameCountsBody">
@@ -512,17 +575,17 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 
   <!-- Team travel distances table -->
   <details class="team-stats travel-stats" id="travelStats" style="margin-bottom:24px">
-    <summary style="cursor:pointer;padding:12px 16px;background:var(--ice-light);border:1px solid var(--ice-surface);border-radius:var(--radius);font-size:14px;color:var(--amber);font-weight:600;user-select:none">
-      🚗 Reiseavstand per lag — klikk for å vise
-      <span style="margin-left:8px;font-weight:400;font-size:12px;color:var(--text-dim)">$MOST_TRAVEL_TEAM$ reiste lengst: $MOST_TRAVEL_KM$ km</span>
+    <summary>
+      <span class="summary-icon">$ICON_TRAVEL$</span> Reiseavstand per lag &mdash; klikk for å vise
+      <span style="margin-left:8px;font-weight:400;font-size:12px;color:var(--text-muted)">$MOST_TRAVEL_TEAM$ reiste lengst: $MOST_TRAVEL_KM$ km</span>
     </summary>
     <div style="margin-top:8px;overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
-          <tr style="border-bottom:2px solid var(--ice-surface)">
-            <th style="text-align:left;padding:8px 12px;color:var(--text-dim);font-weight:600">Lag</th>
-            <th style="text-align:right;padding:8px 12px;color:var(--text-dim);font-weight:600">Total reise (km)</th>
-            <th style="text-align:right;padding:8px 12px;color:var(--text-dim);font-weight:600">Borteturneringer</th>
+          <tr style="border-bottom:2px solid var(--border-dim)">
+            <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-weight:600">Lag</th>
+            <th style="text-align:right;padding:8px 12px;color:var(--text-muted);font-weight:600">Total reise (km)</th>
+            <th style="text-align:right;padding:8px 12px;color:var(--text-muted);font-weight:600">Borteturneringer</th>
           </tr>
         </thead>
         <tbody id="teamTravelBody">
@@ -535,9 +598,9 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 
   <!-- Calendar heatmap -->
   <details class="team-stats heatmap-stats" id="heatmapSection" style="margin-bottom:24px" open>
-    <summary style="cursor:pointer;padding:12px 16px;background:var(--ice-light);border:1px solid var(--ice-surface);border-radius:var(--radius);font-size:14px;color:var(--accent);font-weight:600;user-select:none">
-      🗓️ Sesongvarmekart — klikk for å vise/skjule
-      <span style="margin-left:8px;font-weight:400;font-size:12px;color:var(--text-dim)">$HEATMAP_CLUBS_COUNT$ klubber · $HEATMAP_WEEKS_COUNT$ uker</span>
+    <summary>
+      <span class="summary-icon">$ICON_CALENDAR$</span> Sesongvarmekart &mdash; klikk for å vise/skjule
+      <span style="margin-left:8px;font-weight:400;font-size:12px;color:var(--text-muted)">$HEATMAP_CLUBS_COUNT$ klubber · $HEATMAP_WEEKS_COUNT$ uker</span>
     </summary>
     <div style="margin-top:8px;overflow-x:auto;font-size:11px">
       <table id="heatmapTable" style="border-collapse:collapse;width:max-content;min-width:100%">
@@ -647,7 +710,7 @@ function getClubFromTeam(team) {
   const sorted = Object.entries(TEAM_GAME_COUNTS).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   sorted.forEach(([label, count]) => {
     const tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid var(--ice-surface)';
+    tr.style.borderBottom = '1px solid var(--border-dim)';
     const tdLabel = document.createElement('td');
     tdLabel.style.padding = '6px 12px';
     tdLabel.textContent = label;
@@ -657,7 +720,7 @@ function getClubFromTeam(team) {
     tdCount.textContent = count;
     const tdLast = document.createElement('td');
     tdLast.style.padding = '6px 12px';
-    tdLast.style.color = 'var(--text-dim)';
+    tdLast.style.color = 'var(--text-muted)';
     // Find last tournament date for this team
     let lastDate = '';
     for (const t of TOURNAMENTS) {
@@ -693,7 +756,7 @@ function getClubFromTeam(team) {
   });
   sorted.forEach(([label, km]) => {
     const tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid var(--ice-surface)';
+    tr.style.borderBottom = '1px solid var(--border-dim)';
     const isMost = km === maxKm && km > 0;
     if (isMost) {
       tr.style.background = 'rgba(251,191,36,.08)';
@@ -701,7 +764,7 @@ function getClubFromTeam(team) {
     const tdLabel = document.createElement('td');
     tdLabel.style.padding = '6px 12px';
     if (isMost) {
-      tdLabel.innerHTML = '🚗 <strong>' + label + '</strong> <span style="font-size:10px;color:var(--amber);font-weight:600">(lengst reisevei)</span>';
+      tdLabel.innerHTML = '<span class="travel-icon">$ICON_TRAVEL$</span> <strong>' + label + '</strong> <span style="font-size:10px;color:var(--amber);font-weight:600">(lengst reisevei)</span>';
     } else {
       tdLabel.textContent = label;
     }
@@ -732,7 +795,7 @@ function getClubFromTeam(team) {
   const legend = document.getElementById('heatmapLegend');
   if (!head || !body || !legend) return;
   if (!HEATMAP_WEEKS.length || !HEATMAP_CLUBS.length) {
-    body.innerHTML = '<tr><td colspan="' + (HEATMAP_WEEKS.length + 1) + '" style="padding:16px;text-align:center;color:var(--text-dim)">Ingen turneringsdata for varmekart</td></tr>';
+    body.innerHTML = '<tr><td colspan="' + (HEATMAP_WEEKS.length + 1) + '" style="padding:16px;text-align:center;color:var(--text-muted)">Ingen turneringsdata for varmekart</td></tr>';
     return;
   }
 
@@ -746,7 +809,7 @@ function getClubFromTeam(team) {
   });
 
   // Build header row: week labels with month grouping
-  let headerRow = '<tr><th style="position:sticky;left:0;z-index:1;background:var(--ice);padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600;min-width:110px">Klubb</th>';
+  let headerRow = '<tr><th style="position:sticky;left:0;z-index:1;background:var(--bg);padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:600;min-width:110px">Klubb</th>';
   const MONTHS_NO = ["","jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
   let lastMonth = '';
   HEATMAP_WEEKS.forEach(wk => {
@@ -763,7 +826,7 @@ function getClubFromTeam(team) {
     const month = MONTHS_NO[monday.getUTCMonth() + 1];
     const monthLabel = month !== lastMonth ? month : '';
     if (month !== lastMonth && month) lastMonth = month;
-    headerRow += '<th style="padding:4px 2px;text-align:center;font-weight:600;font-size:10px;color:var(--text-dim)">' + monthLabel + '<br><span style="font-size:9px;color:var(--ice-border)">' + wk.slice(-2) + '</span></th>';
+    headerRow += '<th style="padding:4px 2px;text-align:center;font-weight:600;font-size:10px;color:var(--text-muted)">' + monthLabel + '<br><span style="font-size:9px;color:var(--text-muted)">' + wk.slice(-2) + '</span></th>';
   });
   headerRow += '</tr>';
   head.innerHTML = headerRow;
@@ -772,8 +835,8 @@ function getClubFromTeam(team) {
   let bodyHtml = '';
   HEATMAP_CLUBS.forEach(club => {
     const c = HEATMAP_CLUB_COLORS[club] || {bg: '#2a2a2a', text: '#999'};
-    bodyHtml += '<tr style="border-bottom:1px solid var(--ice-surface)">';
-    bodyHtml += '<td style="position:sticky;left:0;z-index:0;background:var(--ice);padding:6px 10px;font-size:12px;color:' + c.text + ';font-weight:600">' + club + '</td>';
+    bodyHtml += '<tr style="border-bottom:1px solid var(--border-dim)">';
+    bodyHtml += '<td style="position:sticky;left:0;z-index:0;background:var(--bg);padding:6px 10px;font-size:12px;color:' + c.text + ';font-weight:600">' + club + '</td>';
     HEATMAP_WEEKS.forEach(wk => {
       const weekData = HEATMAP[wk] || {};
       const clubData = weekData[club];
@@ -781,7 +844,7 @@ function getClubFromTeam(team) {
         const label = clubData.join(',');
         bodyHtml += '<td style="background:' + c.bg + ';border:1px solid ' + c.text + ';padding:3px 4px;text-align:center;font-size:10px;color:' + c.text + ';font-weight:600;white-space:nowrap">' + label + '</td>';
       } else {
-        bodyHtml += '<td style="background:rgba(30,41,59,.4);border:1px solid var(--ice-surface);padding:3px 4px;text-align:center"></td>';
+        bodyHtml += '<td style="background:rgba(30,41,59,.4);border:1px solid var(--border-dim);padding:3px 4px;text-align:center"></td>';
       }
     });
     bodyHtml += '</tr>';
@@ -958,9 +1021,10 @@ class HtmlExporter:
         travel_count_estimate_html = ""
         if len(team_travel) < 3:
             travel_count_estimate_html = (
-                '<div style="padding:8px 16px;font-size:12px;color:var(--text-dim);'
+                '<div style="padding:8px 16px;font-size:12px;color:var(--text-muted);'
                 'text-align:center;margin-bottom:12px">'
-                '⚠️ Få lag med reisedata — avstander er estimater basert på '
+                '<span class="warning-icon">$ICON_WARNING$</span> '
+                'Få lag med reisedata &mdash; avstander er estimater basert på '
                 'kjente arenaer.</div>'
             )
 
@@ -1088,7 +1152,7 @@ class HtmlExporter:
                         age = f"{delta.days}d siden"
                 except Exception:
                     pass
-            scrape_meta = f"🏒 {src} kilder · 📊 {ev} hendelser · 🕐 {age}" if age else f"🏒 {src} kilder · 📊 {ev} hendelser"
+            scrape_meta = f"{src} kilder &middot; {ev} hendelser &middot; {age}" if age else f"{src} kilder &middot; {ev} hendelser"
         else:
             scrape_meta = ""
 
@@ -1097,10 +1161,10 @@ class HtmlExporter:
         if output_files:
             export_links_html = '<div class="export-links">'
             link_defs = [
-                ("excel", "📥 Last ned Excel (.xlsx)", "#38bdf8"),
-                ("csv_overview", "📊 Last ned CSV", "#34d399"),
-                ("csv_games", "📋 Last ned CSV (kamper)", "#fbbf24"),
-                ("ical", "📅 Last ned iCal (.ics)", "#f87171"),
+                ("excel", _ICON_DOWNLOAD + " Last ned Excel (.xlsx)", "#38bdf8"),
+                ("csv_overview", _ICON_BAR_CHART + " Last ned CSV", "#34d399"),
+                ("csv_games", _ICON_FILE_SPREADSHEET + " Last ned CSV (kamper)", "#fbbf24"),
+                ("ical", _ICON_CALENDAR + " Last ned iCal (.ics)", "#f87171"),
             ]
             for key, label, color in link_defs:
                 if key in output_files:
@@ -1112,6 +1176,12 @@ class HtmlExporter:
             export_links_html += '</div>'
 
         replacements = {
+            "$ICON_CALENDAR$": _ICON_CALENDAR,
+            "$ICON_CLIPBOARD$": _ICON_CLIPBOARD,
+            "$ICON_USERS$": _ICON_USERS,
+            "$ICON_TARGET$": _ICON_TARGET,
+            "$ICON_TRAVEL$": _ICON_TRAVEL,
+            "$ICON_WARNING$": _ICON_WARNING,
             "$SEASON_LABEL$": season_label,
             "$SCRAPE_META$": scrape_meta,
             "$AGE_GROUPS$": " + ".join(age_groups),
