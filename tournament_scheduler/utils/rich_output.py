@@ -328,7 +328,7 @@ class TournamentOutput:
         summary_text = Text()
         summary_text.append(f"Antall turneringer: {len(plan.tournaments)}\n", style="bold")
         summary_text.append(
-            f"Mangfoldscore (andel nye lagkonstellasjoner): {plan.diversity_score:.2f}\n",
+            f"Motstandervariasjon (andel mulige motstandere møtt): {plan.diversity_score:.2f}\n",
             style="green"
         )
         summary_text.append(

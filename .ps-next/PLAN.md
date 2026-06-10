@@ -26,7 +26,7 @@
   - Files: `tournament_scheduler/html/templates/scores.html`
   - In `scores.html` (line 5, `Spredning: <strong>$DIVERSITY_SCORE$%</strong>`), keep the existing `$DIVERSITY_SCORE$` token (already wired in `html_exporter.py:323` to `plan.diversity_score`) but adjust the label text if needed (e.g. add a short tooltip/title attribute or adjacent text such as "Spredning (motstandervariasjon)") so it is visually distinguishable from "Nye matchups" (line 13, `$PAIRWISE_SCORE$`) now that the underlying values genuinely differ.
 
-- [ ] Update Rich console output descriptions for the two metrics to avoid overlapping wording
+- [x] Reworded the diversity_score line in print_diversity_summary from 'Mangfoldscore (andel nye lagkonstellasjoner)' to 'Motstandervariasjon (andel mulige motstandere møtt)' to accurately describe opponent-pool coverage; left the pairwise_matchup_score line ('Kampmangfold (andel ferske motstanderpar)') unchanged since it already correctly describes first-time pairings. — 2026-06-10
   - Files: `tournament_scheduler/utils/rich_output.py`
   - Update the two summary lines (rich_output.py:331 and :335) so the Norwegian descriptions accurately describe each distinct metric: line 331 (`Mangfoldscore (andel nye lagkonstellasjoner)` for `plan.diversity_score`) should describe opponent-variety-per-team (e.g. "andel mulige motstandere møtt"), and line 335 (`Kampmangfold (andel ferske motstanderpar)` for `plan.pairwise_matchup_score`) should keep describing the fraction of first-time pairings — ensure the two labels no longer imply they measure the same thing.
 
@@ -70,3 +70,10 @@ LESSONS: none
 LESSONS: scores.html and other files under tournament_scheduler/html/templates/ are blocked by the repo's '*.html' gitignore rule and were untracked before this task; use 'git add -f' for any further edits to template .html files in that directory until the gitignore is fixed.
 **Files:** tournament_scheduler/html/templates/scores.html (+19/-0, force-added, was gitignored by *.html)
 **Commit:** e7a731d (hockey)
+
+### 2026-06-10 — Reworded the diversity_score line in print_diversity_summary from 'Mangfoldscore (andel nye lagkonstellasjoner)' to 'Motstandervariasjon (andel mulige motstandere møtt)' to accurately describe opponent-pool coverage; left the pairwise_matchup_score line ('Kampmangfold (andel ferske motstanderpar)') unchanged since it already correctly describes first-time pairings.
+**Rationale:** none
+**Findings:** No tests reference the old/new label strings directly; full suite still passes (276 passed, 1 pre-existing unrelated failure in test_zero_events_blocks_source, 1 skipped).
+LESSONS: none
+**Files:** tournament_scheduler/utils/rich_output.py (+1/-1)
+**Commit:** [pending — fill after commit]
