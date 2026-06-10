@@ -102,8 +102,11 @@ def _month_name(m: int, locale: str = "nb") -> str:
     return nb[m] if 1 <= m <= 12 else f"Måned {m}"
 
 
-def generate_html(work_dir: str = ".pipeline") -> str:
-    """Generate the calendar viewer HTML and return its file path."""
+def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> str:
+    """Generate the calendar viewer HTML and return its file path.
+
+    Writes to ``<export_dir>/calendars.html`` by default.
+    """
     cache = ScrapedDataCache(work_dir)
     data = cache.read()
     sources: dict[str, Any] = data.get("sources", {})
@@ -276,7 +279,7 @@ def generate_html(work_dir: str = ".pipeline") -> str:
     age_all = _age_string(updated_at)
 
     # Check if season plan exists alongside
-    season_plan_path = Path(work_dir) / "season_plan.html"
+    season_plan_path = Path(export_dir) / "season_plan.html"
     has_season_plan = season_plan_path.exists()
 
     html = f"""<!DOCTYPE html>
@@ -379,6 +382,7 @@ def generate_html(work_dir: str = ".pipeline") -> str:
     border-radius: var(--radius-pill);
     font-weight: 600; flex-shrink: 0;
     text-transform: uppercase; letter-spacing: .04em;
+    color: #555;
   }}
 
   .month-filter-item {{
@@ -585,7 +589,7 @@ function applyFilters() {{
 </body>
 </html>"""
 
-    out_path = Path(work_dir) / "calendars.html"
+    out_path = Path(export_dir) / "calendars.html"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
     return str(out_path.resolve())
@@ -596,6 +600,7 @@ if __name__ == "__main__":  # pragma: no cover
 
     parser = argparse.ArgumentParser(description="Generate calendar viewer HTML from cache")
     parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
+    parser.add_argument("--export-dir", default="export", help="Export directory for HTML output")
     parser.add_argument("--refresh", action="store_true", help="Force re-scrape (marks cache stale)")
     args = parser.parse_args()
 
@@ -605,5 +610,5 @@ if __name__ == "__main__":  # pragma: no cover
         c.force_refresh()
         print("Cache markert som utdatert — kjør rvv-miniputt run for å re-skrape.")
     else:
-        path = generate_html(work_dir=args.work_dir)
+        path = generate_html(work_dir=args.work_dir, export_dir=args.export_dir)
         print(f"Kalendervisning generert: {path}")
