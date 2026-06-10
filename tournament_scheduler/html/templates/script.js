@@ -306,4 +306,21 @@ document.getElementById('filterClear').addEventListener('click', function() {
   render();
 });
 
+(function() {
+  var THEME_KEY = 'rvv-theme';
+  var toggle = document.getElementById('themeToggle');
+  var saved = localStorage.getItem(THEME_KEY);
+  if (saved === 'light' || saved === 'dark') {
+    document.documentElement.dataset.theme = saved;
+  }
+  if (toggle) {
+    toggle.addEventListener('click', function() {
+      var current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+      var next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem(THEME_KEY, next);
+    });
+  }
+})();
+
 render();

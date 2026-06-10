@@ -9,11 +9,11 @@
   - Files: tournament_scheduler/html/templates/styles.css
   - Approach: Keep the existing `:root { ... }` block as the dark theme (default), and add a `[data-theme="light"]` (or `.theme-light`) selector that overrides every color variable currently defined in `:root` (`--bg`, `--bg-raised`, `--bg-surface`, `--border`, `--border-dim`, `--text`, `--text-secondary`, `--text-muted`, `--accent`, `--accent-dim`, `--accent-glow`, `--amber`, `--emerald`, `--rose`, `--violet`) with light, high-contrast equivalents; leave `--radius*` and `--font*` untouched since they are theme-independent.
 
-- [ ] Add a theme toggle control to the shared header fragment
+- [x] Added a #themeToggle icon button with sun/moon inline-SVG icons near the .header-right stat badges in header.html, following the existing .stat-badge markup conventions. — 2026-06-10
   - Files: tournament_scheduler/html/templates/header.html
   - Approach: Add a small icon button (e.g. `<button id="themeToggle" class="theme-toggle" aria-label="Bytt tema" title="Bytt tema">`) near the existing `.header-right` stat badges, using the same inline-SVG icon style as the other badges (sun/moon icon), following the markup conventions already used for `.stat-badge` elements.
 
-- [ ] Implement theme persistence and toggle logic in script.js
+- [x] Added an IIFE near the end of script.js that reads the saved theme from localStorage (key rvv-theme), applies it via document.documentElement.dataset.theme, and wires a click handler on #themeToggle to flip the theme and persist the new value. — 2026-06-10
   - Files: tournament_scheduler/html/templates/script.js
   - Approach: In the existing DOMContentLoaded init function (~line 150), read a saved theme preference from `localStorage` (e.g. key `rvv-theme`) and apply it by setting `document.documentElement.dataset.theme` (or toggling a `theme-light` class on `<html>`/`<body>`) before first paint where possible; wire a click handler on `#themeToggle` that flips the theme, updates the `localStorage` value, and updates the toggle icon/aria-state, following the same event-handler registration style already used in script.js.
 
@@ -52,3 +52,17 @@
 LESSONS: none
 **Files:** tournament_scheduler/html/templates/styles.css (already committed, no new changes)
 **Commit:** 16294492
+
+### 2026-06-10 — Added a #themeToggle icon button with sun/moon inline-SVG icons near the .header-right stat badges in header.html, following the existing .stat-badge markup conventions.
+**Rationale:** Implementation already present in repository matching the spec; confirmed button markup exists with aria-label and title attributes.
+**Findings:** Theme toggle button with sun/moon icons confirmed present in header.html within .header-right.
+LESSONS: none
+**Files:** tournament_scheduler/html/templates/header.html (already committed, no new changes)
+**Commit:** 16294492
+
+### 2026-06-10 — Added an IIFE near the end of script.js that reads the saved theme from localStorage (key rvv-theme), applies it via document.documentElement.dataset.theme, and wires a click handler on #themeToggle to flip the theme and persist the new value.
+**Rationale:** Used dataset.theme to match the [data-themelight] CSS selector added in styles.css; followed existing addEventListener conventions in script.js.
+**Findings:** Theme toggle logic added and verified with node --check (no syntax errors).
+LESSONS: none
+**Files:** tournament_scheduler/html/templates/script.js (+17/-0)
+**Commit:** [pending — fill after commit]
