@@ -22,7 +22,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
-from ..models import Game, Roster, SeasonPlan, Team, Tournament
+from ..models import CalendarEvent, Game, Roster, SeasonPlan, Team, Tournament
 from ..season_planner import SeasonPlanner
 from ..roster_loader import RosterLoader
 from ..club_registry import CLUB_REGISTRY
@@ -84,6 +84,7 @@ def run(
     club_arenas = _build_club_arenas(config)
     division_skill_band = config.get("divisionSkillBand", 2)
     max_hosting_deviation = config.get("maxHostingDeviation", 1)
+    events_by_club = _build_events_by_club(scraping_result)
 
     planner = _make_planner(
         roster,
@@ -92,6 +93,7 @@ def run(
         division_skill_band,
         max_hosting_deviation,
         round_length_config,
+        events_by_club,
     )
     plan = planner.build_plan(start_date, end_date)
 
@@ -203,6 +205,42 @@ def _build_club_arenas(config: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def _build_events_by_club(scraping_result: dict[str, Any] | None) -> dict[str, list[CalendarEvent]]:
+    """Reconstruct per-club `CalendarEvent` lists from the Stage 2 checkpoint.
+
+    Stage 2 (`stage2_scraping.run`) writes an `"events_by_club"` key
+    containing event dicts (as produced by `_events_to_dicts`) keyed by RVV
+    club name. This converts those dicts back into `CalendarEvent` objects
+    for use by `TournamentScheduler.find_arena_slot_for_date`.
+
+    Returns an empty dict if *scraping_result* is missing or has no
+    `"events_by_club"` key (e.g. older checkpoints, or partial Stage 2 runs)
+    -- callers should treat this as "no calendar data available" and fall
+    back to default scheduling behavior.
+    """
+    if not scraping_result:
+        return {}
+
+    events_by_club_raw = scraping_result.get("events_by_club", {})
+    result: dict[str, list[CalendarEvent]] = {}
+    for club_name, events in events_by_club_raw.items():
+        club_events: list[CalendarEvent] = []
+        for e in events:
+            try:
+                club_events.append(
+                    CalendarEvent(
+                        date=e["date"],
+                        name=e.get("name", ""),
+                        datetime=datetime.fromisoformat(e["datetime"]),
+                        duration_hours=e.get("duration_hours", 0.0),
+                    )
+                )
+            except (KeyError, ValueError):
+                continue
+        result[club_name] = club_events
+    return result
+
+
 def _make_planner(
     roster: Roster,
     pg_config: dict[str, int],
@@ -210,6 +248,7 @@ def _make_planner(
     division_skill_band: int = 2,
     max_hosting_deviation: int = 1,
     round_length_config: dict[str, int] | None = None,
+    events_by_club: dict[str, list[CalendarEvent]] | None = None,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner`."""
     from ..scheduler import TournamentScheduler
@@ -229,6 +268,7 @@ def _make_planner(
         round_length_for_age_group=round_length_config or None,
         division_skill_band=division_skill_band,
         max_hosting_deviation=max_hosting_deviation,
+        events_by_club=events_by_club or None,
     )
 
 

@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
+    CalendarEvent,
     Game,
     Roster,
     SeasonPlan,
@@ -85,6 +86,7 @@ class SeasonPlanner:
         division_skill_band: int = 2,
         max_hosting_deviation: int = 1,
         max_month_deviation_ratio: float = 0.5,
+        events_by_club: Optional[Dict[str, List[CalendarEvent]]] = None,
     ):
         """Initialize the planner.
 
@@ -121,6 +123,13 @@ class SeasonPlanner:
                 under-loaded when its tournament count deviates more than
                 this fraction from the expected seasonal average.
                 Default 0.5 means >50% deviation triggers a warning.
+            events_by_club: Optional mapping of club name -> calendar events
+                (e.g. Stage 2's `events_by_club` checkpoint output), used for
+                time-of-day-aware arena slot finding. When provided together
+                with `round_length_for_age_group`, each tournament's
+                `start_time` (and possibly its host arena, via fallback) is
+                derived from `TournamentScheduler.find_arena_slot_for_date`
+                instead of always using `DEFAULT_TOURNAMENT_START_TIME`.
         """
         self.scheduler = scheduler
         self.roster = roster
@@ -183,6 +192,12 @@ class SeasonPlanner:
         self._month_load_warnings: List[Tuple[int, int, int, float, float]] = []
 
         self.max_month_deviation_ratio = max_month_deviation_ratio
+        self.events_by_club = events_by_club or {}
+
+        # Fallback-host substitutions made during the most recent
+        # `build_plan` run, for surfacing in the rules/decisions report.
+        # Each entry is `(date, age_group, original_host_club, fallback_host_club)`.
+        self._fallback_host_substitutions: List[Tuple[date, str, str, str]] = []
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -209,6 +224,7 @@ class SeasonPlanner:
 
         host_assignments = self._assign_hosts(chosen_dates)
         collisions: List[Tuple[date, str, str]] = []
+        self._fallback_host_substitutions = []
 
         # Round-robin over age groups so the season covers a varied mix
         # rather than e.g. always scheduling U10 first.
@@ -239,14 +255,31 @@ class SeasonPlanner:
             games = self.generate_round_robin_games(participants, parallel_games)
             self._record_opponent_history(games)
 
+            actual_host_club = host_club
+            actual_arena = arena
+            start_time = DEFAULT_TOURNAMENT_START_TIME
+
+            slot = self._find_slot_for_tournament(
+                tournament_date, host_club, age_group, games
+            )
+            if slot is not None:
+                slot_host_club, slot_start, _slot_end = slot
+                start_time = slot_start
+                if slot_host_club != host_club:
+                    actual_host_club = slot_host_club
+                    actual_arena = self.club_arenas.get(slot_host_club, slot_host_club)
+                    self._fallback_host_substitutions.append(
+                        (tournament_date, age_group, host_club, slot_host_club)
+                    )
+
             tournament = Tournament(
                 date=tournament_date,
-                arena=arena,
+                arena=actual_arena,
                 age_group=age_group,
                 teams=participants,
                 games=games,
-                host_club=host_club,
-                start_time=DEFAULT_TOURNAMENT_START_TIME,
+                host_club=actual_host_club,
+                start_time=start_time,
             )
             plan.tournaments.append(tournament)
 
@@ -291,6 +324,60 @@ class SeasonPlanner:
         Populated after `build_plan` runs.
         """
         return getattr(self, "_collisions", [])
+
+    @property
+    def fallback_host_substitutions(self) -> List[Tuple[date, str, str, str]]:
+        """Fallback-host substitutions made during the most recent `build_plan` run.
+
+        Each entry is `(date, age_group, original_host_club, fallback_host_club)`.
+        A tournament's `_assign_hosts`-derived `host_club` is still counted
+        toward the proportional hosting totals computed by `_assign_hosts`
+        (hosting fairness is decided up front, before slot availability is
+        known); this list records where the *actual* arena/host ended up
+        differing from that assignment because the originally-assigned
+        host's arena had no free slot of sufficient length on the chosen
+        date.
+        """
+        return getattr(self, "_fallback_host_substitutions", [])
+
+    def _find_slot_for_tournament(
+        self,
+        tournament_date: date,
+        host_club: str,
+        age_group: str,
+        games: List[Game],
+    ) -> Optional[Tuple[str, str, str]]:
+        """Find a time-of-day slot for a tournament, if calendar data allows.
+
+        Computes the required duration from `round_length_for_age_group` and
+        the number of rounds in *games* (mirroring
+        `Tournament.duration_minutes`), then delegates to
+        `TournamentScheduler.find_arena_slot_for_date`.
+
+        Returns `None` (leaving the caller to use
+        `DEFAULT_TOURNAMENT_START_TIME` and the originally-assigned host)
+        when no calendar data is available, no round length is configured
+        for *age_group*, there are no games yet, or no candidate arena has a
+        fitting slot.
+        """
+        if not self.events_by_club:
+            return None
+
+        round_length = self.round_length_for_age_group.get(age_group)
+        if not round_length:
+            return None
+
+        if not games:
+            return None
+
+        max_round = max(g.round_number for g in games)
+        required_minutes = round_length * max_round
+        if required_minutes <= 0:
+            return None
+
+        return self.scheduler.find_arena_slot_for_date(
+            tournament_date, host_club, required_minutes, self.events_by_club
+        )
 
     @property
     def club_load_warnings(self) -> List[Tuple[str, str, str, int]]:
