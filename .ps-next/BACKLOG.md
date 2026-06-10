@@ -3,27 +3,7 @@
 ## Open
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-- [43] [ ] Redesign the HTML season-plan report (calendars.html / season_plan.html) with professional UX/UI — remove all emojis (🏒📋📊🗓️🎯⚠️📅🔗🏟️ etc.), replace with a clean typographic design system, proper visual hierarchy, subtle color palette, and polished interactive controls. The report should look like a premium sports analytics tool, not a debug dashboard.
+- [43] [x] Redesign the HTML season-plan report (calendars.html / season_plan.html) with professional UX/UI — remove all emojis (🏒📋📊🗓️🎯⚠️📅🔗🏟️ etc.), replace with a clean typographic design system, proper visual hierarchy, subtle color palette, and polished interactive controls. The report should look like a premium sports analytics tool, not a debug dashboard. (2026-06-10)
 - [42] [x] Refactor rvv-miniputt.ts (~1539 lines) into smaller dedicated modules: types.ts, parsers.ts, pipeline-logger.ts, pipeline-helpers.ts, log-inspector.ts, interactive-guide.ts, pipeline-runner.ts — keeping only the extension entry point and command registrations in rvv-miniputt.ts (2026-06-10)
 - [41] [x] Implement `rvv-miniputt scrape-llm` CLI subcommand for LLM-driven scraping of BookUp SPA and similar sources that need browser+LLM agent navigation (2026-06-10)
 - [40] [x] Add per-run pipeline logging to .pipeline/logs/ for troubleshooting and verification (already partially done — verify and complete) (2026-06-10)
