@@ -178,6 +178,111 @@ class TestRunStage2:
         assert src["events"][0]["name"] == "iCal event"
 
 
+class TestParallelExecution:
+    """Tests for the ThreadPoolExecutor-based parallel dispatch."""
+
+    def test_multiple_sources_all_collected(self, tmp_path):
+        """All results from multiple sources are collected regardless of order."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://a.example.com"},
+            {"name": "Skien", "type": SOURCE_ICAL, "url": "https://b.example.com"},
+            {"name": "Ringerike", "type": SOURCE_ICAL, "url": "https://c.example.com"},
+            {"name": "Jar", "type": SOURCE_OUTLOOK, "url": "https://d.example.com"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Outlook")], "<html>"),
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[_make_event("iCal")],
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+            )
+
+        assert len(result["sources"]) == 4
+        names = {s["name"] for s in result["sources"]}
+        assert names == {"Kongsberg", "Skien", "Ringerike", "Jar"}
+        assert sum(s["event_count"] for s in result["sources"]) == 4
+        assert state.is_done(StageName.SCRAPING)
+
+    def test_crashed_scraper_does_not_block_others(self, tmp_path):
+        """A scraper that raises is caught and other sources still succeed."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "GoodSource", "type": SOURCE_ICAL, "url": "https://good.example.com"},
+            {"name": "Crashy", "type": SOURCE_OUTLOOK, "url": "https://crash.example.com"},
+            {"name": "AlsoGood", "type": SOURCE_ICAL, "url": "https://also.example.com"},
+        ])
+
+        original = __import__(
+            "tournament_scheduler.pipeline.stage2_scraping", fromlist=["_scrape_source"]
+        )._scrape_source
+
+        call_count = {"count": 0}
+
+        def crashing_scraper(source_cfg, *, start_date, end_date):
+            call_count["count"] += 1
+            if source_cfg.get("name") == "Crashy":
+                raise RuntimeError("simulated crash")
+            return original(source_cfg, start_date=start_date, end_date=end_date)
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[_make_event("iCal event")],
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping._scrape_source",
+            side_effect=crashing_scraper,
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        assert len(result["sources"]) == 3
+        blocked_names = result.get("blocked", [])
+        assert "Crashy" in blocked_names
+        # GoodSource and AlsoGood should have 1 event each
+        good_events = sum(
+            s["event_count"]
+            for s in result["sources"]
+            if s["name"] != "Crashy"
+        )
+        assert good_events == 2
+
+    def test_sources_run_in_different_threads(self, tmp_path):
+        """Sources dispatched via ThreadPoolExecutor use multiple OS threads."""
+        import threading
+
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": f"Source{i}", "type": SOURCE_ICAL, "url": f"https://s{i}.example.com"}
+            for i in range(5)
+        ])
+
+        thread_ids: set[int] = set()
+
+        def record_thread(*args, **kwargs):
+            thread_ids.add(threading.get_ident())
+            return [_make_event("ev")]
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            side_effect=record_thread,
+        ):
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+            )
+
+        # With 5 sources and max_workers=4, at least 2 different threads must be used
+        assert len(thread_ids) >= 2, f"Expected >=2 threads, got {len(thread_ids)}"
+
+
 class TestEventsToDict:
     def test_serialises_correctly(self):
         events = [_make_event("Practice")]

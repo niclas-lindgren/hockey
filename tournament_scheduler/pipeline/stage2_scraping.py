@@ -25,6 +25,7 @@ empty ``sources`` list to the checkpoint (useful for tests / partial runs).
 from __future__ import annotations
 
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any
 
@@ -70,8 +71,13 @@ def run(
     end_date: datetime,
     *,
     strict: bool = True,
+    max_workers: int = 4,
 ) -> dict[str, Any]:
     """Run Stage 2 scraping for all sources listed in *config*.
+
+    Sources are scraped in parallel via :class:`~concurrent.futures.ThreadPoolExecutor`
+    because each source creates its own Playwright browser context (or uses HTTP-only
+    iCal feeds) — there is no shared browser state.
 
     Parameters
     ----------
@@ -83,6 +89,8 @@ def run(
         Date range for scraping.
     strict:
         If ``True``, raise :class:`Stage2Error` when any source is blocked.
+    max_workers:
+        Number of worker threads for the executor. Default 4.
 
     Returns
     -------
@@ -111,15 +119,34 @@ def run(
     source_results: list[dict[str, Any]] = []
     blocked: list[dict[str, Any]] = []
 
-    for source_cfg in sources:
-        source_result = _scrape_source(
-            source_cfg,
-            start_date=start_date,
-            end_date=end_date,
-        )
-        source_results.append(source_result)
-        if source_result.get("blocked"):
-            blocked.append({"name": source_cfg.get("name", "?"), **source_result})
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_source = {
+            executor.submit(
+                _scrape_source,
+                source_cfg,
+                start_date=start_date,
+                end_date=end_date,
+            ): source_cfg
+            for source_cfg in sources
+        }
+        for future in as_completed(future_to_source):
+            source_cfg = future_to_source[future]
+            try:
+                source_result = future.result()
+            except Exception as exc:
+                source_result = {
+                    "name": source_cfg.get("name", "ukjent kilde"),
+                    "url": source_cfg.get("url", ""),
+                    "type": source_cfg.get("type", SOURCE_OUTLOOK),
+                    "events": [],
+                    "event_count": 0,
+                    "blocked": True,
+                    "block_reason": f"Scraper krasjet: {exc}",
+                    "scraper_error": str(exc),
+                }
+            source_results.append(source_result)
+            if source_result.get("blocked"):
+                blocked.append({"name": source_cfg.get("name", "?"), **source_result})
 
     checkpoint: dict[str, Any] = {
         "sources": source_results,

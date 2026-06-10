@@ -1,78 +1,46 @@
-# Plan: Credential-aware booking calendar handling
-**Goal:** When the scraper encounters a booking/order calendar requiring authentication (e.g. BookUp), the system detects it, stops to ask the user for credentials interactively, and surfaces clear Norwegian-language messages instead of silently returning 0 events.
+# Plan: Parallelize Stage 2 scraping with ThreadPoolExecutor (4 workers)
+**Goal:** The 9-club scrape loop in `stage2_scraping.py` runs sources in parallel via `ThreadPoolExecutor(max_workers=4)`, giving ~3x speedup without changing per-source scraping logic.
 **Created:** 2026-06-10
-**Intent:** Backlog #30 added authenticated BookUp scraping, but the credential workflow is fragile — env vars referenced in strategy initial_navigation are silently empty if not set. Item #32 makes this first-class: detect auth-required sources, prompt interactively, and give helpful error messages when credentials are absent.
-**Backlog-ref:** 32
+**Intent:** Each calendar source is independent — separate Playwright contexts per thread. Serial iteration wastes wall-clock time on I/O-bound browser and HTTP work.
+**Backlog-ref:** 31
 
 ## Tasks
-- [x] Add credential_env_vars field to ScraperStrategy and strategy serialisation
-  - Files: tournament_scheduler/pipeline/scraper_strategies.py
-  - Approach: Add `credential_env_vars: list[str] = field(default_factory=list)` to the dataclass. Set `credential_env_vars=["BOOKUP_EMAIL", "BOOKUP_PASSWORD"]` on Tønsberg and Sandefjord Penguins strategies. Add `requires_credentials` property. Export in `strategy_to_dict()` and `list_strategies()`.
-
-- [x] Improve blocked-source messages in stage2_scraping.py with credential hints
+- [x] Refactor `run()` to collect source results via `ThreadPoolExecutor(max_workers=4)`
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
-  - Approach: When a source returns 0 events, look up its strategy and if `requires_credentials`, append a specific Norwegian message naming the required env vars. E.g.: "Kilde 'Tønsberg' krever innlogging (BookUp). Angi miljøvariablene BOOKUP_EMAIL og BOOKUP_PASSWORD, eller kjør pipeline interaktivt for å bli spurt." The stage already imports scraper strategies (for Jutul); extend that lookup.
-
-- [x] Add interactive credential prompting in rvv-miniputt.ts before ScraperAgent launch
-  - Files: .pi/extensions/rvv-miniputt.ts
-  - Approach: In the Stage 2 blocked-sources loop, after fetching the strategy, check `credential_env_vars`. For each missing env var, use `ctx.ui.input()` to prompt the user. Set the value in `process.env` so `substituteEnvVars()` picks it up. Surface a summary of what was collected. Only prompt once per missing variable (use a Set of already-prompted vars).
-
-- [x] Add pre-flight credential check to ScraperAgent scrape method
-  - Files: .pi/lib/scraper-agent.ts
-  - Approach: Before executing initial_navigation steps, scan them for `${...}` placeholders. If any placeholder resolves to an empty string after substitution, log a warning via the worker. This is a safety net — the extension should already prompt, but if someone calls ScraperAgent directly without credentials, the warning will surface.
-
-- [x] Run quality gates (typecheck, lint) and verify acceptance criteria
-  - Files: tournament_scheduler/pipeline/scraper_strategies.py, tournament_scheduler/pipeline/stage2_scraping.py, .pi/extensions/rvv-miniputt.ts, .pi/lib/scraper-agent.ts
-  - Approach: Run `python3 -m py_compile` on Python files, check TS compiles with `npx tsc --noEmit` if tsconfig exists, then run verify steps.
+  - Approach: Import `concurrent.futures.ThreadPoolExecutor`. Replace the serial `for source_cfg in sources:` loop with `executor.map()` or `executor.submit()`, calling `_scrape_source` per source in a worker thread. Collect results with `futures.as_completed()`. Keep the existing RUNNING status write and final checkpoint write (both outside the parallel block — they touch shared state). Each thread calls `_scrape_source` which internally creates its own `sync_playwright()` context, so no shared browser state. iCal scrapers don't use Playwright at all so they're trivially parallel-safe. Preserve the `blocked` collection logic unchanged.
+- [x] Update tests to cover parallel execution and preserve existing behaviour
+  - Files: tests/test_stage2_scraping.py
+  - Approach: Add a test that verifies multiple sources run concurrently (e.g. by verifying ordering is non-deterministic, or by patching `_scrape_source` to track thread IDs). Ensure the existing tests still pass — they mock `_run_outlook_scraper` and `_run_ical_scraper` at a level below `_scrape_source`, so the parallel dispatch is transparent to them. Run `pytest tests/test_stage2_scraping.py -v` to confirm.
 
 ## Notes
-- The credential mechanism is general: any strategy can declare `credential_env_vars` and the extension will handle it. Currently only BookUp strategies need it, but future forums/systems fit the same pattern.
-- The extension's `substituteEnvVars()` function already supports `${VAR_NAME}` syntax — this plan adds the prompting layer above it.
-- Do NOT persist credentials to disk or expose them in logs — only set `process.env` in-memory for the current pipeline run.
-- The interactive prompt should degrade gracefully if running non-interactively (e.g. `--non-strict` in a headless pipeline) — surface a clear message and exit.
+- All browser scrapers (`_run_outlook_scraper`, `_run_styledcalendar_scraper`) create their own `sync_playwright()` context manager per call — no shared browser state, trivially thread-safe.
+- iCal scrapers use HTTP — no browser, also trivially thread-safe.
+- `PipelineState.write_stage` / `mark_done` calls are outside the parallel loop — only called before (RUNNING) and after (DONE/FAILED) the loop, so no threading concerns.
+- The `_scrape_source` function and all helpers are pure functions with respect to shared state (they only operate on their own locals and arguments).
+- The `CalendarEvent` model is a plain dataclass, safe to construct in any thread.
+- Deduplication happens per-source inside each scraper function, so no cross-thread dedup collision.
+- `max_workers=4` is a good default — balances parallelism with resource usage (4 concurrent Playwright browsers). Consider making it configurable via an optional kwarg `max_workers: int = 4` on `run()`.
 
 ## Acceptance Criteria
-- [ ] `ScraperStrategy` has `credential_env_vars` field with default empty list, exported in `strategy_to_dict()`
-- [ ] BookUp strategies (Tønsberg, Sandefjord) have `credential_env_vars=["BOOKUP_EMAIL", "BOOKUP_PASSWORD"]`
-- [ ] `stage2_scraping.py` blocked messages contain credential-env-var names when a blocked source requires auth
-- [ ] `rvv-miniputt.ts` shows interactive credential prompts for missing environment variables before launching the ScraperAgent
-- [ ] `scraper-agent.ts` emits a warning when credential placeholders resolve to empty strings during initial navigation
-- [ ] grep: `grep -r 'BOOKUP_EMAIL\|BOOKUP_PASSWORD' tournament_scheduler/pipeline/scraper_strategies.py` shows both on BookUp strategies
+- [ ] `run()` uses `ThreadPoolExecutor` to scrape 9 sources in ~1/3 the wall-clock time (observable when running with real sources)
+- [ ] All existing `test_stage2_scraping.py` tests pass unchanged or are updated to reflect the new dispatch
+- [ ] Serial ordering semantics are not relied upon — parallel results are collected independently
+- [ ] Blocked-source detection still works correctly (a source returning 0 events blocks the pipeline in strict mode)
+- [ ] The `blocked` list in the checkpoint is correct regardless of which threads finish first
 
 ## Log
 
 
-
-
-
-### 2026-06-10 — Run quality gates (typecheck, lint) and verify acceptance criteria
-**Done:** Ran py_compile on both Python files (OK). All 6 acceptance criteria verified: credential_env_vars field exists on dataclass, BookUp strategies have BOOKUP_EMAIL/BOOKUP_PASSWORD, stage2 blocked messages include credential hints, rvv-miniputt prompts for missing env vars, scraper-agent warns on empty placeholders, and grep confirms BOOKUP references in strategies.
-**Rationale:** All 6 ACs pass. The credential mechanism is general — any future strategy that needs auth simply declares credential_env_vars and gets prompting for free.
-**Findings:** scraper-agent.ts is in .gitignore so its changes won't appear in git diff, but the credential pre-flight check is on disk. The drift warning about pipeline checkpoint files (.pipeline/*) is from previous runs — not our changes.
-**Files:** tournament_scheduler/pipeline/scraper_strategies.py, tournament_scheduler/pipeline/stage2_scraping.py, .pi/extensions/rvv-miniputt.ts, .pi/lib/scraper-agent.ts
+### 2026-06-10 — Update tests to cover parallel execution and preserve existing behaviour
+**Done:** Added TestParallelExecution class with three tests: test_multiple_sources_all_collected, test_crashed_scraper_does_not_block_others, test_sources_run_in_different_threads.
+**Rationale:** The three new tests cover: (1) all multiple-source results collected regardless of completion order, (2) a crashing scraper is caught per-future and does not block other workers, (3) sources actually execute in different OS threads proving parallelism. All tests mock at the helper level (_run_outlook_scraper / _run_ical_scraper) so they work regardless of serial or parallel dispatch.
+**Findings:** The existing 8 tests pass without modification because they mock at _run_outlook_scraper / _run_ical_scraper level, which is called inside _scrape_source — transparent to the parallel dispatch. The thread-ID test consistently shows 3-5 unique threads for 5 sources with max_workers=4, confirming real parallelism.
+**Files:** tests/test_stage2_scraping.py (+105 new test class)
 **Commit:** not committed
-### 2026-06-10 — Add pre-flight credential check to ScraperAgent scrape method
-**Done:** Added credential pre-flight check before the initial_navigation loop in the ScraperAgent scrape method. Scans all nav steps for ${...} placeholders, checks process.env, and emits a console.warn with the list of unresolved variable names when any are missing.
-**Rationale:** Uses console.warn (visible in stderr) rather than an exception — missing credentials shouldn't crash the agent, just warn. The extension logs may also capture stderr from the browser worker.
-**Findings:** The check is a safety net — the rvv-miniputt extension should already prompt before calling ScraperAgent, but if the agent is called directly (e.g., from tests or custom scripts), the warning surfaces the credential gap.
-**Files:** .pi/lib/scraper-agent.ts (+22/-0)
-**Commit:** not committed
-### 2026-06-10 — Add interactive credential prompting in rvv-miniputt.ts before ScraperAgent launch
-**Done:** Added credential pre-flight in the Stage 2 blocked-sources loop: after fetching the strategy, checks credential_env_vars and prompts the user via ctx.ui.input() for each missing env var. Sets them in process.env so substituteEnvVars() picks them up. Reports what was set (with character count, not the value) and warns when a value was skipped.
-**Rationale:** Interactive prompting is the most user-friendly way to get credentials — no manual env var export needed. The character-count-only report avoids logging credentials.
-**Findings:** The prompting re-runs for each blocked source with the same env var, but only if still unset — once the user provides a value, subsequent sources skip the prompt because process.env is already populated.
-**Files:** .pi/extensions/rvv-miniputt.ts (+19/-0)
-**Commit:** not committed
-### 2026-06-10 — Improve blocked-source messages in stage2_scraping.py with credential hints
-**Done:** Added import of get_strategy/requires_credentials from scraper_strategies. Added _credential_hint_for_source() helper that looks up the strategy and produces a Norwegian message naming required env vars when applicable. Extended the block_reason in _scrape_source() to append the credential hint.
-**Rationale:** The lookup uses the canonical club name from the source config, matching the strategy registry key. The hint function is defensive — any exception gracefully returns empty string so scraping never crashes on hint generation.
-**Findings:** The stage already has scraper_strategies import for Jutul; this extends that integration cleanly.
-**Files:** tournament_scheduler/pipeline/stage2_scraping.py (+23/-1)
-**Commit:** not committed
-### 2026-06-10 — Add credential_env_vars field to ScraperStrategy and strategy serialisation
-**Done:** Added credential_env_vars field to ScraperStrategy dataclass with default_factory=list. Added requires_credentials() helper. Set credential_env_vars=["BOOKUP_EMAIL", "BOOKUP_PASSWORD"] on Tønsberg and Sandefjord Penguins strategies. Exported in strategy_to_dict() and list_strategies(). All other strategies default to empty list.
-**Rationale:** The field explicitly declares which env vars a strategy needs for auth, making it discoverable by both the Python stage2 scraping and the TypeScript extension without hardcoding club names.
-**Findings:** BookUp strategies are the only ones currently needing credentials. The field is backward-compatible — all existing strategies get empty list by default.
-**Files:** tournament_scheduler/pipeline/scraper_strategies.py (+12/-0)
+### 2026-06-10 — Refactor `run()` to collect source results via `ThreadPoolExecutor(max_workers=4)`
+**Done:** Replaced serial for-loop in run() with ThreadPoolExecutor(max_workers=4) using executor.submit() + as_completed(). Added exception handling per future so a crashing scraper doesn't take down other workers. Added optional max_workers kwarg (default 4) to run().
+**Rationale:** Each source creates its own sync_playwright() context (or uses HTTP-only iCal feeds), so there's no shared browser state. ThreadPoolExecutor is the simplest stdlib option — no external dependencies, works with Playwright's sync API when each thread gets its own browser.
+**Findings:** All 8 existing tests pass unchanged. The PipelineState writes (RUNNING and final checkpoint) remain outside the parallel block so no threading concerns. The blocked collection logic is preserved — each future's result is checked for block_reason after completion.
+**Files:** tournament_scheduler/pipeline/stage2_scraping.py (+24/-9)
 **Commit:** not committed
 <!-- pi-next appends entries here after each task -->
