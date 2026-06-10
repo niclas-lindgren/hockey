@@ -130,14 +130,40 @@ def run(
     # --- HTML ---
     try:
         html_path = str(primary_export_path / f"{basename}.html")
-        # Pass scrape metadata from cache for navbar
+        # Collect pipeline metadata for metrics section
+        pipeline_meta: dict[str, Any] = {}
+        try:
+            scraping_ckpt = state.read_stage(StageName.SCRAPING)
+            if scraping_ckpt and isinstance(scraping_ckpt, dict):
+                # read_stage() returns the data dict directly (no wrapper)
+                sources = scraping_ckpt.get("sources", [])
+                pipeline_meta["source_count"] = len(sources)
+                pipeline_meta["total_events"] = sum(s.get("event_count", 0) for s in sources)
+                pipeline_meta["blocked"] = scraping_ckpt.get("blocked", [])
+                pipeline_meta["date_range"] = f"{cfg.get('start_date','')} &ndash; {cfg.get('end_date','')}"
+                updated = scraping_ckpt.get("updated_at", "")
+                if updated:
+                    from datetime import datetime as _dt
+                    try:
+                        delta = _dt.now() - _dt.fromisoformat(updated)
+                        if delta.total_seconds() < 3600:
+                            pipeline_meta["scrape_age"] = f"{int(delta.total_seconds() // 60)}m siden"
+                        elif delta.days < 1:
+                            pipeline_meta["scrape_age"] = f"{int(delta.total_seconds() // 3600)}t siden"
+                        else:
+                            pipeline_meta["scrape_age"] = f"{delta.days}d siden"
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        # Scrape metadata from cache for navbar
         meta = None
         try:
             from .cache_manager import ScrapedDataCache
             meta = ScrapedDataCache(state.work_dir).read().get("_meta")
         except Exception:
             pass
-        HtmlExporter().export(plan, html_path, meta=meta, output_files=output_files)
+        HtmlExporter().export(plan, html_path, meta=meta, output_files=output_files, pipeline_meta=pipeline_meta)
         output_files["html"] = html_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"HTML-eksport feilet: {exc}")

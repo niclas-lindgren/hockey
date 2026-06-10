@@ -323,10 +323,10 @@ def _cmd_calendars(args: argparse.Namespace) -> int:
         except Exception as exc:
             _console.print(f"[yellow]⚠[/yellow] ({exc})")
 
-        # 5. Regenerate calendar HTML
+        # 5. Regenerate calendar HTML (in export/ alongside season plan)
         _console.print("  Genererer calendars.html...", end=" ")
         try:
-            path = generate_html(work_dir=work_dir)
+            path = generate_html(work_dir=work_dir, export_dir="export")
             _console.print(f"[green]✓[/green] {path}")
         except Exception as exc:
             _console.print(f"[red]✗[/red] {exc}")
@@ -335,10 +335,10 @@ def _cmd_calendars(args: argparse.Namespace) -> int:
         _console.print(f"\n[bold green]✓ Full re-skraping fullført.[/bold green]")
         return 0
 
-    # No --refresh: just regenerate HTML from cache
+    # No --refresh: just regenerate HTML from cache (in export/)
     _console.print("Genererer calendars.html fra cache...", end=" ")
     try:
-        path = generate_html(work_dir=work_dir)
+        path = generate_html(work_dir=work_dir, export_dir="export")
         _console.print(f"[green]✓[/green] {path}")
     except Exception as exc:
         _console.print(f"[red]✗[/red] {exc}")
@@ -491,10 +491,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
         run_failed = True
         _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
 
-    # Generate calendars.html
+    # Generate calendars.html (in export/ alongside other files)
     _console.print("Genererer calendars.html...", end=" ")
     try:
-        path = generate_calendars(work_dir=args.work_dir)
+        path = generate_calendars(work_dir=args.work_dir, export_dir=args.export_dir)
         _console.print(f"[green]✓[/green] {path}")
         _log(f"calendars.html generated: {path}")
     except Exception as exc:

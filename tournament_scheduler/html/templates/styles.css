@@ -20,6 +20,23 @@
   --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
 }
+[data-theme="light"] {
+  --bg: #f4f4f5;
+  --bg-raised: #ffffff;
+  --bg-surface: #e4e4e7;
+  --border: #d4d4d8;
+  --border-dim: #e4e4e7;
+  --text: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --accent: #0284c7;
+  --accent-dim: #38bdf8;
+  --accent-glow: rgba(2, 132, 199, 0.10);
+  --amber: #d97706;
+  --emerald: #059669;
+  --rose: #e11d48;
+  --violet: #7c3aed;
+}
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100dvh; font-size: 15px; }
