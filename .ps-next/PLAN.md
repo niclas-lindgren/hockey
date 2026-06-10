@@ -76,4 +76,4 @@ LESSONS: scores.html and other files under tournament_scheduler/html/templates/ 
 **Findings:** No tests reference the old/new label strings directly; full suite still passes (276 passed, 1 pre-existing unrelated failure in test_zero_events_blocks_source, 1 skipped).
 LESSONS: none
 **Files:** tournament_scheduler/utils/rich_output.py (+1/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** 2c16453 (hockey)
