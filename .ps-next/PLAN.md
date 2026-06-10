@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/csv/csv_exporter.py
   - Approach: In `_write_games`, append rows with `home="(Pause)"` and `away=team_label` for each bye. Keep date/arena/age_group consistent.
 
-- [ ] Show bye info in HTML report tournament cards
+- [x] Show bye info in HTML report tournament cards
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: In the tournament card rendering (JavaScript template), add a "Pause denne runden" line for each bye. The JSON serialization already includes games, so the JS can compute byes client-side from the games array.
 
@@ -46,6 +46,13 @@
 
 
 
+
+### 2026-06-10 — Show bye info in HTML report tournament cards
+**Done:** Add `"b"` field to JSON tournament serialization (bye rounds map). Update `buildMatchHTML` to accept and render bye rows with dashed-border styling. Update tournament card to pass `t.b`.
+**Rationale:** JSON serialization adds `"b"` field only when bye rounds exist, keeping payload lean. JS renders `Pause · TeamLabel` rows with a dashed border and muted color to distinguish from regular games.
+**Findings:** HTML template contains bye-row CSS, `buildMatchHTML(matches, byes)` signature, and `t.b` pass-through. Verified with ad-hoc export. 249 tests pass.
+**Files:** tournament_scheduler/html/html_exporter.py (+22/-3)
+**Commit:** not committed
 ### 2026-06-10 — Include bye rows in CSV games export
 **Done:** Add bye rows to `_write_games` in CsvExporter: after regular game rows, append `[date, arena, age_group, "(Pause)", team_label, ""]` for each bye.
 **Rationale:** Consistent with Excel format: "(Pause)" as home, bye team as away, empty parallel_slot. Keeps the same CSV column structure.

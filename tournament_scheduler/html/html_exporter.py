@@ -323,6 +323,12 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     color: var(--text-dim);
   }
   .match-row .vs { color: var(--ice-border); font-size: 10px; font-weight: 600; }
+  .match-row.bye-row {
+    background: rgba(56,189,248,.03);
+    border: 1px dashed var(--ice-border);
+    color: var(--text-muted);
+  }
+  .match-row .bye-label { font-style: italic; opacity: .7; }
   .match-row .slot {
     margin-left: auto;
     padding: 1px 8px;
@@ -783,11 +789,19 @@ function getClubFromTeam(team) {
   body.innerHTML = bodyHtml;
 })();
 
-function buildMatchHTML(matches) {
-  return matches.map(([home, away, slot]) =>
+function buildMatchHTML(matches, byes) {
+  let html = matches.map(([home, away, slot]) =>
     '<div class="match-row"><span>' + home + '</span><span class="vs">vs</span><span>' + away +
     '</span><span class="slot">' + slotLabel(slot) + '</span></div>'
   ).join('');
+  if (byes && Object.keys(byes).length) {
+    for (const [roundNum, labels] of Object.entries(byes)) {
+      for (const label of labels) {
+        html += '<div class="match-row bye-row"><span class="bye-label">Pause</span><span class="vs">·</span><span>' + label + '</span><span class="slot"></span></div>';
+      }
+    }
+  }
+  return html;
 }
 
 function render() {
@@ -833,7 +847,7 @@ function render() {
       '</div>' +
       '<div class="matches"><div class="matches-inner">' +
         '<div class="matches-header"><h4>Kamper</h4><span class="count">' + t.m.length + ' stk</span></div>' +
-        '<div class="match-grid">' + buildMatchHTML(t.m) + '</div>' +
+        '<div class="match-grid">' + buildMatchHTML(t.m, t.b) + '</div>' +
       '</div></div></div>';
   }
 
@@ -1149,6 +1163,10 @@ class HtmlExporter:
                 [g.home.label, g.away.label, g.parallel_slot]
                 for g in t.games
             ]
+            bye_data = {
+                str(r): labels
+                for r, labels in t.get_bye_rounds().items()
+            } if t.get_bye_rounds() else {}
             travel = furthest_traveling_team(t)
             travel_str = f"{travel[0].label} ~{travel[1]} km" if travel else ""
             entry: dict[str, object] = {
@@ -1157,6 +1175,7 @@ class HtmlExporter:
                 "g": t.age_group,
                 "h": t.host_club or "",
                 "m": games,
+                "b": bye_data,
                 "tr": travel_str,
             }
             if t.cancelled:
