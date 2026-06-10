@@ -1,13 +1,10 @@
 # Verification Report
 
-STATUS: NEEDS_REVIEW
+STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `Tournament` has `cancelled` and `cancellation_reason` fields, round-tripped through checkpoints | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Running `rvv-miniputt cancel --tournament-id <id> --reason "Ishall stengt"` marks the tournament as cancelled and logs the reason | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `rvv-miniputt cancel --tournament-id <id>` without `--makeup-date` lists suggested makeup weekends ranked by proximity to the original date | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Running `rvv-miniputt cancel --tournament-id <id> --makeup-date 2027-03-15` applies the makeup, re-checks conflicts, and clears cancelled state | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| After a successful makeup, the Stage 4 checkpoint is re-exported (unless `--no-export`) | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Cancelled tournaments surface distinctively: Excel rows appear greyed out, iCal events show CANCELLED status, CSV marks cancelled rows, HTML shows a cancelled badge | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| All new code passes existing and new tests | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `grep:SeasonPlan\) -> dict` matches a type annotation in tournament_scheduler/club_distances.py | PASS | `def compute_team_travel_distances(plan: SeasonPlan) -> dict[str, int]:` at club_distances.py:160 |
+| The generated HTML contains a "Reiseavstand per lag" section with a `<details>` element. | PASS | `<details class="team-stats travel-stats" id="travelStats">` with summary "🚗 Reiseavstand per lag — klikk for å vise" at html_exporter.py:482-484 |
+| `run:pytest tests/test_club_distances.py -x -q` passes with the new tests. | PASS | 18 tests pass (12 existing + 6 new), club_distances.py at 100% line coverage |
+| The most-traveled team is visually distinct in the HTML (amber/highlight styling). | PASS | `isMost` branch applies: amber `rgba(251,191,36,.08)` background, `🚗` emoji, bold text, `(lengst reisevei)` label, amber color on all columns. |

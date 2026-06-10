@@ -20,7 +20,7 @@ Usage::
 
 from typing import Dict, Optional, Tuple
 
-from tournament_scheduler.models import Tournament, Team
+from tournament_scheduler.models import SeasonPlan, Tournament, Team
 
 # ---------------------------------------------------------------------------
 # Club-to-club distance matrix (driving km)
@@ -155,6 +155,45 @@ def furthest_traveling_team(
             best = (team, km)
 
     return best
+
+
+def compute_team_travel_distances(plan: SeasonPlan) -> dict[str, int]:
+    """Return a dict mapping each team label to its total travel distance
+    (km) across all *away* tournaments in the season plan.
+
+    An *away* tournament is one where the host club differs from the team's
+    club.  Cancelled tournaments are skipped.  Teams that never travel to an
+    away tournament still appear in the dict with a value of 0.
+    """
+    totals: dict[str, int] = {}
+
+    for tournament in plan.tournaments:
+        if tournament.cancelled:
+            continue
+
+        # Resolve host club — same pattern as furthest_traveling_team
+        host_club = arena_to_club(tournament.arena)
+        if host_club is None:
+            host_club = tournament.host_club
+
+        for team in tournament.teams:
+            # Ensure every team appears in the dict at least once
+            if team.label not in totals:
+                totals[team.label] = 0
+
+            if host_club is None:
+                # Unknown host — can't compute travel, but team is registered
+                continue
+
+            team_club = team.club
+            if team_club == host_club:
+                # Local tournament — no travel distance added
+                continue
+
+            km = distance(team_club, host_club)
+            totals[team.label] += km
+
+    return totals
 
 
 # ---------------------------------------------------------------------------

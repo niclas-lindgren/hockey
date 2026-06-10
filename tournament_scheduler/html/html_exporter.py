@@ -12,7 +12,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from tournament_scheduler.club_distances import furthest_traveling_team
+from tournament_scheduler.club_distances import (
+    compute_team_travel_distances,
+    furthest_traveling_team,
+)
 from ..models import SeasonPlan
 
 # ---------------------------------------------------------------------------
@@ -475,6 +478,29 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
   </details>
 
+  <!-- Team travel distances table -->
+  <details class="team-stats travel-stats" id="travelStats" style="margin-bottom:24px">
+    <summary style="cursor:pointer;padding:12px 16px;background:var(--ice-light);border:1px solid var(--ice-surface);border-radius:var(--radius);font-size:14px;color:var(--amber);font-weight:600;user-select:none">
+      🚗 Reiseavstand per lag — klikk for å vise
+      <span style="margin-left:8px;font-weight:400;font-size:12px;color:var(--text-dim)">$MOST_TRAVEL_TEAM$ reiste lengst: $MOST_TRAVEL_KM$ km</span>
+    </summary>
+    <div style="margin-top:8px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:2px solid var(--ice-surface)">
+            <th style="text-align:left;padding:8px 12px;color:var(--text-dim);font-weight:600">Lag</th>
+            <th style="text-align:right;padding:8px 12px;color:var(--text-dim);font-weight:600">Total reise (km)</th>
+            <th style="text-align:right;padding:8px 12px;color:var(--text-dim);font-weight:600">Borteturneringer</th>
+          </tr>
+        </thead>
+        <tbody id="teamTravelBody">
+        </tbody>
+      </table>
+    </div>
+  </details>
+
+  $TRAVEL_COUNT_ESTIMATE_HTML$
+
   <!-- Filters -->
   <div class="filters">
     <div class="filter-group">
@@ -519,6 +545,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 // Data embedded as JSON
 const TOURNAMENTS = $TOURNAMENTS_JSON$;
 const TEAM_GAME_COUNTS = $TEAM_GAME_COUNTS_JSON$;
+const TEAM_TRAVEL = $TEAM_TRAVEL_JSON$;
 
 // Helpers
 const MONTHS = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
@@ -590,6 +617,58 @@ function getClubFromTeam(team) {
     tr.appendChild(tdLabel);
     tr.appendChild(tdCount);
     tr.appendChild(tdLast);
+    body.appendChild(tr);
+  });
+})();
+
+// Render team travel distances table
+(function() {
+  const body = document.getElementById('teamTravelBody');
+  if (!body) return;
+  const sorted = Object.entries(TEAM_TRAVEL).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const maxKm = sorted.length > 0 ? sorted[0][1] : 0;
+  let awayCounts = {};
+  TOURNAMENTS.forEach(t => {
+    if (t.cx) return;
+    const hostClub = t.h;
+    if (!hostClub) return;
+    t.m.forEach(([h, a]) => {
+      const hClub = getClubFromTeam(h);
+      if (hClub !== hostClub) awayCounts[h] = (awayCounts[h] || 0) + 1;
+      const aClub = getClubFromTeam(a);
+      if (aClub !== hostClub) awayCounts[a] = (awayCounts[a] || 0) + 1;
+    });
+  });
+  sorted.forEach(([label, km]) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--ice-surface)';
+    const isMost = km === maxKm && km > 0;
+    if (isMost) {
+      tr.style.background = 'rgba(251,191,36,.08)';
+    }
+    const tdLabel = document.createElement('td');
+    tdLabel.style.padding = '6px 12px';
+    if (isMost) {
+      tdLabel.innerHTML = '🚗 <strong>' + label + '</strong> <span style="font-size:10px;color:var(--amber);font-weight:600">(lengst reisevei)</span>';
+    } else {
+      tdLabel.textContent = label;
+    }
+    const tdKm = document.createElement('td');
+    tdKm.style.padding = '6px 12px';
+    tdKm.style.textAlign = 'right';
+    tdKm.textContent = km.toLocaleString();
+    if (isMost) {
+      tdKm.style.color = 'var(--amber)';
+      tdKm.style.fontWeight = '600';
+    }
+    const tdAway = document.createElement('td');
+    tdAway.style.padding = '6px 12px';
+    tdAway.style.textAlign = 'right';
+    tdAway.textContent = awayCounts[label] || 0;
+    if (isMost) tdAway.style.color = 'var(--amber)';
+    tr.appendChild(tdLabel);
+    tr.appendChild(tdKm);
+    tr.appendChild(tdAway);
     body.appendChild(tr);
   });
 })();
@@ -723,6 +802,28 @@ class HtmlExporter:
                     team_game_counts[team_label] = team_game_counts.get(team_label, 0) + 1
         team_game_counts_json = json.dumps(team_game_counts, ensure_ascii=False)
 
+        # Compute per-team travel distances for the travel table
+        team_travel = compute_team_travel_distances(plan)
+        team_travel_json = json.dumps(team_travel, ensure_ascii=False)
+
+        # Identify the most-traveled team
+        if team_travel:
+            most_travel_team = max(team_travel, key=team_travel.get)  # type: ignore[arg-type]
+            most_travel_km = str(team_travel[most_travel_team])
+        else:
+            most_travel_team = "-"
+            most_travel_km = "0"
+
+        # Travel-count estimate HTML (shown only when travel data is thin)
+        travel_count_estimate_html = ""
+        if len(team_travel) < 3:
+            travel_count_estimate_html = (
+                '<div style="padding:8px 16px;font-size:12px;color:var(--text-dim);'
+                'text-align:center;margin-bottom:12px">'
+                '⚠️ Få lag med reisedata — avstander er estimater basert på '
+                'kjente arenaer.</div>'
+            )
+
         season_label = _season_label(plan)
         age_groups = sorted({t.age_group for t in plan.tournaments})
 
@@ -787,6 +888,10 @@ class HtmlExporter:
                 if team_game_counts else "-"
             ),
             "$TEAM_GAME_COUNTS_JSON$": team_game_counts_json,
+            "$TEAM_TRAVEL_JSON$": team_travel_json,
+            "$MOST_TRAVEL_TEAM$": most_travel_team,
+            "$MOST_TRAVEL_KM$": most_travel_km,
+            "$TRAVEL_COUNT_ESTIMATE_HTML$": travel_count_estimate_html,
             "$DIVERSITY_SCORE$": str(int((plan.diversity_score or 0) * 100)),
             "$MONTH_BALANCE_SCORE$": str(int((plan.month_balance_score or 0) * 100)),
             "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),

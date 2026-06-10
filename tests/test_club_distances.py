@@ -1,9 +1,10 @@
 """Tests for club_distances — distance lookups and furthest-traveling-team logic."""
 
-from tournament_scheduler.models import Team, Tournament
+from tournament_scheduler.models import SeasonPlan, Team, Tournament
 from tournament_scheduler.club_distances import (
-    distance,
     arena_to_club,
+    compute_team_travel_distances,
+    distance,
     furthest_traveling_team,
 )
 
@@ -115,3 +116,133 @@ class TestFurthestTravelingTeam:
             ],
         )
         assert furthest_traveling_team(t) is None
+
+
+class TestComputeTeamTravelDistances:
+    """Tests for compute_team_travel_distances — per-team accumulated travel across the season."""
+
+    def _make_plan(self, tournaments: list[Tournament]) -> SeasonPlan:
+        """Create a minimal SeasonPlan from a list of tournaments."""
+        from datetime import date as dt
+        plan = SeasonPlan()
+        plan.tournaments = tournaments
+        if tournaments:
+            plan.start_date = tournaments[0].date
+            plan.end_date = tournaments[-1].date
+        return plan
+
+    def test_empty_plan_returns_empty_dict(self):
+        plan = SeasonPlan()
+        assert compute_team_travel_distances(plan) == {}
+
+    def test_local_tournament_adds_zero(self):
+        """A tournament where the team's club is the host adds 0 to its total."""
+        from datetime import date
+        t = Tournament(
+            date=date(2025, 9, 6),
+            arena="Jarhallen",
+            age_group="U10",
+            host_club="Jar",
+            teams=[
+                Team(club="Jar", label="Jar 1", age_group="U10"),
+                Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            ],
+        )
+        plan = self._make_plan([t])
+        result = compute_team_travel_distances(plan)
+        assert result["Jar 1"] == 0
+        # Kongsberg → Jar is ~80 km
+        assert result["Kongsberg U10"] == distance("Kongsberg", "Jar")
+
+    def test_multiple_away_tournaments_accumulate(self):
+        """Team travelling to multiple away tournaments accumulates distances."""
+        from datetime import date
+        t1 = Tournament(
+            date=date(2025, 9, 6),
+            arena="Jarhallen",
+            age_group="U10",
+            host_club="Jar",
+            teams=[
+                Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            ],
+        )
+        t2 = Tournament(
+            date=date(2025, 10, 11),
+            arena="Skien ishall",
+            age_group="U10",
+            host_club="Skien",
+            teams=[
+                Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            ],
+        )
+        plan = self._make_plan([t1, t2])
+        result = compute_team_travel_distances(plan)
+        expected = distance("Kongsberg", "Jar") + distance("Kongsberg", "Skien")
+        assert result["Kongsberg U10"] == expected
+
+    def test_cancelled_tournament_skipped(self):
+        """Cancelled tournaments do not add travel distance."""
+        from datetime import date
+        t1 = Tournament(
+            date=date(2025, 9, 6),
+            arena="Jarhallen",
+            age_group="U10",
+            host_club="Jar",
+            teams=[
+                Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            ],
+        )
+        t2 = Tournament(
+            date=date(2025, 10, 11),
+            arena="Skien ishall",
+            age_group="U10",
+            host_club="Skien",
+            cancelled=True,
+            cancellation_reason="Ice rink maintenance",
+            teams=[
+                Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            ],
+        )
+        plan = self._make_plan([t1, t2])
+        result = compute_team_travel_distances(plan)
+        # Only Jar-hosted distance should count; Skien is cancelled
+        assert result["Kongsberg U10"] == distance("Kongsberg", "Jar")
+
+    def test_unknown_host_arena_skipped(self):
+        """When neither arena nor host_club resolves to a known club, the tournament is skipped."""
+        from datetime import date
+        t = Tournament(
+            date=date(2025, 9, 6),
+            arena="Unknown Arena",
+            age_group="U10",
+            host_club=None,
+            teams=[
+                Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            ],
+        )
+        plan = self._make_plan([t])
+        result = compute_team_travel_distances(plan)
+        # Team is registered with 0 but no distance added
+        assert result["Kongsberg U10"] == 0
+
+    def test_dict_keys_match_team_labels(self):
+        """Every participating team should appear as a key in the result dict,
+        even those with zero travel."""
+        from datetime import date
+        t = Tournament(
+            date=date(2025, 9, 6),
+            arena="Jarhallen",
+            age_group="U10",
+            host_club="Jar",
+            teams=[
+                Team(club="Jar", label="Jar 1", age_group="U10"),
+                Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+                Team(club="Holmen", label="Holmen U10", age_group="U10"),
+            ],
+        )
+        plan = self._make_plan([t])
+        result = compute_team_travel_distances(plan)
+        assert set(result.keys()) == {"Jar 1", "Kongsberg U10", "Holmen U10"}
+        assert result["Jar 1"] == 0
+        assert result["Kongsberg U10"] > 0
+        assert result["Holmen U10"] > 0
