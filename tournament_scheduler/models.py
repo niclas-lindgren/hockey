@@ -1,7 +1,7 @@
 """Data models for tournament scheduling."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import List, Dict, Set, Optional, Tuple
 import uuid
 
@@ -137,6 +137,30 @@ class Tournament:
     host_club: Optional[str] = None
     cancelled: bool = False
     cancellation_reason: Optional[str] = None
+    start_time: Optional[str] = None  # HH:MM string, e.g. "09:00"
+
+    def duration_minutes(self, round_length: int) -> int:
+        """Return the total tournament duration in minutes.
+
+        Computed as ``round_length`` (minutes per round) times the number of
+        rounds in the round-robin schedule. Returns 0 if there are no games.
+        """
+        if not self.games:
+            return 0
+        max_round = max(g.round_number for g in self.games)
+        return round_length * max_round
+
+    def end_time(self, round_length: int) -> Optional[str]:
+        """Return the computed end time as an HH:MM string.
+
+        Computed by adding :meth:`duration_minutes` to :attr:`start_time`.
+        Returns ``None`` if ``start_time`` is unset.
+        """
+        if not self.start_time:
+            return None
+        start = datetime.strptime(self.start_time, "%H:%M")
+        end = start + timedelta(minutes=self.duration_minutes(round_length))
+        return end.strftime("%H:%M")
 
     def get_bye_rounds(self) -> Dict[int, List[str]]:
         """Return a mapping of round_number -> list of team labels with a bye.

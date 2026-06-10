@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/season_config.py, tournament_scheduler/pipeline/stage1_config.py
   - Approach: Mirror the `FEDERATION_PARALLEL_GAMES_DEFAULTS` pattern in season_config.py (lines 39-50): add a `FEDERATION_ROUND_LENGTH_DEFAULTS: Dict[str, int]` dict with sensible per-age-group minute values (e.g. U7/U8: 8, U9/U10: 10, U11/U12: 12, JU10/JU11: 10, JU12/JU13: 12), then in stage1_config.py add `round_length_minutes` parsing/validation in `validate_config()` (lines 165-187) and `_parse_config()` (lines 275-280) following the same dict-of-int validation as `parallel_games`, falling back to the federation defaults when a key is absent.
 
-- [ ] Add `start_time` and computed duration/end-time fields to the Tournament model
+- [x] Added an optional start_time field (HH:MM string) to the Tournament dataclass plus duration_minutes(round_length) and end_time(round_length) helper methods that compute total duration from round_length * max round_number and the resulting end time via datetime/timedelta arithmetic. — 2026-06-10
   - Files: tournament_scheduler/models.py
   - Approach: Add `start_time: Optional[str] = None` (HH:MM string, e.g. "09:00") to the Tournament dataclass (around lines 131-139). Add a helper method or property (e.g. `duration_minutes(round_length: int) -> int` returning `round_length * len({g.round_number for g in self.games})` or `round_length * max(round_numbers, default=0)`, and `end_time(round_length: int) -> Optional[str]` that adds `duration_minutes` to `start_time` using `datetime`/`timedelta` and returns an HH:MM string, or None if `start_time` is unset.
 
@@ -54,4 +54,11 @@
 **Findings:** Added FEDERATION_ROUND_LENGTH_DEFAULTS dict, round_length_minutes validation in validate_config(), and merged round_length_minutes dict (defaults overridden by user config) into the parsed config output. Full test suite: 277 passed, 2 pre-existing failures in test_stage2_scraping.py unrelated to this change (confirmed failing on unmodified code too).
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage1_config.py (+29), tournament_scheduler/season_config.py (+18)
+**Commit:** 67044b4 (hockey)
+
+### 2026-06-10 — Added an optional start_time field (HH:MM string) to the Tournament dataclass plus duration_minutes(round_length) and end_time(round_length) helper methods that compute total duration from round_length * max round_number and the resulting end time via datetime/timedelta arithmetic.
+**Rationale:** Followed the approach exactly as specified in the plan; kept start_time optional for backward compatibility, returning None from end_time when unset.
+**Findings:** Tournament model now exposes start_time, duration_minutes(), and end_time(). Full test suite: 278 passed, 1 pre-existing flaky failure in test_stage2_scraping.py unrelated to this change.
+LESSONS: none
+**Files:** tournament_scheduler/models.py (+25/-1)
 **Commit:** [pending — fill after commit]
