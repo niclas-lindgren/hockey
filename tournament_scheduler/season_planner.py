@@ -1207,19 +1207,57 @@ class SeasonPlanner:
         return counts
 
     def _diversity_score(self, tournaments: Sequence[Tournament]) -> float:
-        """Pairwise-matchup diversity score grounded in `_opponent_history`.
+        """Opponent-variety diversity score grounded in `_opponent_history`.
 
-        Reworked from the original co-attendance-based metric to measure
-        actual scheduled matchups rather than mere tournament groupings:
-        the fraction of all scheduled pairwise games (across `tournaments`)
-        that are *first-time* pairings, i.e. the only time that exact pair
-        of teams has been scheduled to play each other this season
-        (1.0 = every scheduled game is a fresh matchup; lower values
-        indicate more repeat matchups). This is equivalent to
-        `_pairwise_matchup_score` and the two are kept in sync — see that
-        method for the precise definition.
+        Distinct from `_pairwise_matchup_score` (which measures how many
+        *games* are first-time pairings). This metric instead measures, per
+        team, how much of its eligible opponent pool it has actually faced
+        this season:
+
+        For each team that has played at least one game this season (i.e.
+        appears in at least one pair recorded in `_opponent_history`), count
+        its distinct opponents so far and divide by the number of "available
+        opponents" — other teams in the same age group, excluding teams from
+        its own club (since `max_club_teams_per_tournament=1` means
+        intra-club matchups never occur).
+
+        The overall score is the average of these per-team ratios, rounded
+        to 3 decimals (1.0 = every team has played every eligible opponent
+        at least once; lower values indicate teams repeatedly facing a
+        narrow set of opponents). Returns `0.0` when no teams have played
+        any games.
         """
-        return self._pairwise_matchup_score(tournaments)
+        # Distinct opponents faced so far, per team label.
+        opponents_faced: Dict[str, set] = {}
+        for pair in self._opponent_history:
+            a, b = tuple(pair)
+            opponents_faced.setdefault(a, set()).add(b)
+            opponents_faced.setdefault(b, set()).add(a)
+
+        if not opponents_faced:
+            return 0.0
+
+        teams_by_label = {team.label: team for team in self.roster.teams}
+
+        ratios = []
+        for label, faced in opponents_faced.items():
+            team = teams_by_label.get(label)
+            if team is None:
+                continue
+            available = [
+                other.label
+                for other in self.roster.teams
+                if other.label != label
+                and other.age_group == team.age_group
+                and other.club != team.club
+            ]
+            if not available:
+                continue
+            ratios.append(len(faced) / len(available))
+
+        if not ratios:
+            return 0.0
+        return round(sum(ratios) / len(ratios), 3)
 
     @staticmethod
     def _pairwise_matchup_score(tournaments: Sequence[Tournament]) -> float:

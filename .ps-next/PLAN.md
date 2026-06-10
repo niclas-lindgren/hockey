@@ -1,0 +1,58 @@
+# PLAN: Fix duplicate quality metrics in season plan report (Spredning vs Nye matchups)
+
+**Feature:** Fix duplicate quality metrics in season plan report: 'Spredning' (diversity_score) and 'Nye matchups' (pairwise_matchup_score) always show the same percentage because season_planner.py _diversity_score() simply returns _pairwise_matchup_score() (season_planner.py:1209-1222) - a leftover from a refactor. Either compute a genuinely distinct diversity metric (e.g. opponent variety per team across the season) or remove the redundant 'Spredning' label/field from the report templates and exporters.
+
+**Goal:** 'Spredning' and 'Nye matchups' in the season plan HTML report no longer show the same percentage by definition. Either implement a genuinely distinct diversity metric for 'Spredning' (e.g. opponent variety per team across the season) or remove the redundant 'Spredning' label/field from the report templates and exporters.
+
+**Backlog-ref:** 47
+
+**Constraints:** none
+
+**Date:** 2026-06-10
+
+**Intent:** Resolve a leftover refactor bug where two distinct-sounding quality metrics in the season plan report are mathematically identical, misleading organizers about schedule quality.
+
+## Tasks
+
+- [x] Reworked _diversity_score to compute, per team, the ratio of distinct opponents faced (from _opponent_history) to eligible opponents (same age group, different club, per max_club_teams_per_tournament1), averaged across teams that have played; returns 0.0 if no games played. — 2026-06-10
+  - Files: `tournament_scheduler/season_planner.py`
+  - In `_diversity_score(self, tournaments)` (season_planner.py:1209-1222), replace `return self._pairwise_matchup_score(tournaments)` with a new computation: for each team appearing in `tournaments`, count its distinct opponents from `self._opponent_history` (keys are `frozenset` pairs of team labels) and divide by the number of "available opponents" for that team (other teams in the same age group from `self.roster.teams`, excluding same-club teams per the existing `max_club_teams_per_tournament=1` constraint, since intra-club matchups never occur). Average this ratio across all teams that played at least one game this season, rounded to 3 decimals (1.0 = every team has played every eligible opponent at least once; lower values indicate teams repeatedly facing a narrow set of opponents). Return `0.0` when no teams have played any games.
+
+- [ ] Update docstrings in season_planner.py to describe the new metric and its distinction from pairwise_matchup_score
+  - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/models.py`
+  - Rewrite the `_diversity_score` docstring (season_planner.py:1209-1221) to describe the new opponent-variety-per-team calculation and remove the claim that it is "equivalent to `_pairwise_matchup_score`". Update the `diversity_score` field comment in `models.py` (near line 171, above the `pairwise_matchup_score` docstring at 172-176) to describe the new metric (opponent variety per team) as distinct from the pairwise novel-pairing fraction.
+
+- [ ] Update HTML template label/description so 'Spredning' clearly reflects opponent variety
+  - Files: `tournament_scheduler/html/templates/scores.html`
+  - In `scores.html` (line 5, `Spredning: <strong>$DIVERSITY_SCORE$%</strong>`), keep the existing `$DIVERSITY_SCORE$` token (already wired in `html_exporter.py:323` to `plan.diversity_score`) but adjust the label text if needed (e.g. add a short tooltip/title attribute or adjacent text such as "Spredning (motstandervariasjon)") so it is visually distinguishable from "Nye matchups" (line 13, `$PAIRWISE_SCORE$`) now that the underlying values genuinely differ.
+
+- [ ] Update Rich console output descriptions for the two metrics to avoid overlapping wording
+  - Files: `tournament_scheduler/utils/rich_output.py`
+  - Update the two summary lines (rich_output.py:331 and :335) so the Norwegian descriptions accurately describe each distinct metric: line 331 (`Mangfoldscore (andel nye lagkonstellasjoner)` for `plan.diversity_score`) should describe opponent-variety-per-team (e.g. "andel mulige motstandere møtt"), and line 335 (`Kampmangfold (andel ferske motstanderpar)` for `plan.pairwise_matchup_score`) should keep describing the fraction of first-time pairings — ensure the two labels no longer imply they measure the same thing.
+
+- [ ] Add unit tests verifying the two scores are computed independently and can diverge
+  - Files: `tests/test_season_planner.py`
+  - Add a test that builds a small `tournaments`/`_opponent_history` fixture where opponent-variety-per-team and pairwise-novel-pairing-fraction produce different numeric results, and asserts `_diversity_score(tournaments) != _pairwise_matchup_score(tournaments)` for that fixture. Also add a test confirming `_diversity_score` returns `0.0` when no games were scheduled, matching the existing `_pairwise_matchup_score` empty-input behavior.
+
+- [ ] Run the full test suite and verify the HTML/console outputs render distinct values end-to-end
+  - Files: `tests/test_season_planner.py`, `tournament_scheduler/season_planner.py`
+  - Run `pytest` to confirm no regressions in existing tests that reference `diversity_score` or `pairwise_matchup_score` (e.g. tests covering `build_plan`, stage3/stage4 checkpoint round-trips, or HTML export). Manually verify (or add an assertion) that `plan.diversity_score` and `plan.pairwise_matchup_score` differ for a realistic multi-tournament season plan fixture.
+
+## Acceptance Criteria
+
+- The 'Spredning' and 'Nye matchups' fields in the season plan HTML report show different percentage values when the schedule contains varied opponent pairings, instead of always matching.
+- The `_diversity_score()` function in `tournament_scheduler/season_planner.py` no longer simply returns `_pairwise_matchup_score()` and computes opponent variety per team using `_opponent_history`.
+- Tests in `tests/test_season_planner.py` pass and include a case where `_diversity_score` and `_pairwise_matchup_score` return different values for the same set of tournaments.
+- The console summary output from `tournament_scheduler/utils/rich_output.py` no longer describes the diversity score and pairwise matchup score with overlapping wording that implies they are the same metric.
+- Running `pytest` completes with no failures related to `diversity_score`, `pairwise_matchup_score`, or season plan export/report generation.
+
+## Log
+
+- [2026-06-10] Plan created for backlog #47.
+
+### 2026-06-10 — Reworked _diversity_score to compute, per team, the ratio of distinct opponents faced (from _opponent_history) to eligible opponents (same age group, different club, per max_club_teams_per_tournament1), averaged across teams that have played; returns 0.0 if no games played.
+**Rationale:** Pairwise-matchup score measures repeat games while diversity score now measures opponent-pool coverage per team, so the two metrics are genuinely independent.
+**Findings:** All 39 season_planner tests pass; updated test_diversity_and_month_balance_metrics_present_on_plan which previously asserted diversity_score  pairwise_matchup_score (now an outdated invariant). One pre-existing unrelated failure (test_zero_events_blocks_source) confirmed present before this change too.
+LESSONS: none
+**Files:** tests/test_season_planner.py (+3/-2), tournament_scheduler/season_planner.py (+50/-12)
+**Commit:** [pending — fill after commit]

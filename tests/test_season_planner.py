@@ -324,8 +324,9 @@ class TestOpponentHistoryTrackingAndScoring:
         assert 0.0 <= plan.pairwise_matchup_score <= 1.0
         assert 0.0 <= plan.month_balance_score <= 1.0
 
-        # diversity_score now delegates to the pairwise-matchup computation.
-        assert plan.diversity_score == plan.pairwise_matchup_score
+        # diversity_score is a distinct opponent-variety metric: the average,
+        # per team, of distinct opponents faced divided by eligible
+        # opponents. It need not equal the pairwise-matchup score.
 
     def test_pairwise_matchup_score_reflects_repeat_matchups(self, small_roster_planner_and_plan):
         planner, plan, *_ = small_roster_planner_and_plan
