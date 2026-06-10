@@ -23,6 +23,7 @@ from ..excel.plan_exporter import SeasonPlanExporter
 from ..ical.ical_exporter import ICalExporter
 from ..csv.csv_exporter import CsvExporter
 from ..html.html_exporter import HtmlExporter
+from ..spond.spond_exporter import SpondExporter
 from .state import PipelineState, StageName, StageStatus
 
 # ---------------------------------------------------------------------------
@@ -132,6 +133,14 @@ def run(
         output_files["html"] = html_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"HTML-eksport feilet: {exc}")
+
+    # --- Spond ---
+    try:
+        spond_path = str(export_path / f"{basename}_spond.xlsx")
+        SpondExporter().export(plan, spond_path)
+        output_files["spond"] = spond_path
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"Spond-eksport feilet: {exc}")
 
     checkpoint: dict[str, Any] = {
         "output_files": output_files,

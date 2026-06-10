@@ -57,6 +57,8 @@ Examples:
                         help='Only export iCal events for this age group (e.g. U10). Requires --export-ical.')
     parser.add_argument('--ical-per-club', action='store_true',
                         help='Also generate one .ics file per club alongside the main .ics. Requires --export-ical.')
+    parser.add_argument('--export-spond', type=str,
+                        help='Path to write a Spond-format .xlsx export of the generated season plan (used with --generate-season).')
     parser.add_argument('--max-club-teams', type=int, default=None,
                         help='Maks antall lag per klubb i samme turnering (standard: 2, eller fra federationDefaults i roster-filen).')
 

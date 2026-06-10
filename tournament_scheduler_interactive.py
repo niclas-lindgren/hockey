@@ -699,6 +699,11 @@ def run_season_plan(params):
                 )
                 TournamentOutput.print_success(f"  → {club}: {club_path}")
 
+    if ask_yes_no("\nVil du eksportere sesongplanen til Spond-format (.xlsx)?", default=True):
+        spond_path = ask_text("Filnavn for Spond-eksport", default="sesongplan_spond.xlsx")
+        from tournament_scheduler.spond.spond_exporter import SpondExporter
+        SpondExporter().export(plan, spond_path)
+
 
 def run_tournament_update():
     """Interactive tournament update flow — modify a generated season plan."""
