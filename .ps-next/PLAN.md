@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/pipeline/tournament_updater.py, tournament_scheduler/pipeline/stage4_export.py
   - Approach: Update `write_updated_checkpoint` in `TournamentUpdater` to preserve cancelled state when writing checkpoints. Ensure Stage 4 export reflects cancelled status in Excel (greyed-out rows), iCal (CANCELLED status), CSV, and HTML.
 
-- [ ] Tests for cancellation workflow
+- [x] Tests for cancellation workflow
   - Files: tests/test_cancellation_workflow.py
   - Approach: Cover: (a) marking as cancelled; (b) suggesting makeup dates from free dates; (c) applying makeup clears cancelled + moves date; (d) attempting to cancel a non-existent tournament returns error; (e) round-trip serialization of cancelled state. Follow existing pytest patterns from `test_tournament_updater.py`. Use `tmp_path` fixtures and in-memory plans.
 
@@ -46,6 +46,13 @@
 
 
 
+
+### 2026-06-10 — Tests for cancellation workflow
+**Done:** Wrote 20 tests covering: mark_cancelled (happy path, already-cancelled error, non-existent tournament, result structure), suggest_makeup_dates (dates after original, excludes occupied, ranked by proximity, max_suggestions, custom window, excludes non-cancelled), apply_makeup (clears cancelled + moves date, non-weekend blocked, force override), round-trip serialization (dict→Tournament→dict, omits fields when not cancelled, backward compatible, checkpoint write/read), MakeupSuggestion structure, and log_cancellation JSONL output.
+**Rationale:** Follows existing test patterns from test_tournament_updater.py (fixtures, tmp_path, in-memory plans, PipelineState checkpoint setup). Each method is tested independently with clear assertions. Cancelled state handling is explicitly tested at the serialization boundary.
+**Findings:** All 242 tests pass (20 new + 222 existing). The suggest_makeup_dates tests rely on holiday checker only (lightweight scheduler) which works reliably without calendar scrapers. serialize/deserialize tests confirm the compact serialization (omitting fields when not cancelled).
+**Files:** tests/test_cancellation_workflow.py (+488 new file), .ps-next/BACKLOG.md (+1 backlog item #33)
+**Commit:** not committed
 ### 2026-06-10 — Wire cancelled state into pipeline checkpoint and export
 **Done:** Updated all four exporters to surface cancelled state: Excel (grey fill on overview rows + cancellation banner on per-tournament sheets using PatternFill), iCal (CANCELLED status + AVLYST prefix on both game-level and summary events), CSV (cancelled/cancellation_reason columns in overview), HTML (red AVLYST badge with reason on cancelled tournament cards, dimmed card styling). Pipeline checkpoint round-trip already handled via _plan_to_dict changes from task 1.
 **Rationale:** Each exporter uses its format-native way to signal cancellation: Excel uses grey fill (PatternFill), iCal uses STATUS:CANCELLED, CSV adds boolean columns, HTML uses a red badge + dimmed card. All changes are additive and backward-compatible — non-cancelled tournaments render identically to before.

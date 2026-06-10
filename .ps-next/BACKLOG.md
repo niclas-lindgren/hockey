@@ -12,6 +12,8 @@
 
 
 
+
+- [33] [ ] Per-team travelled distance metrics across the season in the HTML report — compute total travelled distance for each team over all their away tournaments, show it in the interactive HTML report (e.g. in the team filter sidebar or a summary table), and flag the team with the highest total travel burden.
 - [32] [x] Improve booking calendar handling: when scraper encounters booking/order calendars (e.g. bookup/booking systems), stop and prompt user for credentials instead of failing silently or returning 0 events (2026-06-10)
 - [31] [x] Parallelize Stage 2 scraping with ThreadPoolExecutor (4 workers) for ~3x speedup on the 9-club scrape loop in stage2_scraping.py. Each source is independent — separate Playwright contexts per thread. (2026-06-10)
 - [30] [x] Scraping quality: BookUp authentication & 100% calendar fidelity — (a) BookUp (used by Tønsberg and Sandefjord Penguins) requires authentication to access the full booking calendar; implement authenticated scraping so the ScraperAgent can log in and retrieve the complete schedule instead of whatever public subset is visible. (b) Audit all 9 club scrapers to ensure scraped output matches source calendars with 100% fidelity — every booking visible on the source calendar must appear in the scraped output, and no events should be invented, misdated, or truncated. Implement a deterministic comparison tool that fetches a known week from each source and diffs the scraped output against the ground truth. (2026-06-10)
