@@ -501,6 +501,21 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 
   $TRAVEL_COUNT_ESTIMATE_HTML$
 
+  <!-- Calendar heatmap -->
+  <details class="team-stats heatmap-stats" id="heatmapSection" style="margin-bottom:24px" open>
+    <summary style="cursor:pointer;padding:12px 16px;background:var(--ice-light);border:1px solid var(--ice-surface);border-radius:var(--radius);font-size:14px;color:var(--accent);font-weight:600;user-select:none">
+      🗓️ Sesongvarmekart — klikk for å vise/skjule
+      <span style="margin-left:8px;font-weight:400;font-size:12px;color:var(--text-dim)">$HEATMAP_CLUBS_COUNT$ klubber · $HEATMAP_WEEKS_COUNT$ uker</span>
+    </summary>
+    <div style="margin-top:8px;overflow-x:auto;font-size:11px">
+      <table id="heatmapTable" style="border-collapse:collapse;width:max-content;min-width:100%">
+        <thead id="heatmapHead"></thead>
+        <tbody id="heatmapBody"></tbody>
+      </table>
+      <div id="heatmapLegend" style="display:flex;flex-wrap:wrap;gap:12px;padding:10px 0;margin-top:8px"></div>
+    </div>
+  </details>
+
   <!-- Filters -->
   <div class="filters">
     <div class="filter-group">
@@ -546,6 +561,10 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 const TOURNAMENTS = $TOURNAMENTS_JSON$;
 const TEAM_GAME_COUNTS = $TEAM_GAME_COUNTS_JSON$;
 const TEAM_TRAVEL = $TEAM_TRAVEL_JSON$;
+const HEATMAP = $HEATMAP_JSON$;
+const HEATMAP_WEEKS = $HEATMAP_WEEKS_JSON$;
+const HEATMAP_CLUBS = $HEATMAP_CLUBS_JSON$;
+const HEATMAP_CLUB_COLORS = $HEATMAP_CLUB_COLORS_JSON$;
 
 // Helpers
 const MONTHS = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
@@ -671,6 +690,70 @@ function getClubFromTeam(team) {
     tr.appendChild(tdAway);
     body.appendChild(tr);
   });
+})();
+
+// Render calendar heatmap
+(function() {
+  const head = document.getElementById('heatmapHead');
+  const body = document.getElementById('heatmapBody');
+  const legend = document.getElementById('heatmapLegend');
+  if (!head || !body || !legend) return;
+  if (!HEATMAP_WEEKS.length || !HEATMAP_CLUBS.length) {
+    body.innerHTML = '<tr><td colspan="' + (HEATMAP_WEEKS.length + 1) + '" style="padding:16px;text-align:center;color:var(--text-dim)">Ingen turneringsdata for varmekart</td></tr>';
+    return;
+  }
+
+  // Build legend
+  HEATMAP_CLUBS.forEach(club => {
+    const c = HEATMAP_CLUB_COLORS[club] || {bg: '#2a2a2a', text: '#999'};
+    const span = document.createElement('span');
+    span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;color:' + c.text;
+    span.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:' + c.bg + ';border:1px solid ' + c.text + '"></span>' + club;
+    legend.appendChild(span);
+  });
+
+  // Build header row: week labels with month grouping
+  let headerRow = '<tr><th style="position:sticky;left:0;z-index:1;background:var(--ice);padding:6px 10px;text-align:left;color:var(--text-dim);font-weight:600;min-width:110px">Klubb</th>';
+  const MONTHS_NO = ["","jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
+  let lastMonth = '';
+  HEATMAP_WEEKS.forEach(wk => {
+    // wk is like "2025-W40" — extract month from first day of that week
+    const parts = wk.split('-W');
+    const year = parseInt(parts[0]);
+    const week = parseInt(parts[1]);
+    // Compute first day of ISO week (Monday)
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const firstThursday = new Date(Date.UTC(year, 0, 4 - jan4Day + 4));
+    const monday = new Date(firstThursday.getTime());
+    monday.setUTCDate(monday.getUTCDate() + (week - 1) * 7);
+    const month = MONTHS_NO[monday.getUTCMonth() + 1];
+    const monthLabel = month !== lastMonth ? month : '';
+    if (month !== lastMonth && month) lastMonth = month;
+    headerRow += '<th style="padding:4px 2px;text-align:center;font-weight:600;font-size:10px;color:var(--text-dim)">' + monthLabel + '<br><span style="font-size:9px;color:var(--ice-border)">' + wk.slice(-2) + '</span></th>';
+  });
+  headerRow += '</tr>';
+  head.innerHTML = headerRow;
+
+  // Build body: one row per club
+  let bodyHtml = '';
+  HEATMAP_CLUBS.forEach(club => {
+    const c = HEATMAP_CLUB_COLORS[club] || {bg: '#2a2a2a', text: '#999'};
+    bodyHtml += '<tr style="border-bottom:1px solid var(--ice-surface)">';
+    bodyHtml += '<td style="position:sticky;left:0;z-index:0;background:var(--ice);padding:6px 10px;font-size:12px;color:' + c.text + ';font-weight:600">' + club + '</td>';
+    HEATMAP_WEEKS.forEach(wk => {
+      const weekData = HEATMAP[wk] || {};
+      const clubData = weekData[club];
+      if (clubData && clubData.length) {
+        const label = clubData.join(',');
+        bodyHtml += '<td style="background:' + c.bg + ';border:1px solid ' + c.text + ';padding:3px 4px;text-align:center;font-size:10px;color:' + c.text + ';font-weight:600;white-space:nowrap">' + label + '</td>';
+      } else {
+        bodyHtml += '<td style="background:rgba(30,41,59,.4);border:1px solid var(--ice-surface);padding:3px 4px;text-align:center"></td>';
+      }
+    });
+    bodyHtml += '</tr>';
+  });
+  body.innerHTML = bodyHtml;
 })();
 
 function buildMatchHTML(matches) {
@@ -824,6 +907,51 @@ class HtmlExporter:
                 'kjente arenaer.</div>'
             )
 
+        # --- Heatmap data: week → {club: [age_groups]} ---
+        from collections import OrderedDict
+        heatmap: dict[str, dict[str, list[str]]] = {}
+        all_host_clubs: set[str] = set()
+        for t in plan.tournaments:
+            if t.cancelled:
+                continue
+            if not t.date:
+                continue
+            host = t.host_club or ""
+            if not host:
+                continue
+            iso_year, iso_week, _ = t.date.isocalendar()
+            week_key = f"{iso_year}-W{iso_week:02d}"
+            if week_key not in heatmap:
+                heatmap[week_key] = {}
+            if host not in heatmap[week_key]:
+                heatmap[week_key][host] = []
+            heatmap[week_key][host].append(t.age_group)
+            all_host_clubs.add(host)
+
+        # Ordered weeks (ISO format, Sept–Apr window)
+        heatmap_weeks = sorted(heatmap.keys())
+        heatmap_clubs = sorted(all_host_clubs)
+        heatmap_json = json.dumps(heatmap, ensure_ascii=False)
+        heatmap_weeks_json = json.dumps(heatmap_weeks, ensure_ascii=False)
+        heatmap_clubs_json = json.dumps(heatmap_clubs, ensure_ascii=False)
+
+        # Club colour palette (same as calendar_viewer.py dark-theme adjusted)
+        _club_colors = [
+            {"bg": "#1a3a5c", "text": "#64b5f6"},
+            {"bg": "#1b3a1b", "text": "#81c784"},
+            {"bg": "#3a2e0a", "text": "#ffd54f"},
+            {"bg": "#2a1a3a", "text": "#ba68c8"},
+            {"bg": "#3a1a1a", "text": "#e57373"},
+            {"bg": "#0a2a3a", "text": "#4dd0e1"},
+            {"bg": "#3a3a0a", "text": "#fff176"},
+            {"bg": "#1a3a2a", "text": "#aed581"},
+            {"bg": "#3a1a0a", "text": "#ff8a65"},
+        ]
+        club_color_map: dict[str, dict[str, str]] = {}
+        for i, club in enumerate(heatmap_clubs):
+            club_color_map[club] = _club_colors[i % len(_club_colors)]
+        heatmap_club_colors_json = json.dumps(club_color_map, ensure_ascii=False)
+
         season_label = _season_label(plan)
         age_groups = sorted({t.age_group for t in plan.tournaments})
 
@@ -892,6 +1020,12 @@ class HtmlExporter:
             "$MOST_TRAVEL_TEAM$": most_travel_team,
             "$MOST_TRAVEL_KM$": most_travel_km,
             "$TRAVEL_COUNT_ESTIMATE_HTML$": travel_count_estimate_html,
+            "$HEATMAP_JSON$": heatmap_json,
+            "$HEATMAP_WEEKS_JSON$": heatmap_weeks_json,
+            "$HEATMAP_CLUBS_JSON$": heatmap_clubs_json,
+            "$HEATMAP_CLUB_COLORS_JSON$": heatmap_club_colors_json,
+            "$HEATMAP_CLUBS_COUNT$": str(len(heatmap_clubs)),
+            "$HEATMAP_WEEKS_COUNT$": str(len(heatmap_weeks)),
             "$DIVERSITY_SCORE$": str(int((plan.diversity_score or 0) * 100)),
             "$MONTH_BALANCE_SCORE$": str(int((plan.month_balance_score or 0) * 100)),
             "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),
