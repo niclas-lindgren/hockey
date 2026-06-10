@@ -22,7 +22,7 @@ def _make_plan_dict():
             {"club": "Skien",     "label": "Skien U10A",     "age_group": "U10"},
         ],
         "games": [
-            {"home": "Kongsberg U10A", "away": "Skien U10A", "parallel_slot": 0},
+            {"home": "Kongsberg U10A", "away": "Skien U10A", "parallel_slot": 0, "round_number": 3},
         ],
     }
     return {
@@ -52,6 +52,7 @@ class TestDictToPlan:
         assert t.arena == "Kongsberghallen"
         assert len(t.games) == 1
         assert t.games[0].home.label == "Kongsberg U10A"
+        assert t.games[0].round_number == 3
 
     def test_handles_missing_dates(self):
         plan_dict = {"tournaments": [], "diversity_score": 0.0,

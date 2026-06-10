@@ -1,9 +1,11 @@
 """Tests for tournament_scheduler.pipeline.stage3_planning."""
 
-from datetime import datetime
+from datetime import date, datetime
 
+from tournament_scheduler.models import Game, SeasonPlan, Team, Tournament
 from tournament_scheduler.pipeline.stage3_planning import (
     Stage3Error,
+    _plan_to_dict,
     run,
 )
 from tournament_scheduler.pipeline.state import PipelineState, StageName
@@ -78,3 +80,23 @@ class TestRunStage3:
             datetime(2025, 9, 1), datetime(2025, 12, 15),
         )
         assert state.is_done(StageName.PLANNING)
+
+
+class TestPlanToDict:
+    def test_serializes_round_number(self):
+        home = Team(club="Kongsberg", label="Kongsberg U10A", age_group="U10")
+        away = Team(club="Skien", label="Skien U10A", age_group="U10")
+        game = Game(home=home, away=away, parallel_slot=1, round_number=3)
+        tournament = Tournament(
+            date=date(2025, 10, 5),
+            arena="Kongsberghallen",
+            age_group="U10",
+            teams=[home, away],
+            games=[game],
+        )
+        plan = SeasonPlan(tournaments=[tournament])
+
+        plan_dict = _plan_to_dict(plan)
+
+        game_dict = plan_dict["tournaments"][0]["games"][0]
+        assert game_dict["round_number"] == 3

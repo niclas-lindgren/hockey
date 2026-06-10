@@ -22,7 +22,7 @@
   - Check `stage3_planning.py:291` (`round_number=g.get("round_number", 0)`) and `stage4_export.py:237` (`round_number=int(g_dict.get("round_number", 0))`) — both already read `round_number` from the dict, so once `_game_to_dict()` writes it, these paths should pick it up without further changes; confirm no other reconstruction site (e.g. `tournament_scheduler/excel/plan_exporter.py`) needs a matching update.
   - Acceptance: after running Stage 3 then Stage 4 on a sample plan, reconstructed `Game` objects have `round_number` matching the value originally assigned by `season_planner.py` (not 0).
 
-- [ ] Add/extend a regression test covering the round trip
+- [x] Added TestPlanToDict.test_serializes_round_number in test_stage3_planning.py asserting _plan_to_dict() includes round_number for a Game with non-zero round_number; extended _make_plan_dict and TestDictToPlan.test_round_trips_plan in test_stage4_export.py to assert reconstructed Game.round_number matches the serialized value (3). — 2026-06-10
   - Files: tests/test_stage3_planning.py, tests/test_stage4_export.py
   - In `tests/test_stage3_planning.py`, add a test asserting `_game_to_dict()` includes `round_number` for a `Game` with a non-zero `round_number`. In `tests/test_stage4_export.py`, add or extend a test that builds a checkpoint dict containing `"round_number"` for a game and asserts the reconstructed `Game.round_number` matches (not 0).
   - Acceptance: `pytest tests/test_stage3_planning.py tests/test_stage4_export.py` passes, including the new/updated test cases.
@@ -56,4 +56,11 @@ LESSONS: none
 **Findings:** No code changes needed; all deserialization paths already correctly read round_number once _game_to_dict() writes it.
 LESSONS: none
 **Files:** (no files changed)
+**Commit:** ccd4221 (hockey)
+
+### 2026-06-10 — Added TestPlanToDict.test_serializes_round_number in test_stage3_planning.py asserting _plan_to_dict() includes round_number for a Game with non-zero round_number; extended _make_plan_dict and TestDictToPlan.test_round_trips_plan in test_stage4_export.py to assert reconstructed Game.round_number matches the serialized value (3).
+**Rationale:** none
+**Findings:** pytest tests/test_stage3_planning.py tests/test_stage4_export.py passes (12 tests).
+LESSONS: none
+**Files:** tests/test_stage3_planning.py (+24/-1), tests/test_stage4_export.py (+2/-1)
 **Commit:** [pending — fill after commit]
