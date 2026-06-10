@@ -2,6 +2,12 @@
 
 ## Open
 
+- [50] [ ] Add a light/bright theme option to the HTML season-plan reports (calendars.html / season_plan.html) — currently only the dark/professional palette from backlog item #43 is available. Add a toggle (or alternate stylesheet) so organizers can switch between dark and light themes. (2026-06-10)
+
+- [49] [ ] Fix 'Runde' column showing 0 for all games in season-plan exports — Game.round_number (added for backlog item #19) is correctly set during scheduling (season_planner.py:1189), but `_game_to_dict()` in `tournament_scheduler/pipeline/stage3_planning.py` (lines 118-123) does not serialize `round_number` into the checkpoint dict, so when `stage4_export.py:237` reads it back via `g_dict.get("round_number", 0)` it always defaults to 0. Fix `_game_to_dict` to include `round_number` so the Excel/HTML 'Runde' column shows the correct round number. (2026-06-10)
+
+- [48] [ ] Add tournament start time and duration to the season plan — each tournament currently only has a date, with no start time or estimated duration, making it hard for organizers and families to plan around it. Add a `start_time` field (e.g. 09:00) and an estimated duration/end-time per tournament, and surface them in `season_plan.html`, `calendars.html`, the Excel export, and the iCal export (DTSTART/DTEND). (2026-06-10)
+
 - [46] [ ] Verify/improve driving distance calculation: current values look incorrect. Implement a more reliable algorithm to compute from-to distances between venues (e.g. using a proper geocoding/distance matrix approach) and aggregate per-team/season travel distances correctly.
 
 - [45] [ ] Verify tournament/match scheduling fairness: game counts per team are very skewed (e.g. Jar club gets only 13 games while Kongsberg gets 84). Investigate the matching/scheduling algorithm - it appears a club's total team count is being matched against other clubs' totals instead of pairing comparable teams within similar age groups, so each team should get a roughly similar number of games regardless of club size.
