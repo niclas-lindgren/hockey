@@ -62,4 +62,4 @@ LESSONS: none
 **Findings:** diversity_score field comment in models.py now accurately describes the new metric and no longer implies equivalence with pairwise_matchup_score; all 39 season_planner tests still pass.
 LESSONS: none
 **Files:** tournament_scheduler/models.py (+8/-0)
-**Commit:** [pending — fill after commit]
+**Commit:** bd273a7 (hockey)
