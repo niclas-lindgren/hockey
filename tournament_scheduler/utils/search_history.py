@@ -79,6 +79,8 @@ class SearchHistory:
         # Mode
         if search_params.get('is_reschedule'):
             parts.append("Omplassering")
+        elif search_params.get('season_plan'):
+            parts.append("Sesongplan")
         else:
             parts.append("Nytt søk")
 

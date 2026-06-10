@@ -617,6 +617,35 @@ def run_season_plan(params):
     for tournament in sorted(plan.tournaments, key=lambda t: t.date):
         TournamentOutput.print_tournament_schedule(tournament)
     TournamentOutput.print_diversity_summary(plan)
+    TournamentOutput.print_game_count_table(plan)
+    TournamentOutput.print_game_count_warnings(planner.game_count_warnings)
+
+    # Display hosting, month-load, and rules-report sections.
+    for warning in planner.hosting_warnings:
+        TournamentOutput.print_warning(warning)
+
+    # Month-load warnings
+    _NORWEGIAN_MONTHS = [
+        "", "januar", "februar", "mars", "april", "mai", "juni",
+        "juli", "august", "september", "oktober", "november", "desember",
+    ]
+    ml_warnings = planner.month_load_warnings
+    if ml_warnings:
+        TournamentOutput.print_warning(
+            f"Måneder med ujevn turneringsbelastning "
+            f"(avvik >{int(planner.max_month_deviation_ratio * 100)}% fra forventet):"
+        )
+        for year, month, count, expected, deviation in ml_warnings:
+            direction = "overbelastet" if deviation > 0 else "underbelastet"
+            month_name = _NORWEGIAN_MONTHS[month]
+            tournament_text = "turnering" if count == 1 else "turneringer"
+            TournamentOutput.print_warning(
+                f"  • {month_name} {year}: {count} {tournament_text} "
+                f"(forventet ~{expected:.1f}, {direction} med {abs(deviation):.0%})"
+            )
+
+    # Rules report
+    TournamentOutput.print_rules_report(planner.rules_report())
 
     # Display club-load warnings if any.
     warnings = planner.club_load_warnings
@@ -630,10 +659,10 @@ def run_season_plan(params):
                 f"  {club} ({age_group}, {date_str}): {count} lag"
             )
 
-    if ask_yes_no("\nVil du eksportere sesongplanen til Excel?",, default=True):
+    if ask_yes_no("\nVil du eksportere sesongplanen til Excel?", default=True):
         export_path = ask_text("Filnavn for Excel-eksport", default="sesongplan.xlsx")
         from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
-        SeasonPlanExporter().export(plan, export_path)
+        SeasonPlanExporter().export(plan, export_path, rules_report=planner.rules_report())
 
     if ask_yes_no("\nVil du eksportere sesongplanen til CSV?", default=False):
         csv_path = ask_text("Filnavn for CSV-eksport", default="sesongplan.csv")
@@ -875,6 +904,7 @@ def main():
             season_params = collect_season_plan_params()
             if season_params:
                 run_season_plan(season_params)
+                history_manager.save_search(season_params)
 
                 print()
                 if not ask_yes_no("Vil du gjøre noe mer?", default=True):
@@ -887,11 +917,15 @@ def main():
             continue
 
         if search_params:
-            # Run the search
-            run_search(search_params)
-
-            # Save to history
-            history_manager.save_search(search_params)
+            # Route to season plan flow if the history entry is a season plan.
+            if search_params.get('season_plan'):
+                run_season_plan(search_params)
+                history_manager.save_search(search_params)
+            else:
+                # Run the search
+                run_search(search_params)
+                # Save to history
+                history_manager.save_search(search_params)
 
             # Ask if user wants to do another search
             print()
