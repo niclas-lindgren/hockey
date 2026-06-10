@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/season_planner.py, tournament_scheduler/pipeline/stage3_planning.py
   - Approach: When tournaments are constructed in season_planner.py (where `parallel_games` is currently consumed, around lines 120/229-230/518-519), set a default `start_time` (e.g. "09:00", configurable later) on each Tournament, and pass the resolved `round_length_minutes` config through stage3_planning.py (line 213, alongside how `parallel_games` is passed) so the planner has access to the per-age-group round length for duration calculations.
 
-- [ ] Update iCal exporter to use tournament start_time and computed end time for DTSTART/DTEND
+- [x] Added round_length_for_age_group param to ICalExporter and two helper methods (_tournament_start_datetime, _tournament_end_datetime) that derive DTSTART from tournament.start_time (falling back to start_hour) and DTEND from Tournament.duration_minutes()/end_time() driven by per-age-group round_length_minutes, falling back to the existing game_duration_minutes-based calculation when start_time or round length is unavailable. Applied to per-game events, the cancelled-tournament event, and the per-tournament summary event. — 2026-06-10
   - Files: tournament_scheduler/ical/ical_exporter.py
   - Approach: Replace the fixed `self.start_hour`/`self.game_duration_minutes` logic at lines 137-148 — build `dt_start` from `tournament.date` plus `tournament.start_time` (parsed HH:MM, falling back to `self.start_hour` if `start_time` is None for backward compatibility), and compute `dt_end` using the tournament's `end_time()`/`duration_minutes()` (driven by the per-age-group `round_length_minutes` passed into the exporter) instead of the flat `game_duration_minutes` constant.
 
@@ -68,4 +68,11 @@ LESSONS: none
 **Findings:** SeasonPlanner now stores round_length_for_age_group and assigns start_time09:00 to every generated Tournament; stage3_planning passes round_length_minutes config through. Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage3_planning.py (+18/-1), tournament_scheduler/season_planner.py (+10)
+**Commit:** 09c48f9 (hockey)
+
+### 2026-06-10 — Added round_length_for_age_group param to ICalExporter and two helper methods (_tournament_start_datetime, _tournament_end_datetime) that derive DTSTART from tournament.start_time (falling back to start_hour) and DTEND from Tournament.duration_minutes()/end_time() driven by per-age-group round_length_minutes, falling back to the existing game_duration_minutes-based calculation when start_time or round length is unavailable. Applied to per-game events, the cancelled-tournament event, and the per-tournament summary event.
+**Rationale:** Centralized the start/end datetime computation into two helper methods to avoid duplicating fallback logic across the three event-generation code paths (per-game, cancelled, summary).
+**Findings:** ICalExporter now derives event times from tournament.start_time and round_length_minutes when available, with full backward-compatible fallback to the prior start_hour/game_duration_minutes behavior. Full test suite: 278 passed, 1 pre-existing failure in test_stage2_scraping.py unrelated to this change.
+LESSONS: ICalExporter call sites (stage4_export.py, cli/season_command.py) do not yet pass round_length_for_age_group — they will use the start_hour/game_duration_minutes fallback until wired up.
+**Files:** tournament_scheduler/ical/ical_exporter.py (+72/-33)
 **Commit:** [pending — fill after commit]

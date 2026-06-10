@@ -4,8 +4,10 @@ Uses the ``icalendar`` library (already in requirements.txt) to produce a
 standards-compliant ``.ics`` file that can be imported into any calendar app.
 
 Each VEVENT uses:
-- ``DTSTART`` / ``DTEND``: tournament date at 09:00 + 1 h per game slot
-  (rough placeholder since exact game times are not in the model yet)
+- ``DTSTART`` / ``DTEND``: tournament date at ``tournament.start_time``
+  (falling back to a configurable ``start_hour``) plus 1 h per game slot,
+  or the computed tournament duration when a per-age-group round length
+  is configured
 - ``SUMMARY``: "<home> vs <away>"
 - ``LOCATION``: arena name
 - ``CATEGORIES``: age group
@@ -38,15 +40,69 @@ class ICalExporter:
         Duration of a single game in minutes (default 60).
     start_hour:
         Hour of day (0-23) when the first game of a tournament day starts.
+        Used as a fallback when a tournament has no ``start_time`` set.
+    round_length_for_age_group:
+        Optional mapping of age group -> round length in minutes, used
+        together with ``tournament.start_time`` to compute the tournament's
+        total duration/end time via ``Tournament.duration_minutes``/
+        ``Tournament.end_time``.
     """
 
     def __init__(
         self,
         game_duration_minutes: int = 60,
         start_hour: int = 9,
+        round_length_for_age_group: Optional[dict[str, int]] = None,
     ) -> None:
         self.game_duration_minutes = game_duration_minutes
         self.start_hour = start_hour
+        self.round_length_for_age_group = round_length_for_age_group or {}
+
+    # ------------------------------------------------------------------
+    # Internal helpers — tournament start/end datetimes
+    # ------------------------------------------------------------------
+
+    def _tournament_start_datetime(self, tournament: Tournament) -> datetime:
+        """Return the tournament's start datetime (UTC).
+
+        Uses ``tournament.start_time`` (HH:MM) if set, falling back to
+        ``self.start_hour`` for backward compatibility.
+        """
+        if tournament.start_time:
+            try:
+                hour, minute = (int(p) for p in tournament.start_time.split(":"))
+            except (ValueError, AttributeError):
+                hour, minute = self.start_hour, 0
+        else:
+            hour, minute = self.start_hour, 0
+
+        return datetime(
+            tournament.date.year,
+            tournament.date.month,
+            tournament.date.day,
+            hour,
+            minute,
+            0,
+            tzinfo=timezone.utc,
+        )
+
+    def _tournament_end_datetime(self, tournament: Tournament, dt_start: datetime) -> datetime:
+        """Return the tournament's end datetime (UTC).
+
+        Uses the per-age-group round length and
+        ``Tournament.duration_minutes`` when both ``start_time`` and a
+        round length are available. Falls back to a duration based on
+        ``game_duration_minutes`` and the number of games.
+        """
+        round_length = self.round_length_for_age_group.get(tournament.age_group)
+        if tournament.start_time and round_length:
+            duration = tournament.duration_minutes(round_length)
+            if duration > 0:
+                return dt_start + timedelta(minutes=duration)
+
+        return dt_start + timedelta(
+            hours=max(1, len(tournament.games) * self.game_duration_minutes / 60)
+        )
 
     # ------------------------------------------------------------------
     # Public API — per-game export (used by Stage 4 pipeline)
@@ -134,18 +190,8 @@ class ICalExporter:
 
         if tournament.cancelled:
             # Emit a single CANCELLED event for the tournament weekend.
-            dt_start = datetime(
-                tournament.date.year,
-                tournament.date.month,
-                tournament.date.day,
-                self.start_hour,
-                0,
-                0,
-                tzinfo=timezone.utc,
-            )
-            dt_end = dt_start + timedelta(
-                hours=max(1, len(tournament.games) * self.game_duration_minutes / 60)
-            )
+            dt_start = self._tournament_start_datetime(tournament)
+            dt_end = self._tournament_end_datetime(tournament, dt_start)
             reason = tournament.cancellation_reason or "Avlyst"
             event = Event()
             event.add("uid", str(uuid.uuid4()))
@@ -174,19 +220,12 @@ class ICalExporter:
         slot_start_offsets = {slot: i for i, slot in enumerate(unique_slots)}
 
         game_dur = timedelta(minutes=self.game_duration_minutes)
+        tournament_start = self._tournament_start_datetime(tournament)
 
         for game in games:
             slot = game.parallel_slot
             offset_slots = slot_start_offsets.get(slot, 0)
-            dt_start = datetime(
-                tournament.date.year,
-                tournament.date.month,
-                tournament.date.day,
-                self.start_hour,
-                0,
-                0,
-                tzinfo=timezone.utc,
-            ) + game_dur * offset_slots
+            dt_start = tournament_start + game_dur * offset_slots
 
             dt_end = dt_start + game_dur
 
@@ -250,16 +289,16 @@ class ICalExporter:
         reasonable all-day placeholder). SUMMARY and DESCRIPTION are
         built from the tournament's age group, arena, and team list.
         """
-        dt_start = datetime(
-            tournament.date.year,
-            tournament.date.month,
-            tournament.date.day,
-            self.start_hour,
-            0,
-            0,
-            tzinfo=timezone.utc,
-        )
-        dt_end = dt_start + timedelta(hours=8)
+        dt_start = self._tournament_start_datetime(tournament)
+        round_length = self.round_length_for_age_group.get(tournament.age_group)
+        if tournament.start_time and round_length:
+            duration = tournament.duration_minutes(round_length)
+            if duration > 0:
+                dt_end = dt_start + timedelta(minutes=duration)
+            else:
+                dt_end = dt_start + timedelta(hours=8)
+        else:
+            dt_end = dt_start + timedelta(hours=8)
 
         summary = f"{tournament.age_group} — {tournament.arena}"
 
