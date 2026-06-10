@@ -184,6 +184,84 @@ class TestSeasonPlanner:
             assert len(tournament.games) == expected_games
 
 
+class TestTournamentStartTimeAndRoundLength:
+    """Tests for default start_time assignment and round_length_for_age_group."""
+
+    def test_generated_tournaments_have_a_default_start_time(self, planner_and_plan):
+        _, plan, *_ = planner_and_plan
+        for tournament in plan.tournaments:
+            assert tournament.start_time == "09:00"
+
+    def test_round_length_for_age_group_is_stored_on_planner(self, season_window):
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+
+        clubs = ["Jar", "Kongsberg"]
+        age_groups = ["U10", "U12"]
+        roster = _build_roster(clubs, age_groups)
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        round_lengths = {"U10": 10, "U12": 12}
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3, "U12": 2},
+            round_length_for_age_group=round_lengths,
+        )
+
+        assert planner.round_length_for_age_group == round_lengths
+
+    def test_round_length_for_age_group_defaults_to_empty_dict(self, season_window):
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+
+        clubs = ["Jar", "Kongsberg"]
+        age_groups = ["U10"]
+        roster = _build_roster(clubs, age_groups)
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+        )
+
+        assert planner.round_length_for_age_group == {}
+
+    def test_generated_tournament_duration_uses_configured_round_length(self, season_window):
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+
+        clubs = ["Jar", "Kongsberg", "Skien", "Jutul"]
+        age_groups = ["U10"]
+        roster = _build_roster(clubs, age_groups)
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        round_lengths = {"U10": 10}
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+            round_length_for_age_group=round_lengths,
+        )
+        plan = planner.build_plan(start, end)
+
+        for tournament in plan.tournaments:
+            round_length = round_lengths[tournament.age_group]
+            duration = tournament.duration_minutes(round_length)
+            end_time = tournament.end_time(round_length)
+
+            if tournament.games:
+                max_round = max(g.round_number for g in tournament.games)
+                assert duration == max_round * round_length
+                assert end_time is not None
+            else:
+                assert duration == 0
+
+
 @pytest.fixture
 def small_roster_planner_and_plan():
     """A scenario with a small single-age-group roster over a long season window,

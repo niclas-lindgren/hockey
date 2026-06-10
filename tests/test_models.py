@@ -6,7 +6,10 @@ from tournament_scheduler.models import (
     TournamentInfo,
     ConflictContext,
     ConflictResult,
-    SchedulingResult
+    SchedulingResult,
+    Game,
+    Team,
+    Tournament,
 )
 
 
@@ -68,3 +71,80 @@ class TestModels:
         )
         assert len(result.available_dates) == 2
         assert result.total_weekends_checked == 10
+
+
+class TestTournamentDurationAndEndTime:
+    """Tests for Tournament.duration_minutes and Tournament.end_time."""
+
+    def _make_teams(self, n):
+        return [Team(club=f"Club{i}", label=f"Team{i}", age_group="U10") for i in range(n)]
+
+    def test_duration_minutes_with_no_games_is_zero(self):
+        tournament = Tournament(date=date(2026, 1, 17), arena="Arena", age_group="U10")
+        assert tournament.duration_minutes(round_length=10) == 0
+
+    def test_duration_minutes_uses_max_round_number(self):
+        teams = self._make_teams(4)
+        games = [
+            Game(home=teams[0], away=teams[1], round_number=1),
+            Game(home=teams[2], away=teams[3], round_number=1),
+            Game(home=teams[0], away=teams[2], round_number=2),
+            Game(home=teams[1], away=teams[3], round_number=2),
+            Game(home=teams[0], away=teams[3], round_number=3),
+            Game(home=teams[1], away=teams[2], round_number=3),
+        ]
+        tournament = Tournament(date=date(2026, 1, 17), arena="Arena", age_group="U10", teams=teams, games=games)
+
+        # 3 rounds * 10 minutes/round = 30 minutes total.
+        assert tournament.duration_minutes(round_length=10) == 30
+
+    def test_duration_minutes_scales_with_round_length(self):
+        teams = self._make_teams(2)
+        games = [Game(home=teams[0], away=teams[1], round_number=1)]
+        tournament = Tournament(date=date(2026, 1, 17), arena="Arena", age_group="U12", teams=teams, games=games)
+
+        assert tournament.duration_minutes(round_length=12) == 12
+        assert tournament.duration_minutes(round_length=8) == 8
+
+    def test_end_time_computed_from_start_time_and_duration(self):
+        teams = self._make_teams(4)
+        games = [
+            Game(home=teams[0], away=teams[1], round_number=1),
+            Game(home=teams[2], away=teams[3], round_number=1),
+            Game(home=teams[0], away=teams[2], round_number=2),
+            Game(home=teams[1], away=teams[3], round_number=2),
+        ]
+        tournament = Tournament(
+            date=date(2026, 1, 17),
+            arena="Arena",
+            age_group="U10",
+            teams=teams,
+            games=games,
+            start_time="09:00",
+        )
+
+        # 2 rounds * 10 minutes/round = 20 minutes -> 09:00 + 20min = 09:20
+        assert tournament.end_time(round_length=10) == "09:20"
+
+    def test_end_time_rolls_over_to_next_hour(self):
+        teams = self._make_teams(2)
+        games = [Game(home=teams[0], away=teams[1], round_number=1)]
+        tournament = Tournament(
+            date=date(2026, 1, 17),
+            arena="Arena",
+            age_group="U12",
+            teams=teams,
+            games=games,
+            start_time="09:50",
+        )
+
+        assert tournament.end_time(round_length=12) == "10:02"
+
+    def test_end_time_is_none_when_start_time_unset(self):
+        teams = self._make_teams(2)
+        games = [Game(home=teams[0], away=teams[1], round_number=1)]
+        tournament = Tournament(date=date(2026, 1, 17), arena="Arena", age_group="U10", teams=teams, games=games)
+
+        # Backward-compatible: no start_time -> end_time is None regardless of round_length.
+        assert tournament.start_time is None
+        assert tournament.end_time(round_length=10) is None
