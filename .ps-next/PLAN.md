@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/pipeline/cancellation_workflow.py
   - Approach: Create a `CancellationWorkflow` class that: (a) `mark_cancelled(tournament_id, reason, plan)` → sets cancelled state; (b) `suggest_makeup_dates(tournament, plan, scheduler)` → runs `find_available_dates` in the date range after the cancelled tournament, excludes already-occupied plan dates, and ranks candidates by distance from original date; (c) `apply_makeup(tournament_id, new_date, plan, updater)` → calls `TournamentUpdater.move_date` with cascade and conflict re-checking, then clears cancelled state; (d) `re_export(state)` → runs Stage 4 export. Follows the established `PipelineState` / `TournamentUpdater` patterns.
 
-- [ ] Add `cancel` subcommand to rvv-miniputt CLI
+- [x] Add `cancel` subcommand to rvv-miniputt CLI
   - Files: tournament_scheduler/cli/rvv_cli.py
   - Approach: Add a `cancel` subcommand to `rvv-miniputt` that takes `--tournament-id`, `--reason` (optional), `--makeup-date` (optional, auto-suggests if omitted), `--no-export` (skip re-export). Lists tournaments when no ID given. Uses CancellationWorkflow for the heavy lifting. Surfaces Norwegian-language output via TournamentOutput.
 
@@ -44,6 +44,13 @@
 ## Log
 
 
+
+### 2026-06-10 — Add `cancel` subcommand to rvv-miniputt CLI
+**Done:** Added `cancel` subcommand to rvv-miniputt CLI with full Norwegian-language flow: listing tournaments, interactive reason prompt, suggested makeup dates ranked by proximity, applying makeup with --makeup-date, and automatic re-export. Uses CancellationWorkflow under the hood.
+**Rationale:** The cancel command provides a complete first-class flow: list → cancel → suggest → apply → re-export. Without --tournament-id it lists available tournaments. Without --reason it prompts interactively. Without --makeup-date it shows ranked suggestions. Re-export is automatic unless --no-export is given.
+**Findings:** All 222 tests pass (excluding pre-existing flaky test). The cancel subcommand supports: listing tournaments when no ID given, marking as cancelled, interactive reason prompt, suggesting makeup dates ranked by proximity, applying makeup with force/cascade, and re-export.
+**Files:** tournament_scheduler/cli/rvv_cli.py (+172)
+**Commit:** not committed
 ### 2026-06-10 — Build CancellationWorkflow module
 **Done:** Created CancellationWorkflow class in cancellation_workflow.py with: mark_cancelled (sets cancelled state + reason), suggest_makeup_dates (finds free weekends via lightweight scheduler, excludes occupied dates, ranks by proximity), apply_makeup (wraps TournamentUpdater.move_date, clears cancelled state on success), re_export (runs Stage 4 export). Includes CancelResult and MakeupSuggestion dataclasses, plus log_cancellation for audit trail. Follows PipelineState/TournamentUpdater patterns.
 **Rationale:** The module composes with existing TournamentUpdater rather than replacing it — move_date handles all the conflict checking/cascade complexity. The lightweight scheduler with just holiday checking gives fast suggestions without re-scraping calendars. The ranking logic is simple (proximity to original date) but provides a good default.
