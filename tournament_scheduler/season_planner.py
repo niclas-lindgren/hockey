@@ -63,6 +63,7 @@ class SeasonPlanner:
         max_game_count_spread: int = 2,
         max_early_finish_gap_days: int = 60,
         division_skill_band: int = 2,
+        max_hosting_deviation: int = 1,
     ):
         """Initialize the planner.
 
@@ -103,6 +104,7 @@ class SeasonPlanner:
         self.max_game_count_spread = max_game_count_spread
         self.max_early_finish_gap_days = max_early_finish_gap_days
         self.division_skill_band = division_skill_band
+        self.max_hosting_deviation = max_hosting_deviation
 
         # Maps team label -> skill_level (int 1-10) for teams that have one.
         # Used by the skill-level proximity penalty in participant selection.
@@ -114,6 +116,9 @@ class SeasonPlanner:
 
         # Club-load warnings collected after build_plan runs.
         self._club_load_warnings: List[Tuple[str, str, str, int]] = []
+
+        # Hosting-imbalance warnings collected after build_plan runs.
+        self._hosting_warnings: List[str] = []
 
         # Game-count warnings collected after build_plan runs.
         self._game_count_warnings: List[Tuple[str, int, int, str]] = []
@@ -229,6 +234,8 @@ class SeasonPlanner:
 
         # Scan for club-load violations and record warnings.
         self._scan_club_load_warnings(plan.tournaments)
+        # Scan for hosting-imbalance warnings.
+        self._scan_hosting_warnings(plan)
         # Scan for game-count spread violations and early-finish issues.
         self._scan_game_count_warnings(plan.start_date, plan.end_date)
 
@@ -258,6 +265,16 @@ class SeasonPlanner:
         single club exceeds ``max_club_teams_per_tournament``.
         """
         return list(self._club_load_warnings)
+
+    @property
+    def hosting_warnings(self) -> List[str]:
+        """Proportional-hosting warnings after ``build_plan``.
+
+        Each entry is a human-readable message describing a club whose
+        actual hosting count deviates from its proportional (by team
+        count) target beyond ``max_hosting_deviation``.
+        """
+        return list(self._hosting_warnings)
 
     @property
     def game_count_warnings(self) -> List[Tuple[str, int, int, str]]:
@@ -353,6 +370,43 @@ class SeasonPlanner:
                     self._club_load_warnings.append(
                         (club, t.age_group, t.date.isoformat(), count)
                     )
+
+    def _scan_hosting_warnings(self, plan: SeasonPlan) -> None:
+        """Scan completed tournament hosting for proportional-imbalance violations.
+
+        Compares each club's actual hosting count to its proportional
+        target (derived from team-count share of the roster) and appends
+        a human-readable warning for every club whose deviation exceeds
+        ``max_hosting_deviation``.
+        """
+        clubs = self.roster.clubs()
+        if not clubs or not plan.tournaments:
+            return
+
+        # Count teams per club from the roster.
+        club_team_counts: Dict[str, int] = {}
+        for team in self.roster.teams:
+            club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
+        total_teams = sum(club_team_counts.values()) or 1
+
+        num_tournaments = len(plan.tournaments)
+        actual_hosting: Dict[str, int] = {}
+        for tournament in plan.tournaments:
+            host = tournament.host_club
+            if host:
+                actual_hosting[host] = actual_hosting.get(host, 0) + 1
+
+        for club in clubs:
+            team_count = club_team_counts.get(club, 0)
+            expected = team_count / total_teams * num_tournaments
+            actual = actual_hosting.get(club, 0)
+            deviation = abs(actual - expected)
+            if deviation > self.max_hosting_deviation:
+                self._hosting_warnings.append(
+                    f"{club} har {actual} hjemmeturnering(er) av {num_tournaments} "
+                    f"(forventet ~{expected:.1f} basert på {team_count} lag, "
+                    f"avvik {deviation:.1f} > {self.max_hosting_deviation})"
+                )
 
     # ------------------------------------------------------------------
     # Step 1: pick dates spread evenly across the window
@@ -454,28 +508,78 @@ class SeasonPlanner:
     def _assign_hosts(self, chosen_dates: Sequence[date]) -> List[str]:
         """Assign a host club to each chosen date.
 
-        Round-robins over the clubs in the roster so every arena gets at
-        least one hosted tournament before any arena hosts a second; once
-        every club has hosted, falls back to least-recently-hosted.
+        Every club hosts at least one tournament before any club hosts a
+        second time.  After that initial round, hosting is assigned in
+        proportion to each club's team count -- clubs with more teams
+        host proportionally more tournaments.  This prevents a club like
+        Jar (7 teams) from hosting zero home tournaments while a
+        single-team club hosts one.
         """
         clubs = self.roster.clubs()
         if not clubs:
             return ["" for _ in chosen_dates]
 
+        # Count teams per club from the roster.
+        club_team_counts: Dict[str, int] = {}
+        for team in self.roster.teams:
+            club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
+        total_teams = sum(club_team_counts.values()) or 1
+
+        num_dates = len(chosen_dates)
+
+        # Compute proportional targets using largest-remainder (Hare quota)
+        # so the rounded integers sum exactly to num_dates.
+        raw_targets: Dict[str, float] = {}
+        for club in clubs:
+            raw_targets[club] = club_team_counts.get(club, 0) / total_teams * num_dates
+
+        targets: Dict[str, int] = {}
+        remainders: List[Tuple[float, str]] = []
+        assigned = 0
+        for club in clubs:
+            t = raw_targets[club]
+            rounded = int(t)
+            targets[club] = rounded
+            assigned += rounded
+            remainders.append((t - rounded, club))
+
+        remainders.sort(key=lambda x: -x[0])
+        for _ in range(num_dates - assigned):
+            if remainders:
+                club = remainders.pop(0)[1]
+                targets[club] += 1
+
+        actual_counts: Dict[str, int] = {club: 0 for club in clubs}
         last_hosted_index: Dict[str, int] = {club: -1 for club in clubs}
         assignments: List[str] = []
 
         for i, _ in enumerate(chosen_dates):
-            # Prefer clubs that have never hosted yet, in roster order.
-            never_hosted = [club for club in clubs if last_hosted_index[club] == -1]
-            if never_hosted:
-                host = never_hosted[0]
+            ng_hosted = [club for club in clubs if last_hosted_index[club] == -1]
+            if ng_hosted:
+                # Phase 1: every club hosts at least once before any
+                # repeats.  Among never-hosted clubs, prefer those with
+                # the highest proportional target (more teams -> host
+                # earlier).
+                host = max(ng_hosted, key=lambda c: targets.get(c, 0))
             else:
-                # Least-recently-hosted: smallest last_hosted_index.
-                host = min(clubs, key=lambda c: last_hosted_index[c])
+                # Phase 2: pick the club furthest below its proportional
+                # target.  If all clubs are at or above target, fall back
+                # to least-recently-hosted.
+                deficit_clubs = [
+                    c for c in clubs
+                    if actual_counts[c] < targets.get(c, 0)
+                ]
+                if deficit_clubs:
+                    host = max(
+                        deficit_clubs,
+                        key=lambda c: targets.get(c, 0) - actual_counts[c],
+                    )
+                else:
+                    host = min(clubs, key=lambda c: last_hosted_index[c])
 
             assignments.append(host)
             last_hosted_index[host] = i
+            actual_counts[host] = actual_counts.get(host, 0) + 1
 
         return assignments
 

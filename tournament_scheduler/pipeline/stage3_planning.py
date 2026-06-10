@@ -82,8 +82,9 @@ def run(
     pg_config = _build_parallel_games(config)
     club_arenas = _build_club_arenas(config)
     division_skill_band = config.get("divisionSkillBand", 2)
+    max_hosting_deviation = config.get("maxHostingDeviation", 1)
 
-    planner = _make_planner(roster, pg_config, club_arenas, division_skill_band)
+    planner = _make_planner(roster, pg_config, club_arenas, division_skill_band, max_hosting_deviation)
     plan = planner.build_plan(start_date, end_date)
 
     if plan is None or not plan.tournaments:
@@ -187,6 +188,7 @@ def _make_planner(
     pg_config: dict[str, int],
     club_arenas: dict[str, str],
     division_skill_band: int = 2,
+    max_hosting_deviation: int = 1,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner`."""
     from ..scheduler import TournamentScheduler
@@ -204,6 +206,7 @@ def _make_planner(
         club_arenas=club_arenas,
         parallel_games_for_age_group=pg_config or None,
         division_skill_band=division_skill_band,
+        max_hosting_deviation=max_hosting_deviation,
     )
 
 

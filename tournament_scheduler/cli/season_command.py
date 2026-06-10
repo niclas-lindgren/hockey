@@ -45,6 +45,7 @@ class SeasonCommand:
             max_club_teams = args.max_club_teams
         max_game_count_spread = federation_defaults.get('maxGameCountSpread', 2)
         division_skill_band = federation_defaults.get('divisionSkillBand', 2)
+        max_hosting_deviation = federation_defaults.get('maxHostingDeviation', 1)
 
         sources, club_arenas = self._build_calendar_sources()
         if not sources:
@@ -66,6 +67,7 @@ class SeasonCommand:
             max_club_teams_per_tournament=max_club_teams,
             max_game_count_spread=max_game_count_spread,
             division_skill_band=division_skill_band,
+            max_hosting_deviation=max_hosting_deviation,
         )
 
         TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")
@@ -78,6 +80,7 @@ class SeasonCommand:
         self._print_plan(plan, planner=planner)
 
         self._print_club_load_warnings(planner)
+        self._print_hosting_warnings(planner)
         self._print_travel_warnings(plan)
 
         if args.export_excel:
@@ -160,6 +163,19 @@ class SeasonCommand:
         TournamentOutput.print_diversity_summary(plan)
         if planner is not None:
             TournamentOutput.print_game_count_warnings(planner.game_count_warnings)
+
+    @staticmethod
+    def _print_hosting_warnings(planner) -> None:
+        """Print warnings for clubs whose hosting deviates from proportional targets."""
+        warnings = planner.hosting_warnings
+        if not warnings:
+            return
+        TournamentOutput.print_warning(
+            f"Advarsel — {len(warnings)} tilfelle(r) der vertskap avviker "
+            f"fra proporsjonal fordeling:"
+        )
+        for warning in warnings:
+            TournamentOutput.print_warning(f"  {warning}")
 
     @staticmethod
     def _print_club_load_warnings(planner) -> None:

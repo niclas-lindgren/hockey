@@ -698,3 +698,189 @@ class TestSkillLevelDivisions:
         assert 1 in first_levels and 10 in first_levels, (
             f"wide band should allow all levels together: {first_levels}"
         )
+
+
+class TestProportionalHosting:
+    """Tests for proportional home-tournament hosting."""
+
+    @pytest.fixture
+    def season_window(self):
+        return datetime(2026, 10, 1), datetime(2027, 4, 30)
+
+    @pytest.fixture
+    def free_dates(self, season_window):
+        start, end = season_window
+        return _all_weekend_dates(start, end)
+
+    def test_clubs_with_more_teams_host_more_tournaments(self, free_dates, season_window):
+        """Jar with 3 teams should host more than Kongsberg with 1 team."""
+        start, end = season_window
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Jar", label="Jar 2", age_group="U10"),
+            Team(club="Jar", label="Jar 3", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+            Team(club="Skien", label="Skien 1", age_group="U11"),
+            Team(club="Holmen", label="Holmen 1", age_group="U11"),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3, "U11": 3},
+            max_hosting_deviation=5,  # lenient so no warnings
+        )
+        plan = planner.build_plan(start, end)
+
+        # Count how many tournaments each club hosted.
+        hosting_counts: dict[str, int] = {}
+        for t in plan.tournaments:
+            if t.host_club:
+                hosting_counts[t.host_club] = hosting_counts.get(t.host_club, 0) + 1
+
+        # Jar (3 teams) should host strictly more than Kongsberg (1 team)
+        # in a season of ~10-15 tournaments.
+        assert hosting_counts.get("Jar", 0) > hosting_counts.get("Kongsberg", 0), (
+            f"Jar ({hosting_counts.get('Jar', 0)}) should host more than "
+            f"Kongsberg ({hosting_counts.get('Kongsberg', 0)})"
+        )
+
+    def test_equal_team_counts_get_equal_hosting(self, free_dates, season_window):
+        """All clubs with 1 team each should host roughly equally."""
+        start, end = season_window
+        clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]
+        roster = _build_roster(clubs, ["U10", "U11"])
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+            max_hosting_deviation=5,
+        )
+        plan = planner.build_plan(start, end)
+
+        hosting_counts: dict[str, int] = {}
+        for t in plan.tournaments:
+            if t.host_club:
+                hosting_counts[t.host_club] = hosting_counts.get(t.host_club, 0) + 1
+
+        # All clubs have the same number of teams — hosting counts should
+        # be within 1 of each other (total / num_clubs).
+        counts = list(hosting_counts.values())
+        assert max(counts) - min(counts) <= 1, (
+            f"equal-team clubs should host roughly equally: {hosting_counts}"
+        )
+
+    def test_every_club_hosts_at_least_once(self, free_dates, season_window):
+        """Even single-team clubs host at least one tournament."""
+        start, end = season_window
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Jar", label="Jar 2", age_group="U10"),
+            Team(club="Jar", label="Jar 3", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+            Team(club="Skien", label="Skien 1", age_group="U11"),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3, "U11": 3},
+            max_hosting_deviation=5,
+        )
+        plan = planner.build_plan(start, end)
+
+        hosted_clubs = {t.host_club for t in plan.tournaments if t.host_club}
+        assert "Kongsberg" in hosted_clubs, (
+            f"Kongsberg (1 team) should host at least once. Hosting clubs: {hosted_clubs}"
+        )
+        assert "Skien" in hosted_clubs, (
+            f"Skien (1 team) should host at least once. Hosting clubs: {hosted_clubs}"
+        )
+
+    def test_hosting_warnings_fire_on_deviation(self, free_dates, season_window):
+        """With max_hosting_deviation=0, even a small imbalance triggers warnings."""
+        start, end = season_window
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Jar", label="Jar 2", age_group="U10"),
+            Team(club="Jar", label="Jar 3", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+            max_hosting_deviation=0,  # any deviation triggers warnings
+        )
+        plan = planner.build_plan(start, end)
+        # Force build_plan to run
+        assert len(plan.tournaments) > 0
+
+        warnings = planner.hosting_warnings
+        # With 3 Jar teams vs 1 Kongsberg team over ~10-15 tournaments,
+        # the proportional target won't be perfectly integer-achievable,
+        # so warnings should fire with deviation=0.
+        # (Jar should host ~75% of tournaments, Kongsberg ~25%)
+        assert len(warnings) >= 1, (
+            f"expected hosting warnings with max_hosting_deviation=0, "
+            f"plan has {len(plan.tournaments)} tournaments, got: {warnings}"
+        )
+
+    def test_hosting_warnings_empty_with_lenient_threshold(self, free_dates, season_window):
+        """With max_hosting_deviation=99, no warnings should fire."""
+        start, end = season_window
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Jar", label="Jar 2", age_group="U10"),
+            Team(club="Jar", label="Jar 3", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+            Team(club="Skien", label="Skien 1", age_group="U10"),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+            max_hosting_deviation=99,  # effectively unlimited
+        )
+        plan = planner.build_plan(start, end)
+        assert len(plan.tournaments) > 0
+
+        warnings = planner.hosting_warnings
+        assert len(warnings) == 0, (
+            f"expected no hosting warnings with max_hosting_deviation=99, "
+            f"got: {warnings}"
+        )
+
+    def test_hosting_warnings_property_returns_list(self, free_dates, season_window):
+        """hosting_warnings should always return a list."""
+        start, end = season_window
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+        ])
+        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+        )
+        plan = planner.build_plan(start, end)
+        assert len(plan.tournaments) > 0
+
+        warnings = planner.hosting_warnings
+        assert isinstance(warnings, list)
