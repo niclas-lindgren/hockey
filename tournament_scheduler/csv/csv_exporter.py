@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from tournament_scheduler.club_distances import furthest_traveling_team
 from ..models import SeasonPlan
 
 
@@ -73,9 +74,12 @@ class CsvExporter:
         with path.open("w", newline="", encoding="utf-8") as fh:
             writer = csv.writer(fh)
             writer.writerow([
-                "date", "arena", "age_group", "host_club", "team_count", "game_count"
+                "date", "arena", "age_group", "host_club",
+                "team_count", "game_count", "furthest_travel",
             ])
             for tournament in plan.tournaments:
+                travel = furthest_traveling_team(tournament)
+                travel_str = f"{travel[0].label}~{travel[1]}km" if travel else ""
                 writer.writerow([
                     tournament.date.isoformat(),
                     tournament.arena,
@@ -83,4 +87,5 @@ class CsvExporter:
                     tournament.host_club or "",
                     len(tournament.teams),
                     len(tournament.games),
+                    travel_str,
                 ])

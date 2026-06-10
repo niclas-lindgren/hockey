@@ -70,7 +70,7 @@ class TestSeasonPlanExporter:
         rows = list(overview.iter_rows(values_only=True))
 
         header, *data_rows = rows
-        assert header == ("Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag")
+        assert header == ("Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengste reise")
         assert len(data_rows) == len(sample_plan.tournaments)
 
         for tournament, row in zip(sample_plan.tournaments, data_rows):
@@ -84,6 +84,9 @@ class TestSeasonPlanExporter:
             assert row[3] == tournament.arena
             assert row[4] == tournament.host_club
             assert row[5] == expected_teams
+            # row[6] is "Lengste reise" — varies by arena/teams
+            # row[6] is "Lengste reise" — may be None (empty cell) or a string
+            assert row[6] is None or "~" in str(row[6])
 
     def test_per_tournament_sheets_match_game_lists(self, sample_plan, tmp_path):
         output_path = tmp_path / "season_plan.xlsx"

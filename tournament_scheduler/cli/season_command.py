@@ -12,6 +12,7 @@ from tournament_scheduler.scheduler import TournamentScheduler
 
 from tournament_scheduler.season_planner import SeasonPlanner
 from tournament_scheduler.utils.date_parser import DateParser
+from tournament_scheduler.club_distances import furthest_traveling_team
 from tournament_scheduler.utils.rich_output import TournamentOutput
 
 
@@ -73,6 +74,7 @@ class SeasonCommand:
         self._print_plan(plan)
 
         self._print_club_load_warnings(planner)
+        self._print_travel_warnings(plan)
 
         if args.export_excel:
             from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
@@ -165,4 +167,24 @@ class SeasonCommand:
         for club, age_group, date_str, count in warnings:
             TournamentOutput.print_warning(
                 f"  {club} ({age_group}, {date_str}): {count} lag"
+            )
+
+    @staticmethod
+    def _print_travel_warnings(plan) -> None:
+        """Print information about the furthest-traveling teams."""
+        # The per-tournament travel info is already shown in
+        # print_tournament_schedule. Here we surface the longest
+        # single-leg trip in the entire plan.
+        longest_team = None
+        longest_km = 0
+        for t in plan.tournaments:
+            travel = furthest_traveling_team(t)
+            if travel is not None:
+                team, km = travel
+                if km > longest_km:
+                    longest_team = team
+                    longest_km = km
+        if longest_team:
+            TournamentOutput.print_info(
+                f"Lengste enkeltreise i sesongen: {longest_team.label} ({longest_km} km)"
             )

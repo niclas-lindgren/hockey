@@ -10,6 +10,7 @@ from rich import box
 from rich.text import Text
 
 if TYPE_CHECKING:
+    from tournament_scheduler.club_distances import furthest_traveling_team
     from tournament_scheduler.models import SeasonPlan, Tournament
 
 console = Console()
@@ -309,6 +310,14 @@ class TournamentOutput:
 
         console.print(table)
 
+        # Print travel-distance info for this tournament
+        travel = furthest_traveling_team(tournament)
+        if travel is not None:
+            team, km = travel
+            console.print(f"[yellow]🚗 Lengst reise:[/yellow] {team.label} (~{km} km)")
+        else:
+            console.print("[dim]🚗 Reise: kun lokale lag (0 km)[/dim]")
+
     @staticmethod
     def print_diversity_summary(plan: "SeasonPlan") -> None:
         """Print a summary panel of matchup-diversity metrics for a season plan.
@@ -337,6 +346,22 @@ class TournamentOutput:
                 if arena.startswith("_"):
                     continue
                 summary_text.append(f"  • {arena}: {count} turnering(er)\n", style="cyan")
+
+        # Travel-distance summary: longest single-leg trip in the plan
+        longest_team = None
+        longest_km = 0
+        for t in plan.tournaments:
+            travel = furthest_traveling_team(t)
+            if travel is not None:
+                team, km = travel
+                if km > longest_km:
+                    longest_team = team
+                    longest_km = km
+        if longest_team:
+            summary_text.append(
+                f"\n🚗 Lengste enkeltreise: {longest_team.label} ({longest_km} km)\n",
+                style="yellow"
+            )
 
         collisions = plan.arena_counts.get("_age_group_overlap_collisions", 0)
         if collisions:

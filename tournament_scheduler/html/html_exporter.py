@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 from typing import Any
 
+from tournament_scheduler.club_distances import furthest_traveling_team
 from ..models import SeasonPlan
 
 # ---------------------------------------------------------------------------
@@ -246,6 +247,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   .tag--age { background: rgba(56,189,248,.1); border-color: rgba(56,189,248,.2); color: var(--accent); }
   .tag--arena { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); color: var(--amber); }
   .tag--teams { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.2); color: var(--emerald); }
+  .tag--travel { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.2); color: var(--amber); }
   .tag svg { width: 14px; height: 14px; flex-shrink: 0; }
 
   .tournament-arrow {
@@ -530,6 +532,7 @@ function render() {
             '<span class="tag tag--age"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' + t.g + '</span>' +
             '<span class="tag tag--arena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>' + t.a + '</span>' +
             '<span class="tag tag--teams"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' + t.m.length + ' kamper</span>' +
+            (t.tr ? '<span class="tag tag--travel">' + t.tr + '</span>' : '') +
           '</div></div>' +
         '<div class="tournament-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>' +
       '</div>' +
@@ -666,12 +669,15 @@ class HtmlExporter:
                 [g.home.label, g.away.label, g.parallel_slot]
                 for g in t.games
             ]
+            travel = furthest_traveling_team(t)
+            travel_str = f"{travel[0].label} ~{travel[1]} km" if travel else ""
             data.append({
                 "d": t.date.isoformat(),
                 "a": t.arena,
                 "g": t.age_group,
                 "h": t.host_club or "",
                 "m": games,
+                "tr": travel_str,
             })
         return json.dumps(data, ensure_ascii=False)
 

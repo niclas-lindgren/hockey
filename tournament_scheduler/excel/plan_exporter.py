@@ -21,6 +21,7 @@ import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 from rich.console import Console
 
+from tournament_scheduler.club_distances import furthest_traveling_team
 from tournament_scheduler.models import SeasonPlan, Tournament
 
 console = Console()
@@ -32,7 +33,7 @@ _NORWEGIAN_WEEKDAYS = [
     "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag",
 ]
 
-_OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag"]
+_OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengste reise"]
 _GAMES_HEADERS = ["Runde", "Hjemmelag", "Bortelag", "Parallellbane"]
 _CLUB_SUMMARY_HEADERS = ["Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena"]
 
@@ -85,6 +86,7 @@ class SeasonPlanExporter:
         self._style_header_row(sheet)
 
         for tournament in plan.tournaments:
+            travel_info = self._travel_info(tournament)
             sheet.append([
                 self._format_date(tournament.date),
                 self._weekday_name(tournament.date),
@@ -92,6 +94,7 @@ class SeasonPlanExporter:
                 tournament.arena,
                 tournament.host_club or "",
                 ", ".join(team.label for team in tournament.teams),
+                travel_info,
             ])
 
         self._autosize_columns(sheet)
@@ -108,6 +111,9 @@ class SeasonPlanExporter:
         sheet.append([title_row])
         sheet.append([])
         sheet.append([f"Deltakende lag: {', '.join(team.label for team in tournament.teams)}"])
+        travel_info = self._travel_info(tournament)
+        if travel_info:
+            sheet.append([f"Lengst reise: {travel_info}"])
         sheet.append([])
 
         sheet.append(_GAMES_HEADERS)
@@ -185,6 +191,22 @@ class SeasonPlanExporter:
         """
         base = f"{_CLUB_SHEET_PREFIX}{club}"
         return SeasonPlanExporter._unique_sheet_title_from_base(base, index, used_titles)
+
+    # ------------------------------------------------------------------
+    # Travel-time display helper
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _travel_info(tournament: Tournament) -> str:
+        """Return a short Norwegian-language travel-info string for *tournament*.
+
+        Example: "Jar 1 (~80 km)" or empty string when no travel data exists.
+        """
+        result = furthest_traveling_team(tournament)
+        if result is None:
+            return ""
+        team, km = result
+        return f"{team.label} (~{km} km)"
 
     # ------------------------------------------------------------------
     # Helpers
