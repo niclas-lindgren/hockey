@@ -935,9 +935,8 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
   // -------------------------------------------------------------------------
   pi.registerCommand("rvv-miniputt calendars", {
     description:
-      "Generer rapporter (skrapede kalendere + sesongplan) fra cache.\n" +
-      "Hurtig — kjører ikke skraping på nytt.\n" +
-      "Flagg: --refresh (tving re-skraping), --work-dir <sti>\n" +
+      "Generer kalender-rapporter. Uten flagg: rask regenerering fra cache.\n" +
+      "Flagg: --refresh (full re-skraping via rvv-miniputt CLI), --work-dir <sti>\n" +
       "Rapportene ligger i .pipeline/calendars.html og .pipeline/season_plan.html.",
     getArgumentCompletions: (prefix) => {
       const words = ["--refresh", "--work-dir"];
@@ -956,7 +955,21 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       const exe = existsSync(python) ? python : "python3";
       const absWorkDir = resolve(ctx.cwd, workDir);
 
-      ctx.ui.notify("Genererer rapporter...", "info");
+      // Use the unified Python CLI for both cache-only and full refresh.
+      // rvv_cli.py calendars --refresh clears all caches, re-scrapes,
+      // rebuilds the unified cache, and regenerates calendars.html.
+      const cliArgs = [
+        "-m", "tournament_scheduler.cli.rvv_cli",
+        "calendars",
+        "--work-dir", absWorkDir,
+      ];
+      if (refresh) cliArgs.push("--refresh");
+
+      if (refresh) {
+        ctx.ui.notify("🔄 Tvinger full re-skraping av kalendere (via rvv-miniputt CLI)...\n", "info");
+      } else {
+        ctx.ui.notify("Genererer kalendere fra cache...", "info");
+      }
 
       try {
         const { execFile } = await import("node:child_process");
@@ -964,37 +977,29 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
         const execFileAsync = promisify(execFile);
         const { copyFileSync } = await import("node:fs");
 
-        const lines: string[] = [];
+        const { stdout, stderr } = await execFileAsync(exe, cliArgs, {
+          cwd: ctx.cwd,
+          timeout: refresh ? 300_000 : 60_000,  // 5 min for full re-scrape, 1 min for cache regen
+        });
 
-        // 1. Regenerate calendar viewer (reads cache — fast)
-        try {
-          const viewerArgs = ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", absWorkDir];
-          if (refresh) viewerArgs.push("--refresh");
-          const { stdout } = await execFileAsync(exe, viewerArgs, { cwd: ctx.cwd, timeout: 30_000 });
-          if (stdout.trim()) lines.push(stdout.trim());
-        } catch (err: unknown) {
-          lines.push(`Kalendervisning feilet: ${err instanceof Error ? err.message : String(err)}`);
+        if (stdout.trim()) {
+          ctx.ui.notify(stdout.trim(), "info");
         }
 
-        // 2. Copy season plan from export dir (+++rask — bare filkopiering)
+        // Copy season plan HTML next to calendars.html for navbar cross-linking
         if (!refresh) {
           try {
             const src = resolve(ctx.cwd, "export", "season_plan.html");
             const dst = resolve(absWorkDir, "season_plan.html");
             if (existsSync(src)) {
               copyFileSync(src, dst);
-              lines.push(`Sesongplan kopiert: ${dst}`);
             }
-          } catch {}
+          } catch { /* best-effort */ }
         }
 
-        // 3. Show paths
-        const calendarFile = resolve(absWorkDir, "calendars.html");
-        const planFile = resolve(absWorkDir, "season_plan.html");
-        if (existsSync(calendarFile)) lines.push(`  🗓️  ${calendarFile}`);
-        if (existsSync(planFile)) lines.push(`  📋  ${planFile}`);
-
-        ctx.ui.notify(lines.join("\n"), "info");
+        if (stderr.trim()) {
+          ctx.ui.notify(stderr.trim(), "warning");
+        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         ctx.ui.notify(`Feil: ${msg}`, "error");
