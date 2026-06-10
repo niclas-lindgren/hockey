@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/models.py, tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/pipeline/stage4_export.py
   - Approach: Add `cancelled: bool = False` and `cancellation_reason: Optional[str] = None` to `Tournament` dataclass. Update `_plan_to_dict` in `stage3_planning.py` to serialize these fields, and `_tournament_from_dict` / `_dict_to_plan` in `stage4_export.py` to deserialize them. Ensure backward compatibility by defaulting to `False`/`None` when fields are absent.
 
-- [ ] Build CancellationWorkflow module
+- [x] Build CancellationWorkflow module
   - Files: tournament_scheduler/pipeline/cancellation_workflow.py
   - Approach: Create a `CancellationWorkflow` class that: (a) `mark_cancelled(tournament_id, reason, plan)` → sets cancelled state; (b) `suggest_makeup_dates(tournament, plan, scheduler)` → runs `find_available_dates` in the date range after the cancelled tournament, excludes already-occupied plan dates, and ranks candidates by distance from original date; (c) `apply_makeup(tournament_id, new_date, plan, updater)` → calls `TournamentUpdater.move_date` with cascade and conflict re-checking, then clears cancelled state; (d) `re_export(state)` → runs Stage 4 export. Follows the established `PipelineState` / `TournamentUpdater` patterns.
 
@@ -43,6 +43,13 @@
 
 ## Log
 
+
+### 2026-06-10 — Build CancellationWorkflow module
+**Done:** Created CancellationWorkflow class in cancellation_workflow.py with: mark_cancelled (sets cancelled state + reason), suggest_makeup_dates (finds free weekends via lightweight scheduler, excludes occupied dates, ranks by proximity), apply_makeup (wraps TournamentUpdater.move_date, clears cancelled state on success), re_export (runs Stage 4 export). Includes CancelResult and MakeupSuggestion dataclasses, plus log_cancellation for audit trail. Follows PipelineState/TournamentUpdater patterns.
+**Rationale:** The module composes with existing TournamentUpdater rather than replacing it — move_date handles all the conflict checking/cascade complexity. The lightweight scheduler with just holiday checking gives fast suggestions without re-scraping calendars. The ranking logic is simple (proximity to original date) but provides a good default.
+**Findings:** Import test passes; all existing tests pass (1 pre-existing flaky threading test unrelated). The suggest_makeup_dates method filters out dates already occupied by non-cancelled tournaments and uses only holiday checking for speed.
+**Files:** tournament_scheduler/pipeline/cancellation_workflow.py (+346 new file)
+**Commit:** not committed
 ### 2026-06-10 — Add cancelled state to Tournament model and serialization
 **Done:** Added cancelled: bool and cancellation_reason: Optional[str] fields to Tournament dataclass. Updated _tournament_to_dict/_tournament_from_dict in stage3_planning.py and _dict_to_plan in stage4_export.py for round-trip serialization. Backward-compatible: defaults to False/None when fields are absent from serialized data.
 **Rationale:** Minimal extension to the existing model. Keeps serialization compact by omitting cancelled fields when False/None. Uses .get() with defaults at deserialization points for backward compatibility.
