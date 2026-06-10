@@ -59,6 +59,7 @@ class SeasonPlanner:
         parallel_games_for_age_group: Optional[Dict[str, int]] = None,
         target_tournament_count: Optional[int] = None,
         max_teams_per_tournament_for_age_group: Optional[Dict[str, int]] = None,
+        max_club_teams_per_tournament: int = 2,
     ):
         """Initialize the planner.
 
@@ -80,6 +81,10 @@ class SeasonPlanner:
                 group -> maximum number of teams invited to a single
                 tournament. When set for an age group, takes precedence over
                 the parallel-games heuristic in `_max_teams_for`.
+            max_club_teams_per_tournament: Soft limit on how many teams
+                from the same club can be invited to a single tournament.
+                Default 2. Helps spread multi-team clubs' load across
+                different tournament weekends.
         """
         self.scheduler = scheduler
         self.roster = roster
@@ -87,6 +92,10 @@ class SeasonPlanner:
         self.parallel_games_for_age_group = parallel_games_for_age_group or {}
         self.target_tournament_count = target_tournament_count
         self.max_teams_per_tournament_for_age_group = max_teams_per_tournament_for_age_group or {}
+        self.max_club_teams_per_tournament = max_club_teams_per_tournament
+
+        # Club-load warnings collected after build_plan runs.
+        self._club_load_warnings: List[Tuple[str, str, str, int]] = []
 
         # Tracks, per team, the set of other teams it has already been
         # grouped with in a tournament this season — used by the
@@ -182,6 +191,10 @@ class SeasonPlanner:
         plan.diversity_score = self._diversity_score(plan.tournaments)
         plan.pairwise_matchup_score = self._pairwise_matchup_score(plan.tournaments)
         plan.month_balance_score = self._month_balance_score(expected_per_month)
+
+        # Scan for club-load violations and record warnings.
+        self._scan_club_load_warnings(plan.tournaments)
+
         if collisions:
             plan.arena_counts["_age_group_overlap_collisions"] = len(collisions)
             self._collisions = collisions
@@ -198,6 +211,34 @@ class SeasonPlanner:
         Populated after `build_plan` runs.
         """
         return getattr(self, "_collisions", [])
+
+    @property
+    def club_load_warnings(self) -> List[Tuple[str, str, str, int]]:
+        """Club-load soft-constraint warnings after ``build_plan``.
+
+        Each entry is ``(club_name, age_group, date_str, team_count)``
+        for every tournament where the number of teams invited from a
+        single club exceeds ``max_club_teams_per_tournament``.
+        """
+        return list(self._club_load_warnings)
+
+    def _scan_club_load_warnings(self, tournaments: Sequence[Tournament]) -> None:
+        """Scan completed tournaments for club-load violations.
+
+        Appends structured warnings to ``_club_load_warnings`` for every
+        tournament where a club has more than ``max_club_teams_per_tournament``
+        teams participating.
+        """
+        max_club = self.max_club_teams_per_tournament
+        for t in tournaments:
+            club_counts: Dict[str, int] = {}
+            for team in t.teams:
+                club_counts[team.club] = club_counts.get(team.club, 0) + 1
+            for club, count in club_counts.items():
+                if count > max_club:
+                    self._club_load_warnings.append(
+                        (club, t.age_group, t.date.isoformat(), count)
+                    )
 
     # ------------------------------------------------------------------
     # Step 1: pick dates spread evenly across the window
@@ -414,7 +455,14 @@ class SeasonPlanner:
         to the original heuristic: fewest prior tournament co-attendances
         (`_grouped_with`), then lowest overall invite count, then roster
         order.
+
+        Also applies a club-load penalty: teams from clubs that already have
+        ``max_club_teams_per_tournament`` or more teams in the selected set
+        get pushed down the priority list (soft constraint — if all
+        remaining candidates exceed the limit, the best-worst still gets
+        chosen).
         """
+        max_club = self.max_club_teams_per_tournament
         remaining = list(candidates)
         if not remaining:
             return []
@@ -435,8 +483,18 @@ class SeasonPlanner:
                 grouped_with = self._grouped_with.get(team.label, set())
                 return sum(1 for s in selected if s.label in grouped_with)
 
+            # Club-load penalty: count how many teams from the same club
+            # are already in the selected set. If at or over the limit,
+            # push this candidate down (soft — still selectable).
+            def club_penalty(team: Team) -> int:
+                club_count = sum(1 for s in selected if s.club == team.club)
+                if club_count >= max_club:
+                    return club_count * 100  # outweighs typical match-up scores
+                return 0
+
             remaining.sort(
                 key=lambda t: (
+                    club_penalty(t),
                     repeat_matchup_score(t),
                     overlap_score(t),
                     self._invite_counts.get(t.label, 0),

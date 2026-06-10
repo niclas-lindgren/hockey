@@ -39,6 +39,9 @@ class SeasonCommand:
 
         parallel_games_for_age_group = federation_defaults.get('parallelGames', {})
         max_teams_per_tournament = federation_defaults.get('maxTeamsPerTournament', {})
+        max_club_teams = federation_defaults.get('maxClubTeamsPerTournament', 2)
+        if hasattr(args, 'max_club_teams') and args.max_club_teams is not None:
+            max_club_teams = args.max_club_teams
 
         sources, club_arenas = self._build_calendar_sources()
         if not sources:
@@ -57,6 +60,7 @@ class SeasonCommand:
             club_arenas=club_arenas,
             parallel_games_for_age_group=parallel_games_for_age_group,
             max_teams_per_tournament_for_age_group=max_teams_per_tournament,
+            max_club_teams_per_tournament=max_club_teams,
         )
 
         TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")
@@ -67,6 +71,8 @@ class SeasonCommand:
             return
 
         self._print_plan(plan)
+
+        self._print_club_load_warnings(planner)
 
         if args.export_excel:
             from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
@@ -145,3 +151,18 @@ class SeasonCommand:
         for tournament in sorted(plan.tournaments, key=lambda t: t.date):
             TournamentOutput.print_tournament_schedule(tournament)
         TournamentOutput.print_diversity_summary(plan)
+
+    @staticmethod
+    def _print_club_load_warnings(planner) -> None:
+        """Print warnings for clubs with too many teams in the same tournament."""
+        warnings = planner.club_load_warnings
+        if not warnings:
+            return
+        TournamentOutput.print_warning(
+            f"Advarsel — {len(warnings)} tilfelle(r) der en klubb har flere lag "
+            f"enn grensen ({planner.max_club_teams_per_tournament}) i samme turnering:"
+        )
+        for club, age_group, date_str, count in warnings:
+            TournamentOutput.print_warning(
+                f"  {club} ({age_group}, {date_str}): {count} lag"
+            )

@@ -565,6 +565,7 @@ def run_season_plan(params):
     federation_defaults = params.get('federation_defaults') or {}
     parallel_games_for_age_group = federation_defaults.get('parallelGames', {})
     max_teams_per_tournament_for_age_group = federation_defaults.get('maxTeamsPerTournament', {})
+    max_club_teams = federation_defaults.get('maxClubTeamsPerTournament', 2)
 
     sources = []
     club_arenas = {}
@@ -602,6 +603,7 @@ def run_season_plan(params):
         club_arenas=club_arenas,
         parallel_games_for_age_group=parallel_games_for_age_group,
         max_teams_per_tournament_for_age_group=max_teams_per_tournament_for_age_group,
+        max_club_teams_per_tournament=max_club_teams,
     )
 
     TournamentOutput.print_info("Bygger sesongplan (dette kan ta litt tid)...")
@@ -616,7 +618,19 @@ def run_season_plan(params):
         TournamentOutput.print_tournament_schedule(tournament)
     TournamentOutput.print_diversity_summary(plan)
 
-    if ask_yes_no("\nVil du eksportere sesongplanen til Excel?", default=True):
+    # Display club-load warnings if any.
+    warnings = planner.club_load_warnings
+    if warnings:
+        TournamentOutput.print_warning(
+            f"Advarsel — {len(warnings)} tilfelle(r) der en klubb har flere lag "
+            f"enn grensen ({planner.max_club_teams_per_tournament}) i samme turnering:"
+        )
+        for club, age_group, date_str, count in warnings:
+            TournamentOutput.print_warning(
+                f"  {club} ({age_group}, {date_str}): {count} lag"
+            )
+
+    if ask_yes_no("\nVil du eksportere sesongplanen til Excel?",, default=True):
         export_path = ask_text("Filnavn for Excel-eksport", default="sesongplan.xlsx")
         from tournament_scheduler.excel.plan_exporter import SeasonPlanExporter
         SeasonPlanExporter().export(plan, export_path)

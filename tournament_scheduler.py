@@ -57,6 +57,8 @@ Examples:
                         help='Only export iCal events for this age group (e.g. U10). Requires --export-ical.')
     parser.add_argument('--ical-per-club', action='store_true',
                         help='Also generate one .ics file per club alongside the main .ics. Requires --export-ical.')
+    parser.add_argument('--max-club-teams', type=int, default=None,
+                        help='Maks antall lag per klubb i samme turnering (standard: 2, eller fra federationDefaults i roster-filen).')
 
     # Tournament update flags
     parser.add_argument('--update-tournament', type=str,
