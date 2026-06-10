@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/models.py
   - Approach: Add a `@property` or method `get_bye_rounds() -> Dict[int, List[str]]` that, for each round, finds participating teams that appear in no games for that round. These are the teams with a bye. Return `{round_number: [team_label, ...], ...}`.
 
-- [ ] Show bye rows in Excel per-tournament game sheets
+- [x] Show bye rows in Excel per-tournament game sheets
   - Files: tournament_scheduler/excel/plan_exporter.py
   - Approach: After the game rows in `_write_tournament_sheet`, append bye rows when the tournament has an odd number of teams. Format: `[round_number, "(Pause)", team_label, ""]` for each team with a bye that round. The "Kamp-tabell" section already lists rounds — bye rows fit naturally alongside game rows.
 
@@ -44,6 +44,13 @@
 ## Log
 
 
+
+### 2026-06-10 — Show bye rows in Excel per-tournament game sheets
+**Done:** Append bye rows after game rows in `_write_tournament_sheet`: `[round_number, "(Pause)", team_label, ""]` for each team with a bye. Only runs when tournament.get_bye_rounds() is non-empty.
+**Rationale:** Bye rows fit naturally alongside game rows — they share the same column structure (Runde/Hjemmelag/Bortelag/Parallellbane), with "(Pause)" as home and the bye team as away.
+**Findings:** Verified with ad-hoc test: 5-team tournament exports 5 bye rows (one per round). All 50 existing tests pass.
+**Files:** tournament_scheduler/excel/plan_exporter.py (+7)
+**Commit:** not committed
 ### 2026-06-10 — Add `bye_teams` computed method on `Tournament` model
 **Done:** Add `get_bye_rounds() -> Dict[int, List[str]]` method on Tournament that detects which teams have a bye in each round when the team count is odd.
 **Rationale:** Simple computation from existing games list: for each round, find participating teams not appearing as home/away in any game. No model changes needed beyond this method.

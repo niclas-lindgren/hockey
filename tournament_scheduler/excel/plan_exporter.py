@@ -174,6 +174,13 @@ class SeasonPlanExporter:
                 game.parallel_slot + 1,  # 1-based for human-friendly display
             ])
 
+        # Bye rows for odd-numbered tournaments: one team sits out each round.
+        bye_rounds = tournament.get_bye_rounds()
+        if bye_rounds:
+            for round_num in sorted(bye_rounds):
+                for team_label in bye_rounds[round_num]:
+                    sheet.append([round_num, "(Pause)", team_label, ""])
+
         self._autosize_columns(sheet)
 
     # ------------------------------------------------------------------
