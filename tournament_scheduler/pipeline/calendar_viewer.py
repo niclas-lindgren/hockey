@@ -301,11 +301,26 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
     --accent: #0ea5e9;
     --accent-dim: #0369a1;
     --accent-glow: rgba(14, 165, 233, 0.12);
+    --hover-overlay: rgba(255, 255, 255, 0.06);
     --radius: 8px;
     --radius-sm: 4px;
     --radius-pill: 999px;
     --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
     --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  }}
+  [data-theme="light"] {{
+    --bg: #f4f4f5;
+    --bg-raised: #ffffff;
+    --bg-surface: #e4e4e7;
+    --border: #d4d4d8;
+    --border-dim: #e4e4e7;
+    --text: #18181b;
+    --text-secondary: #52525b;
+    --text-muted: #71717a;
+    --accent: #0284c7;
+    --accent-dim: #38bdf8;
+    --accent-glow: rgba(2, 132, 199, 0.10);
+    --hover-overlay: rgba(0, 0, 0, 0.05);
   }}
   *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
   html {{ height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }}
@@ -333,11 +348,25 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
     transition: color .15s, background .15s;
     display: inline-flex; align-items: center; gap: 5px;
   }}
-  .navbar a:hover {{ background: rgba(255,255,255,0.06); color: var(--text-secondary); }}
+  .navbar a:hover {{ background: var(--hover-overlay); color: var(--text-secondary); }}
   .navbar a.active {{
     background: var(--accent-glow); color: var(--accent); font-weight: 600;
   }}
   .navbar a.active .nav-icon {{ opacity: .85; }}
+
+  /* Theme toggle */
+  .theme-toggle {{
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; padding: 0;
+    background: var(--bg-raised); border: 1px solid var(--border-dim);
+    border-radius: var(--radius-pill); color: var(--text-muted);
+    cursor: pointer; transition: color .15s, background .15s, border-color .15s;
+  }}
+  .theme-toggle:hover {{ background: var(--hover-overlay); color: var(--text-secondary); border-color: var(--border); }}
+  .theme-toggle svg {{ width: 15px; height: 15px; flex-shrink: 0; }}
+  .theme-toggle .icon-moon {{ display: none; }}
+  [data-theme="light"] .theme-toggle .icon-sun {{ display: none; }}
+  [data-theme="light"] .theme-toggle .icon-moon {{ display: block; }}
 
   /* Sidebar */
   .sidebar {{
@@ -542,6 +571,10 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
   <a href="calendars.html" class="active"><span class="nav-icon">{_ICON_CALENDAR}</span> Skrapede kalendere</a>
   <a href="season_plan.html" class="{'active' if not has_season_plan else ''}"><span class="nav-icon">{_ICON_CLIPBOARD}</span> Sesongplan</a>
   <a href="#" onclick="document.querySelector('.main').scrollTo(0,0);return false" style="margin-left:auto;color:var(--text-muted)"><span class="nav-icon">{_ICON_ARROW_UP}</span></a>
+  <button id="themeToggle" class="theme-toggle" aria-label="Bytt tema" title="Bytt tema">
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
 </div>
 <div class="layout">
   <div class="sidebar">
@@ -585,6 +618,23 @@ function applyFilters() {{
     el.style.display = activeMonths.has(el.id) ? '' : 'none';
   }});
 }}
+
+(function() {{
+  const THEME_KEY = 'rvv-theme';
+  const toggle = document.getElementById('themeToggle');
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === 'light' || saved === 'dark') {{
+    document.documentElement.dataset.theme = saved;
+  }}
+  if (toggle) {{
+    toggle.addEventListener('click', function() {{
+      const current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem(THEME_KEY, next);
+    }});
+  }}
+}})();
 </script>
 </body>
 </html>"""

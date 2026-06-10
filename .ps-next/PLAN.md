@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/html/templates/styles.css
   - Approach: Add `.theme-toggle` styles consistent with `.stat-badge`/`.navbar a` (same padding, radius, hover transition using CSS vars), and review/adjust any hardcoded colors in styles.css (e.g. `rgba(255,255,255,0.06)` hover states, `color: #fff` on `.logo-icon`) so they remain legible against the light palette — replace with CSS-variable-driven values or add light-theme-specific overrides where a hardcoded value would break contrast.
 
-- [ ] Add the same light theme palette, toggle button, and toggle script to calendar_viewer.py's standalone HTML
+- [x] Mirrored the [data-themelight] variable overrides and --hover-overlay variable from styles.css into the inline <style> block, added the #themeToggle button with sun/moon icons to the navbar markup, added .theme-toggle styles, fixed the hardcoded rgba(255,255,255,0.06) navbar hover, and ported the localStorage-based toggle logic (rvv-theme key) into the inline <script> block. — 2026-06-10
   - Files: tournament_scheduler/pipeline/calendar_viewer.py
   - Approach: calendars.html has its own inline `<style>` block (~lines 291-312, duplicating the dark `:root` variables) and inline `<script>` block (~lines 570-589), independent of the templates/ system; mirror the new `[data-theme="light"]` variable overrides from styles.css into this inline `<style>` block, add the same `#themeToggle` button markup to its inline header/navbar HTML, and port the localStorage-based toggle logic from script.js into its inline `<script>` block so both pages share identical theme behavior and the same `rvv-theme` localStorage key.
 
@@ -72,4 +72,11 @@ LESSONS: none
 **Findings:** Hardcoded hover overlay color replaced with theme-aware variable; toggle button styling added; sun/moon icon swap wired via CSS attribute selector.
 LESSONS: none
 **Files:** tournament_scheduler/html/templates/styles.css (+11/-1)
+**Commit:** 8e5a768 (hockey)
+
+### 2026-06-10 — Mirrored the [data-themelight] variable overrides and --hover-overlay variable from styles.css into the inline <style> block, added the #themeToggle button with sun/moon icons to the navbar markup, added .theme-toggle styles, fixed the hardcoded rgba(255,255,255,0.06) navbar hover, and ported the localStorage-based toggle logic (rvv-theme key) into the inline <script> block.
+**Rationale:** Kept the inline duplication pattern already used by calendar_viewer.py rather than extracting a shared template, since calendars.html is independent of the templates/ system as noted in the task.
+**Findings:** Verified with python3 -m py_compile that the f-string template still compiles cleanly after doubling braces in the new CSS/JS blocks.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/calendar_viewer.py (+51/-1)
 **Commit:** [pending — fill after commit]
