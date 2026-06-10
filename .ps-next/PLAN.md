@@ -18,7 +18,7 @@
   - Files: `tournament_scheduler/season_planner.py`
   - In `_diversity_score(self, tournaments)` (season_planner.py:1209-1222), replace `return self._pairwise_matchup_score(tournaments)` with a new computation: for each team appearing in `tournaments`, count its distinct opponents from `self._opponent_history` (keys are `frozenset` pairs of team labels) and divide by the number of "available opponents" for that team (other teams in the same age group from `self.roster.teams`, excluding same-club teams per the existing `max_club_teams_per_tournament=1` constraint, since intra-club matchups never occur). Average this ratio across all teams that played at least one game this season, rounded to 3 decimals (1.0 = every team has played every eligible opponent at least once; lower values indicate teams repeatedly facing a narrow set of opponents). Return `0.0` when no teams have played any games.
 
-- [ ] Update docstrings in season_planner.py to describe the new metric and its distinction from pairwise_matchup_score
+- [x] Added a field-level docstring comment for diversity_score in models.py describing the opponent-variety-per-team metric and explicitly distinguishing it from pairwise_matchup_score; the _diversity_score docstring in season_planner.py was already updated as part of the prior task's implementation. — 2026-06-10
   - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/models.py`
   - Rewrite the `_diversity_score` docstring (season_planner.py:1209-1221) to describe the new opponent-variety-per-team calculation and remove the claim that it is "equivalent to `_pairwise_matchup_score`". Update the `diversity_score` field comment in `models.py` (near line 171, above the `pairwise_matchup_score` docstring at 172-176) to describe the new metric (opponent variety per team) as distinct from the pairwise novel-pairing fraction.
 
@@ -56,3 +56,10 @@
 LESSONS: none
 **Files:** tests/test_season_planner.py (+3/-2), tournament_scheduler/season_planner.py (+50/-12)
 **Commit:** 55a65d0 (hockey)
+
+### 2026-06-10 — Added a field-level docstring comment for diversity_score in models.py describing the opponent-variety-per-team metric and explicitly distinguishing it from pairwise_matchup_score; the _diversity_score docstring in season_planner.py was already updated as part of the prior task's implementation.
+**Rationale:** none
+**Findings:** diversity_score field comment in models.py now accurately describes the new metric and no longer implies equivalence with pairwise_matchup_score; all 39 season_planner tests still pass.
+LESSONS: none
+**Files:** tournament_scheduler/models.py (+8/-0)
+**Commit:** [pending — fill after commit]

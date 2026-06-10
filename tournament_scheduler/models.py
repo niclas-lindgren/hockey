@@ -168,6 +168,14 @@ class SeasonPlan:
     tournaments: List[Tournament] = field(default_factory=list)
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    # Opponent-variety score: for each team that has played at least one
+    # game this season, the fraction of its eligible opponents (other teams
+    # in the same age group, excluding its own club) that it has actually
+    # faced, averaged across all such teams (1.0 = every team has played
+    # every eligible opponent at least once; lower values indicate teams
+    # repeatedly facing a narrow set of opponents). Distinct from
+    # `pairwise_matchup_score`, which measures the fraction of *games* that
+    # are first-time pairings rather than opponent-pool coverage per team.
     diversity_score: float = 0.0
     # Fraction of scheduled matchups (pairwise team-vs-team games) that are
     # first-time pairings, grounded in actual `_opponent_history` counts
