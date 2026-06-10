@@ -335,14 +335,14 @@ def _try_credentialed_scrape(
 
     # Execute the login flow via Playwright, then scrape
     try:
-        return _run_credentialed_outlook_scraper(
+        return _run_credentialed_bookup_or_outlook(
             name, url, start_date, end_date, strategy, creds
         )
     except Exception as exc:
         return [], f"Credentialed scrape feilet for '{name}': {exc}"
 
 
-def _run_credentialed_outlook_scraper(
+def _run_credentialed_bookup_or_outlook(
     name: str,
     url: str,
     start_date: datetime,
@@ -353,8 +353,9 @@ def _run_credentialed_outlook_scraper(
     """Playwright scraper that logs in before scraping.
 
     Executes *strategy.initial_navigation* steps (with ``${VAR}`` placeholders
-    replaced by *creds* values), then runs the standard Outlook/iframe month-by-
-    month scraping loop.
+    replaced by *creds* values). For BookUp SPA sources, delegates to
+    ``_run_bookup_scraper`` after login. For Outlook sources, runs the standard
+    iframe month-by-month scraping loop.
     """
     from string import Template
     from playwright.sync_api import sync_playwright
@@ -411,10 +412,42 @@ def _run_credentialed_outlook_scraper(
 
                 page.wait_for_timeout(wait_ms)
 
-            # Now run the standard scraping loop
-            _credentialed_scrape_months(
-                page, events, months_to_scrape, norwegian_months
-            )
+            # Now run the appropriate scraping loop based on engine
+            is_bookup = getattr(strategy, 'engine', None) is not None and getattr(strategy.engine, 'value', '') == 'bookup_spa'
+            if is_bookup:
+                # BookUp SPA: find the app.html iframe and extract FullCalendar events
+                page.wait_for_timeout(5_000)  # Wait for post-login redirect
+                frame = page.frame(url=lambda u: 'app.html' in u)
+                if frame:
+                    # Click "Se tilgjengelighet" if visible
+                    btn = frame.locator("text=Se tilgjengelighet")
+                    if btn.count() > 0:
+                        btn.first.click()
+                        frame.wait_for_timeout(5_000)
+                    # Navigate weeks and extract
+                    start_date_ref = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                    end_date_ref = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                    total_days = (end_date_ref - start_date_ref).days
+                    max_weeks = (total_days // 7) + 3
+                    for _ in range(max_weeks):
+                        frame.wait_for_timeout(1_500)
+                        week_events = _parse_bookup_timegrid(frame)
+                        for ev in week_events:
+                            if start_date_ref <= ev.datetime <= end_date_ref + __import__("datetime").timedelta(days=1):
+                                events.append(ev)
+                        next_btn = frame.locator(".fc-next-button, button[aria-label*='next'], .fc-next")
+                        if next_btn.count() > 0:
+                            try:
+                                next_btn.first.click()
+                                frame.wait_for_timeout(1_500)
+                            except Exception:
+                                break
+                        else:
+                            break
+            else:
+                _credentialed_scrape_months(
+                    page, events, months_to_scrape, norwegian_months
+                )
 
             browser.close()
     except Exception:

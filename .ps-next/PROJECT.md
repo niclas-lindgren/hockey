@@ -49,4 +49,4 @@ Finds optimal weekend dates for youth hockey tournaments by scraping multiple cl
   - Holmen — https://kalender.sportello.no/booking/11055
   - Frisk Asker — https://teamup.com/ksdwpwxysmxwnuftoy
   - Tønsberg — https://www.bookup.no/utleie/Index/860#___/view:item/id:860/part:/r:0/mod:book
-  - Sandefjord Penguins — https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen___/view:item/id:4497/part:/place:3907:SANDEFJORD/q:sandefjord/r:26/mod:book
+  - Sandefjord Penguins — https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen___/view:item/id:4497/part:/place:3907:SANDEFJORD/q:sandefjord/r:31/mod:book

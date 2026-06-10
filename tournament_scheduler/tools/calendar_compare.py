@@ -64,7 +64,7 @@ def _source_fidelity(
 
     if agent_required:
         warnings.append("Krever Pi ScraperAgent for autentisert skraping — "
-                        "kjør /rvv-miniputt run for full kalenderdata")
+                        "kjør rvv-miniputt run for full kalenderdata")
 
     if error:
         warnings.append(f"Skraper-feil: {error}")

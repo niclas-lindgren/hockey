@@ -53,6 +53,40 @@ def _age_string(iso_str: str) -> str:
         return "ukjent"
 
 
+def _cache_status(entry: dict[str, Any], ttl_hours: float = 6.0) -> str:
+    """Return a freshness badge for a cache entry.
+
+    Determines the per-source status based on blocked flag, cache note,
+    and scrape timestamp vs TTL:
+      - Blocked source with no events → "🚫 Blokkert"
+      - Note indicates cache fallback → "📦 Cachet"
+      - Scrape within TTL → "🔄 Fersk"
+      - Scrape beyond TTL → "⚡ Utdatert"
+      - Missing timestamp → "❓ Ukjent"
+    """
+    blocked = entry.get("blocked", False)
+    note = entry.get("note", "")
+    ts = entry.get("scrape_timestamp", "")
+
+    if blocked:
+        return "🚫 Blokkert"
+
+    if note and ("tidligere cache" in note.lower() or "bruker" in note.lower()):
+        return "📦 Cachet"
+
+    if not ts:
+        return "❓ Ukjent"
+
+    try:
+        scraped_at = datetime.fromisoformat(ts)
+        age = datetime.now() - scraped_at
+        if age.total_seconds() <= ttl_hours * 3600:
+            return "🔄 Fersk"
+        return "⚡ Utdatert"
+    except (ValueError, TypeError):
+        return "❓ Ukjent"
+
+
 def _escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
@@ -204,16 +238,17 @@ def generate_html(work_dir: str = ".pipeline") -> str:
     club_filter_lines: list[str] = []
     for name in source_names:
         color = color_map[name]
-        cnt = sources.get(name, {}).get("event_count", 0)
-        ts = sources.get(name, {}).get("scrape_timestamp", "")
+        entry = sources.get(name, {})
+        cnt = entry.get("event_count", 0)
+        ts = entry.get("scrape_timestamp", "")
         age = _age_string(ts)
-        blocked = sources.get(name, {}).get("blocked", False)
-        status = "🔴" if blocked else "🟢"
+        freshness = _cache_status(entry)
         club_filter_lines.append(
             f'<label class="filter-item" style="--cbg:{color["bg"]};--cborder:{color["border"]}">'
             f'<input type="checkbox" class="club-filter" data-club="{_escape_html(name)}" checked>'
             f'<span class="club-label">{_escape_html(name)}</span> '
-            f'<span class="club-stats">({cnt} hendelser, {age}) {status}</span>'
+            f'<span class="club-stats">({cnt} hendelser, {age})</span> '
+            f'<span class="club-freshness">{_escape_html(freshness)}</span>'
             f'</label>'
         )
     club_filter_html = "\n".join(club_filter_lines)
@@ -288,6 +323,7 @@ def generate_html(work_dir: str = ".pipeline") -> str:
   .filter-item input {{ accent-color: var(--cborder); flex-shrink: 0; }}
   .club-label {{ font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #111; }}
   .club-stats {{ color: #444; font-size: 0.85em; flex-shrink: 0; }}
+  .club-freshness {{ font-size: 0.75em; padding: 1px 6px; border-radius: 3px; font-weight: 600; flex-shrink: 0; }}
   .month-filter-item {{ display: inline-flex; align-items: center; gap: 2px;
                         padding: 2px 6px; margin: 1px; border-radius: var(--radius-sm);
                         cursor: pointer; font-size: 0.75em;
@@ -300,6 +336,8 @@ def generate_html(work_dir: str = ".pipeline") -> str:
   .sidebar .refresh-btn:hover {{ background: var(--accent); }}
   .sidebar .refresh-btn.green {{ background: #2E7D32; }}
   .sidebar .refresh-btn.green:hover {{ background: #388E3C; }}
+  .sidebar .cli-hint {{ cursor: default; padding: 6px 8px; font-size: 0.72em; line-height: 1.4; text-align: left; display: block; }}
+  .sidebar .cli-hint code {{ background: rgba(255,255,255,0.2); padding: 1px 4px; border-radius: 3px; font-size: 0.95em; }}
   .count-badge {{ font-size: 0.7em; color: var(--text-dim); margin-top: 8px; }}
   
   /* Main content — dark theme */
@@ -347,7 +385,9 @@ def generate_html(work_dir: str = ".pipeline") -> str:
     <div id="month-filters">{month_filter_html}</div>
     <h2>🔄</h2>
     <a class="refresh-btn" href="#" onclick="location.reload()">Oppdater side</a>
-    <a class="refresh-btn green" href="/rvv-miniputt calendars --refresh">Tving re-skraping</a>
+    <span class="refresh-btn green cli-hint" title="Kjør denne kommandoen i terminalen for å tvinge re-skraping av alle kalendere">
+      💻 Kjør <code>rvv-miniputt calendars --refresh</code>
+    </span>
     <p class="count-badge">{source_count} kilder, {total_events} hendelser<br>Oppdatert: {age_all}</p>
   </div>
   <div class="main">
@@ -401,7 +441,7 @@ if __name__ == "__main__":  # pragma: no cover
         from .cache_manager import ScrapedDataCache
         c = ScrapedDataCache(work_dir=args.work_dir)
         c.force_refresh()
-        print("Cache markert som utdatert — kjør /rvv-miniputt run for å re-skrape.")
+        print("Cache markert som utdatert — kjør rvv-miniputt run for å re-skrape.")
     else:
         path = generate_html(work_dir=args.work_dir)
         print(f"Kalendervisning generert: {path}")

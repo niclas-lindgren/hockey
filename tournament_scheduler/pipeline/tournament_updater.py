@@ -9,7 +9,7 @@ Supports two operations after a season plan has been generated:
 
 Both operations read a ``SeasonPlan`` from a Stage 3 checkpoint, apply
 the modification, write an updated checkpoint, and log the change to the
-pipeline logs directory for traceability via ``/rvv-miniputt logs``.
+pipeline logs directory for traceability via ``rvv-miniputt logs``.
 """
 
 from __future__ import annotations

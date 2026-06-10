@@ -55,6 +55,7 @@ def run(
     export_dir: str | os.PathLike[str] = DEFAULT_EXPORT_DIR,
     basename: str = DEFAULT_BASENAME,
     strict: bool = True,
+    timestamped_export: bool = False,
 ) -> dict[str, Any]:
     """Export the Stage 3 plan to Excel, iCal, and CSV.
 
@@ -90,12 +91,19 @@ def run(
     export_path = Path(export_dir)
     export_path.mkdir(parents=True, exist_ok=True)
 
+    # Store the primary export path (may be flat or timestamped)
+    primary_export_path = export_path
+    if timestamped_export:
+        ts_dir = datetime.now().strftime("%Y-%m-%dT%H%M")
+        primary_export_path = export_path / ts_dir
+        primary_export_path.mkdir(parents=True, exist_ok=True)
+
     errors: list[str] = []
     output_files: dict[str, str] = {}
 
     # --- Excel ---
     try:
-        excel_path = str(export_path / f"{basename}.xlsx")
+        excel_path = str(primary_export_path / f"{basename}.xlsx")
         rules_report = plan_checkpoint.get("rules_report")
         SeasonPlanExporter().export(plan, excel_path, rules_report=rules_report)
         output_files["excel"] = excel_path
@@ -104,7 +112,7 @@ def run(
 
     # --- iCal ---
     try:
-        ical_path = str(export_path / f"{basename}.ics")
+        ical_path = str(primary_export_path / f"{basename}.ics")
         ICalExporter().export(plan, ical_path)
         output_files["ical"] = ical_path
     except Exception as exc:  # noqa: BLE001
@@ -112,7 +120,7 @@ def run(
 
     # --- CSV ---
     try:
-        csv_path = str(export_path / f"{basename}.csv")
+        csv_path = str(primary_export_path / f"{basename}.csv")
         games_path, overview_path = CsvExporter().export(plan, csv_path)
         output_files["csv_games"] = games_path
         output_files["csv_overview"] = overview_path
@@ -121,7 +129,7 @@ def run(
 
     # --- HTML ---
     try:
-        html_path = str(export_path / f"{basename}.html")
+        html_path = str(primary_export_path / f"{basename}.html")
         # Pass scrape metadata from cache for navbar
         meta = None
         try:
@@ -136,11 +144,22 @@ def run(
 
     # --- Spond ---
     try:
-        spond_path = str(export_path / f"{basename}_spond.xlsx")
+        spond_path = str(primary_export_path / f"{basename}_spond.xlsx")
         SpondExporter().export(plan, spond_path)
         output_files["spond"] = spond_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Spond-eksport feilet: {exc}")
+
+    # --- Copy to flat directory for convenience ---
+    if timestamped_export:
+        import shutil
+        for label, path in list(output_files.items()):
+            try:
+                flat_path = export_path / Path(path).name
+                shutil.copy2(path, flat_path)
+                output_files[f"{label}_flat"] = str(flat_path)
+            except Exception as exc:
+                errors.append(f"Kopiering til flat katalog feilet ({label}): {exc}")
 
     checkpoint: dict[str, Any] = {
         "output_files": output_files,

@@ -16,9 +16,23 @@
 
 
 
+
+
+
+
+
+
+
+- [43] [ ] Redesign the HTML season-plan report (calendars.html / season_plan.html) with professional UX/UI — remove all emojis (🏒📋📊🗓️🎯⚠️📅🔗🏟️ etc.), replace with a clean typographic design system, proper visual hierarchy, subtle color palette, and polished interactive controls. The report should look like a premium sports analytics tool, not a debug dashboard.
+- [42] [x] Refactor rvv-miniputt.ts (~1539 lines) into smaller dedicated modules: types.ts, parsers.ts, pipeline-logger.ts, pipeline-helpers.ts, log-inspector.ts, interactive-guide.ts, pipeline-runner.ts — keeping only the extension entry point and command registrations in rvv-miniputt.ts (2026-06-10)
+- [41] [x] Implement `rvv-miniputt scrape-llm` CLI subcommand for LLM-driven scraping of BookUp SPA and similar sources that need browser+LLM agent navigation (2026-06-10)
+- [40] [x] Add per-run pipeline logging to .pipeline/logs/ for troubleshooting and verification (already partially done — verify and complete) (2026-06-10)
+- [39] [x] Add single-club scrape mode to rvv-miniputt CLI — e.g. `rvv-miniputt scrape --club "Sandefjord Penguins"` for faster troubleshooting of individual sources (2026-06-10)
+- [38] [x] Add cache/fresh-fetch indicator to the report HTML (calendars.html) — show whether calendar events were pulled from cache or via fresh scrape (2026-06-10)
+- [37] [x] Fix /rvv-miniputt run — the command is being interpreted as a literal string instead of executing the CLI pipeline. It needs to actually run stages 1→4 + HTML. (2026-06-10)
 - [36] [x] Uneven team count support: when number of teams is odd, one team gets a bye/pause each round. Currently the scheduler requires even teams. Need to model bye rounds in the plan and export. (2026-06-10)
-- [35] [ ] Add/remove/replan tournaments on the fly: after initial plan, allow adding new tournaments, removing existing ones, and replanning the schedule without restarting the full pipeline. Needs CLI commands and plan checkpoint mutation.
-- [34] [ ] Export: store output in date-time subfolder (e.g. export/2026-06-10T1300/) or commit to git so changes between pipeline runs are diffable. Currently export/ is overwritten each run.
+- [35] [x] Add/remove/replan tournaments on the fly: after initial plan, allow adding new tournaments, removing existing ones, and replanning the schedule without restarting the full pipeline. Needs CLI commands and plan checkpoint mutation. (2026-06-10)
+- [34] [x] Export: store output in date-time subfolder (e.g. export/2026-06-10T1300/) or commit to git so changes between pipeline runs are diffable. Currently export/ is overwritten each run. (2026-06-10)
 - [33] [x] Per-team travelled distance metrics across the season in the HTML report — compute total travelled distance for each team over all their away tournaments, show it in the interactive HTML report (e.g. in the team filter sidebar or a summary table), and flag the team with the highest total travel burden. (2026-06-10)
 - [32] [x] Improve booking calendar handling: when scraper encounters booking/order calendars (e.g. bookup/booking systems), stop and prompt user for credentials instead of failing silently or returning 0 events (2026-06-10)
 - [31] [x] Parallelize Stage 2 scraping with ThreadPoolExecutor (4 workers) for ~3x speedup on the 9-club scrape loop in stage2_scraping.py. Each source is independent — separate Playwright contexts per thread. (2026-06-10)
