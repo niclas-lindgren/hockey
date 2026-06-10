@@ -911,7 +911,7 @@ class SeasonPlanner:
             return explicit
         parallel_games = self.parallel_games_for_age_group.get(age_group)
         if parallel_games and parallel_games > 0:
-            return max(4, min(DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games - 1, parallel_games * 3))
+            return max(4, min(DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games, parallel_games * 3))
         return DEFAULT_MAX_TEAMS_PER_TOURNAMENT
 
     def _pick_least_recently_grouped(self, candidates: Sequence[Team], count: int) -> List[Team]:
