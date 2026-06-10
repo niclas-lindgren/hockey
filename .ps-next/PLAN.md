@@ -83,4 +83,4 @@ LESSONS: none
 **Findings:** All 41 season_planner tests pass, including the two new tests confirming diversity_score and pairwise_matchup_score are independently computed and can diverge.
 LESSONS: none
 **Files:** tests/test_season_planner.py (+65/-0)
-**Commit:** [pending — fill after commit]
+**Commit:** d5a30d5 (hockey)
