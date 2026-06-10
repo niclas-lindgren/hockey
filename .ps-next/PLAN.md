@@ -69,4 +69,4 @@ LESSONS: none
 **Findings:** All 14 html/export tests pass; labels and tooltips now clearly differentiate diversity_score (opponent-pool coverage) from pairwise_matchup_score (first-time pairings).
 LESSONS: scores.html and other files under tournament_scheduler/html/templates/ are blocked by the repo's '*.html' gitignore rule and were untracked before this task; use 'git add -f' for any further edits to template .html files in that directory until the gitignore is fixed.
 **Files:** tournament_scheduler/html/templates/scores.html (+19/-0, force-added, was gitignored by *.html)
-**Commit:** [pending — fill after commit]
+**Commit:** e7a731d (hockey)
