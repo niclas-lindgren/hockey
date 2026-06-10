@@ -24,13 +24,14 @@ empty ``sources`` list to the checkpoint (useful for tests / partial runs).
 
 from __future__ import annotations
 
+import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any
 
 from ..models import CalendarEvent
-from .scraper_strategies import get_strategy, requires_credentials
+from .scraper_strategies import get_strategy, requires_credentials, needs_llm_agent
 from .state import PipelineState, StageName, StageStatus
 
 # ---------------------------------------------------------------------------
@@ -118,6 +119,7 @@ def run(
 
     source_results: list[dict[str, Any]] = []
     blocked: list[dict[str, Any]] = []
+    llm_fallback: list[dict[str, Any]] = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_source = {
@@ -143,26 +145,32 @@ def run(
                     "blocked": True,
                     "block_reason": f"Scraper krasjet: {exc}",
                     "scraper_error": str(exc),
+                    "llm_fallback": False,
                 }
             source_results.append(source_result)
             if source_result.get("blocked"):
                 blocked.append({"name": source_cfg.get("name", "?"), **source_result})
+            if source_result.get("llm_fallback"):
+                llm_fallback.append({
+                    "name": source_result["name"],
+                    "url": source_result.get("url", ""),
+                    "llm_strategy": source_result.get("llm_strategy", {}),
+                })
 
     checkpoint: dict[str, Any] = {
         "sources": source_results,
         "blocked": [b["name"] for b in blocked],
+        "llm_fallback": llm_fallback,
     }
-
-    if blocked and strict:
-        checkpoint_file = state.checkpoint_path(StageName.SCRAPING)
-        if checkpoint_file.exists():
-            checkpoint_file.unlink()
-        raise Stage2Error(blocked)
 
     status = StageStatus.DONE if not blocked else StageStatus.FAILED
     state.write_stage(StageName.SCRAPING, checkpoint, status=status)
     if not blocked:
         state.mark_done(StageName.SCRAPING)
+
+    if blocked and strict:
+        raise Stage2Error(blocked)
+
     return checkpoint
 
 
@@ -182,6 +190,13 @@ def _scrape_source(
     ``outlook`` / ``html`` sources are scraped via Playwright by loading the
     URL and extracting events from the Outlook Web Calendar iframe (if present).
     ``ical`` / ``google`` sources use the HTTP-based iCal scraper directly.
+
+    If the deterministic scrape returns zero events and the source strategy
+    requires credentials, the function automatically retries with environment-
+    variable credentials injected via Playwright login.
+
+    If that also fails, the result is marked with ``llm_fallback=True`` so the
+    caller can attempt LLM-driven scraping via browser_worker.
     """
     name = source_cfg.get("name", "ukjent kilde")
     url = source_cfg.get("url", "")
@@ -195,8 +210,10 @@ def _scrape_source(
         "event_count": 0,
         "blocked": False,
         "block_reason": "",
+        "llm_fallback": False,
     }
 
+    # --- Run the deterministic scraper ---
     events: list[CalendarEvent] = []
     scraper_error: str = ""
 
@@ -205,6 +222,8 @@ def _scrape_source(
         # Navigate to the embed URL directly instead.
         if "baerumishall.no" in url:
             events, _ = _run_styledcalendar_scraper(name, start_date, end_date)
+        elif "bookup.no" in url:
+            events, _ = _run_bookup_scraper(url, name, start_date, end_date)
         elif source_type in _BROWSER_SOURCE_TYPES:
             events, _ = _run_outlook_scraper(url, name, start_date, end_date)
         elif source_type in _ICAL_SOURCE_TYPES:
@@ -217,8 +236,17 @@ def _scrape_source(
     if scraper_error:
         result["scraper_error"] = scraper_error
 
+    # --- If deterministic failed, try credentialed fallback ---
     if not events:
-        # Look up the scraper strategy to provide a helpful credential hint
+        events, cred_error = _try_credentialed_scrape(
+            name, url, start_date, end_date
+        )
+        if cred_error:
+            scraper_error = scraper_error or cred_error
+
+    # --- If still no events, assess LLM fallback viability ---
+    if not events:
+        strategy = get_strategy(name)
         credential_hint = _credential_hint_for_source(name)
         block_reason = (
             f"Kilde '{name}' returnerte 0 hendelser -- "
@@ -228,12 +256,244 @@ def _scrape_source(
         result["blocked"] = True
         result["block_reason"] = block_reason
 
+        # Mark for LLM fallback if the source has a strategy that needs it
+        if strategy and needs_llm_agent(strategy):
+            result["llm_fallback"] = True
+            result["llm_strategy"] = {
+                "engine": strategy.engine.value,
+                "url": strategy.url,
+                "initial_navigation": strategy.initial_navigation,
+                "credential_env_vars": strategy.credential_env_vars,
+                "month_selector": strategy.month_selector,
+                "event_pattern": strategy.event_pattern,
+            }
+
     result["events"] = _events_to_dicts(events)
     result["event_count"] = len(events)
     return result
 
 
 def _credential_hint_for_source(source_name: str) -> str:
+    """Return a Norwegian credential hint for a source, or empty string.
+
+    Looks up the scraper strategy and, if it requires environment-variable
+    credentials, returns a message naming them so the user knows what to set.
+    """
+    try:
+        strategy = get_strategy(source_name)
+        if strategy and requires_credentials(strategy):
+            vars_list = ", ".join(strategy.credential_env_vars)
+            engine = strategy.engine.value.replace("_", " ")
+            return (
+                f"Kilden bruker {engine} og krever innlogging. "
+                f"Angi miljovariablene {vars_list}, "
+                f"eller kjor pipeline interaktivt for a bli spurt."
+            )
+    except Exception:
+        pass
+    return ""
+
+
+def _try_credentialed_scrape(
+    name: str,
+    url: str,
+    start_date: datetime,
+    end_date: datetime,
+) -> tuple[list[CalendarEvent], str]:
+    """Retry scraping with environment-variable credentials.
+
+    Checks the source's scraper strategy for ``credential_env_vars``. If all
+    required env vars are set, launches Playwright, executes the strategy's
+    ``initial_navigation`` login steps, then attempts standard Outlook/iframe
+    scraping.
+
+    Returns (events, error_string). Events is empty on failure; error_string
+    is empty on success.
+    """
+    strategy = get_strategy(name)
+    if not strategy or not requires_credentials(strategy):
+        return [], ""
+
+    # Check that all required env vars are available
+    missing: list[str] = []
+    creds: dict[str, str] = {}
+    for var in strategy.credential_env_vars:
+        val = os.environ.get(var, "")
+        if not val:
+            missing.append(var)
+        else:
+            creds[var] = val
+
+    if missing:
+        return [], (
+            f"Kilden '{name}' krever innlogging men miljovariablene "
+            f"{', '.join(missing)} er ikke satt."
+        )
+
+    if not strategy.initial_navigation:
+        return [], f"Kilden '{name}' har credentials men ingen initial_navigation."
+
+    # Execute the login flow via Playwright, then scrape
+    try:
+        return _run_credentialed_outlook_scraper(
+            name, url, start_date, end_date, strategy, creds
+        )
+    except Exception as exc:
+        return [], f"Credentialed scrape feilet for '{name}': {exc}"
+
+
+def _run_credentialed_outlook_scraper(
+    name: str,
+    url: str,
+    start_date: datetime,
+    end_date: datetime,
+    strategy: Any,
+    creds: dict[str, str],
+) -> tuple[list[CalendarEvent], str]:
+    """Playwright scraper that logs in before scraping.
+
+    Executes *strategy.initial_navigation* steps (with ``${VAR}`` placeholders
+    replaced by *creds* values), then runs the standard Outlook/iframe month-by-
+    month scraping loop.
+    """
+    from string import Template
+    from playwright.sync_api import sync_playwright
+    from ..data_sources.calendar_scraper import OutlookCalendarScraper
+
+    events: list[CalendarEvent] = []
+    raw_html: str = ""
+    norwegian_months = OutlookCalendarScraper().norwegian_months
+
+    start_month = start_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    end_month = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    months_to_scrape = (
+        (end_month.year - start_month.year) * 12
+        + (end_month.month - start_month.month)
+        + 1
+    )
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+
+            # Navigate to the calendar URL
+            page.goto(url, timeout=30_000)
+            page.wait_for_timeout(3_000)
+
+            # Execute login / initial navigation steps
+            for step in strategy.initial_navigation:
+                cmd = step.get("cmd", "")
+                selector_tmpl = step.get("selector", "")
+                text_tmpl = step.get("text", "")
+                wait_ms = step.get("wait_ms", 1_500)
+
+                # Substitute env vars in selector and text
+                selector = Template(selector_tmpl).safe_substitute(creds)
+                text = Template(text_tmpl).safe_substitute(creds) if text_tmpl else ""
+
+                if cmd == "click" and selector:
+                    try:
+                        el = page.locator(selector)
+                        if el.count() > 0:
+                            el.first.click()
+                    except Exception:
+                        pass
+                elif cmd == "type" and selector:
+                    try:
+                        el = page.locator(selector)
+                        if el.count() > 0:
+                            el.first.fill(text)
+                    except Exception:
+                        pass
+                elif cmd == "goto" and step.get("url"):
+                    page.goto(step["url"], timeout=30_000)
+
+                page.wait_for_timeout(wait_ms)
+
+            # Now run the standard scraping loop
+            _credentialed_scrape_months(
+                page, events, months_to_scrape, norwegian_months
+            )
+
+            browser.close()
+    except Exception:
+        pass
+
+    # Deduplicate
+    seen: set[tuple[str, str]] = set()
+    unique: list[CalendarEvent] = []
+    for ev in events:
+        key = (ev.date, ev.name)
+        if key not in seen:
+            seen.add(key)
+            unique.append(ev)
+
+    return unique, raw_html
+
+
+def _credentialed_scrape_months(
+    page: Any,
+    events: list[CalendarEvent],
+    months_to_scrape: int,
+    norwegian_months: dict[str, int],
+) -> None:
+    """Scrape calendar months from an already-authenticated Playwright page.
+
+    Tries iframe-based extraction first, then falls back to date-parameter
+    navigation, then plain DOM text extraction.
+    """
+    iframe_element = page.query_selector("iframe")
+    has_iframe = iframe_element is not None and iframe_element.content_frame() is not None
+
+    if has_iframe:
+        iframe = iframe_element.content_frame()
+        iframe.wait_for_timeout(3_000)
+        for month_idx in range(months_to_scrape):
+            iframe.wait_for_timeout(1_000)
+            page_content = iframe.content()
+            month_events = _parse_outlook_calendar(page_content, norwegian_months)
+            events.extend(month_events)
+            if month_idx < months_to_scrape - 1:
+                try:
+                    next_btn = iframe.query_selector(
+                        'button[aria-label*="next month"]'
+                    )
+                    if next_btn:
+                        next_btn.click()
+                        iframe.wait_for_timeout(1_500)
+                except Exception:
+                    pass
+    else:
+        # Try date-parameter navigation
+        from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+        parsed = urlparse(page.url)
+        query = parse_qs(parsed.query)
+        current_month = datetime.now().replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        for month_idx in range(months_to_scrape):
+            date_str = current_month.strftime("%Y-%m-%d")
+            q = dict(query)
+            q["date"] = [date_str]
+            new_query = urlencode(q, doseq=True)
+            month_url = urlunparse(parsed._replace(query=new_query))
+            try:
+                page.goto(month_url, timeout=30_000)
+                page.wait_for_timeout(3_000)
+                page_content = page.content()
+                month_events = _parse_date_param_calendar(
+                    page_content, current_month, norwegian_months
+                )
+                events.extend(month_events)
+            except Exception:
+                pass
+            if current_month.month == 12:
+                current_month = current_month.replace(
+                    year=current_month.year + 1, month=1
+                )
+            else:
+                current_month = current_month.replace(month=current_month.month + 1)
     """Return a Norwegian credential hint for a source, or empty string.
 
     Looks up the scraper strategy and, if it requires environment-variable
@@ -414,6 +674,215 @@ def _run_outlook_scraper(
             unique.append(ev)
 
     return unique, raw_html
+
+
+# ---------------------------------------------------------------------------
+# BookUp SPA scraper (FullCalendar timeGrid in iframe)
+# ---------------------------------------------------------------------------
+
+
+def _run_bookup_scraper(
+    url: str,
+    name: str,
+    start_date: datetime,
+    end_date: datetime,
+) -> tuple[list[CalendarEvent], str]:
+    """Scrape a BookUp SPA calendar (Tønsberg, Sandefjord Penguins).
+
+    BookUp shows an iframe with a FullCalendar timeGrid view after clicking
+    "Se tilgjengelighet".  Events are rendered as ``.fc-bgevent`` background
+    blocks inside a ``.fc-time-grid`` table.
+
+    The scraper:
+      1. Navigates to the BookUp index page.
+      2. Finds the ``app.html`` iframe.
+      3. Clicks "Se tilgjengelighet" to reveal the calendar.
+      4. Iterates week-by-week via the "next" button.
+      5. Extracts ``.fc-bgevent`` elements with date / time / title.
+    """
+    from playwright.sync_api import sync_playwright
+
+    events: list[CalendarEvent] = []
+    raw_html: str = ""
+
+    start_date_ref = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date_ref = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    total_days = (end_date_ref - start_date_ref).days
+    max_weeks = (total_days // 7) + 3  # pad a bit
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(url, timeout=30_000, wait_until="networkidle")
+            page.wait_for_timeout(3_000)
+
+            # Find the BookUp app iframe
+            frame = page.frame(url=lambda u: "app.html" in u)
+            if not frame:
+                browser.close()
+                return [], raw_html
+
+            # Click "Se tilgjengelighet"
+            btn = frame.locator("text=Se tilgjengelighet")
+            if btn.count() == 0:
+                browser.close()
+                return [], raw_html
+            btn.first.click()
+            frame.wait_for_timeout(5_000)
+
+            # Navigate to start month if possible
+            _bookup_navigate_to_date(frame, start_date_ref)
+
+            # Scrape week by week
+            for week_idx in range(max_weeks):
+                frame.wait_for_timeout(1_500)
+                page_content = frame.content()
+                raw_html += page_content
+
+                week_events = _parse_bookup_timegrid(frame)
+                # Filter to date range
+                for ev in week_events:
+                    if start_date_ref <= ev.datetime <= end_date_ref + __import__("datetime").timedelta(days=1):
+                        events.append(ev)
+
+                # Click next week
+                next_btn = frame.locator(".fc-next-button, button[aria-label*='next'], .fc-next")
+                if next_btn.count() > 0:
+                    try:
+                        next_btn.first.click()
+                        frame.wait_for_timeout(1_500)
+                    except Exception:
+                        break
+                else:
+                    break
+
+            browser.close()
+    except Exception:
+        pass
+
+    # Deduplicate
+    seen: set[tuple[str, str]] = set()
+    unique: list[CalendarEvent] = []
+    for ev in events:
+        key = (ev.date, ev.name)
+        if key not in seen:
+            seen.add(key)
+            unique.append(ev)
+
+    return unique, raw_html
+
+
+def _bookup_navigate_to_date(frame: Any, target: datetime) -> None:
+    """Navigate the BookUp FullCalendar to the target date via prev/next.
+
+    Reads the current visible week from the first ``fc-day-header`` element
+    and clicks next/prev until the target date is in view.
+    """
+    import json as _json
+    for _ in range(52):  # safety limit
+        raw = frame.evaluate(
+            "JSON.stringify(Array.from(document.querySelectorAll('[data-date]')).map(e => e.getAttribute('data-date')))"
+        )
+        dates: list[str] = _json.loads(raw) if isinstance(raw, str) else []
+        if not dates:
+            break
+        try:
+            first_date = datetime.strptime(dates[0], "%Y-%m-%d")
+            last_date = datetime.strptime(dates[-1], "%Y-%m-%d")
+        except (ValueError, IndexError):
+            break
+        if first_date <= target <= last_date:
+            break
+        if target < first_date:
+            btn = frame.locator(".fc-prev-button")
+        else:
+            btn = frame.locator(".fc-next-button")
+        if btn.count() > 0:
+            try:
+                btn.first.click()
+                frame.wait_for_timeout(1_000)
+            except Exception:
+                break
+        else:
+            break
+
+
+def _parse_bookup_timegrid(frame: Any) -> list[CalendarEvent]:
+    """Extract events from a BookUp FullCalendar timeGrid week view.
+
+    Maps ``.fc-bgevent`` elements to dates by finding their column's
+    ``data-date`` attribute on the corresponding header ``<th>``.
+    """
+    import json as _json
+
+    events: list[CalendarEvent] = []
+
+    try:
+        raw = frame.evaluate("""
+            (() => {
+                // Build date -> column index map from headers
+                const headers = document.querySelectorAll('.fc-day-header[data-date]');
+                const dateMap = {};
+                headers.forEach((th, i) => {
+                    dateMap[i] = th.getAttribute('data-date');
+                });
+                if (Object.keys(dateMap).length === 0) return JSON.stringify([]);
+
+                // Get time slot labels (fc-axis)
+                const timeLabels = document.querySelectorAll('.fc-axis.fc-time');
+                const times = Array.from(timeLabels).map(el => el.innerText.trim());
+
+                // Find the fc-time-grid container
+                const grid = document.querySelector('.fc-time-grid');
+                if (!grid) return JSON.stringify([]);
+
+                // Get all columns in the content skeleton
+                const cols = grid.querySelectorAll('.fc-content-skeleton .fc-content-col');
+                const results = [];
+                cols.forEach((col, colIdx) => {
+                    const date = dateMap[colIdx];
+                    if (!date) return;
+                    const bgEvents = col.querySelectorAll('.fc-bgevent');
+                    bgEvents.forEach(ev => {
+                        const title = ev.getAttribute('title') || ev.innerText.trim() || 'Booket';
+                        const style = ev.getAttribute('style') || '';
+                        results.push({ date, title, style, colIdx });
+                    });
+                });
+                return JSON.stringify(results);
+            })()
+        """)
+
+        raw_events = _json.loads(raw) if isinstance(raw, str) else []
+        if not isinstance(raw_events, list):
+            return events
+
+        for item in raw_events:
+            date_str = item.get("date", "")
+            title = item.get("title", "Booket")
+            if not date_str:
+                continue
+            try:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                continue
+
+            # Try to extract time from style or other attributes
+            # BookUp bg-events are positioned via inline style "top:..."
+            events.append(
+                CalendarEvent(
+                    date=dt.strftime("%d.%m.%Y"),
+                    name=title,
+                    datetime=dt,
+                    duration_hours=1.0,
+                )
+            )
+
+    except Exception:
+        pass
+
+    return events
 
 
 def _run_styledcalendar_scraper(

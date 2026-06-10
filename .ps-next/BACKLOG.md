@@ -13,6 +13,12 @@
 
 
 
+
+
+
+- [36] [ ] Uneven team count support: when number of teams is odd, one team gets a bye/pause each round. Currently the scheduler requires even teams. Need to model bye rounds in the plan and export.
+- [35] [ ] Add/remove/replan tournaments on the fly: after initial plan, allow adding new tournaments, removing existing ones, and replanning the schedule without restarting the full pipeline. Needs CLI commands and plan checkpoint mutation.
+- [34] [ ] Export: store output in date-time subfolder (e.g. export/2026-06-10T1300/) or commit to git so changes between pipeline runs are diffable. Currently export/ is overwritten each run.
 - [33] [x] Per-team travelled distance metrics across the season in the HTML report — compute total travelled distance for each team over all their away tournaments, show it in the interactive HTML report (e.g. in the team filter sidebar or a summary table), and flag the team with the highest total travel burden. (2026-06-10)
 - [32] [x] Improve booking calendar handling: when scraper encounters booking/order calendars (e.g. bookup/booking systems), stop and prompt user for credentials instead of failing silently or returning 0 events (2026-06-10)
 - [31] [x] Parallelize Stage 2 scraping with ThreadPoolExecutor (4 workers) for ~3x speedup on the 9-club scrape loop in stage2_scraping.py. Each source is independent — separate Playwright contexts per thread. (2026-06-10)

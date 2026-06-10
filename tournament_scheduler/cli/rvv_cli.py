@@ -237,16 +237,26 @@ def _cmd_run(args: argparse.Namespace) -> int:
         scraping = stage2_run(cfg, state, start, end, strict=strict)
         n = len(scraping.get("sources", []))
         blocked = scraping.get("blocked", [])
+        llm_fallback = scraping.get("llm_fallback", [])
         _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
         if blocked:
             for b in blocked:
                 _console.print(f"    [yellow]⚠[/yellow] {b}")
+        if llm_fallback:
+            _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
+            for fb in llm_fallback:
+                strategy = fb.get("llm_strategy", {})
+                engine = strategy.get("engine", "?")
+                creds = strategy.get("credential_env_vars", [])
+                cred_hint = f" (credentials: {', '.join(creds)})" if creds else ""
+                _console.print(f"    [cyan]→[/cyan] {fb['name']} — {engine}{cred_hint}")
+            _console.print(f"\n  [dim]Kjør [bold]rvv-miniputt scrape-llm[/bold] for å skrape disse kildene interaktivt.[/dim]")
     except Exception as exc:
         _console.print(f"  [red]✗[/red] {exc}")
         if strict:
             return 1
         _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
-        scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": []}
+        scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": [], "llm_fallback": []}
 
     # Stage 3: Planning
     _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
