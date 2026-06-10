@@ -458,7 +458,7 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
     color: var(--text-muted);
   }}
   .sidebar .cli-hint code {{
-    background: rgba(255,255,255,0.08);
+    background: var(--hover-overlay);
     padding: 1px 5px; border-radius: var(--radius-sm);
     font-size: 11px; font-family: var(--font-mono);
     color: var(--text-secondary);
