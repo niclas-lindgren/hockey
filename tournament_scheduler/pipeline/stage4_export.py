@@ -204,6 +204,8 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
                 teams=teams,
                 games=games,
                 host_club=t_dict.get("host_club"),
+                cancelled=bool(t_dict.get("cancelled", False)),
+                cancellation_reason=t_dict.get("cancellation_reason"),
             )
         )
 

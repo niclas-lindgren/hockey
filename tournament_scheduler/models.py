@@ -135,6 +135,8 @@ class Tournament:
     teams: List[Team] = field(default_factory=list)
     games: List[Game] = field(default_factory=list)
     host_club: Optional[str] = None
+    cancelled: bool = False
+    cancellation_reason: Optional[str] = None
 
 
 @dataclass

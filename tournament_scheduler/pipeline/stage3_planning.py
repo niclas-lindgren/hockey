@@ -129,7 +129,7 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
         return d
 
     def _tournament_to_dict(t: Tournament) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "id": t.id,
             "date": t.date.isoformat(),
             "arena": t.arena,
@@ -138,6 +138,10 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
             "teams": [_team_to_dict(team) for team in t.teams],
             "games": [_game_to_dict(g) for g in t.games],
         }
+        if t.cancelled:
+            d["cancelled"] = True
+            d["cancellation_reason"] = t.cancellation_reason
+        return d
 
     return {
         "start_date": plan.start_date.isoformat() if plan.start_date else None,
@@ -240,6 +244,8 @@ def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
         host_club=data.get("host_club"),
         teams=teams,
         games=games,
+        cancelled=bool(data.get("cancelled", False)),
+        cancellation_reason=data.get("cancellation_reason"),
     )
 
 

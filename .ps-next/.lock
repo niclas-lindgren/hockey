@@ -1,4 +1,4 @@
 locked_by=pi
 pid=162341
-started=2026-06-10T10:21:20.969Z
-task=Parallelize Stage 2 scraping with ThreadPoolExecutor
+started=2026-06-10T10:26:43.084Z
+task=Cancellation workflow — task 1/5: Add cancelled state to Tournament model

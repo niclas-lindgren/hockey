@@ -1,46 +1,52 @@
-# Plan: Parallelize Stage 2 scraping with ThreadPoolExecutor (4 workers)
-**Goal:** The 9-club scrape loop in `stage2_scraping.py` runs sources in parallel via `ThreadPoolExecutor(max_workers=4)`, giving ~3x speedup without changing per-source scraping logic.
+# Plan: Cancellation / rain-check workflow
+**Goal:** A tournament can be cancelled with a reason, the tool suggests makeup weekends from remaining free dates with conflict re-checking, and re-exports all affected formats — a first-class flow beyond manual `--update-tournament`.
 **Created:** 2026-06-10
-**Intent:** Each calendar source is independent — separate Playwright contexts per thread. Serial iteration wastes wall-clock time on I/O-bound browser and HTTP work.
-**Backlog-ref:** 31
+**Intent:** Organizers need a systematic way to handle cancelled weekends (ice hall issues, weather, illness). Today they must manually run `--update-tournament` and guess at makeup dates. A first-class cancellation flow reduces clerical work and helps avoid accidentally scheduling a makeup on a conflicted date.
+**Backlog-ref:** 29
 
 ## Tasks
-- [x] Refactor `run()` to collect source results via `ThreadPoolExecutor(max_workers=4)`
-  - Files: tournament_scheduler/pipeline/stage2_scraping.py
-  - Approach: Import `concurrent.futures.ThreadPoolExecutor`. Replace the serial `for source_cfg in sources:` loop with `executor.map()` or `executor.submit()`, calling `_scrape_source` per source in a worker thread. Collect results with `futures.as_completed()`. Keep the existing RUNNING status write and final checkpoint write (both outside the parallel block — they touch shared state). Each thread calls `_scrape_source` which internally creates its own `sync_playwright()` context, so no shared browser state. iCal scrapers don't use Playwright at all so they're trivially parallel-safe. Preserve the `blocked` collection logic unchanged.
-- [x] Update tests to cover parallel execution and preserve existing behaviour
-  - Files: tests/test_stage2_scraping.py
-  - Approach: Add a test that verifies multiple sources run concurrently (e.g. by verifying ordering is non-deterministic, or by patching `_scrape_source` to track thread IDs). Ensure the existing tests still pass — they mock `_run_outlook_scraper` and `_run_ical_scraper` at a level below `_scrape_source`, so the parallel dispatch is transparent to them. Run `pytest tests/test_stage2_scraping.py -v` to confirm.
+- [x] Add cancelled state to Tournament model and serialization
+  - Files: tournament_scheduler/models.py, tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/pipeline/stage4_export.py
+  - Approach: Add `cancelled: bool = False` and `cancellation_reason: Optional[str] = None` to `Tournament` dataclass. Update `_plan_to_dict` in `stage3_planning.py` to serialize these fields, and `_tournament_from_dict` / `_dict_to_plan` in `stage4_export.py` to deserialize them. Ensure backward compatibility by defaulting to `False`/`None` when fields are absent.
+
+- [ ] Build CancellationWorkflow module
+  - Files: tournament_scheduler/pipeline/cancellation_workflow.py
+  - Approach: Create a `CancellationWorkflow` class that: (a) `mark_cancelled(tournament_id, reason, plan)` → sets cancelled state; (b) `suggest_makeup_dates(tournament, plan, scheduler)` → runs `find_available_dates` in the date range after the cancelled tournament, excludes already-occupied plan dates, and ranks candidates by distance from original date; (c) `apply_makeup(tournament_id, new_date, plan, updater)` → calls `TournamentUpdater.move_date` with cascade and conflict re-checking, then clears cancelled state; (d) `re_export(state)` → runs Stage 4 export. Follows the established `PipelineState` / `TournamentUpdater` patterns.
+
+- [ ] Add `cancel` subcommand to rvv-miniputt CLI
+  - Files: tournament_scheduler/cli/rvv_cli.py
+  - Approach: Add a `cancel` subcommand to `rvv-miniputt` that takes `--tournament-id`, `--reason` (optional), `--makeup-date` (optional, auto-suggests if omitted), `--no-export` (skip re-export). Lists tournaments when no ID given. Uses CancellationWorkflow for the heavy lifting. Surfaces Norwegian-language output via TournamentOutput.
+
+- [ ] Wire cancelled state into pipeline checkpoint and export
+  - Files: tournament_scheduler/pipeline/tournament_updater.py, tournament_scheduler/pipeline/stage4_export.py
+  - Approach: Update `write_updated_checkpoint` in `TournamentUpdater` to preserve cancelled state when writing checkpoints. Ensure Stage 4 export reflects cancelled status in Excel (greyed-out rows), iCal (CANCELLED status), CSV, and HTML.
+
+- [ ] Tests for cancellation workflow
+  - Files: tests/test_cancellation_workflow.py
+  - Approach: Cover: (a) marking as cancelled; (b) suggesting makeup dates from free dates; (c) applying makeup clears cancelled + moves date; (d) attempting to cancel a non-existent tournament returns error; (e) round-trip serialization of cancelled state. Follow existing pytest patterns from `test_tournament_updater.py`. Use `tmp_path` fixtures and in-memory plans.
 
 ## Notes
-- All browser scrapers (`_run_outlook_scraper`, `_run_styledcalendar_scraper`) create their own `sync_playwright()` context manager per call — no shared browser state, trivially thread-safe.
-- iCal scrapers use HTTP — no browser, also trivially thread-safe.
-- `PipelineState.write_stage` / `mark_done` calls are outside the parallel loop — only called before (RUNNING) and after (DONE/FAILED) the loop, so no threading concerns.
-- The `_scrape_source` function and all helpers are pure functions with respect to shared state (they only operate on their own locals and arguments).
-- The `CalendarEvent` model is a plain dataclass, safe to construct in any thread.
-- Deduplication happens per-source inside each scraper function, so no cross-thread dedup collision.
-- `max_workers=4` is a good default — balances parallelism with resource usage (4 concurrent Playwright browsers). Consider making it configurable via an optional kwarg `max_workers: int = 4` on `run()`.
+- `TournamentUpdater.move_date` already handles cascade and conflict re-checking — the cancellation workflow wraps this, not replaces it.
+- `RescheduleCommand` has the full reschedule logic (scrape calendars, run all checkers). The cancellation workflow should re-use the same scheduler setup where possible, but keep it lightweight — the organizer should get suggestions fast.
+- The existing `--update-tournament` CLI flag stays untouched; cancellation is a higher-level flow on top.
+- No database changes needed — everything lives in the pipeline checkpoints.
+- Norwegian-language output throughout (follows established patterns).
 
 ## Acceptance Criteria
-- [ ] `run()` uses `ThreadPoolExecutor` to scrape 9 sources in ~1/3 the wall-clock time (observable when running with real sources)
-- [ ] All existing `test_stage2_scraping.py` tests pass unchanged or are updated to reflect the new dispatch
-- [ ] Serial ordering semantics are not relied upon — parallel results are collected independently
-- [ ] Blocked-source detection still works correctly (a source returning 0 events blocks the pipeline in strict mode)
-- [ ] The `blocked` list in the checkpoint is correct regardless of which threads finish first
+- [ ] `Tournament` has `cancelled` and `cancellation_reason` fields, round-tripped through checkpoints
+- [ ] Running `rvv-miniputt cancel --tournament-id <id> --reason "Ishall stengt"` marks the tournament as cancelled and logs the reason
+- [ ] `rvv-miniputt cancel --tournament-id <id>` without `--makeup-date` lists suggested makeup weekends ranked by proximity to the original date
+- [ ] Running `rvv-miniputt cancel --tournament-id <id> --makeup-date 2027-03-15` applies the makeup, re-checks conflicts, and clears cancelled state
+- [ ] After a successful makeup, the Stage 4 checkpoint is re-exported (unless `--no-export`)
+- [ ] Cancelled tournaments surface distinctively: Excel rows appear greyed out, iCal events show CANCELLED status, CSV marks cancelled rows, HTML shows a cancelled badge
+- [ ] All new code passes existing and new tests
 
 ## Log
 
-
-### 2026-06-10 — Update tests to cover parallel execution and preserve existing behaviour
-**Done:** Added TestParallelExecution class with three tests: test_multiple_sources_all_collected, test_crashed_scraper_does_not_block_others, test_sources_run_in_different_threads.
-**Rationale:** The three new tests cover: (1) all multiple-source results collected regardless of completion order, (2) a crashing scraper is caught per-future and does not block other workers, (3) sources actually execute in different OS threads proving parallelism. All tests mock at the helper level (_run_outlook_scraper / _run_ical_scraper) so they work regardless of serial or parallel dispatch.
-**Findings:** The existing 8 tests pass without modification because they mock at _run_outlook_scraper / _run_ical_scraper level, which is called inside _scrape_source — transparent to the parallel dispatch. The thread-ID test consistently shows 3-5 unique threads for 5 sources with max_workers=4, confirming real parallelism.
-**Files:** tests/test_stage2_scraping.py (+105 new test class)
-**Commit:** not committed
-### 2026-06-10 — Refactor `run()` to collect source results via `ThreadPoolExecutor(max_workers=4)`
-**Done:** Replaced serial for-loop in run() with ThreadPoolExecutor(max_workers=4) using executor.submit() + as_completed(). Added exception handling per future so a crashing scraper doesn't take down other workers. Added optional max_workers kwarg (default 4) to run().
-**Rationale:** Each source creates its own sync_playwright() context (or uses HTTP-only iCal feeds), so there's no shared browser state. ThreadPoolExecutor is the simplest stdlib option — no external dependencies, works with Playwright's sync API when each thread gets its own browser.
-**Findings:** All 8 existing tests pass unchanged. The PipelineState writes (RUNNING and final checkpoint) remain outside the parallel block so no threading concerns. The blocked collection logic is preserved — each future's result is checked for block_reason after completion.
-**Files:** tournament_scheduler/pipeline/stage2_scraping.py (+24/-9)
+### 2026-06-10 — Add cancelled state to Tournament model and serialization
+**Done:** Added cancelled: bool and cancellation_reason: Optional[str] fields to Tournament dataclass. Updated _tournament_to_dict/_tournament_from_dict in stage3_planning.py and _dict_to_plan in stage4_export.py for round-trip serialization. Backward-compatible: defaults to False/None when fields are absent from serialized data.
+**Rationale:** Minimal extension to the existing model. Keeps serialization compact by omitting cancelled fields when False/None. Uses .get() with defaults at deserialization points for backward compatibility.
+**Findings:** All 233 existing tests pass with no modifications needed. The Tournament dataclass already uses Optional types for nullable fields, so adding two optional fields follows the established pattern.
+**Files:** tournament_scheduler/models.py (+2), tournament_scheduler/pipeline/stage3_planning.py (+8/-2), tournament_scheduler/pipeline/stage4_export.py (+2)
 **Commit:** not committed
 <!-- pi-next appends entries here after each task -->
