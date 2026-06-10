@@ -358,6 +358,25 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  /* Export download links */
+  .export-links {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 8px 16px; margin: 0 16px 8px;
+    background: var(--ice-light); border: 1px solid var(--ice-surface);
+    border-radius: var(--radius);
+  }
+  .export-link-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 6px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: #cbd5e1; text-decoration: none; font-size: 0.8em;
+    transition: background 0.15s, color 0.15s;
+  }
+  .export-link-btn:hover {
+    background: var(--link-color); color: #0f172a;
+    border-color: var(--link-color);
+  }
 </style>
 </head>
 <body>
@@ -411,6 +430,9 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
       Kamper per lag: <strong>$GAME_COUNT_SPREAD$</strong>
     </span>
   </div>
+
+  <!-- Export download links -->
+  $EXPORT_LINKS_HTML$
 
   <!-- Team game counts table -->
   <details class="team-stats" id="teamStats" style="margin-bottom:24px">
@@ -641,7 +663,7 @@ render();
 class HtmlExporter:
     """Generates a standalone interactive HTML overview of a :class:`SeasonPlan`."""
 
-    def export(self, plan: SeasonPlan, path: str | os.PathLike[str], meta: dict[str, Any] | None = None) -> str:
+    def export(self, plan: SeasonPlan, path: str | os.PathLike[str], meta: dict[str, Any] | None = None, *, output_files: dict[str, str] | None = None) -> str:
         """Write an interactive HTML overview to *path*, return the path.
 
         Parameters
@@ -653,6 +675,10 @@ class HtmlExporter:
         meta:
             Optional metadata dict with ``total_events``, ``source_count``,
             ``updated_at`` etc. from the scraped data cache. Shown in navbar.
+        output_files:
+            Optional dict mapping format name (``excel``, ``csv_overview``,
+            ``csv_games``, ``ical``) to absolute file paths. Download links
+            are rendered with relative filenames (same directory as HTML).
         """
         tournaments_json = self._plan_to_json(plan)
 
@@ -703,6 +729,25 @@ class HtmlExporter:
         else:
             scrape_meta = ""
 
+        # Build export download links HTML.
+        export_links_html = ""
+        if output_files:
+            export_links_html = '<div class="export-links">'
+            link_defs = [
+                ("excel", "📥 Last ned Excel (.xlsx)", "#38bdf8"),
+                ("csv_overview", "📊 Last ned CSV", "#34d399"),
+                ("csv_games", "📋 Last ned CSV (kamper)", "#fbbf24"),
+                ("ical", "📅 Last ned iCal (.ics)", "#f87171"),
+            ]
+            for key, label, color in link_defs:
+                if key in output_files:
+                    filename = Path(output_files[key]).name
+                    export_links_html += (
+                        f'<a href="{filename}" class="export-link-btn" '
+                        f'style="--link-color:{color}" download>{label}</a>'
+                    )
+            export_links_html += '</div>'
+
         replacements = {
             "$SEASON_LABEL$": season_label,
             "$SCRAPE_META$": scrape_meta,
@@ -721,6 +766,7 @@ class HtmlExporter:
             "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),
             "$EXTRA_AGE_OPTIONS$": extra_age_options,
             "$TOURNAMENTS_JSON$": tournaments_json,
+            "$EXPORT_LINKS_HTML$": export_links_html,
         }
 
         html = _HTML_TEMPLATE

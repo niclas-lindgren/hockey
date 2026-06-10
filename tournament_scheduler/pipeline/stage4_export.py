@@ -128,7 +128,7 @@ def run(
             meta = ScrapedDataCache(state.work_dir).read().get("_meta")
         except Exception:
             pass
-        HtmlExporter().export(plan, html_path, meta=meta)
+        HtmlExporter().export(plan, html_path, meta=meta, output_files=output_files)
         output_files["html"] = html_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"HTML-eksport feilet: {exc}")
