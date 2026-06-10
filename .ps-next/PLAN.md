@@ -17,7 +17,7 @@
   - Add `"round_number": g.round_number` to the dict returned by `_game_to_dict()` in `tournament_scheduler/pipeline/stage3_planning.py` (lines 128-133), alongside the existing `home`, `away`, and `parallel_slot` keys.
   - Acceptance: the dict returned by `_game_to_dict()` for a `Game` with `round_number=3` contains `"round_number": 3`.
 
-- [ ] Verify the deserialization paths read the new key correctly
+- [x] Confirmed stage3_planning.py:292 (round_numberg.get("round_number", 0)) and stage4_export.py:237 (round_numberint(g_dict.get("round_number", 0))) correctly read the now-serialized key, and plan_exporter.py:194 reads game.round_number directly from the reconstructed Game — no further reconstruction sites need updating. — 2026-06-10
   - Files: tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/pipeline/stage4_export.py
   - Check `stage3_planning.py:291` (`round_number=g.get("round_number", 0)`) and `stage4_export.py:237` (`round_number=int(g_dict.get("round_number", 0))`) — both already read `round_number` from the dict, so once `_game_to_dict()` writes it, these paths should pick it up without further changes; confirm no other reconstruction site (e.g. `tournament_scheduler/excel/plan_exporter.py`) needs a matching update.
   - Acceptance: after running Stage 3 then Stage 4 on a sample plan, reconstructed `Game` objects have `round_number` matching the value originally assigned by `season_planner.py` (not 0).
@@ -49,4 +49,11 @@
 **Findings:** Verified pytest tests/test_stage3_planning.py passes (4 tests).
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage3_planning.py (+1/-0)
+**Commit:** ff1dbf0 (hockey)
+
+### 2026-06-10 — Confirmed stage3_planning.py:292 (round_numberg.get("round_number", 0)) and stage4_export.py:237 (round_numberint(g_dict.get("round_number", 0))) correctly read the now-serialized key, and plan_exporter.py:194 reads game.round_number directly from the reconstructed Game — no further reconstruction sites need updating.
+**Rationale:** none
+**Findings:** No code changes needed; all deserialization paths already correctly read round_number once _game_to_dict() writes it.
+LESSONS: none
+**Files:** (no files changed)
 **Commit:** [pending — fill after commit]
