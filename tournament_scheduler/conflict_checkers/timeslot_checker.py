@@ -6,6 +6,7 @@ from tournament_scheduler.interfaces import ConflictChecker
 from tournament_scheduler.models import ConflictContext, ConflictResult
 from tournament_scheduler.utils.date_parser import DateParser
 from tournament_scheduler.utils.rich_output import TournamentOutput
+from tournament_scheduler.utils.slot_finder import find_available_slots
 
 
 class TimeSlotChecker(ConflictChecker):
@@ -105,79 +106,13 @@ class TimeSlotChecker(ConflictChecker):
         Returns:
             List of (start_time, end_time) tuples in HH:MM format
         """
-        # Get all events on this date
-        events_today = []
-        for event in self.calendar_events:
-            parsed = DateParser.parse(event.date)
-            if parsed and parsed.date() == check_date:
-                # Only include events with times
-                if hasattr(event.datetime, 'hour'):
-                    events_today.append(event)
-
-        # Build list of busy time ranges
-        busy_ranges = []
-        for event in events_today:
-            if event.duration_hours > 0:
-                start_minutes = event.datetime.hour * 60 + event.datetime.minute
-                end_minutes = start_minutes + int(event.duration_hours * 60)
-                busy_ranges.append((start_minutes, end_minutes))
-
-        # Sort busy ranges
-        busy_ranges.sort()
-
-        # Find available slots
-        available_slots = []
-        earliest_minutes = self.earliest_start.hour * 60 + self.earliest_start.minute
-        latest_start_minutes = self.latest_start.hour * 60 + self.latest_start.minute
-        min_duration_minutes = int(self.min_duration_hours * 60)
-
-        # Check if we can fit a slot before first event
-        if busy_ranges:
-            first_busy_start = busy_ranges[0][0]
-            if first_busy_start >= earliest_minutes + min_duration_minutes:
-                # Can fit before first event
-                slot_start = max(earliest_minutes, 0)
-                slot_end = first_busy_start
-                if slot_start <= latest_start_minutes and slot_end - slot_start >= min_duration_minutes:
-                    available_slots.append((
-                        self._minutes_to_time(slot_start),
-                        self._minutes_to_time(slot_start + min_duration_minutes)
-                    ))
-
-            # Check gaps between events
-            for i in range(len(busy_ranges) - 1):
-                gap_start = busy_ranges[i][1]
-                gap_end = busy_ranges[i + 1][0]
-                gap_duration = gap_end - gap_start
-
-                # Can we start within the allowed window and have min_duration free?
-                earliest_possible_start = max(gap_start, earliest_minutes)
-                latest_possible_start = min(gap_end - min_duration_minutes, latest_start_minutes)
-
-                if earliest_possible_start <= latest_possible_start:
-                    available_slots.append((
-                        self._minutes_to_time(earliest_possible_start),
-                        self._minutes_to_time(earliest_possible_start + min_duration_minutes)
-                    ))
-
-            # Check after last event
-            last_busy_end = busy_ranges[-1][1]
-            earliest_possible_start = max(last_busy_end, earliest_minutes)
-
-            # Can we start by latest_start and have min_duration free?
-            if earliest_possible_start <= latest_start_minutes:
-                available_slots.append((
-                    self._minutes_to_time(earliest_possible_start),
-                    self._minutes_to_time(earliest_possible_start + min_duration_minutes)
-                ))
-        else:
-            # No events - entire window is available
-            available_slots.append((
-                self._format_time(self.earliest_start),
-                self._minutes_to_time(earliest_minutes + min_duration_minutes)
-            ))
-
-        return available_slots
+        return find_available_slots(
+            self.calendar_events,
+            check_date,
+            int(self.min_duration_hours * 60),
+            earliest_start=self._format_time(self.earliest_start),
+            latest_start=self._format_time(self.latest_start),
+        )
 
     def _get_booked_times(self, check_date: date) -> str:
         """Get formatted string of booked times on a date.

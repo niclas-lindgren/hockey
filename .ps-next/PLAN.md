@@ -18,7 +18,7 @@
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`, `tournament_scheduler/club_registry.py`
   - Acceptance: `stage2_scraping.py` produces (or returns alongside the flat event list) a `Dict[str, List[CalendarEvent]]` keyed by club name (using `CLUB_REGISTRY` club names), so downstream code can look up "all events for Frisk Asker's Varner Arena" without re-filtering a flat list; existing flat-list consumers continue to work unchanged.
 
-- [ ] Extract a reusable per-arena slot-finder from `TimeSlotChecker`
+- [x] Extracted TimeSlotChecker._find_available_slots into a new tournament_scheduler/utils/slot_finder.py module with find_available_slots(events, check_date, required_minutes, earliest_start, latest_start) parameterized by required duration in minutes; TimeSlotChecker now delegates to this shared function with unchanged behavior. — 2026-06-10
   - Files: `tournament_scheduler/conflict_checkers/timeslot_checker.py`, new `tournament_scheduler/utils/slot_finder.py`
   - Acceptance: A new `find_available_slots(events: List[CalendarEvent], check_date: date, required_minutes: int, earliest_start="09:00", latest_start="20:00") -> List[Tuple[str,str]]` function (or class) is extracted/generalized from `TimeSlotChecker._find_available_slots`, parameterized by required duration in minutes (not just hours) so it can consume `Tournament.duration_minutes(round_length)` directly; `TimeSlotChecker` is refactored to call this shared function so behavior is unchanged for existing callers.
 
@@ -63,4 +63,11 @@
 **Findings:** Verified mapping and grouping logic with a manual smoke test; full pytest suite passes (288 passed, 1 skipped) except one pre-existing unrelated failure (test_zero_events_blocks_source) that fails identically on main before this change.
 LESSONS: none
 **Files:** tournament_scheduler/club_registry.py (+21), tournament_scheduler/pipeline/stage2_scraping.py (+31)
+**Commit:** e2fb65b (hockey)
+
+### 2026-06-10 — Extracted TimeSlotChecker._find_available_slots into a new tournament_scheduler/utils/slot_finder.py module with find_available_slots(events, check_date, required_minutes, earliest_start, latest_start) parameterized by required duration in minutes; TimeSlotChecker now delegates to this shared function with unchanged behavior.
+**Rationale:** Kept the function signature general (plain list of event-like objects with date/datetime/duration_hours) so the season planner can call it directly with Tournament.duration_minutes(round_length) without depending on the checker class.
+**Findings:** Full pytest suite passes (288 passed, 1 skipped) except the same pre-existing unrelated failure (test_zero_events_blocks_source) seen before this change.
+LESSONS: none
+**Files:** tournament_scheduler/conflict_checkers/timeslot_checker.py (+8/-73), tournament_scheduler/utils/slot_finder.py (+132 new file)
 **Commit:** [pending — fill after commit]
