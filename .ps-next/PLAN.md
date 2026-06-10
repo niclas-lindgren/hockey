@@ -26,7 +26,7 @@
   - Files: `tournament_scheduler/club_registry.py`
   - Acceptance: `club_registry.py` exposes a function (e.g. `arenas_for_date_search(host_club: str) -> List[ClubCalendarSource]`) returning the host club's own entry first followed by other known clubs' entries (fallback candidates), without requiring a structural rewrite of `CLUB_REGISTRY` to support multiple arenas per club (single-arena-per-club model is preserved per club entry).
 
-- [ ] Implement `find_arena_slot_for_date` in the scheduler combining duration + fallback + time-of-day scoring
+- [x] Added TournamentScheduler.find_arena_slot_for_date(check_date, host_club, required_minutes, events_by_club) which tries the host club's arena via find_available_slots, falls back through arenas_for_date_search candidates, and scores fitting slots by closeness to an 11:00 optimal start time, returning (host_club_used, start, end) or None. — 2026-06-10
   - Files: `tournament_scheduler/scheduler.py`, `tournament_scheduler/utils/slot_finder.py`
   - Approach: New method `TournamentScheduler.find_arena_slot_for_date(check_date: date, host_club: str, required_minutes: int, events_by_club: Dict[str, List[CalendarEvent]]) -> Optional[Tuple[str, str, str]]` (returns `(host_club_used, start_HH:MM, end_HH:MM)`). Tries the host club's arena first via `find_available_slots`; if no slot of `required_minutes` fits, iterates `club_registry.arenas_for_date_search(host_club)` fallback candidates in order. Among all arenas with a fitting slot, scores each candidate slot's start time against an "optimal window" (e.g. closest to 11:00, penalizing slots starting before ~10:00 or after ~16:00) and picks the best-scoring (host-arena ties broken in favor of the original host).
   - Acceptance: Calling `find_arena_slot_for_date` with a host club whose arena is fully booked on a date, but where another known club's arena has a fitting gap, returns that other club as `host_club_used` with valid `start_HH:MM`/`end_HH:MM` strings; calling it when the host arena has a fitting slot returns the host arena's slot without checking fallbacks unless that slot scores worse than a fallback's.
@@ -77,4 +77,11 @@ LESSONS: none
 **Findings:** Verified ordering with a manual smoke test (host first, host's own entry omitted from the fallback tail); full pytest suite passes (288 passed, 1 skipped) except the same pre-existing unrelated failure (test_zero_events_blocks_source).
 LESSONS: none
 **Files:** tournament_scheduler/club_registry.py (+35)
+**Commit:** 381eab8 (hockey)
+
+### 2026-06-10 — Added TournamentScheduler.find_arena_slot_for_date(check_date, host_club, required_minutes, events_by_club) which tries the host club's arena via find_available_slots, falls back through arenas_for_date_search candidates, and scores fitting slots by closeness to an 11:00 optimal start time, returning (host_club_used, start, end) or None.
+**Rationale:** Used a simple absolute-distance-from-11:00 scoring heuristic with host-club tiebreak, matching the plan's 'avoid very early/late slots, prefer host on ties' acceptance criteria; kept search window 08:00-20:00 to allow fallback arenas a wide range.
+**Findings:** Manual smoke test confirmed all three scenarios (host has slot, host fully booked with fallback success, no arena available); full pytest suite passes (288 passed, 1 skipped) except the same pre-existing unrelated failure.
+LESSONS: Initial edit accidentally inserted a module-level helper function between two methods of TournamentScheduler, breaking class indentation and causing AttributeError on _get_weekend_dates -- always verify class structure with a full test run after inserting helpers near the end of a class.
+**Files:** tournament_scheduler/scheduler.py (+85/-2)
 **Commit:** [pending — fill after commit]

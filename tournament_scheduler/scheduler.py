@@ -1,7 +1,7 @@
 """Tournament scheduler orchestrator - coordinates all components."""
 
-from datetime import datetime, timedelta, date
-from typing import List, Set, Optional
+from datetime import datetime, timedelta, date, time
+from typing import Dict, List, Set, Optional, Tuple
 from tournament_scheduler.interfaces import CalendarDataSource, ConflictChecker
 from tournament_scheduler.models import (
     SchedulingResult,
@@ -9,8 +9,17 @@ from tournament_scheduler.models import (
     TournamentInfo,
     CalendarEvent
 )
+from tournament_scheduler.club_registry import arenas_for_date_search
 from tournament_scheduler.utils.date_parser import DateParser
+from tournament_scheduler.utils.slot_finder import find_available_slots, parse_time
 from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
+
+# "Optimal" time-of-day window for tournament start times. Slots starting
+# closer to the middle of this window score better than slots starting
+# very early or very late.
+_OPTIMAL_SLOT_START = "11:00"
+_SLOT_SEARCH_EARLIEST = "08:00"
+_SLOT_SEARCH_LATEST = "20:00"
 
 
 class TournamentScheduler:
@@ -106,6 +115,75 @@ class TournamentScheduler:
             total_weekends_checked=len(weekend_dates)
         )
 
+    def find_arena_slot_for_date(
+        self,
+        check_date: date,
+        host_club: str,
+        required_minutes: int,
+        events_by_club: Dict[str, List[CalendarEvent]],
+    ) -> Optional[Tuple[str, str, str]]:
+        """Find the best-scoring arena/time slot for a tournament on a date.
+
+        Tries *host_club*'s own arena first via :func:`find_available_slots`.
+        If no slot of *required_minutes* fits there, iterates
+        :func:`tournament_scheduler.club_registry.arenas_for_date_search`
+        fallback candidates (other known clubs) for the same date.
+
+        Among all arenas with a fitting slot, scores each candidate's
+        earliest slot start time against an "optimal window" (closest to
+        :data:`_OPTIMAL_SLOT_START`, e.g. 11:00) and returns the
+        best-scoring slot. Ties are broken in favor of *host_club*.
+
+        Args:
+            check_date: The candidate tournament date.
+            host_club: The originally-assigned host club (preferred arena).
+            required_minutes: Total tournament duration required, in minutes.
+            events_by_club: Calendar events keyed by club name (e.g. from
+                Stage 2's ``events_by_club`` checkpoint output).
+
+        Returns:
+            ``(host_club_used, start_HH:MM, end_HH:MM)`` for the
+            best-scoring fitting slot, or ``None`` if no candidate arena has
+            a slot of sufficient length on *check_date*.
+        """
+        candidates = arenas_for_date_search(host_club)
+        if not candidates:
+            return None
+
+        optimal_minutes = _time_to_minutes(parse_time(_OPTIMAL_SLOT_START))
+
+        best: Optional[Tuple[str, str, str]] = None
+        best_score: Optional[int] = None
+
+        for entry in candidates:
+            club_name = entry.club
+            club_events = events_by_club.get(club_name, [])
+            slots = find_available_slots(
+                club_events,
+                check_date,
+                required_minutes,
+                earliest_start=_SLOT_SEARCH_EARLIEST,
+                latest_start=_SLOT_SEARCH_LATEST,
+            )
+            if not slots:
+                continue
+
+            # Use the earliest fitting slot for this arena.
+            start_str, end_str = slots[0]
+            slot_minutes = _time_to_minutes(parse_time(start_str))
+            score = abs(slot_minutes - optimal_minutes)
+
+            if best_score is None or score < best_score:
+                best = (club_name, start_str, end_str)
+                best_score = score
+                continue
+
+            # Tie -- prefer the original host if it scores equally well.
+            if score == best_score and club_name == host_club and best[0] != host_club:
+                best = (club_name, start_str, end_str)
+
+        return best
+
     def reschedule_tournament(
         self,
         tournament_date: date,
@@ -162,3 +240,8 @@ class TournamentScheduler:
                 weekends.append(current.date())
             current += timedelta(days=1)
         return weekends
+
+
+def _time_to_minutes(t: time) -> int:
+    """Convert a :class:`datetime.time` to minutes since midnight."""
+    return t.hour * 60 + t.minute
