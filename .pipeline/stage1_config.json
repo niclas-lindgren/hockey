@@ -1,30 +1,9 @@
 {
   "stage": "config",
   "status": "done",
-  "updated_at": "2026-06-11T11:28:49.733979+00:00",
+  "updated_at": "2026-06-11T20:36:43.885065+00:00",
   "data": {
-    "start_date": "2026-09-01",
-    "end_date": "2027-04-30",
-    "age_groups": [
-      "U10",
-      "U11"
-    ],
-    "parallel_games": {
-      "U10": 3,
-      "U11": 2
-    },
-    "round_length_minutes": {
-      "U7": 8,
-      "U8": 8,
-      "U9": 10,
-      "U10": 10,
-      "U11": 12,
-      "U12": 12,
-      "JU10": 10,
-      "JU11": 10,
-      "JU12": 12,
-      "JU13": 12
-    },
+    "input_path": "/Users/niclasl/src/hockey/input.json",
     "teams": [
       {
         "club": "Jar",
@@ -202,52 +181,17 @@
         "age_group": "U11"
       }
     ],
-    "sources": [
-      {
-        "name": "Kongsberg ishall",
-        "type": "outlook",
-        "url": "https://kongsberghallen.no/webkalender/ishall/"
-      },
-      {
-        "name": "Skien ishall",
-        "type": "outlook",
-        "url": "https://skienfritidspark.brp.exigo.no/ishallen"
-      },
-      {
-        "name": "Ringerike",
-        "type": "ical",
-        "url": "https://ics.teamup.com/feed/ksr8bg1tpn5s3npskw/0.ics"
-      },
-      {
-        "name": "Frisk Asker",
-        "type": "ical",
-        "url": "https://ics.teamup.com/feed/ksdwpwxysmxwnuftoy/0.ics"
-      },
-      {
-        "name": "Jutul",
-        "type": "outlook",
-        "url": "https://baerumishall.no/kalender/"
-      },
-      {
-        "name": "Jar",
-        "type": "outlook",
-        "url": "https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true"
-      },
-      {
-        "name": "Holmen",
-        "type": "outlook",
-        "url": "https://kalender.sportello.no/booking/11055"
-      },
-      {
-        "name": "Tønsberg",
-        "type": "outlook",
-        "url": "https://www.bookup.no/utleie/Index/860"
-      },
-      {
-        "name": "Sandefjord Penguins",
-        "type": "outlook",
-        "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen"
-      }
-    ]
+    "round_length_minutes": {
+      "U7": 8,
+      "U8": 8,
+      "U9": 10,
+      "U10": 10,
+      "U11": 12,
+      "U12": 12,
+      "JU10": 10,
+      "JU11": 10,
+      "JU12": 12,
+      "JU13": 12
+    }
   }
 }

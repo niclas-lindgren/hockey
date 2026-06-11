@@ -293,10 +293,11 @@ def _cmd_calendars(args: argparse.Namespace) -> int:
         _console.print("  Skraper kalendere (Stage 2)...")
         try:
             from ..pipeline.state import PipelineState, StageName
+            from ..pipeline.stage1_config import load_effective_config
             from ..pipeline.stage2_scraping import run as stage2_run
 
             state = PipelineState(work_dir)
-            cfg = state.read_stage(StageName.CONFIG)
+            cfg = load_effective_config(state)
             if not cfg:
                 _console.print("[red]✗[/red] Stage 1 checkpoint mangler — kjør 'rvv-miniputt run' først")
                 return 1
@@ -886,10 +887,11 @@ def _cmd_scrape(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt scrape --club <name>`` — single-source scrape."""
     from datetime import datetime as dt
     from ..pipeline.state import PipelineState, StageName
+    from ..pipeline.stage1_config import load_effective_config
     from ..pipeline.stage2_scraping import _scrape_source
 
     state = PipelineState(args.work_dir)
-    cfg = state.read_stage(StageName.CONFIG)
+    cfg = load_effective_config(state)
     if not cfg:
         _console.print(
             "[red]✗[/red] Ingen Stage 1-konfigurasjon funnet. "
@@ -994,11 +996,12 @@ def _cmd_scrape_llm(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt scrape-llm`` — LLM-guided browser scraping."""
     from datetime import datetime
     from ..pipeline.state import PipelineState, StageName
+    from ..pipeline.stage1_config import load_effective_config
     from ..pipeline.scraper_strategies import get_strategy, needs_llm_agent
     from ..pipeline.llm_scraper import StrategyDrivenScraper
 
     state = PipelineState(args.work_dir)
-    cfg = state.read_stage(StageName.CONFIG)
+    cfg = load_effective_config(state)
     if not cfg:
         _console.print(
             "[red]✗[/red] Ingen Stage 1-konfigurasjon funnet. "

@@ -155,17 +155,10 @@ def _source_fidelity(
 
 
 def _load_sources(input_path: str, work_dir: str) -> list[dict[str, Any]]:
-    """Load calendar sources from input.json or Stage 1 checkpoint."""
-    # Try input.json first
+    """Load calendar sources from input.json (canonical source)."""
     input_file = Path(input_path)
     if not input_file.exists():
-        # Try Stage 1 checkpoint
-        ckpt_path = Path(work_dir) / "stage1_config.json"
-        if ckpt_path.exists():
-            envelope = json.loads(ckpt_path.read_text(encoding="utf-8"))
-            config = envelope.get("data", {})
-            return config.get("sources", [])
-        print(f"Fant hverken {input_path} eller {ckpt_path}", file=sys.stderr)
+        print(f"Fant ikke {input_path}", file=sys.stderr)
         return []
 
     cfg = json.loads(input_file.read_text(encoding="utf-8"))

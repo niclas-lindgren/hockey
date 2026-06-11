@@ -332,10 +332,11 @@ if __name__ == "__main__":  # pragma: no cover
     cli_args = parser.parse_args()
 
     from .state import PipelineState, StageName  # noqa: E402
+    from .stage1_config import load_effective_config  # noqa: E402
     from datetime import datetime as _dt  # noqa: E402
 
     _state = PipelineState(cli_args.work_dir)
-    _cfg = _state.read_stage(StageName.CONFIG)
+    _cfg = load_effective_config(_state)
     if not _cfg:
         print("Stage 1 checkpoint not found — run Stage 1 first.", file=sys.stderr)
         sys.exit(1)

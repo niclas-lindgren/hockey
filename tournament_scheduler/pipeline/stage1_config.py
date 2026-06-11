@@ -59,6 +59,57 @@ class Stage1Error(ValueError):
         super().__init__("\n".join(errors))
 
 
+def load_effective_config(
+    state: PipelineState,
+    *,
+    input_path: str | os.PathLike[str] | None = None,
+) -> dict[str, Any]:
+    """Load the effective (merged) config from ``input.json`` + Stage 1 checkpoint.
+
+    Reads the canonical ``input.json`` for human-editable fields
+    (``start_date``, ``end_date``, ``age_groups``, ``parallel_games``,
+    ``sources``) and merges in the computed fields (``teams``,
+    ``round_length_minutes``) from the Stage 1 checkpoint.
+
+    Returns a dict with the same shape that downstream stages expect,
+    so callers see no API change.
+    """
+    ckpt = state.read_stage(StageName.CONFIG)
+    if not ckpt:
+        return {}
+
+    # Resolve input path: checkpoint > parameter > default
+    ip = input_path or ckpt.get("input_path", "input.json")
+    raw = _load_json(ip)
+
+    merged: dict[str, Any] = {}
+
+    # From input.json (canonical source)
+    merged["start_date"] = raw.get("start_date")
+    merged["end_date"] = raw.get("end_date")
+    merged["parallel_games"] = raw.get("parallel_games", {})
+    merged["sources"] = raw.get("sources", [])
+
+    # Age groups: prefer input.json, fall back to derived from Stage 1
+    if "age_groups" in raw:
+        merged["age_groups"] = raw["age_groups"]
+    elif "derived_age_groups" in ckpt:
+        merged["age_groups"] = ckpt["derived_age_groups"]
+    else:
+        merged["age_groups"] = []
+
+    # From Stage 1 checkpoint (computed)
+    merged["teams"] = ckpt.get("teams", [])
+    merged["round_length_minutes"] = ckpt.get("round_length_minutes", {})
+
+    # Preserve other computed/metadata fields from the checkpoint
+    for key in ("input_path", "derived_age_groups"):
+        if key in ckpt:
+            merged[key] = ckpt[key]
+
+    return merged
+
+
 def run(
     input_path: str | os.PathLike[str],
     state: PipelineState,
@@ -66,6 +117,12 @@ def run(
     strict: bool = True,
 ) -> dict[str, Any]:
     """Parse and validate *input_path*, write the Stage 1 checkpoint.
+
+    The checkpoint stores only **computed** fields (``teams`` expanded from a
+    file reference, ``round_length_minutes`` with federation defaults applied).
+    Human-editable fields (``start_date``, ``end_date``, ``age_groups``,
+    ``parallel_games``, ``sources``) live exclusively in ``input.json``.
+    Use :func:`load_effective_config` to merge both sources transparently.
 
     Parameters
     ----------
@@ -81,7 +138,8 @@ def run(
     Returns
     -------
     dict
-        The validated config dict that was written to the checkpoint.
+        The computed config dict (teams, round_length_minutes, input_path)
+        that was written to the checkpoint.
 
     Raises
     ------
@@ -106,7 +164,7 @@ def run(
 
     # Parse validated config into structured objects
     state.write_stage(StageName.CONFIG, {}, status=StageStatus.RUNNING)
-    config = _parse_config(raw)
+    config = _parse_config(raw, input_path)
 
     state.write_stage(StageName.CONFIG, config, status=StageStatus.DONE)
     state.mark_done(StageName.CONFIG)
@@ -287,18 +345,12 @@ def _validate_team_list(teams: list[Any]) -> list[str]:
     return errors
 
 
-def _parse_config(raw: dict[str, Any]) -> dict[str, Any]:
-    """Build a structured, serialisable config dict from a validated *raw* dict."""
+def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> dict[str, Any]:
+    """Build the Stage 1 checkpoint dict with only **computed** fields.
 
-    start = datetime.strptime(raw["start_date"], "%Y-%m-%d").date()
-    end = datetime.strptime(raw["end_date"], "%Y-%m-%d").date()
-
-    # Parallel games
-    pg_dict: dict[str, int] = {}
-    if "parallel_games" in raw:
-        pg_raw = raw["parallel_games"]
-        if isinstance(pg_raw, dict):
-            pg_dict = {k: int(v) for k, v in pg_raw.items()}
+    Human-editable fields (start_date, end_date, age_groups, parallel_games,
+    sources) are intentionally excluded — they live only in ``input.json``.
+    """
 
     # Round length (minutes) — explicit values override federation defaults
     rl_dict: dict[str, int] = dict(FEDERATION_ROUND_LENGTH_DEFAULTS)
@@ -307,7 +359,7 @@ def _parse_config(raw: dict[str, Any]) -> dict[str, Any]:
         if isinstance(rl_raw, dict):
             rl_dict.update({k: int(v) for k, v in rl_raw.items()})
 
-    # Teams
+    # Teams — expand from file reference if needed
     teams_val = raw["teams"]
     if isinstance(teams_val, str):
         roster, _ = RosterLoader.load_with_defaults(teams_val)
@@ -318,21 +370,19 @@ def _parse_config(raw: dict[str, Any]) -> dict[str, Any]:
     else:
         teams_data = list(teams_val)
 
-    # Age groups — explicit or derived from teams
-    if "age_groups" in raw:
-        age_groups = list(raw["age_groups"])
-    else:
-        age_groups = sorted({t["age_group"] for t in teams_data})
-
-    return {
-        "start_date": raw["start_date"],
-        "end_date": raw["end_date"],
-        "age_groups": age_groups,
-        "parallel_games": pg_dict,
-        "round_length_minutes": rl_dict,
+    result: dict[str, Any] = {
+        "input_path": str(Path(input_path).resolve()),
         "teams": teams_data,
-        "sources": raw.get("sources", []),
+        "round_length_minutes": rl_dict,
     }
+
+    # Derived age groups: only stored when input.json has no explicit list
+    if "age_groups" not in raw:
+        result["derived_age_groups"] = sorted(
+            {t["age_group"] for t in teams_data}
+        )
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -353,7 +403,9 @@ if __name__ == "__main__":  # pragma: no cover
     _state = PipelineState(cli_args.work_dir)
     try:
         _result = run(cli_args.input, _state)
-        print(f"Stage 1 OK — {len(_result.get('teams', []))} lag, {_result.get('start_date')} til {_result.get('end_date')}")
+        _raw = _load_json(cli_args.input)
+        print(f"Stage 1 OK — {len(_result.get('teams', []))} lag, "
+              f"{_raw.get('start_date')} til {_raw.get('end_date')}")
         sys.exit(0)
     except (Stage1Error, FileNotFoundError) as _e:
         print(str(_e), file=sys.stderr)

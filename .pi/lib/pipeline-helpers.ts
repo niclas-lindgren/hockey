@@ -112,6 +112,10 @@ export function estimateDataVolume(ckpt: Record<string, unknown> | null): Record
   if (Array.isArray(data.sources)) vol.sources = data.sources.length;
   if (Array.isArray(data.age_groups)) vol.age_groups = data.age_groups.length;
   if (Array.isArray(data.events)) vol.events = data.events.length;
+  // Stage 1 computed fields (post-consolidation, stage1_config stores only computed data)
+  if (data.round_length_minutes && typeof data.round_length_minutes === "object") {
+    vol.round_length_minutes = Object.keys(data.round_length_minutes as Record<string, unknown>).length;
+  }
   // Stage 3 stores plan under a nested "plan" key
   const plan = data.plan as Record<string, unknown> | undefined;
   if (plan) {

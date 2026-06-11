@@ -1,148 +1,100 @@
 {
   "stage": "scraping",
   "status": "done",
-  "updated_at": "2026-06-11T18:34:07.335646+00:00",
+  "updated_at": "2026-06-11T20:37:48.854160+00:00",
   "data": {
     "sources": [
       {
-        "name": "Tønsberg",
-        "url": "https://www.bookup.no/utleie/Index/860",
+        "name": "Kongsberg ishall",
+        "url": "https://kongsberghallen.no/webkalender/ishall/",
         "type": "outlook",
         "events": [
           {
-            "date": "01.06.2026",
-            "name": "Booking 7:00-23:30",
-            "datetime": "2026-06-01T07:00:27.093356",
-            "duration_hours": 16.5
+            "date": "03.08.2026",
+            "name": "HUSK påminnelse om kampoppsett for hockey",
+            "datetime": "2026-08-03T09:00:00",
+            "duration_hours": 3.0
+          },
+          {
+            "date": "03.08.2026",
+            "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
+            "datetime": "2026-08-03T10:00:00",
+            "duration_hours": 3.0
+          },
+          {
+            "date": "24.08.2026",
+            "name": "Kongsberg gruppen",
+            "datetime": "2026-08-24T00:00:00",
+            "duration_hours": 0.0
+          },
+          {
+            "date": "12.09.2026",
+            "name": "Buskerud Skøytekrets - Samling",
+            "datetime": "2026-09-12T09:00:00",
+            "duration_hours": 2.5
+          },
+          {
+            "date": "19.09.2026",
+            "name": "KIF skøyter",
+            "datetime": "2026-09-19T10:00:00",
+            "duration_hours": 1.833333333333334
+          },
+          {
+            "date": "28.09.2026",
+            "name": "Tivoli ***",
+            "datetime": "2026-09-28T00:00:00",
+            "duration_hours": 0.0
+          },
+          {
+            "date": "17.10.2026",
+            "name": "KIF skøyter",
+            "datetime": "2026-10-17T10:00:00",
+            "duration_hours": 1.833333333333334
+          },
+          {
+            "date": "30.10.2026",
+            "name": "HalloVenn",
+            "datetime": "2026-10-30T08:00:00",
+            "duration_hours": 14.0
+          },
+          {
+            "date": "31.10.2026",
+            "name": "HalloVenn",
+            "datetime": "2026-10-31T08:00:00",
+            "duration_hours": 14.0
+          },
+          {
+            "date": "01.11.2026",
+            "name": "HalloVenn",
+            "datetime": "2026-11-01T08:00:00",
+            "duration_hours": 14.0
+          },
+          {
+            "date": "07.11.2026",
+            "name": "KIF skøyter",
+            "datetime": "2026-11-07T10:00:00",
+            "duration_hours": 1.833333333333334
           }
         ],
-        "event_count": 1,
+        "event_count": 11,
         "blocked": false,
         "block_reason": "",
         "llm_fallback": false,
         "from_cache": true
       },
       {
-        "name": "Sandefjord Penguins",
-        "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen",
+        "name": "Skien ishall",
+        "url": "https://skienfritidspark.brp.exigo.no/ishallen",
         "type": "outlook",
         "events": [
           {
-            "date": "01.06.2026",
-            "name": "Booking 7:00-22:30",
-            "datetime": "2026-06-01T07:00:12.848428",
-            "duration_hours": 15.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 8:00 - 14:00",
-            "datetime": "2026-06-01T08:00:12.848428",
-            "duration_hours": 6
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 14:00 - 16:00",
-            "datetime": "2026-06-01T14:00:12.848428",
-            "duration_hours": 2
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 8:00 - 15:00",
-            "datetime": "2026-06-01T08:00:12.848428",
-            "duration_hours": 7
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 20:30",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 4
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 8:00 - 14:00",
-            "datetime": "2026-06-01T08:00:12.848428",
-            "duration_hours": 6
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 14:30 - 15:30",
-            "datetime": "2026-06-01T14:30:12.848428",
-            "duration_hours": 1
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 8:00 - 14:00",
-            "datetime": "2026-06-01T08:00:12.848428",
-            "duration_hours": 6
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 14:00 - 16:00",
-            "datetime": "2026-06-01T14:00:12.848428",
-            "duration_hours": 2
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 8:00 - 15:00",
-            "datetime": "2026-06-01T08:00:12.848428",
-            "duration_hours": 7
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
-          },
-          {
-            "date": "01.06.2026",
-            "name": "Booking 16:30 - 22:00",
-            "datetime": "2026-06-01T16:30:12.848428",
-            "duration_hours": 5.5
+            "date": "01.09.2026",
+            "name": "Booking 08:00-22:30",
+            "datetime": "2026-09-01T08:00:00",
+            "duration_hours": 14.5
           }
         ],
-        "event_count": 19,
+        "event_count": 1,
         "blocked": false,
         "block_reason": "",
         "llm_fallback": false,
@@ -10009,7 +9961,8 @@
         "event_count": 1642,
         "blocked": false,
         "block_reason": "",
-        "llm_fallback": false
+        "llm_fallback": false,
+        "from_cache": true
       },
       {
         "name": "Frisk Asker",
@@ -17244,7 +17197,8 @@
         "event_count": 1204,
         "blocked": false,
         "block_reason": "",
-        "llm_fallback": false
+        "llm_fallback": false,
+        "from_cache": true
       },
       {
         "name": "Jutul",
@@ -18695,101 +18649,8 @@
         "event_count": 240,
         "blocked": false,
         "block_reason": "",
-        "llm_fallback": false
-      },
-      {
-        "name": "Skien ishall",
-        "url": "https://skienfritidspark.brp.exigo.no/ishallen",
-        "type": "outlook",
-        "events": [
-          {
-            "date": "01.09.2026",
-            "name": "Booking 08:00-22:30",
-            "datetime": "2026-09-01T08:00:00",
-            "duration_hours": 14.5
-          }
-        ],
-        "event_count": 1,
-        "blocked": false,
-        "block_reason": "",
-        "llm_fallback": false
-      },
-      {
-        "name": "Kongsberg ishall",
-        "url": "https://kongsberghallen.no/webkalender/ishall/",
-        "type": "outlook",
-        "events": [
-          {
-            "date": "03.08.2026",
-            "name": "HUSK påminnelse om kampoppsett for hockey",
-            "datetime": "2026-08-03T09:00:00",
-            "duration_hours": 3.0
-          },
-          {
-            "date": "03.08.2026",
-            "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
-            "datetime": "2026-08-03T10:00:00",
-            "duration_hours": 3.0
-          },
-          {
-            "date": "24.08.2026",
-            "name": "Kongsberg gruppen",
-            "datetime": "2026-08-24T00:00:00",
-            "duration_hours": 0.0
-          },
-          {
-            "date": "12.09.2026",
-            "name": "Buskerud Skøytekrets - Samling",
-            "datetime": "2026-09-12T09:00:00",
-            "duration_hours": 2.5
-          },
-          {
-            "date": "19.09.2026",
-            "name": "KIF skøyter",
-            "datetime": "2026-09-19T10:00:00",
-            "duration_hours": 1.833333333333334
-          },
-          {
-            "date": "28.09.2026",
-            "name": "Tivoli ***",
-            "datetime": "2026-09-28T00:00:00",
-            "duration_hours": 0.0
-          },
-          {
-            "date": "17.10.2026",
-            "name": "KIF skøyter",
-            "datetime": "2026-10-17T10:00:00",
-            "duration_hours": 1.833333333333334
-          },
-          {
-            "date": "30.10.2026",
-            "name": "HalloVenn",
-            "datetime": "2026-10-30T08:00:00",
-            "duration_hours": 14.0
-          },
-          {
-            "date": "31.10.2026",
-            "name": "HalloVenn",
-            "datetime": "2026-10-31T08:00:00",
-            "duration_hours": 14.0
-          },
-          {
-            "date": "01.11.2026",
-            "name": "HalloVenn",
-            "datetime": "2026-11-01T08:00:00",
-            "duration_hours": 14.0
-          },
-          {
-            "date": "07.11.2026",
-            "name": "KIF skøyter",
-            "datetime": "2026-11-07T10:00:00",
-            "duration_hours": 1.833333333333334
-          }
-        ],
-        "event_count": 11,
-        "blocked": false,
-        "block_reason": "",
-        "llm_fallback": false
+        "llm_fallback": false,
+        "from_cache": true
       },
       {
         "name": "Jar",
@@ -21008,7 +20869,8 @@
         "event_count": 368,
         "blocked": false,
         "block_reason": "",
-        "llm_fallback": false
+        "llm_fallback": false,
+        "from_cache": true
       },
       {
         "name": "Holmen",
@@ -22075,132 +21937,229 @@
         "event_count": 176,
         "blocked": false,
         "block_reason": "",
-        "llm_fallback": false
+        "llm_fallback": false,
+        "from_cache": true
+      },
+      {
+        "name": "Tønsberg",
+        "url": "https://www.bookup.no/utleie/Index/860",
+        "type": "outlook",
+        "events": [
+          {
+            "date": "01.06.2026",
+            "name": "Booking 7:00-23:30",
+            "datetime": "2026-06-01T07:00:27.093356",
+            "duration_hours": 16.5
+          }
+        ],
+        "event_count": 1,
+        "blocked": false,
+        "block_reason": "",
+        "llm_fallback": false,
+        "from_cache": true
+      },
+      {
+        "name": "Sandefjord Penguins",
+        "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen",
+        "type": "outlook",
+        "events": [
+          {
+            "date": "01.06.2026",
+            "name": "Booking 7:00-22:30",
+            "datetime": "2026-06-01T07:00:12.848428",
+            "duration_hours": 15.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 8:00 - 14:00",
+            "datetime": "2026-06-01T08:00:12.848428",
+            "duration_hours": 6
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 14:00 - 16:00",
+            "datetime": "2026-06-01T14:00:12.848428",
+            "duration_hours": 2
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 8:00 - 15:00",
+            "datetime": "2026-06-01T08:00:12.848428",
+            "duration_hours": 7
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 20:30",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 4
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 8:00 - 14:00",
+            "datetime": "2026-06-01T08:00:12.848428",
+            "duration_hours": 6
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 14:30 - 15:30",
+            "datetime": "2026-06-01T14:30:12.848428",
+            "duration_hours": 1
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 8:00 - 14:00",
+            "datetime": "2026-06-01T08:00:12.848428",
+            "duration_hours": 6
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 14:00 - 16:00",
+            "datetime": "2026-06-01T14:00:12.848428",
+            "duration_hours": 2
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 8:00 - 15:00",
+            "datetime": "2026-06-01T08:00:12.848428",
+            "duration_hours": 7
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          },
+          {
+            "date": "01.06.2026",
+            "name": "Booking 16:30 - 22:00",
+            "datetime": "2026-06-01T16:30:12.848428",
+            "duration_hours": 5.5
+          }
+        ],
+        "event_count": 19,
+        "blocked": false,
+        "block_reason": "",
+        "llm_fallback": false,
+        "from_cache": true
       }
     ],
     "events_by_club": {
-      "Tønsberg": [
+      "Kongsberg": [
         {
-          "date": "01.06.2026",
-          "name": "Booking 7:00-23:30",
-          "datetime": "2026-06-01T07:00:27.093356",
-          "duration_hours": 16.5
+          "date": "03.08.2026",
+          "name": "HUSK påminnelse om kampoppsett for hockey",
+          "datetime": "2026-08-03T09:00:00",
+          "duration_hours": 3.0
+        },
+        {
+          "date": "03.08.2026",
+          "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
+          "datetime": "2026-08-03T10:00:00",
+          "duration_hours": 3.0
+        },
+        {
+          "date": "24.08.2026",
+          "name": "Kongsberg gruppen",
+          "datetime": "2026-08-24T00:00:00",
+          "duration_hours": 0.0
+        },
+        {
+          "date": "12.09.2026",
+          "name": "Buskerud Skøytekrets - Samling",
+          "datetime": "2026-09-12T09:00:00",
+          "duration_hours": 2.5
+        },
+        {
+          "date": "19.09.2026",
+          "name": "KIF skøyter",
+          "datetime": "2026-09-19T10:00:00",
+          "duration_hours": 1.833333333333334
+        },
+        {
+          "date": "28.09.2026",
+          "name": "Tivoli ***",
+          "datetime": "2026-09-28T00:00:00",
+          "duration_hours": 0.0
+        },
+        {
+          "date": "17.10.2026",
+          "name": "KIF skøyter",
+          "datetime": "2026-10-17T10:00:00",
+          "duration_hours": 1.833333333333334
+        },
+        {
+          "date": "30.10.2026",
+          "name": "HalloVenn",
+          "datetime": "2026-10-30T08:00:00",
+          "duration_hours": 14.0
+        },
+        {
+          "date": "31.10.2026",
+          "name": "HalloVenn",
+          "datetime": "2026-10-31T08:00:00",
+          "duration_hours": 14.0
+        },
+        {
+          "date": "01.11.2026",
+          "name": "HalloVenn",
+          "datetime": "2026-11-01T08:00:00",
+          "duration_hours": 14.0
+        },
+        {
+          "date": "07.11.2026",
+          "name": "KIF skøyter",
+          "datetime": "2026-11-07T10:00:00",
+          "duration_hours": 1.833333333333334
         }
       ],
-      "Sandefjord Penguins": [
+      "Skien": [
         {
-          "date": "01.06.2026",
-          "name": "Booking 7:00-22:30",
-          "datetime": "2026-06-01T07:00:12.848428",
-          "duration_hours": 15.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 14:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 6
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 14:00 - 16:00",
-          "datetime": "2026-06-01T14:00:12.848428",
-          "duration_hours": 2
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 15:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 7
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 20:30",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 4
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 14:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 6
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 14:30 - 15:30",
-          "datetime": "2026-06-01T14:30:12.848428",
-          "duration_hours": 1
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 14:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 6
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 14:00 - 16:00",
-          "datetime": "2026-06-01T14:00:12.848428",
-          "duration_hours": 2
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 15:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 7
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
+          "date": "01.09.2026",
+          "name": "Booking 08:00-22:30",
+          "datetime": "2026-09-01T08:00:00",
+          "duration_hours": 14.5
         }
       ],
       "Ringerike": [
@@ -40725,82 +40684,6 @@
           "duration_hours": 1.0
         }
       ],
-      "Skien": [
-        {
-          "date": "01.09.2026",
-          "name": "Booking 08:00-22:30",
-          "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 14.5
-        }
-      ],
-      "Kongsberg": [
-        {
-          "date": "03.08.2026",
-          "name": "HUSK påminnelse om kampoppsett for hockey",
-          "datetime": "2026-08-03T09:00:00",
-          "duration_hours": 3.0
-        },
-        {
-          "date": "03.08.2026",
-          "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
-          "datetime": "2026-08-03T10:00:00",
-          "duration_hours": 3.0
-        },
-        {
-          "date": "24.08.2026",
-          "name": "Kongsberg gruppen",
-          "datetime": "2026-08-24T00:00:00",
-          "duration_hours": 0.0
-        },
-        {
-          "date": "12.09.2026",
-          "name": "Buskerud Skøytekrets - Samling",
-          "datetime": "2026-09-12T09:00:00",
-          "duration_hours": 2.5
-        },
-        {
-          "date": "19.09.2026",
-          "name": "KIF skøyter",
-          "datetime": "2026-09-19T10:00:00",
-          "duration_hours": 1.833333333333334
-        },
-        {
-          "date": "28.09.2026",
-          "name": "Tivoli ***",
-          "datetime": "2026-09-28T00:00:00",
-          "duration_hours": 0.0
-        },
-        {
-          "date": "17.10.2026",
-          "name": "KIF skøyter",
-          "datetime": "2026-10-17T10:00:00",
-          "duration_hours": 1.833333333333334
-        },
-        {
-          "date": "30.10.2026",
-          "name": "HalloVenn",
-          "datetime": "2026-10-30T08:00:00",
-          "duration_hours": 14.0
-        },
-        {
-          "date": "31.10.2026",
-          "name": "HalloVenn",
-          "datetime": "2026-10-31T08:00:00",
-          "duration_hours": 14.0
-        },
-        {
-          "date": "01.11.2026",
-          "name": "HalloVenn",
-          "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 14.0
-        },
-        {
-          "date": "07.11.2026",
-          "name": "KIF skøyter",
-          "datetime": "2026-11-07T10:00:00",
-          "duration_hours": 1.833333333333334
-        }
-      ],
       "Jar": [
         {
           "date": "01.09.2026",
@@ -44068,10 +43951,141 @@
           "datetime": "2027-04-01T21:00:00",
           "duration_hours": 0.8333333333333321
         }
+      ],
+      "Tønsberg": [
+        {
+          "date": "01.06.2026",
+          "name": "Booking 7:00-23:30",
+          "datetime": "2026-06-01T07:00:27.093356",
+          "duration_hours": 16.5
+        }
+      ],
+      "Sandefjord Penguins": [
+        {
+          "date": "01.06.2026",
+          "name": "Booking 7:00-22:30",
+          "datetime": "2026-06-01T07:00:12.848428",
+          "duration_hours": 15.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:00 - 16:00",
+          "datetime": "2026-06-01T14:00:12.848428",
+          "duration_hours": 2
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 15:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 7
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 20:30",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 4
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:30 - 15:30",
+          "datetime": "2026-06-01T14:30:12.848428",
+          "duration_hours": 1
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:00 - 16:00",
+          "datetime": "2026-06-01T14:00:12.848428",
+          "duration_hours": 2
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 15:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 7
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        }
       ]
     },
     "blocked": [],
     "cached": [
+      "Kongsberg ishall",
+      "Skien ishall",
+      "Ringerike",
+      "Frisk Asker",
+      "Jutul",
+      "Jar",
+      "Holmen",
       "Tønsberg",
       "Sandefjord Penguins"
     ],
