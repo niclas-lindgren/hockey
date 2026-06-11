@@ -18,6 +18,7 @@ export function parseRunArgs(args: unknown): RunArgs {
     else if (t === "--resume-from" && i + 1 < tokens.length) result.resume_from = tokens[++i];
     else if (t === "--export-dir" && i + 1 < tokens.length) result.export_dir = tokens[++i];
     else if (t === "--log-level" && i + 1 < tokens.length) result.log_level = tokens[++i];
+    else if (t === "--force-refresh") result.force_refresh = true;
   }
   return result;
 }

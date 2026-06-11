@@ -32,6 +32,7 @@ from typing import Any
 
 from ..club_registry import club_for_source_name
 from ..models import CalendarEvent
+from .cache_manager import ScrapedDataCache
 from .scraper_strategies import get_strategy, requires_credentials, needs_llm_agent
 from .state import PipelineState, StageName, StageStatus
 
@@ -74,12 +75,20 @@ def run(
     *,
     strict: bool = True,
     max_workers: int = 4,
+    force_refresh: bool = False,
 ) -> dict[str, Any]:
     """Run Stage 2 scraping for all sources listed in *config*.
 
     Sources are scraped in parallel via :class:`~concurrent.futures.ThreadPoolExecutor`
     because each source creates its own Playwright browser context (or uses HTTP-only
     iCal feeds) — there is no shared browser state.
+
+    Before scraping, each source is checked against the unified
+    :class:`~tournament_scheduler.pipeline.cache_manager.ScrapedDataCache`. If a
+    source has a fresh (non-stale), non-blocked, non-empty cache entry for the
+    same date range, the cached events are reused instead of re-scraping. After
+    scraping, fresh results are written back to the cache so subsequent runs can
+    benefit.
 
     Parameters
     ----------
@@ -93,6 +102,8 @@ def run(
         If ``True``, raise :class:`Stage2Error` when any source is blocked.
     max_workers:
         Number of worker threads for the executor. Default 4.
+    force_refresh:
+        If ``True``, ignore the cache and re-scrape every source.
 
     Returns
     -------
@@ -118,7 +129,36 @@ def run(
         state.mark_done(StageName.SCRAPING)
         return result
 
+    # --- Split sources into cache hits and sources that need (re-)scraping ---
+    cache = ScrapedDataCache(work_dir=state.work_dir)
+    cache_data = cache.read()
+    cache_meta = cache_data.get("_meta", {})
+    cache_sources = cache_data.get("sources", {})
+    date_range_matches = (
+        cache_meta.get("start_date") == config.get("start_date")
+        and cache_meta.get("end_date") == config.get("end_date")
+    )
+
+    sources_to_scrape: list[dict[str, Any]] = []
     source_results: list[dict[str, Any]] = []
+    cached_names: list[str] = []
+
+    for source_cfg in sources:
+        name = source_cfg.get("name", "ukjent kilde")
+        entry = cache_sources.get(name)
+        if (
+            not force_refresh
+            and date_range_matches
+            and entry
+            and not entry.get("blocked", False)
+            and entry.get("events")
+            and not cache.is_stale(name)
+        ):
+            source_results.append(_cached_source_result(source_cfg, entry))
+            cached_names.append(name)
+        else:
+            sources_to_scrape.append(source_cfg)
+
     blocked: list[dict[str, Any]] = []
     llm_fallback: list[dict[str, Any]] = []
 
@@ -130,7 +170,7 @@ def run(
                 start_date=start_date,
                 end_date=end_date,
             ): source_cfg
-            for source_cfg in sources
+            for source_cfg in sources_to_scrape
         }
         for future in as_completed(future_to_source):
             source_cfg = future_to_source[future]
@@ -162,6 +202,7 @@ def run(
         "sources": source_results,
         "events_by_club": _group_events_by_club(source_results),
         "blocked": [b["name"] for b in blocked],
+        "cached": cached_names,
         "llm_fallback": llm_fallback,
     }
 
@@ -169,6 +210,9 @@ def run(
     state.write_stage(StageName.SCRAPING, checkpoint, status=status)
     if not blocked:
         state.mark_done(StageName.SCRAPING)
+
+    # Persist freshly-scraped results to the unified cache for future runs
+    cache.build_from_checkpoint(config, checkpoint)
 
     if blocked and strict:
         raise Stage2Error(blocked)
@@ -179,6 +223,27 @@ def run(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _cached_source_result(source_cfg: dict[str, Any], cache_entry: dict[str, Any]) -> dict[str, Any]:
+    """Build a source result dict from a fresh unified-cache entry.
+
+    Used when :func:`run` decides a source's cached events are still within
+    TTL and the date range matches, so the (slow) scrape can be skipped.
+    """
+    name = source_cfg.get("name", "ukjent kilde")
+    events = cache_entry.get("events", [])
+    return {
+        "name": name,
+        "url": source_cfg.get("url", cache_entry.get("url", "")),
+        "type": source_cfg.get("type", SOURCE_OUTLOOK).lower(),
+        "events": events,
+        "event_count": cache_entry.get("event_count", len(events)),
+        "blocked": False,
+        "block_reason": "",
+        "llm_fallback": False,
+        "from_cache": True,
+    }
 
 
 def _scrape_source(
@@ -1248,6 +1313,10 @@ if __name__ == "__main__":  # pragma: no cover
         "--non-strict", action="store_true",
         help="Don't raise on blocked sources — write checkpoint anyway"
     )
+    parser.add_argument(
+        "--force-refresh", action="store_true",
+        help="Ignore the unified scrape cache and re-scrape every source"
+    )
     cli_args = parser.parse_args()
 
     from .state import PipelineState, StageName  # noqa: E402
@@ -1263,10 +1332,15 @@ if __name__ == "__main__":  # pragma: no cover
     _end = _dt.strptime(_cfg["end_date"], "%Y-%m-%d")
 
     try:
-        _result = run(_cfg, _state, _start, _end, strict=not cli_args.non_strict)
+        _result = run(
+            _cfg, _state, _start, _end,
+            strict=not cli_args.non_strict,
+            force_refresh=cli_args.force_refresh,
+        )
         n_sources = len(_result.get("sources", []))
         blocked = _result.get("blocked", [])
-        print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(blocked)} blokkert")
+        cached = _result.get("cached", [])
+        print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(cached)} fra cache, {len(blocked)} blokkert")
         sys.exit(0)
     except Stage2Error as _e:
         print(str(_e), file=sys.stderr)

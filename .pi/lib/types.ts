@@ -8,6 +8,7 @@ export interface RunArgs {
   resume_from?: string;
   export_dir?: string;
   log_level?: string;
+  force_refresh?: boolean;
 }
 
 export interface StatusArgs {

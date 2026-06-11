@@ -1,10 +1,11 @@
 """Tests for tournament_scheduler.pipeline.stage2_scraping."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from tournament_scheduler.pipeline.cache_manager import ScrapedDataCache
 from tournament_scheduler.pipeline.stage2_scraping import (
     SOURCE_GOOGLE,
     SOURCE_ICAL,
@@ -281,6 +282,169 @@ class TestParallelExecution:
 
         # With 5 sources and max_workers=4, at least 2 different threads must be used
         assert len(thread_ids) >= 2, f"Expected >=2 threads, got {len(thread_ids)}"
+
+
+class TestUnifiedCache:
+    """Stage 2 should reuse fresh unified-cache entries instead of re-scraping."""
+
+    def _seed_cache(self, work_dir, *, start_date, end_date, source_name,
+                     events, scrape_timestamp=None, blocked=False):
+        cache = ScrapedDataCache(work_dir=work_dir)
+        ts = scrape_timestamp or datetime.now().isoformat()
+        cache.write({
+            "_meta": {
+                "updated_at": ts,
+                "ttl_hours": 6,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+            "sources": {
+                source_name: {
+                    "name": source_name,
+                    "url": "https://example.com",
+                    "scrape_timestamp": ts,
+                    "ttl_hours": 6,
+                    "event_count": len(events),
+                    "blocked": blocked,
+                    "events": events,
+                },
+            },
+            "source_count": 1,
+            "total_events": len(events),
+        })
+
+    def test_fresh_cache_skips_scraping(self, tmp_path):
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        cached_events = _events_to_dicts([_make_event("Cached practice")])
+        self._seed_cache(
+            work_dir,
+            start_date=cfg["start_date"], end_date=cfg["end_date"],
+            source_name="Kongsberg", events=cached_events,
+        )
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+        ) as mock_scraper:
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_scraper.assert_not_called()
+        assert result["cached"] == ["Kongsberg"]
+        src = result["sources"][0]
+        assert src["from_cache"] is True
+        assert src["event_count"] == 1
+        assert src["events"][0]["name"] == "Cached practice"
+
+    def test_stale_cache_triggers_rescrape(self, tmp_path):
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        old_ts = (datetime.now() - timedelta(hours=12)).isoformat()
+        self._seed_cache(
+            work_dir,
+            start_date=cfg["start_date"], end_date=cfg["end_date"],
+            source_name="Kongsberg", events=_events_to_dicts([_make_event("Old event")]),
+            scrape_timestamp=old_ts,
+        )
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Fresh event")], ""),
+        ) as mock_scraper:
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_scraper.assert_called_once()
+        assert result["cached"] == []
+        src = result["sources"][0]
+        assert "from_cache" not in src
+        assert src["events"][0]["name"] == "Fresh event"
+
+    def test_force_refresh_bypasses_fresh_cache(self, tmp_path):
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        self._seed_cache(
+            work_dir,
+            start_date=cfg["start_date"], end_date=cfg["end_date"],
+            source_name="Kongsberg", events=_events_to_dicts([_make_event("Cached event")]),
+        )
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Fresh event")], ""),
+        ) as mock_scraper:
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False, force_refresh=True,
+            )
+
+        mock_scraper.assert_called_once()
+        assert result["cached"] == []
+        assert result["sources"][0]["events"][0]["name"] == "Fresh event"
+
+    def test_date_range_change_invalidates_cache(self, tmp_path):
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        # Cache was built for a different season
+        self._seed_cache(
+            work_dir,
+            start_date="2024-09-01", end_date="2024-12-01",
+            source_name="Kongsberg", events=_events_to_dicts([_make_event("Old season")]),
+        )
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("New season")], ""),
+        ) as mock_scraper:
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_scraper.assert_called_once()
+        assert result["cached"] == []
+        assert result["sources"][0]["events"][0]["name"] == "New season"
+
+    def test_fresh_scrape_persisted_to_cache(self, tmp_path):
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Practice")], ""),
+        ):
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        cache = ScrapedDataCache(work_dir=work_dir).read()
+        assert cache["sources"]["Kongsberg"]["event_count"] == 1
+        assert cache["sources"]["Kongsberg"]["events"][0]["name"] == "Practice"
 
 
 class TestEventsToDict:

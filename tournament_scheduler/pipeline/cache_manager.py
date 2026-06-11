@@ -101,6 +101,16 @@ class ScrapedDataCache:
 
         for source_result in scraping_result.get("sources", []):
             name: str = source_result.get("name", "ukjent")
+
+            # Sources served from this cache (because they were still fresh)
+            # are passed through unchanged so their original scrape_timestamp
+            # -- and therefore TTL -- is preserved.
+            if source_result.get("from_cache"):
+                existing = cache.get("sources", {}).get(name)
+                if existing:
+                    sources_data[name] = existing
+                    continue
+
             url: str = source_result.get("url", "")
             events: list[dict[str, Any]] = source_result.get("events", [])
             blocked: bool = source_result.get("blocked", False)

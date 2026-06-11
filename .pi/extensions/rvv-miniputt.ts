@@ -99,10 +99,11 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       "Kjør den firetrinns sesongplanleggingspipelinen for RVV-hockeyklubber. " +
       "Støtter gjenopptak fra et bestemt trinn.\n" +
       "Valgfrie flagg: --input <sti> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
-      "--log-level <info|verbose>\n" +
+      "--log-level <info|verbose> --force-refresh\n" +
+      "Trinn 2 gjenbruker kalenderdata fra cache (under 6 timer gammel) med mindre --force-refresh er satt.\n" +
       "Hver kjøring logges strukturelt til .pipeline/logs/run-<dato>.jsonl for selvforbedringsanalyse.",
     getArgumentCompletions: (prefix) => {
-      const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level"];
+      const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level", "--force-refresh"];
       const filtered = words.filter((w) => w.startsWith(prefix));
       if (prefix.startsWith("--log-level")) {
         return LOG_LEVELS.map((value) => ({ value, label: value }));

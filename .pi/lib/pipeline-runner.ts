@@ -110,10 +110,12 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     let stage2ok = true;
     let stage2error = "";
     try {
+      const stage2Args = [...baseArgs, "--non-strict"];
+      if (params.force_refresh) stage2Args.push("--force-refresh");
       const { stdout, stderr } = await runStage(
         cwdPath,
         "tournament_scheduler.pipeline.stage2_scraping",
-        [...baseArgs, "--non-strict"],
+        stage2Args,
       );
       if (verbose) logger.logStageOutput("scraping", stdout, stderr);
       if (stdout) lines.push(stdout);
@@ -126,12 +128,15 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
 
     const ckpt = readCheckpoint(workDir, "stage2_scraping.json");
     let blocked: string[] = [];
+    let cached: string[] = [];
     if (ckpt?.data) {
       const data = ckpt.data as Record<string, unknown>;
       blocked = (data.blocked as string[]) ?? [];
+      cached = (data.cached as string[]) ?? [];
       const sources = (data.sources as Array<Record<string, unknown>>) ?? [];
       for (const s of sources) {
-        lines.push(`  ${s.name}: ${s.event_count} events`);
+        const cacheTag = s.from_cache ? " (cache)" : "";
+        lines.push(`  ${s.name}: ${s.event_count} events${cacheTag}`);
       }
     }
 
@@ -240,7 +245,8 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     }
 
     const scrapingOk = stage2ok && blocked.length === 0;
-    onProgress?.({ stage: "scraping", status: "ok", message: scrapingOk ? "Alle kalendere skrapet (OK)" : `Kalendere skrapet (${blocked.length} kilder krevde LLM-assistanse)`, blockedCount: blocked.length });
+    const cacheSuffix = cached.length > 0 ? ` (${cached.length} fra cache)` : "";
+    onProgress?.({ stage: "scraping", status: "ok", message: scrapingOk ? `Alle kalendere skrapet (OK)${cacheSuffix}` : `Kalendere skrapet (${blocked.length} kilder krevde LLM-assistanse)${cacheSuffix}`, blockedCount: blocked.length });
     logger.stageEnd("scraping", stage2ok && blocked.length === 0 ? "ok" : "ok", undefined);
   } else {
     lines.push("Trinn 2: Hoppet over (gjenopptatt)\n");
