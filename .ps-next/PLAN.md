@@ -70,4 +70,4 @@ LESSONS: test_sources_run_in_different_threads is a pre-existing flaky test unre
 **Findings:** tsc --noEmit type-check on scraper-agent.ts shows no new type errors related to redactCredentials or userMessage. No package.json/test runner found for .pi/lib in this repo (node_modules appears to be a stray artifact), so a runtime test could not be executed for this file; unit test for redactCredentials is covered by the next planned task (scraper-agent.test.ts).
 LESSONS: No package.json/test runner exists for .pi/lib TS files in this repo; tsc --noEmit is the only available verification. The next task (scraper-agent.test.ts) should check whether a test runner needs to be set up first.
 **Files:** .pi/lib/scraper-agent.ts (+21/-3)
-**Commit:** [pending — fill after commit]
+**Commit:** 73902e6 (hockey)
