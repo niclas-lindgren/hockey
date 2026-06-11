@@ -1,7 +1,7 @@
 {
   "stage": "planning",
   "status": "done",
-  "updated_at": "2026-06-11T09:48:41.925342+00:00",
+  "updated_at": "2026-06-11T17:28:27.757528+00:00",
   "data": {
     "plan": {
       "start_date": "2026-09-01",
@@ -60,7 +60,7 @@
       },
       "tournaments": [
         {
-          "id": "797c1b0f",
+          "id": "c521e796",
           "date": "2026-09-06",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -333,7 +333,7 @@
           "start_time": "12:20"
         },
         {
-          "id": "29c717bf",
+          "id": "6bcc2e51",
           "date": "2026-09-26",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -465,7 +465,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "96dc3434",
+          "id": "e734559b",
           "date": "2026-10-11",
           "arena": "Ringerikshallen",
           "age_group": "U10",
@@ -738,7 +738,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "f98d5ca9",
+          "id": "08d01198",
           "date": "2026-10-25",
           "arena": "Sandefjord ishall",
           "age_group": "U11",
@@ -870,7 +870,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "1989d9f6",
+          "id": "665d69c2",
           "date": "2026-11-14",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -1143,7 +1143,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "dfe79afc",
+          "id": "eeabd561",
           "date": "2026-11-28",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -1275,7 +1275,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "28bbf59c",
+          "id": "e92c4ee8",
           "date": "2026-12-13",
           "arena": "Skien ishall",
           "age_group": "U10",
@@ -1548,7 +1548,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "bf80e314",
+          "id": "c5aca8d6",
           "date": "2027-01-09",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -1680,7 +1680,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "3982439c",
+          "id": "12ea066d",
           "date": "2027-01-16",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -1953,7 +1953,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "53ae0d23",
+          "id": "1096ba7e",
           "date": "2027-01-31",
           "arena": "Jarhallen",
           "age_group": "U11",
@@ -2085,7 +2085,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "73a0c574",
+          "id": "26d3409c",
           "date": "2027-02-14",
           "arena": "Jarhallen",
           "age_group": "U10",
@@ -2358,7 +2358,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "6c8fb681",
+          "id": "7636bc24",
           "date": "2027-03-06",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -2490,7 +2490,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "44808062",
+          "id": "aae63ce2",
           "date": "2027-03-14",
           "arena": "Jarhallen",
           "age_group": "U10",
@@ -2763,7 +2763,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "049f2f4c",
+          "id": "481297c7",
           "date": "2027-04-10",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -2895,7 +2895,7 @@
           "start_time": "10:50"
         },
         {
-          "id": "5c47bb4a",
+          "id": "de7a65cb",
           "date": "2027-04-18",
           "arena": "Tonsberghallen",
           "age_group": "U10",

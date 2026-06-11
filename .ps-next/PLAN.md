@@ -34,6 +34,8 @@
   - Files: tournament_scheduler/season_planner.py
   - Approach: Add docstring/comment notes to `_select_participants`, `_pick_least_recently_grouped`, and `_record_grouping` explaining that `_invite_counts` balances per-team labels but does not account for how many same-club teammates share an age group, so a club's fixed per-tournament "slot" gets diluted across all its same-age-group teams — referencing this PLAN's findings for future readers.
 
+- [ ] [Fix] In `tournament_scheduler/season_planner.py`, replace the fixed `max_club_teams_per_tournament=1` cap in `_select_participants`/`_pick_least_recently_grouped` with a per-age-group slot allowance proportional to each club's team count in that age group: compute, for each club/age-group pair, `club_age_group_team_count / total_teams_in_age_group * available_participant_slots_per_tournament` (rounded up, capped by `maxTeamsPerTournament`), and allow that many same-club teams to be selected for a single tournament in that age group when capacity permits. Verify that for the real `documentation/input.json` roster, `plan.team_game_counts` for each individual Jar U10 team falls within `max_game_count_spread` of Kongsberg's U10 team's game count, and that `pytest tests/test_season_planner.py` still exits 0.
+
 - [x] Added a normalized invite-count helper '_normalized_invite_count' that multiplies each team's raw invite count by the number of same-club teams in the same age group, and used it as the tie-break key (replacing the raw _invite_counts lookup) in both the seed-team selection and the candidate sort in _pick_least_recently_grouped. — 2026-06-11
   - Files: tournament_scheduler/season_planner.py
   - Approach: In `_pick_least_recently_grouped`, normalize the seeding/tie-break key derived from `_invite_counts` by the number of same-club teams in that team's age group (e.g. compare `invite_count * num_club_teams_in_age_group` or an equivalent normalized "expected share" metric) so a Jar U10 team with 6 siblings is prioritized roughly 7x more often than Kongsberg's sole U10 team for the same number of raw invites, equalizing each team's expected per-season invitation count.
@@ -65,6 +67,7 @@
 ## Log
 
 - [2026-06-11] Plan created from backlog item 45.
+- [2026-06-11] Auto-verify attempt 1 found 1 failing criteria — added remediation tasks
 
 ### 2026-06-11 — Added a normalized invite-count helper '_normalized_invite_count' that multiplies each team's raw invite count by the number of same-club teams in the same age group, and used it as the tie-break key (replacing the raw _invite_counts lookup) in both the seed-team selection and the candidate sort in _pick_least_recently_grouped.
 **Rationale:** none
@@ -114,3 +117,21 @@ LESSONS: For documentation/input.json with maxTeamsPerTournament6 and default ma
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+40/-1)
 **Commit:** 28ecbdb (hockey)
+
+## Verification Report
+**Date:** 2026-06-11
+
+| Criterion | Verdict | Notes |
+|-----------|---------|-------|
+| Running pytest tests/test_season_planner.py exits 0, all tests pass including new Jar-vs-Kongsberg tests | PASS | 52 passed in 1.55s |
+| plan.team_game_counts for real input.json roster: each Jar U10 team within max_game_count_spread of Kongsberg's U10 team | FAIL | Real-roster run shows Jar U10 ~10-15 games vs Kongsberg U10 45 games (spread 35 >> max_game_count_spread=2); plan log documents this is structurally infeasible without relaxing max_club_teams_per_tournament, deferred to a new backlog item |
+| season_planner.py contains a new/extended warning-scanning method reporting per-team game-count deviations vs club/age-group-normalized expectation, incl. club and age group | PASS | _scan_per_team_share_warnings (line 534) + per_team_share_warnings property (line 458), called from build_plan (line 333) |
+| CLI (season_command.py) and Excel rules-and-decisions report (stage4_export.py) display per-team-share warnings when skewed beyond threshold | PASS | _print_per_team_share_warnings in season_command.py; rules_report() appends 'Anbefaling' entries (lines 803-813) flowing through stage4_export.py to Excel |
+| _pick_least_recently_grouped normalizes selection priority by same-club/same-age-group team count | PASS | _normalized_invite_count (line 1162) = invite_count * sibling_count, used for seed selection and tie-break (line 1217) |
+
+**Shell checks (ps-verify-plan):** see output below
+```
+no embedded shell checks found
+```
+**Git history:** 5/5 tasks have matching commits
+**Tests:** passed (52/52 season_planner tests; full suite 329 passed/1 pre-existing unrelated failure/2 skipped)
