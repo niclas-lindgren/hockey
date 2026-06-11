@@ -54,25 +54,6 @@ DEFAULT_MAX_TEAMS_PER_TOURNAMENT = 6
 DEFAULT_TOURNAMENT_START_TIME = "09:00"
 
 
-def _cap_per_club(teams: Sequence[Team], club_limits: Dict[str, int]) -> List[Team]:
-    """Return *teams* filtered so no club exceeds its per-club limit.
-
-    `club_limits` maps club name -> maximum number of teams from that club
-    to keep, defaulting to 1 for clubs not present in the mapping. Keeps the
-    first occurrences encountered (roster order), mirroring
-    `_cap_at_one_per_club` but allowing club-specific allowances above 1.
-    """
-    seen_counts: Dict[str, int] = {}
-    result: List[Team] = []
-    for team in teams:
-        limit = club_limits.get(team.club, 1)
-        count = seen_counts.get(team.club, 0)
-        if count < limit:
-            seen_counts[team.club] = count + 1
-            result.append(team)
-    return result
-
-
 class SeasonPlanner:
     """Greedy season-plan builder on top of `TournamentScheduler`."""
 
@@ -182,6 +163,12 @@ class SeasonPlanner:
         # `_deficit_score` can use it to identify under-served teams while
         # the season is still being built.
         self._running_game_counts: Dict[str, int] = {}
+        # Counts how many times the deficit-aware override let a club
+        # exceed its `_max_club_teams_for` allowance for a tournament,
+        # because no under-cap candidate had as large a game-count deficit.
+        # Surfaced alongside `per_team_share_warnings` so operators can
+        # confirm same-club pairings beyond the proportional cap stay rare.
+        self._club_cap_overrides: int = 0
         # Tracks the date of each team's most recent game. Used for
         # early-finish detection.
         self._team_last_date: Dict[str, date] = {}
@@ -1155,14 +1142,58 @@ class SeasonPlanner:
         max_teams = self._max_teams_for(age_group)
         if len(candidates) <= max_teams:
             # Enforce per-club slot allowance even on the small-roster
-            # fast path.
-            club_limits = {
-                team.club: self._max_club_teams_for(age_group, team.club)
-                for team in candidates
-            }
-            return _cap_per_club(candidates, club_limits)
+            # fast path, but deficit-aware: a candidate over its club's
+            # `_max_club_teams_for` allowance is dropped only if some
+            # under-cap candidate has an equal-or-larger deficit (see
+            # `_deficit_score`); otherwise it is kept so the team with the
+            # largest season-wide deficit isn't excluded just because its
+            # club already has its proportional share represented.
+            return self._cap_per_club_deficit_aware(candidates, age_group)
 
         return self._pick_least_recently_grouped(candidates, max_teams, age_group)
+
+    def _cap_per_club_deficit_aware(
+        self, teams: Sequence[Team], age_group: str
+    ) -> List[Team]:
+        """Filter `teams` by `_max_club_teams_for`, with a deficit override.
+
+        Walks `teams` in order, keeping a running per-club count. A team
+        whose club has already reached its `_max_club_teams_for(age_group,
+        club)` allowance among the kept teams is excluded *unless* its
+        deficit score (`_deficit_score`) is greater than every still-pending
+        under-cap candidate's deficit score — mirroring the override applied
+        in `_pick_least_recently_grouped`. Increments
+        `_club_cap_overrides` whenever a kept team exceeds its club's
+        allowance.
+        """
+        result: List[Team] = []
+        club_counts: Dict[str, int] = {}
+        remaining = list(teams)
+
+        for index, team in enumerate(remaining):
+            club_count = club_counts.get(team.club, 0)
+            max_club = self._max_club_teams_for(age_group, team.club)
+            if club_count < max_club:
+                club_counts[team.club] = club_count + 1
+                result.append(team)
+                continue
+
+            # Over cap: keep only if no other still-pending under-cap
+            # candidate has an equal-or-larger deficit.
+            pending_under_cap_deficits = [
+                self._deficit_score(t, age_group)
+                for t in remaining[index + 1:]
+                if club_counts.get(t.club, 0) < self._max_club_teams_for(age_group, t.club)
+            ]
+            this_deficit = self._deficit_score(team, age_group)
+            if pending_under_cap_deficits and max(pending_under_cap_deficits) >= this_deficit:
+                continue
+
+            club_counts[team.club] = club_count + 1
+            result.append(team)
+            self._club_cap_overrides += 1
+
+        return result
 
     def _max_teams_for(self, age_group: str) -> int:
         """Return the maximum number of teams to invite to a single tournament.
@@ -1319,26 +1350,54 @@ class SeasonPlanner:
                 grouped_with = self._grouped_with.get(team.label, set())
                 return sum(1 for s in selected if s.label in grouped_with)
 
-            # Hard club constraint: exclude teams from clubs that already
-            # have their full per-club allowance represented in the
-            # selected set. Falls back to soft penalty when no candidates
-            # remain after filtering.
-            hard_filtered: List[Team] = [
+            # Deficit-aware club constraint: a candidate whose club already
+            # has its full `_max_club_teams_for(age_group, club)` allowance
+            # represented in `selected` is excluded *unless* its deficit
+            # score (see `_deficit_score`) is greater than every under-cap
+            # candidate's deficit score in `remaining` — i.e. it is only
+            # allowed to exceed its club's cap when no under-cap team needs
+            # the slot more. This replaces the previous purely hard filter,
+            # which could leave the team with the largest season-wide
+            # deficit (e.g. a Jar sibling) excluded whenever any other
+            # club's under-cap team was available, even if that team's own
+            # deficit was small or negative.
+            under_cap: List[Team] = [
                 t for t in remaining
                 if sum(1 for s in selected if s.club == t.club)
                 < self._max_club_teams_for(age_group, t.club)
             ]
-            eligible = hard_filtered if hard_filtered else remaining
+            over_cap: List[Team] = [t for t in remaining if t not in under_cap]
+            max_under_cap_deficit = (
+                max(self._deficit_score(t, age_group) for t in under_cap)
+                if under_cap else None
+            )
+            eligible_over_cap = [
+                t for t in over_cap
+                if max_under_cap_deficit is None
+                or self._deficit_score(t, age_group) > max_under_cap_deficit
+            ]
+            eligible = under_cap + eligible_over_cap
+            if not eligible:
+                eligible = remaining
 
-            # Club-load penalty for the fallback case (soft): push down
-            # candidates from clubs that already have their full per-club
-            # allowance in the selected set.
+            eligible_over_cap_labels = {t.label for t in eligible_over_cap}
+
+            # Club-load penalty: push down candidates whose club already has
+            # its full per-club allowance in `selected`. Over-cap candidates
+            # that survived the deficit-aware filter above are scaled by how
+            # far their club is over `_max_club_teams_for`, so they are only
+            # chosen over an under-cap, lower-deficit candidate when their
+            # own deficit is large enough to outweigh the penalty. Any other
+            # over-cap candidate (only reachable via the `eligible = remaining`
+            # fallback above) gets the larger flat penalty as before.
             def club_penalty(team: Team) -> int:
                 club_count = sum(1 for s in selected if s.club == team.club)
                 max_club = self._max_club_teams_for(age_group, team.club)
-                if club_count >= max_club:
-                    return club_count * 100  # outweighs typical match-up scores
-                return 0
+                if club_count < max_club:
+                    return 0
+                if team.label in eligible_over_cap_labels:
+                    return (club_count - max_club + 1) * 50
+                return club_count * 100  # outweighs typical match-up scores
 
             # Skill-level proximity penalty: prefer candidates whose skill
             # level is within `division_skill_band` of the selected set's
@@ -1373,6 +1432,10 @@ class SeasonPlanner:
             chosen = eligible.pop(0)
             remaining.remove(chosen)
             selected.append(chosen)
+
+            chosen_club_count = sum(1 for s in selected if s.club == chosen.club)
+            if chosen_club_count > self._max_club_teams_for(age_group, chosen.club):
+                self._club_cap_overrides += 1
 
         return selected
 
