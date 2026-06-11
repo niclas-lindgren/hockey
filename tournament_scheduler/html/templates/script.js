@@ -203,7 +203,7 @@ function getClubFromTeam(team) {
         const label = clubData.join(',');
         bodyHtml += '<td style="background:' + c.bg + ';border:1px solid ' + c.text + ';padding:3px 4px;text-align:center;font-size:10px;color:' + c.text + ';font-weight:600;white-space:nowrap">' + label + '</td>';
       } else {
-        bodyHtml += '<td style="background:rgba(30,41,59,.4);border:1px solid var(--border-dim);padding:3px 4px;text-align:center"></td>';
+        bodyHtml += '<td style="background:var(--heatmap-empty-bg);border:1px solid var(--border-dim);padding:3px 4px;text-align:center"></td>';
       }
     });
     bodyHtml += '</tr>';

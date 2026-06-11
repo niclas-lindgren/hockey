@@ -20,7 +20,7 @@ The season-plan HTML report's light theme currently reuses dark-theme-only color
   - Files: `tournament_scheduler/html/templates/script.js`, `tournament_scheduler/html/html_exporter.py`
   - Acceptance: `script.js` defines `HEATMAP_CLUB_COLORS` as an object keyed by theme (`{dark: {...}, light: {...}}`) populated from the new placeholder(s). The `renderHeatmap` IIFE (around line 137-200) reads `document.documentElement.dataset.theme` (defaulting to `'dark'`) and selects `HEATMAP_CLUB_COLORS[currentTheme]` when building the legend (line ~149-155) and table cells (line ~180-189), so club colors differ between dark and light themes.
 
-- [ ] Fix hardcoded empty-heatmap-cell background to be theme-aware
+- [x] Replaced the hardcoded empty-cell background rgba(30,41,59,.4) in the heatmap renderer with var(--heatmap-empty-bg), so the value can be themed via CSS in :root and [data-theme"light"]. — 2026-06-11
   - Files: `tournament_scheduler/html/templates/script.js`
   - Acceptance: The hardcoded `background:rgba(30,41,59,.4)` for empty cells (line ~191) is replaced with a CSS variable reference (e.g. `var(--bg-surface)` or a new `--heatmap-empty-bg` variable) so empty cells render as a subtle light-grey in light theme and the existing dark slate in dark theme — no literal dark rgba value remains in the empty-cell branch.
 
@@ -60,4 +60,11 @@ LESSONS: none
 **Findings:** Confirmed script.js lines 1-20 and 144-205 already match the acceptance criteria; no further edits required.
 LESSONS: none
 **Files:** none
+**Commit:** 0fc46e4 (hockey)
+
+### 2026-06-11 — Replaced the hardcoded empty-cell background rgba(30,41,59,.4) in the heatmap renderer with var(--heatmap-empty-bg), so the value can be themed via CSS in :root and [data-theme"light"].
+**Rationale:** Simple substitution; the corresponding CSS variable definition is added in the next task.
+**Findings:** No literal dark rgba value remains in the empty-cell branch of script.js; depends on the next task to define --heatmap-empty-bg or the cell will render with no background until then.
+LESSONS: none
+**Files:** tournament_scheduler/html/templates/script.js (+1/-1)
 **Commit:** [pending — fill after commit]
