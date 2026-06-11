@@ -18,7 +18,7 @@
   - Files: .pi/lib/scraper-agent.ts
   - Approach: Add a `redactCredentials(text: string): string` helper near `substituteEnvVars()` (lines ~559-564) that replaces any occurrence of `process.env.BOOKUP_EMAIL` and `process.env.BOOKUP_PASSWORD` (when set and length > 0) in a given string with `"[REDACTED]"`. Apply it to the `snapshot.html`/`snapshot.iframe_html`/interactive-element text inside `userMessage()` (lines 137-174) before the message is returned to `callLLM()` (line 462), as a second layer in case the Python-side sanitization in browser_worker.py misses a path.
 
-- [ ] Sanitize llm_scraper.py DOM snapshot and prompt building for the scrape-llm CLI path
+- [x] Added a _redact_credential_values(text) helper that scrubs literal BOOKUP_EMAIL/BOOKUP_PASSWORD env var values, and applied it to visible_text in capture_dom_snapshot() and again to the visible text used when building the LLM prompt in _extract_events_via_llm(), as a third layer of defense alongside browser_worker.py and scraper-agent.ts. — 2026-06-11
   - Files: tournament_scheduler/pipeline/llm_scraper.py
   - Approach: In `capture_dom_snapshot()` (around line 63, `page.content()`-based) and in the prompt-building code around line 829 (`visible_text` embedded as "Synlig tekst fra kalender-siden"), reuse the same redaction approach as scraper-agent.ts: after `_detect_and_login()` runs, scrub any literal occurrences of the resolved `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env var values from `raw_html`/`visible_text` before they are used to build the LLM user message.
 
@@ -71,3 +71,10 @@ LESSONS: test_sources_run_in_different_threads is a pre-existing flaky test unre
 LESSONS: No package.json/test runner exists for .pi/lib TS files in this repo; tsc --noEmit is the only available verification. The next task (scraper-agent.test.ts) should check whether a test runner needs to be set up first.
 **Files:** .pi/lib/scraper-agent.ts (+21/-3)
 **Commit:** 73902e6 (hockey)
+
+### 2026-06-11 — Added a _redact_credential_values(text) helper that scrubs literal BOOKUP_EMAIL/BOOKUP_PASSWORD env var values, and applied it to visible_text in capture_dom_snapshot() and again to the visible text used when building the LLM prompt in _extract_events_via_llm(), as a third layer of defense alongside browser_worker.py and scraper-agent.ts.
+**Rationale:** Mirrors the substring-replace approach used in tasks 2 and 3 for consistency. Applied redaction at both the snapshot-capture point (capture_dom_snapshot) and again at prompt-build time (_extract_events_via_llm) for defense-in-depth, since capture_dom_snapshot is also used elsewhere in the pipeline.
+**Findings:** Verified _redact_credential_values replaces BOOKUP_EMAIL/BOOKUP_PASSWORD substrings with [REDACTED] and is a no-op when unset. Full test suite: 310 passed, 2 pre-existing/flaky failures unrelated to this change (test_zero_events_blocks_source, test_sources_run_in_different_threads).
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/llm_scraper.py (+23/-1)
+**Commit:** [pending — fill after commit]

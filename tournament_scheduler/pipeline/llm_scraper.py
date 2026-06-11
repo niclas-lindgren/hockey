@@ -66,6 +66,7 @@ def capture_dom_snapshot(page: Any) -> dict[str, Any]:
     cleaned_html = _strip_script_and_style(raw_html)
 
     visible_text = _extract_visible_text(cleaned_html)
+    visible_text = _redact_credential_values(visible_text)
     if len(visible_text) > MAX_VISIBLE_TEXT_CHARS:
         visible_text = visible_text[:MAX_VISIBLE_TEXT_CHARS] + "\n... [truncated]"
 
@@ -89,6 +90,27 @@ def _strip_script_and_style(html: str) -> str:
     )
     cleaned = re.sub(r'<(script|style)\b[^>]*/>', "", cleaned, flags=re.IGNORECASE)
     return cleaned
+
+
+def _redact_credential_values(text: str) -> str:
+    """Scrub literal BookUp credential values from text before LLM use.
+
+    Defense-in-depth: even though `_detect_and_login()` only fills
+    credential fields into form inputs (which `_strip_script_and_style`
+    does not specifically scrub), this ensures that if an entered
+    email/password value is ever echoed back into the page's visible
+    text or HTML, it never reaches the LLM prompt built in
+    `_extract_events_via_llm()`.
+    """
+    if not text:
+        return text
+    import os as _os
+
+    for env_var in ("BOOKUP_EMAIL", "BOOKUP_PASSWORD"):
+        value = _os.environ.get(env_var, "")
+        if value:
+            text = text.replace(value, "[REDACTED]")
+    return text
 
 
 def _extract_visible_text(html: str) -> str:
@@ -827,7 +849,7 @@ def _extract_events_via_llm(
 
     try:
         snapshot = capture_dom_snapshot(page)
-        visible = snapshot.get("visible_text", "")
+        visible = _redact_credential_values(snapshot.get("visible_text", ""))
         if not visible or len(visible) < 50:
             return []
     except Exception:
