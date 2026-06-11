@@ -141,4 +141,4 @@ no embedded shell checks found
 **Findings:** On the real documentation/input.json roster (Jar: 7 U10 teams sharing 3-of-6 slots vs Kongsberg's 1 team getting its 1 slot every tournament), Jar U10 team_game_counts improved to 13-18 (was a flatter ~13 baseline before), Kongsberg U10  25; diffs (7-12) still exceed max_game_count_spread2 due to the inherent 3-vs-1 slot ratio mismatch — residual skew remains correctly flagged via per_team_share_warnings as before. Full suite: 314 passed, 1 skipped (pre-existing unrelated stage2 skip), 0 failed.
 LESSONS: max_game_count_spread2 cannot be met for clubs whose proportional slot share (ceil(club_teams/total*max_teams)) is far below 1 relative to a single-team club always getting its 1 slot — closing this gap fully would require either much larger max_teams_per_tournament or removing the per-tournament intra-club-team cap, which is out of scope; per_team_share_warnings remains the correct diagnostic for this residual skew.
 **Files:** tournament_scheduler/season_planner.py (+96/-48 incl. tests/test_season_planner.py +1/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** 3978d27 (hockey)
