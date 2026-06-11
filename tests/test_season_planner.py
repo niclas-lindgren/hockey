@@ -784,13 +784,16 @@ class TestPerTeamGameCounts:
         )
 
         # The per-team-share check (task: "Extend game-count-spread checking")
-        # should surface this club-size skew explicitly for both Kongsberg
-        # (over-invited relative to the age-group average) and Jar's teams
-        # (under-invited), since it cannot be fully resolved without relaxing
-        # `max_club_teams_per_tournament` for large clubs.
+        # should surface this club-size skew explicitly for Kongsberg's U10
+        # team (over-invited relative to the U10 age-group average) and
+        # Jar's U10/U11 teams (under-invited), since it cannot be fully
+        # resolved without relaxing `max_club_teams_per_tournament` for large
+        # clubs. Kongsberg's U11 team is no longer flagged here: the
+        # deficit-aware seed selection (`_deficit_score`, backlog item 58)
+        # already brings its U11 deviation from the age-group average within
+        # `max_game_count_spread`, ahead of the larger cap-override change.
         flagged_labels = {w[0] for w in planner.per_team_share_warnings}
         assert "Kongsberg U10" in flagged_labels
-        assert "Kongsberg U11" in flagged_labels
         for i in range(1, 8):
             assert f"Jar U10-{i}" in flagged_labels
         for i in range(1, 7):

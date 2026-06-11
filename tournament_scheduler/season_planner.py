@@ -174,6 +174,14 @@ class SeasonPlanner:
         # across all tournaments. Populated in _compute_game_counts after
         # build_plan generates all tournaments and their games.
         self._team_game_counts: Dict[str, int] = {}
+        # Running estimate of each team's game count, updated incrementally
+        # in _record_grouping as tournaments are scheduled (each team in a
+        # tournament with N participants plays N-1 round-robin games).
+        # Unlike `_team_game_counts` (only populated after build_plan
+        # finishes), this is available *during* selection, so
+        # `_deficit_score` can use it to identify under-served teams while
+        # the season is still being built.
+        self._running_game_counts: Dict[str, int] = {}
         # Tracks the date of each team's most recent game. Used for
         # early-finish detection.
         self._team_last_date: Dict[str, date] = {}
@@ -1201,6 +1209,36 @@ class SeasonPlanner:
         proportional = math.ceil(club_team_count / total * max_teams)
         return max(self.max_club_teams_per_tournament, min(proportional, max_teams))
 
+    def _expected_average_for(self, age_group: str) -> float:
+        """Return the current running average game count for `age_group`.
+
+        Computes ``sum(counts) / len(counts)`` over `_running_game_counts`
+        for every team in `age_group` (teams with no recorded games count
+        as 0) — the same averaging pattern used by
+        `_scan_per_team_share_warnings`, but evaluated against the
+        in-progress `_running_game_counts` so it can be used as a live
+        target during selection.
+        """
+        teams = self.roster.by_age_group(age_group)
+        if not teams:
+            return 0.0
+        counts = [self._running_game_counts.get(team.label, 0) for team in teams]
+        return sum(counts) / len(counts)
+
+    def _deficit_score(self, team: Team, age_group: str) -> float:
+        """Return how far below `age_group`'s running average `team` is.
+
+        A positive value means `team` has played fewer games so far than
+        the age group's current average (i.e. it has a "deficit" and
+        should be prioritized for future invitations); a negative value
+        means it is already above average. Used by
+        `_pick_least_recently_grouped` and `_select_participants` to keep
+        the deficit metric consistent with `per_team_share_warnings`
+        (`_scan_per_team_share_warnings`), which performs the equivalent
+        computation after the season is fully built.
+        """
+        return self._expected_average_for(age_group) - self._running_game_counts.get(team.label, 0)
+
     def _normalized_invite_count(self, team: Team) -> float:
         """Return `team`'s invite count, normalized by club-size-in-age-group.
 
@@ -1251,14 +1289,22 @@ class SeasonPlanner:
         if not remaining:
             return []
 
-        # Seed with the least-invited team so invitations stay balanced.
-        # The invite count is normalized by the number of same-club teams in
+        # Seed with the team furthest below the age group's running average
+        # game count (largest deficit, see `_deficit_score`), falling back
+        # to the least-invited team so invitations stay balanced. The
+        # invite count is normalized by the number of same-club teams in
         # the same age group, so a team that is one of several siblings from
         # the same club (e.g. one of Jar's 6 U10 teams) is prioritized
         # roughly proportionally more often than a club's sole team in that
         # age group (e.g. Kongsberg's only U10 team), equalizing each team's
         # expected per-season invitation count.
-        remaining.sort(key=lambda t: (self._normalized_invite_count(t), candidates.index(t)))
+        remaining.sort(
+            key=lambda t: (
+                -self._deficit_score(t, age_group),
+                self._normalized_invite_count(t),
+                candidates.index(t),
+            )
+        )
         selected: List[Team] = [remaining.pop(0)]
 
         while remaining and len(selected) < count:
@@ -1346,10 +1392,14 @@ class SeasonPlanner:
         before comparing — see that method's docstring for details.
         """
         labels = [team.label for team in participants]
+        games_added = max(0, len(participants) - 1)
         for team in participants:
             self._invite_counts[team.label] = self._invite_counts.get(team.label, 0) + 1
             grouped = self._grouped_with.setdefault(team.label, set())
             grouped.update(label for label in labels if label != team.label)
+            self._running_game_counts[team.label] = (
+                self._running_game_counts.get(team.label, 0) + games_added
+            )
 
     def _record_opponent_history(self, games: Sequence[Game]) -> None:
         """Record actual scheduled matchups from `games` in `_opponent_history`.
