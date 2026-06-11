@@ -113,4 +113,4 @@ LESSONS: For documentation/input.json with maxTeamsPerTournament6 and default ma
 **Findings:** All 52 season_planner tests pass (docstring-only change).
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+40/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** 28ecbdb (hockey)
