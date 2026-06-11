@@ -22,7 +22,7 @@
   - Files: tournament_scheduler/pipeline/llm_scraper.py
   - Approach: In `capture_dom_snapshot()` (around line 63, `page.content()`-based) and in the prompt-building code around line 829 (`visible_text` embedded as "Synlig tekst fra kalender-siden"), reuse the same redaction approach as scraper-agent.ts: after `_detect_and_login()` runs, scrub any literal occurrences of the resolved `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env var values from `raw_html`/`visible_text` before they are used to build the LLM user message.
 
-- [ ] Add unit tests for sanitization in browser_worker.py
+- [x] Created tests/test_browser_worker.py with TestSanitizeHtml (6 tests covering password/email/username input stripping and unrelated-input passthrough) and TestRedactCredentials (4 tests covering BOOKUP_EMAIL/BOOKUP_PASSWORD redaction via monkeypatch.setenv and no-op behavior when unset). — 2026-06-11
   - Files: tests/test_browser_worker.py
   - Approach: New test file (no existing `test_browser_worker.py`; follow conventions in `tests/test_ical_scraper.py`). Test `_sanitize_html()` strips `value="secret123"` from `<input type="password" value="secret123">` and `<input id="email" value="user@example.com">`, and test `_interactive_elements()`-style label scrubbing replaces a credential substring with `"[REDACTED]"` when `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env vars are set (use `monkeypatch.setenv`).
 
@@ -78,3 +78,10 @@ LESSONS: No package.json/test runner exists for .pi/lib TS files in this repo; t
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/llm_scraper.py (+23/-1)
 **Commit:** 9fedc91 (hockey)
+
+### 2026-06-11 — Created tests/test_browser_worker.py with TestSanitizeHtml (6 tests covering password/email/username input stripping and unrelated-input passthrough) and TestRedactCredentials (4 tests covering BOOKUP_EMAIL/BOOKUP_PASSWORD redaction via monkeypatch.setenv and no-op behavior when unset).
+**Rationale:** Followed the class-based test convention from tests/test_ical_scraper.py (TestX classes, plain assert statements, monkeypatch fixture for env vars).
+**Findings:** All 10 new tests pass. Full suite: 321 passed, 1 skipped, 1 pre-existing/flaky failure (test_zero_events_blocks_source) unrelated to this change.
+LESSONS: none
+**Files:** tests/test_browser_worker.py (+65/-0)
+**Commit:** [pending — fill after commit]
