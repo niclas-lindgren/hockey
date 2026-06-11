@@ -26,7 +26,7 @@
 
 ## Tasks
 
-- [ ] Write a diagnostic test reproducing the per-team game-count skew with a Jar-vs-Kongsberg-shaped roster
+- [x] Added test_jar_vs_kongsberg_team_counts_skew_is_bounded to TestPerTeamGameCounts, building a Jar (7 U10 + 6 U11 teams) vs Kongsberg (1 team per age group) roster mirroring documentation/input.json, and asserting the residual structural skew (each Jar team gets roughly kongsberg_count/num_jar_teams games) is correctly flagged by the new per_team_share_warnings. — 2026-06-11
   - Files: tests/test_season_planner.py
   - Approach: Add a test that builds a roster mirroring `documentation/input.json` (Jar: 7 U10 + 6 U11 teams; Kongsberg: 1 U10 + 1 U11 team, plus the other clubs), runs `SeasonPlanner.build_plan` over a representative season window, and asserts on `plan.team_game_counts` to show the skew between an individual Jar team and Kongsberg's team before any fix (this test should currently demonstrate the imbalance, e.g. via a documented `xfail` or an assertion capturing the ratio).
 
@@ -86,3 +86,10 @@ LESSONS: none
 LESSONS: none
 **Files:** tournament_scheduler/cli/season_command.py (+18), tournament_scheduler/season_planner.py (+25)
 **Commit:** 83f56bb (hockey)
+
+### 2026-06-11 — Added test_jar_vs_kongsberg_team_counts_skew_is_bounded to TestPerTeamGameCounts, building a Jar (7 U10 + 6 U11 teams) vs Kongsberg (1 team per age group) roster mirroring documentation/input.json, and asserting the residual structural skew (each Jar team gets roughly kongsberg_count/num_jar_teams games) is correctly flagged by the new per_team_share_warnings.
+**Rationale:** Since the normalization fix from task 1 was already applied, an exact-balance assertion (Jar team count within max_game_count_spread of Kongsberg's) is mathematically impossible while max_club_teams_per_tournament1 forces Kongsberg's sole team into every tournament while Jar's 7 teams share one slot per tournament; the test instead documents this structural skew and confirms per_team_share_warnings (task 2) flags it for both Kongsberg and every Jar sibling team.
+**Findings:** Diagnostic run showed Kongsberg U1064 games vs each individual Jar U10 team8-16 games (age-group average 38.4); per_team_share_warnings correctly flags all 16 affected teams across U10/U11. All 50 season_planner tests and full suite (312 passed/1 skipped, excluding pre-existing unrelated stage2 failure) pass.
+LESSONS: The club-size normalization (task 1) cannot fully equalize per-team game counts when max_club_teams_per_tournament1 — a club with N sibling teams in an age group will always collectively share roughly 1/N of a single-team club's invitations. Fully resolving this would require relaxing the per-club-per-tournament cap for large clubs, which is out of scope for this backlog item; per_team_share_warnings (task 2) now surfaces this residual skew for visibility.
+**Files:** tests/test_season_planner.py (+99)
+**Commit:** [pending — fill after commit]

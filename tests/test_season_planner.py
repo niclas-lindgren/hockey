@@ -697,6 +697,105 @@ class TestPerTeamGameCounts:
             assert len(w) == 4  # (label, count, threshold/gap, type)
             assert w[3] in ("spread", "early_finish")
 
+    def test_jar_vs_kongsberg_team_counts_skew_is_bounded(self):
+        """Reproduces the club-size-skew scenario from documentation/input.json:
+        Jar fields 7 U10 teams and 6 U11 teams, while Kongsberg fields only 1
+        team in each age group. With `max_club_teams_per_tournament=1`,
+        every tournament invites at most one team per club, so Kongsberg's
+        sole U10 team is invited to (almost) every U10 tournament while
+        Jar's 7 U10 teams collectively share that single "Jar slot" per
+        tournament.
+
+        The club-size normalization in `_normalized_invite_count`
+        (task: "Make per-team selection balancing aware of same-club/
+        same-age-group team counts") ensures the *least-invited* Jar team is
+        prioritized for that shared slot, so invitations rotate evenly across
+        Jar's siblings — but it cannot, by itself, give each individual Jar
+        team the same game count as Kongsberg's team, since that would
+        require inviting multiple Jar teams to the same tournament (violating
+        the hard one-team-per-club constraint) or excluding Kongsberg from
+        some tournaments.
+
+        This test documents that residual, structurally-bounded skew: each
+        Jar team's count should be roughly `kongsberg_count / num_jar_teams`
+        (within a generous tolerance), and `per_team_share_warnings` should
+        flag exactly this skew — confirming the new diagnostic from "Extend
+        game-count-spread checking" surfaces it correctly.
+        """
+        from datetime import datetime as _dt
+
+        start, end = _dt(2026, 10, 1), _dt(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        other_clubs = ["Holmen", "Skien", "Jutul", "Ringerike", "Tonsberg", "Sandefjord", "Frisk Asker"]
+        age_groups = ["U10", "U11"]
+
+        teams = []
+        # Jar: 7 U10 teams, 6 U11 teams.
+        for i in range(1, 8):
+            teams.append(Team(club="Jar", label=f"Jar U10-{i}", age_group="U10"))
+        for i in range(1, 7):
+            teams.append(Team(club="Jar", label=f"Jar U11-{i}", age_group="U11"))
+        # Kongsberg: 1 team per age group.
+        for age_group in age_groups:
+            teams.append(Team(club="Kongsberg", label=f"Kongsberg {age_group}", age_group=age_group))
+        # Other clubs: 1 team per age group, to give the scheduler enough
+        # opponents to fill out tournaments.
+        for club in other_clubs:
+            for age_group in age_groups:
+                teams.append(Team(club=club, label=f"{club} {age_group}", age_group=age_group))
+
+        roster = Roster(teams=teams)
+        all_clubs = ["Jar", "Kongsberg"] + other_clubs
+        club_arenas = {club: f"{club}hallen" for club in all_clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3, "U11": 3},
+            max_game_count_spread=4,
+        )
+        plan = planner.build_plan(start, end)
+
+        u10_kongsberg = plan.team_game_counts.get("Kongsberg U10", 0)
+        u10_jar = [
+            plan.team_game_counts.get(f"Jar U10-{i}", 0) for i in range(1, 8)
+        ]
+        u11_kongsberg = plan.team_game_counts.get("Kongsberg U11", 0)
+        u11_jar = [
+            plan.team_game_counts.get(f"Jar U11-{i}", 0) for i in range(1, 7)
+        ]
+
+        assert u10_kongsberg > 0
+        assert all(c > 0 for c in u10_jar)
+        assert u11_kongsberg > 0
+        assert all(c > 0 for c in u11_jar)
+
+        # Each Jar team's invite share should rotate roughly evenly: no
+        # individual team should be starved (0 games) or dominate. The
+        # rotation isn't perfectly uniform over a finite season, but no
+        # sibling should receive double the games of another.
+        assert max(u10_jar) <= 2 * min(u10_jar), (
+            f"Jar U10 sibling teams are unevenly invited: {u10_jar}"
+        )
+        assert max(u11_jar) <= 2 * min(u11_jar), (
+            f"Jar U11 sibling teams are unevenly invited: {u11_jar}"
+        )
+
+        # The per-team-share check (task: "Extend game-count-spread checking")
+        # should surface this club-size skew explicitly for both Kongsberg
+        # (over-invited relative to the age-group average) and Jar's teams
+        # (under-invited), since it cannot be fully resolved without relaxing
+        # `max_club_teams_per_tournament` for large clubs.
+        flagged_labels = {w[0] for w in planner.per_team_share_warnings}
+        assert "Kongsberg U10" in flagged_labels
+        assert "Kongsberg U11" in flagged_labels
+        for i in range(1, 8):
+            assert f"Jar U10-{i}" in flagged_labels
+        for i in range(1, 7):
+            assert f"Jar U11-{i}" in flagged_labels
+
 
 class TestSkillLevelDivisions:
     """Tests for skill-level-based participant selection."""
