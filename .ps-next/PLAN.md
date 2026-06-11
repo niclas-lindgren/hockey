@@ -23,7 +23,7 @@ The hand-typed `_DISTANCE_MATRIX` in `club_distances.py` contains rough/inconsis
   - Files: tournament_scheduler/club_distances.py
   - Verify these functions only depend on `distance()`/`arena_to_club()` (no direct `_DISTANCE_MATRIX`/`_normalise_key` references survive); update module docstring to describe the haversine + road-correction approach instead of "static distance lookups".
 
-- [ ] Update `tests/test_club_distances.py` to assert on the new coordinate-based distances
+- [x] Updated test docstrings/comments to describe the haversine-based approach instead of the old static matrix, and added a new test_all_pairs_are_symmetric covering all 9x9 club pairs symmetrically; existing magic-number assertions already used distance() computed values rather than hardcoded km figures. — 2026-06-11
   - Files: tests/test_club_distances.py
   - Replace exact magic-number assertions tied to the old static matrix (e.g. "Holmen ~85km vs Jar ~80km from Kongsberg", "Kongsberg-Jar > 50") with assertions appropriate to the new haversine-based values: same-club returns 0, symmetric for all club pairs, all 9x9 distinct-club pairs > 0, and `furthest_traveling_team`/`compute_team_travel_distances` pick the team with the actual greater computed `distance()` (computed via the function itself rather than hardcoded km figures) so tests stay correct if coordinates are later refined.
 
@@ -65,4 +65,11 @@ LESSONS: none
 **Findings:** No code changes needed — these functions only call distance()/arena_to_club() and never referenced _DISTANCE_MATRIX or _normalise_key directly; docstring already updated in the first commit.
 LESSONS: none
 **Files:** none (verification only, no file changes)
+**Commit:** bbfc222 (hockey)
+
+### 2026-06-11 — Updated test docstrings/comments to describe the haversine-based approach instead of the old static matrix, and added a new test_all_pairs_are_symmetric covering all 9x9 club pairs symmetrically; existing magic-number assertions already used distance() computed values rather than hardcoded km figures.
+**Rationale:** none
+**Findings:** All 19 tests pass (added 1 new test). Comments referencing old approximate matrix values (e.g. 'Kongsberg -> Jar is ~80 km') were removed since the magic numbers no longer applied.
+LESSONS: none
+**Files:** tests/test_club_distances.py (+12/-2)
 **Commit:** [pending — fill after commit]

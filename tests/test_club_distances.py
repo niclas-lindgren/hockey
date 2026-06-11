@@ -10,7 +10,7 @@ from tournament_scheduler.club_distances import (
 
 
 class TestDistanceLookup:
-    """Tests for the static club-to-club distance matrix."""
+    """Tests for the haversine-based club-to-club distance calculation."""
 
     def test_known_pair_returns_positive_distance(self):
         assert distance("Kongsberg", "Jar") > 50
@@ -35,6 +35,17 @@ class TestDistanceLookup:
         for i, a in enumerate(clubs):
             for b in clubs[i + 1:]:
                 assert distance(a, b) > 0, f"missing distance: {a} <-> {b}"
+
+    def test_all_pairs_are_symmetric(self):
+        """distance(a, b) == distance(b, a) for every pair of RVV clubs."""
+        clubs = [
+            "Kongsberg", "Jar", "Holmen", "Ringerike",
+            "Skien", "Jutul", "Frisk Asker", "Tønsberg",
+            "Sandefjord Penguins",
+        ]
+        for i, a in enumerate(clubs):
+            for b in clubs[i + 1:]:
+                assert distance(a, b) == distance(b, a), f"asymmetric: {a} <-> {b}"
 
 
 class TestArenaToClub:
@@ -152,7 +163,6 @@ class TestComputeTeamTravelDistances:
         plan = self._make_plan([t])
         result = compute_team_travel_distances(plan)
         assert result["Jar 1"] == 0
-        # Kongsberg → Jar is ~80 km
         assert result["Kongsberg U10"] == distance("Kongsberg", "Jar")
 
     def test_multiple_away_tournaments_accumulate(self):
