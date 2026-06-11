@@ -95,12 +95,21 @@ def _strip_script_and_style(html: str) -> str:
 def _redact_credential_values(text: str) -> str:
     """Scrub literal BookUp credential values from text before LLM use.
 
-    Defense-in-depth: even though `_detect_and_login()` only fills
-    credential fields into form inputs (which `_strip_script_and_style`
-    does not specifically scrub), this ensures that if an entered
-    email/password value is ever echoed back into the page's visible
-    text or HTML, it never reaches the LLM prompt built in
-    `_extract_events_via_llm()`.
+    Defense-in-depth (layer 4 of the BookUp credential-leak mitigation —
+    see also `tournament_scheduler/pipeline/browser_worker.py`
+    `_sanitize_html()`/`_redact_credentials()` for the Playwright-worker
+    layers, and `.pi/lib/scraper-agent.ts` `redactCredentials()` for the TS
+    agent layer). Even though `_detect_and_login()` only fills credential
+    fields into form inputs (which `_strip_script_and_style` does not
+    specifically scrub), this ensures that if an entered email/password
+    value is ever echoed back into the page's visible text or HTML, it
+    never reaches the LLM prompt built in `_extract_events_via_llm()`.
+
+    Longer-term alternative (out of scope for this fix): out-of-band
+    browser auth — run `_detect_and_login()`/`initial_navigation` once
+    headfully to establish a persistent authenticated session (saved
+    storage state/cookies) outside the LLM loop, so login UI/credential
+    state never has to be captured in a snapshot or sent to the LLM.
     """
     if not text:
         return text

@@ -30,7 +30,7 @@
   - Files: .pi/lib/scraper-agent.test.ts
   - Approach: New colocated test file following the `.pi/lib/parsers.test.ts` convention. Test `redactCredentials()` replaces a literal password/email substring (set via `process.env.BOOKUP_PASSWORD`/`BOOKUP_EMAIL` in the test) with `"[REDACTED]"` inside arbitrary HTML/text, and confirm `userMessage()` output no longer contains the raw credential value when `snapshot.html` includes it.
 
-- [ ] Document the defense-in-depth credential-leak mitigation and out-of-band-auth alternative
+- [x] Added inline documentation across all three sanitization points: a module-level comment block in browser_worker.py describing the four-layer defense (DOM sanitization, label redaction, TS fallback, scrape-llm path) and the out-of-band auth alternative; expanded redactCredentials() docstring in scraper-agent.ts to reference the layer ordering and out-of-band alternative; expanded _redact_credential_values() docstring in llm_scraper.py to cross-reference the other layers and out-of-band auth alternative. — 2026-06-11
   - Files: tournament_scheduler/pipeline/browser_worker.py, .pi/lib/scraper-agent.ts, tournament_scheduler/pipeline/llm_scraper.py
   - Approach: Add inline code comments at each sanitization point explaining the two-layer defense (Python-side DOM sanitization as primary, TS/Python regex redaction as fallback) and note as a code comment near `_detect_and_login()`/`initial_navigation` that a longer-term alternative is out-of-band browser auth (persistent authenticated browser profile/cookie session established once outside the LLM loop), which would avoid feeding any login UI state to the LLM at all — out of scope for this fix.
 
@@ -92,3 +92,10 @@ LESSONS: none
 LESSONS: vitest is not in this repo's node_modules but works via 'npx vitest run' inside .pi/lib; use that to run TS tests for .pi/lib.
 **Files:** .pi/lib/scraper-agent.test.ts (+106), .pi/lib/scraper-agent.ts (+1/-1)
 **Commit:** dee8ebf (hockey)
+
+### 2026-06-11 — Added inline documentation across all three sanitization points: a module-level comment block in browser_worker.py describing the four-layer defense (DOM sanitization, label redaction, TS fallback, scrape-llm path) and the out-of-band auth alternative; expanded redactCredentials() docstring in scraper-agent.ts to reference the layer ordering and out-of-band alternative; expanded _redact_credential_values() docstring in llm_scraper.py to cross-reference the other layers and out-of-band auth alternative.
+**Rationale:** Inline comments were chosen over a separate doc file per the task's Approach, keeping the rationale next to the code it documents for future maintainers/agents.
+**Findings:** Full pytest suite: 320 passed, 1 skipped, 2 pre-existing/flaky failures (test_zero_events_blocks_source, test_sources_run_in_different_threads — both confirmed pre-existing on main, unrelated to comment-only changes). vitest in .pi/lib: 13/13 passed.
+LESSONS: This completes the BookUp credential-leak mitigation plan (backlog item #54): all 6 implementation/test/doc tasks are now done.
+**Files:** tournament_scheduler/pipeline/browser_worker.py (+32), .pi/lib/scraper-agent.ts (+10/-3), tournament_scheduler/pipeline/llm_scraper.py (+15/-6)
+**Commit:** [pending — fill after commit]

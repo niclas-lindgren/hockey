@@ -564,11 +564,18 @@ export function substituteEnvVars(text: string): string {
 }
 
 /**
- * Defense-in-depth: scrub any literal occurrences of the resolved
+ * Defense-in-depth (layer 3): scrub any literal occurrences of the resolved
  * ``BOOKUP_EMAIL``/``BOOKUP_PASSWORD`` credential values from text before it
  * is sent to the LLM. This is a fallback in case the Python-side DOM
- * sanitization in browser_worker.py misses a path (e.g. a credential value
- * echoed into an interactive-element label or placeholder).
+ * sanitization in browser_worker.py (`_sanitize_html()` /
+ * `_redact_credentials()`, layers 1-2) misses a path (e.g. a credential
+ * value echoed into an interactive-element label or placeholder). Used by
+ * `userMessage()` on `snapshot.html`, `snapshot.iframe_html`, and
+ * interactive-element text.
+ *
+ * Longer-term alternative (out of scope here): out-of-band browser auth —
+ * a persistent authenticated browser session established once outside the
+ * LLM loop, so credential/login UI state never reaches a snapshot at all.
  */
 export function redactCredentials(text: string): string {
   let result = text;
