@@ -42,7 +42,7 @@
   - Files: tournament_scheduler/season_planner.py
   - Approach: Extend `_scan_game_count_warnings` (or add a new `_scan_per_team_share_warnings` method following the same pattern) to compute, for each team, an "expected" game count derived from its club/age-group team count and flag teams whose actual `_team_game_counts` deviates from this expectation beyond `max_game_count_spread`, surfacing club name and age group in the warning tuple.
 
-- [ ] Surface the new per-team-share warnings in CLI/Excel output
+- [x] Added '_print_per_team_share_warnings' to season_command.py (Rich console output, called alongside the existing club/hosting/month-load warning printers) and added a static rule description plus per-violation entries to season_planner.py's rules_report() (category 'Anbefaling'), which flow into the Excel rules-and-decisions sheet via the existing stage3/stage4 rules_report plumbing. — 2026-06-11
   - Files: tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/cli/season_command.py
   - Approach: Follow the existing pattern used for `club_load_warnings`/`month_load_warnings` to print the new per-team-share warnings via Rich console output and include them in the Excel "rules and decisions" report sheet.
 
@@ -79,3 +79,10 @@ LESSONS: none
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+61)
 **Commit:** 15782a9 (hockey)
+
+### 2026-06-11 — Added '_print_per_team_share_warnings' to season_command.py (Rich console output, called alongside the existing club/hosting/month-load warning printers) and added a static rule description plus per-violation entries to season_planner.py's rules_report() (category 'Anbefaling'), which flow into the Excel rules-and-decisions sheet via the existing stage3/stage4 rules_report plumbing.
+**Rationale:** Reused the existing rules_report dynamic-entry pattern (already used for fallback host substitutions) instead of adding a new Excel sheet, since stage4_export.py already passes rules_report through to SeasonPlanExporter unchanged.
+**Findings:** All 91 season/planner/export/cli tests pass.
+LESSONS: none
+**Files:** tournament_scheduler/cli/season_command.py (+18), tournament_scheduler/season_planner.py (+25)
+**Commit:** [pending — fill after commit]

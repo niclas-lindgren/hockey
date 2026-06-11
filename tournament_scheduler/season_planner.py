@@ -788,6 +788,31 @@ class SeasonPlanner:
         })
 
         report.append({
+            "regel": "Jevn fordeling av kamper innad i aldersgruppe/klubb",
+            "forklaring": (
+                f"For hver aldersgruppe beregnes gjennomsnittlig antall kamper "
+                f"per lag. Lag som avviker fra dette gjennomsnittet med mer enn "
+                f"{self.max_game_count_spread} kamper flagges som et varsel. "
+                f"Dette fanger opp skjevheter der en klubb med flere lag i samme "
+                f"aldersgruppe (f.eks. flere U10-lag) systematisk får færre eller "
+                f"flere kamper enn andre lag i samme aldersgruppe."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+        for label, club, age_group, actual, expected in self._per_team_share_warnings:
+            direction = "flere" if actual > expected else "færre"
+            report.append({
+                "regel": f"Skjev kampfordeling: {label}",
+                "forklaring": (
+                    f"{label} ({club}, {age_group}) spiller {actual} kamper, "
+                    f"mens snittet for {age_group} er {expected:.1f} — "
+                    f"{abs(actual - expected):.1f} {direction} enn snittet."
+                ),
+                "kategori": "Anbefaling",
+            })
+
+        report.append({
             "regel": "Ingen overlappende aldersgrupper",
             "forklaring": (
                 "Aldersgrupper som deler spillerbase (for eksempel JU11 og U10) "

@@ -83,6 +83,7 @@ class SeasonCommand:
         self._print_hosting_warnings(planner)
         self._print_travel_warnings(plan)
         self._print_month_load_warnings(planner)
+        self._print_per_team_share_warnings(planner)
 
         # Print the rules-and-decisions audit report.
         TournamentOutput.print_rules_report(planner.rules_report())
@@ -243,4 +244,21 @@ class SeasonCommand:
             TournamentOutput.print_warning(
                 f"  • {month_name} {year}: {count} {tournament_text} "
                 f"(forventet ~{expected:.1f}, {direction} med {abs(deviation):.0%})"
+            )
+
+    @staticmethod
+    def _print_per_team_share_warnings(planner) -> None:
+        """Print warnings for teams whose game count deviates from their age group's average."""
+        warnings = planner.per_team_share_warnings
+        if not warnings:
+            return
+        TournamentOutput.print_warning(
+            f"Advarsel — {len(warnings)} lag avviker fra gjennomsnittlig "
+            f"antall kamper i sin aldersgruppe med mer enn {planner.max_game_count_spread}:"
+        )
+        for label, club, age_group, actual, expected in warnings:
+            direction = "flere" if actual > expected else "færre"
+            TournamentOutput.print_warning(
+                f"  • {label} ({club}, {age_group}): {actual} kamper "
+                f"(forventet ~{expected:.1f}, {abs(actual - expected):.1f} {direction} enn snittet)"
             )
