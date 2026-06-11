@@ -46,7 +46,7 @@
   - Files: tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/cli/season_command.py
   - Approach: Follow the existing pattern used for `club_load_warnings`/`month_load_warnings` to print the new per-team-share warnings via Rich console output and include them in the Excel "rules and decisions" report sheet.
 
-- [ ] Add regression tests covering the fix and the new warning
+- [x] Added test_per_team_share_warning_emitted_for_deliberately_skewed_counts, a focused unit-level test calling _scan_per_team_share_warnings directly with a hand-constructed deliberately-skewed game-count map, asserting the warning tuples have the correct (team_label, club, age_group, actual_count, expected_count) for both an over-invited Kongsberg team and under-invited Jar teams, and that a balanced age group (U11) emits no warnings. — 2026-06-11
   - Files: tests/test_season_planner.py
   - Approach: Update the diagnostic test from task 1 to assert the fix resolves the skew (game counts for Jar U10 teams and Kongsberg's U10 team fall within `max_game_count_spread` of each other), and add a new test that constructs a deliberately skewed roster and asserts the new per-team-share warning is emitted with the correct club/age-group identifiers.
 
@@ -93,3 +93,10 @@ LESSONS: none
 LESSONS: The club-size normalization (task 1) cannot fully equalize per-team game counts when max_club_teams_per_tournament1 — a club with N sibling teams in an age group will always collectively share roughly 1/N of a single-team club's invitations. Fully resolving this would require relaxing the per-club-per-tournament cap for large clubs, which is out of scope for this backlog item; per_team_share_warnings (task 2) now surfaces this residual skew for visibility.
 **Files:** tests/test_season_planner.py (+99)
 **Commit:** 301368a (hockey)
+
+### 2026-06-11 — Added test_per_team_share_warning_emitted_for_deliberately_skewed_counts, a focused unit-level test calling _scan_per_team_share_warnings directly with a hand-constructed deliberately-skewed game-count map, asserting the warning tuples have the correct (team_label, club, age_group, actual_count, expected_count) for both an over-invited Kongsberg team and under-invited Jar teams, and that a balanced age group (U11) emits no warnings.
+**Rationale:** The 'assert the fix resolves the skew within max_game_count_spread' part of this task was already addressed in task 4, which documented (with diagnostics) that this is structurally bounded by max_club_teams_per_tournament1 rather than fully resolvable; this task instead adds the requested isolated regression test for the new warning's correctness, decoupled from the full build_plan scenario.
+**Findings:** All 51 season_planner tests and full suite (313 passed/1 skipped, excluding pre-existing unrelated stage2 failure) pass.
+LESSONS: none
+**Files:** tests/test_season_planner.py (+62)
+**Commit:** [pending — fill after commit]

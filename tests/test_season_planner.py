@@ -796,6 +796,68 @@ class TestPerTeamGameCounts:
         for i in range(1, 7):
             assert f"Jar U11-{i}" in flagged_labels
 
+    def test_per_team_share_warning_emitted_for_deliberately_skewed_counts(self):
+        """Unit-level test for `_scan_per_team_share_warnings`: a deliberately
+        skewed roster/game-count setup should produce per-team-share warnings
+        with the correct `(team_label, club, age_group, actual_count,
+        expected_count)` identifiers, without requiring a full `build_plan`
+        run."""
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10-1", age_group="U10"),
+            Team(club="Jar", label="Jar U10-2", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Holmen", label="Holmen U11", age_group="U11"),
+            Team(club="Skien", label="Skien U11", age_group="U11"),
+        ])
+        club_arenas = {
+            "Jar": "Jarhallen",
+            "Kongsberg": "Kongsberghallen",
+            "Holmen": "Holmenkollen ishall",
+            "Skien": "Skienhallen",
+        }
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas=club_arenas,
+            max_game_count_spread=2,
+        )
+
+        # Deliberately skew U10: Kongsberg plays far more games than Jar's
+        # two teams. U11 stays balanced and should not be flagged.
+        planner._team_game_counts = {
+            "Jar U10-1": 2,
+            "Jar U10-2": 2,
+            "Kongsberg U10": 10,
+            "Holmen U11": 5,
+            "Skien U11": 5,
+        }
+        planner._scan_per_team_share_warnings()
+
+        warnings = planner.per_team_share_warnings
+        warnings_by_label = {w[0]: w for w in warnings}
+
+        # U10 average is (2 + 2 + 10) / 3 = 4.667; both Jar teams (2) and
+        # Kongsberg (10) deviate from it by more than max_game_count_spread=2.
+        assert "Jar U10-1" in warnings_by_label
+        assert "Jar U10-2" in warnings_by_label
+        assert "Kongsberg U10" in warnings_by_label
+
+        label, club, age_group, actual, expected = warnings_by_label["Kongsberg U10"]
+        assert club == "Kongsberg"
+        assert age_group == "U10"
+        assert actual == 10
+        assert expected == pytest.approx(14 / 3)
+
+        label, club, age_group, actual, expected = warnings_by_label["Jar U10-1"]
+        assert club == "Jar"
+        assert age_group == "U10"
+        assert actual == 2
+        assert expected == pytest.approx(14 / 3)
+
+        # U11 is perfectly balanced (5 == 5), so no warnings expected there.
+        assert "Holmen U11" not in warnings_by_label
+        assert "Skien U11" not in warnings_by_label
+
 
 class TestSkillLevelDivisions:
     """Tests for skill-level-based participant selection."""
