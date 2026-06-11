@@ -36,6 +36,8 @@
 
 - [x] Replaced the flat max_club_teams_per_tournament1 cap with a new _max_club_teams_for(age_group, club) helper that grants each club ceil(club_team_count/total_team_count * max_teams) slots per tournament (floored at 1, capped at max_teams), used in _select_participants's small-roster path (_cap_per_club), _pick_least_recently_grouped's hard filter and club penalty, and _scan_club_load_warnings. — 2026-06-11
 
+- [x] Audited _max_club_teams_for and its call sites in _select_participants/_pick_least_recently_grouped; confirmed no separate cap is silently reducing Jar's allowance below its computed proportional value. — 2026-06-11
+
 - [x] Added a normalized invite-count helper '_normalized_invite_count' that multiplies each team's raw invite count by the number of same-club teams in the same age group, and used it as the tie-break key (replacing the raw _invite_counts lookup) in both the seed-team selection and the candidate sort in _pick_least_recently_grouped. — 2026-06-11
   - Files: tournament_scheduler/season_planner.py
   - Approach: In `_pick_least_recently_grouped`, normalize the seeding/tie-break key derived from `_invite_counts` by the number of same-club teams in that team's age group (e.g. compare `invite_count * num_club_teams_in_age_group` or an equivalent normalized "expected share" metric) so a Jar U10 team with 6 siblings is prioritized roughly 7x more often than Kongsberg's sole U10 team for the same number of raw invites, equalizing each team's expected per-season invitation count.
@@ -68,6 +70,7 @@
 
 - [2026-06-11] Plan created from backlog item 45.
 - [2026-06-11] Auto-verify attempt 1 found 1 failing criteria — added remediation tasks
+- [2026-06-11] Auto-verify attempt 2 found 1 failing criteria — added remediation tasks
 
 ### 2026-06-11 — Added a normalized invite-count helper '_normalized_invite_count' that multiplies each team's raw invite count by the number of same-club teams in the same age group, and used it as the tie-break key (replacing the raw _invite_counts lookup) in both the seed-team selection and the candidate sort in _pick_least_recently_grouped.
 **Rationale:** none
@@ -118,27 +121,34 @@ LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+40/-1)
 **Commit:** 28ecbdb (hockey)
 
-## Verification Report
-**Date:** 2026-06-11
-
-| Criterion | Verdict | Notes |
-|-----------|---------|-------|
-| Running pytest tests/test_season_planner.py exits 0, all tests pass including new Jar-vs-Kongsberg tests | PASS | 52 passed in 1.55s |
-| plan.team_game_counts for real input.json roster: each Jar U10 team within max_game_count_spread of Kongsberg's U10 team | FAIL | Real-roster run shows Jar U10 ~10-15 games vs Kongsberg U10 45 games (spread 35 >> max_game_count_spread=2); plan log documents this is structurally infeasible without relaxing max_club_teams_per_tournament, deferred to a new backlog item |
-| season_planner.py contains a new/extended warning-scanning method reporting per-team game-count deviations vs club/age-group-normalized expectation, incl. club and age group | PASS | _scan_per_team_share_warnings (line 534) + per_team_share_warnings property (line 458), called from build_plan (line 333) |
-| CLI (season_command.py) and Excel rules-and-decisions report (stage4_export.py) display per-team-share warnings when skewed beyond threshold | PASS | _print_per_team_share_warnings in season_command.py; rules_report() appends 'Anbefaling' entries (lines 803-813) flowing through stage4_export.py to Excel |
-| _pick_least_recently_grouped normalizes selection priority by same-club/same-age-group team count | PASS | _normalized_invite_count (line 1162) = invite_count * sibling_count, used for seed selection and tie-break (line 1217) |
-
-**Shell checks (ps-verify-plan):** see output below
-```
-no embedded shell checks found
-```
-**Git history:** 5/5 tasks have matching commits
-**Tests:** passed (52/52 season_planner tests; full suite 329 passed/1 pre-existing unrelated failure/2 skipped)
-
 ### 2026-06-11 — Replaced the flat max_club_teams_per_tournament1 cap with a new _max_club_teams_for(age_group, club) helper that grants each club ceil(club_team_count/total_team_count * max_teams) slots per tournament (floored at 1, capped at max_teams), used in _select_participants's small-roster path (_cap_per_club), _pick_least_recently_grouped's hard filter and club penalty, and _scan_club_load_warnings.
 **Rationale:** Proportional allocation directly addresses the documented root cause (a club with many same-age-group teams sharing one slot) without removing the no-intra-club-matchup guarantee; alternative of just raising max_teams globally was rejected as it would not target the specific clubs with many siblings.
 **Findings:** On the real documentation/input.json roster (Jar: 7 U10 teams sharing 3-of-6 slots vs Kongsberg's 1 team getting its 1 slot every tournament), Jar U10 team_game_counts improved to 13-18 (was a flatter ~13 baseline before), Kongsberg U10  25; diffs (7-12) still exceed max_game_count_spread2 due to the inherent 3-vs-1 slot ratio mismatch — residual skew remains correctly flagged via per_team_share_warnings as before. Full suite: 314 passed, 1 skipped (pre-existing unrelated stage2 skip), 0 failed.
 LESSONS: max_game_count_spread2 cannot be met for clubs whose proportional slot share (ceil(club_teams/total*max_teams)) is far below 1 relative to a single-team club always getting its 1 slot — closing this gap fully would require either much larger max_teams_per_tournament or removing the per-tournament intra-club-team cap, which is out of scope; per_team_share_warnings remains the correct diagnostic for this residual skew.
 **Files:** tournament_scheduler/season_planner.py (+96/-48 incl. tests/test_season_planner.py +1/-1)
 **Commit:** 3978d27 (hockey)
+
+## Verification Report
+**Date:** 2026-06-11
+
+| Criterion | Verdict | Notes |
+|-----------|---------|-------|
+| Running pytest tests/test_season_planner.py exits with code 0 and all tests pass, including the new Jar-vs-Kongsberg game-count tests. | PASS | All 52 tests in tests/test_season_planner.py pass (0 failed). |
+| After the fix, plan.team_game_counts for the real documentation/input.json roster has each individual Jar U10 team's game count within max_game_count_spread of Kongsberg's U10 team's game count (no team is left at ~13 while another is at ~84). | FAIL | Real-roster diagnostic shows Jar U10 counts [10,10,10,15,10,10,10] vs Kongsberg U10 [45], spread=35 vs max_game_count_spread=2. The proportional slot-allocation fix reduced the original ~13 vs ~84 (6.5x) skew to ~10-15 vs 45 (3-4.5x), but it remains far outside the configured threshold; the developer documented full resolution as out of scope (would require relaxing max_club_teams_per_tournament), recommending a follow-up backlog item. |
+| tournament_scheduler/season_planner.py contains a new or extended warning-scanning method that reports per-team game-count deviations relative to a club/age-group-normalized expectation, including the affected club and age group. | PASS | _scan_per_team_share_warnings (line ~539) computes per-age-group average game counts and flags teams deviating beyond max_game_count_spread, exposed via per_team_share_warnings property and called from build_plan. |
+| The CLI output (via cli/season_command.py) and the Excel rules and decisions report (via pipeline/stage4_export.py) display the new per-team-share warnings when game counts are skewed beyond the configured threshold. | PASS | _print_per_team_share_warnings added to season_command.py (Rich console), and rules_report() in season_planner.py emits per-violation 'Anbefaling' entries from _per_team_share_warnings, which flow through stage4_export.py's existing rules_report plumbing into the Excel sheet. |
+| _pick_least_recently_grouped in season_planner.py normalizes its selection priority by the number of same-club teams sharing a team's age group, so a club fielding many teams in one age group no longer dilutes each individual team's invitation share relative to a club fielding a single team in that age group. | PASS | _normalized_invite_count multiplies raw invite count by same-club/same-age-group team count and is used as the seed/tie-break key in _pick_least_recently_grouped, replacing raw _invite_counts lookups. |
+
+**Shell checks (ps-verify-plan):** see output below
+```
+no embedded shell checks found
+```
+**Git history:** 8 of 8 tasks have matching commits
+**Tests:** passed (52/52 in tests/test_season_planner.py)
+
+### 2026-06-11 — Audited _max_club_teams_for and its call sites in _select_participants/_pick_least_recently_grouped; confirmed no separate cap is silently reducing Jar's allowance below its computed proportional value.
+**Rationale:** none — the proportional formula itself, ceil(club_team_count/total*max_teams), is the only cap, and it is the correct/intended source of the 3-slot limit; no over-restriction found, so no code change made.
+**Findings:** For real documentation/input.json: U10 has 18 total teams (Jar 7, Kongsberg 1, others 10), max_teams_per_tournament(U10)6, so _max_club_teams_for('U10','Jar')ceil(7/18*6)3 (not ceil(7/8*6) as the task premise assumed — denominator is total U10 teams across all 9 clubs, not just Jar+Kongsberg). Re-ran real-roster end-to-end: Jar U10 team_game_counts{Jar1:13,Jar2:17,Jar3:16,Jar4:17,Jar5:18,Jar6:17,Jar7:14}, Kongsberg U10{Kongsberg1:25}, game_count_spread17, far above max_game_count_spread2. This residual skew is a structural consequence of the 7-vs-1 team ratio sharing only 6 tournament slots (Kongsberg's sole team is invited to nearly every tournament while Jar's 7 teams share 3 slots), already documented in _select_participants/_pick_least_recently_grouped docstrings and surfaced via per_team_share_warnings (which the existing test_real_roster_end_to_end_jar_vs_kongsberg test confirms flags both clubs). pytest tests/test_season_planner.py: 52 passed, 0 failed.
+LESSONS: The proportional cap formula uses the full age-group roster (all 9 clubs) as denominator, not just the two clubs being compared — do not assume a club's slot share is proportional to its share within a 2-club subset. The 17-game spread for Jar-vs-Kongsberg U10 on the real roster is structural (7-vs-1 team ratio with 6 slots/tournament) and already correctly flagged via per_team_share_warnings; further reduction would require either raising maxTeamsPerTournament for U10 or a fundamentally different allocation model, which is out of scope for this cap-audit task.
+**Files:** none (no files changed)
+**Commit:** [pending — fill after commit]
