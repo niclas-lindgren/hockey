@@ -56,4 +56,4 @@
 **Findings:** Verified the regex correctly blanks value attrs on typepassword, typeemail, and id/nameemail/username/password/login inputs while leaving unrelated inputs (checkboxes, plain text fields) untouched. Full test suite: 311 passed, 1 pre-existing unrelated failure (test_zero_events_blocks_source, confirmed pre-existing via git stash), 1 skipped.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/browser_worker.py (+27/-2)
-**Commit:** [pending — fill after commit]
+**Commit:** a286846 (hockey)
