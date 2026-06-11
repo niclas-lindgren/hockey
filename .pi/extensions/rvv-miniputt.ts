@@ -1,33 +1,7 @@
-/**
- * rvv-miniputt pi extension
- *
- * Registers commands in the pi session:
- *
- *   /rvv-miniputt guide   — interaktiv veiviser som stiller sporsmal og guider deg
- *   /rvv-miniputt run     — run the four-stage agentic season-planning pipeline
- *   /rvv-miniputt status  — show the current stage checkpoint status
- *   /rvv-miniputt logs    — inspect pipeline run history for self-improvement
- *   /rvv-miniputt calendars — generate calendar reports
- *
- * The pipeline stages are invoked as Python modules via execFile so that the
- * Python environment (venv, Playwright) is fully available:
- *
- *   python3 -m tournament_scheduler.pipeline.stage1_config
- *   python3 -m tournament_scheduler.pipeline.stage2_scraping
- *   python3 -m tournament_scheduler.pipeline.stage3_planning
- *   python3 -m tournament_scheduler.pipeline.stage4_export
- *
- * Implementation is split across dedicated modules under .pi/lib/.
- *
- * Quick start:
- *   Just type /rvv-miniputt guide and follow the prompts.
- */
-
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { LOG_LEVELS } from "../lib/types";
-import { parseStatusArgs, parseLogsArgs } from "../lib/parsers";
+import { parseStatusArgs, parseLogsArgs, parseCalendarsArgs } from "../lib/parsers";
 import { buildStatusText } from "../lib/pipeline-helpers";
 import { buildLogsListText, buildLogsShowText, buildLogsStatsText } from "../lib/log-inspector";
 import { runPipeline } from "../lib/pipeline-runner";
@@ -143,13 +117,10 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       return words.filter((w) => w.startsWith(prefix)).map((value) => ({ value, label: value }));
     },
     handler: async (args, ctx) => {
-      const tokens = args.trim().split(/\s+/);
-      let refresh = false;
-      let workDir = ".pipeline";
-      for (let i = 0; i < tokens.length; i++) {
-        if (tokens[i] === "--refresh") refresh = true;
-        else if (tokens[i] === "--work-dir" && i + 1 < tokens.length) workDir = tokens[++i];
-      }
+      // Parse arguments using the shared parser
+      const params = parseCalendarsArgs(args);
+      let refresh = params.refresh ?? false;
+      let workDir = params.work_dir ?? ".pipeline";
 
       const python = resolve(ctx.cwd, "venv", "bin", "python3");
       const exe = existsSync(python) ? python : "python3";
@@ -164,7 +135,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       if (refresh) cliArgs.push("--refresh");
 
       if (refresh) {
-        ctx.ui.notify("🔄 Tvinger full re-skraping av kalendere (via rvv-miniputt CLI)...\n", "info");
+        ctx.ui.notify("🔄 Tvinger full re-skraping av kalendere (via rvv-miniputt CLI)...", "info");
       } else {
         ctx.ui.notify("Genererer kalendere fra cache...", "info");
       }
