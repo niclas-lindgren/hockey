@@ -19,3 +19,5 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 ## Slash commands — execute directly
 When the user types `/rvv-miniputt run`, `/rvv-miniputt status`, `/rvv-miniputt logs`, `/rvv-miniputt guide`, `/rvv-miniputt calendars`, or any other registered slash command, execute it immediately via the extension handler. Do not investigate, verify, or inspect the command first — the extension handles everything. Just run it.
+
+These slash commands are Pi extension commands, NOT shell binaries — never run them via the Bash tool (`/rvv-miniputt run` will fail with "command not found"). If you (the agent) need to trigger the RVV Miniputt pipeline yourself rather than waiting for the user to type the slash command, call the corresponding tool instead: `rvv_miniputt_run`, `rvv_miniputt_status`, `rvv_miniputt_logs`, `rvv_miniputt_calendars`. Never reimplement the pipeline by calling `tournament_scheduler.pipeline.stageN_*` Python modules directly — that skips checkpointing, resumption, and structured run logging.

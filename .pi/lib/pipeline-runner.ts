@@ -2,7 +2,7 @@
 // Pipeline runner — executes all four stages
 // ---------------------------------------------------------------------------
 
-import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseRunArgs } from "./parsers";
@@ -17,7 +17,12 @@ import {
   estimateDataVolume,
 } from "./pipeline-helpers";
 
-export async function runPipeline(rawArgs: unknown, ctx: ExtensionCommandContext): Promise<void> {
+export interface PipelineRunResult {
+  status: "success" | "failure";
+  text: string;
+}
+
+export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Promise<PipelineRunResult> {
   const params = parseRunArgs(rawArgs);
   const cwdPath = ctx.cwd;
   const inputPath  = resolve(cwdPath, params.input     ?? "input.json");
@@ -82,9 +87,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionCommandContext
       lines.push(`Trinn 1 FEILET:\n${msg}`);
       logger.stageEnd("config", "failed", msg);
       logger.finalize("failure");
-      overallStatus = "failure";
-      ctx.ui.notify(lines.join("\n"), "error");
-      return;
+      return { status: "failure", text: lines.join("\n") };
     }
   } else {
     lines.push("Trinn 1: Hoppet over (gjenopptatt)\n");
@@ -257,9 +260,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionCommandContext
       lines.push(`Trinn 3 FEILET:\n${msg}`);
       logger.stageEnd("planning", "failed", msg);
       logger.finalize("failure");
-      overallStatus = "failure";
-      ctx.ui.notify(lines.join("\n"), "error");
-      return;
+      return { status: "failure", text: lines.join("\n") };
     }
   } else {
     lines.push("Trinn 3: Hoppet over (gjenopptatt)\n");
@@ -291,9 +292,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionCommandContext
       lines.push(`Trinn 4 FEILET:\n${msg}`);
       logger.stageEnd("export", "failed", msg);
       logger.finalize("failure");
-      overallStatus = "failure";
-      ctx.ui.notify(lines.join("\n"), "error");
-      return;
+      return { status: "failure", text: lines.join("\n") };
     }
   } else {
     lines.push("Trinn 4: Hoppet over (gjenopptatt)\n");
@@ -343,5 +342,5 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionCommandContext
     lines.push(`  /rvv-miniputt logs show ${logger.getRunId()}  — vis detaljer for denne kjøringen`);
   }
 
-  ctx.ui.notify(lines.join("\n"), overallStatus === "success" ? "info" : "error");
+  return { status: overallStatus, text: lines.join("\n") };
 }

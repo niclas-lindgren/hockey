@@ -196,5 +196,6 @@ async function interactiveRunPipeline(ctx: ExtensionCommandContext): Promise<voi
     "info",
   );
 
-  await runPipeline(argsParts.join(" "), ctx);
+  const result = await runPipeline(argsParts.join(" "), ctx);
+  ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
 }

@@ -1,11 +1,32 @@
 ---
-name: rvv-miniputt
+name: rvv
 description: RVV Miniputt season planning pipeline for Norwegian hockey clubs. Runs a four-stage pipeline (config → scraping → planning → export) via /rvv-miniputt commands. Also contains tribal knowledge about clubs, calendar systems, login requirements, and LLM-driven browser scraping. Use when working with scraping, calendar generation, season planning, or pipeline debugging.
 ---
 
 # RVV Miniputt — season planning pipeline
 
 The extension at `.pi/extensions/rvv-miniputt.ts` provides slash commands for execution. This skill provides tribal knowledge, usage patterns, and troubleshooting that don't belong in code.
+
+## Agent-callable tools
+
+The `/rvv-miniputt ...` slash commands below are Pi extension commands, not shell
+binaries — running e.g. `/rvv-miniputt run` via Bash fails with "command not found".
+If you (the agent) need to trigger the pipeline yourself, call these tools instead,
+which the extension also registers:
+
+| Tool | Equivalent slash command |
+|---|---|
+| `rvv_miniputt_run` | `/rvv-miniputt run` |
+| `rvv_miniputt_status` | `/rvv-miniputt status` |
+| `rvv_miniputt_logs` | `/rvv-miniputt logs` |
+| `rvv_miniputt_calendars` | `/rvv-miniputt calendars` |
+
+Each tool takes the same flags as its slash command via an optional `args` string
+(e.g. `rvv_miniputt_run({ args: "--resume-from 2 --log-level verbose" })`). Always
+prefer these over reimplementing the pipeline by calling
+`tournament_scheduler.pipeline.stageN_*` Python modules directly — that bypasses
+checkpointing, resumption, and the structured run logging used for self-improvement
+analysis.
 
 ## Slash commands
 

@@ -15,7 +15,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
 import { cwd } from "node:process";
 import { existsSync } from "node:fs";
-import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -178,7 +178,7 @@ function userMessage(
 // ---------------------------------------------------------------------------
 
 async function callLLM(
-  ctx: ExtensionCommandContext,
+  ctx: ExtensionContext,
   system: string,
   user: string,
 ): Promise<string> {
@@ -282,10 +282,10 @@ function parseAction(data: Record<string, unknown>): LLMAction | null {
 export class ScraperAgent {
   private proc: ChildProcess | null = null;
   private buffer = "";
-  private ctx: ExtensionCommandContext;
+  private ctx: ExtensionContext;
   private pythonPath: string;
 
-  constructor(ctx: ExtensionCommandContext) {
+  constructor(ctx: ExtensionContext) {
     this.ctx = ctx;
     const venv = resolve(ctx.cwd, "venv", "bin", "python3");
     this.pythonPath = existsSync(venv) ? venv : "python3";
