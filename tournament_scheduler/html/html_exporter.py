@@ -229,10 +229,9 @@ class HtmlExporter:
 
         season_label = _season_label(plan)
         age_groups = sorted({t.age_group for t in plan.tournaments})
-        extra_age_options = "".join(
+        age_group_options = "".join(
             f'<option value="{ag}">{ag}</option>'
             for ag in age_groups
-            if ag not in ("U10", "U11")
         )
 
         # Scrape metadata for navbar
@@ -348,7 +347,7 @@ class HtmlExporter:
             "$DIVERSITY_SCORE$": str(int((plan.diversity_score or 0) * 100)),
             "$MONTH_BALANCE_SCORE$": str(int((plan.month_balance_score or 0) * 100)),
             "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),
-            "$EXTRA_AGE_OPTIONS$": extra_age_options,
+            "$AGE_GROUP_OPTIONS$": age_group_options,
             "$TOURNAMENTS_JSON$": tournaments_json,
             "$EXPORT_LINKS_HTML$": export_links_html,
         }

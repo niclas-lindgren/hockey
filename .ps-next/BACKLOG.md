@@ -6,7 +6,7 @@
 
 - [56] [x] Bundle pipeline exports and the generated input file together into a single export subfolder named with a date-time stamp, instead of writing them to separate/scattered locations. (2026-06-11)
 
-- [55] [ ] Team config (age_groups, parallel_games, etc.) is duplicated across input.json and .pipeline/stage1_config.json with overlapping/conflicting values. Consolidate so this configuration lives in only one place and the other derives from or references it.
+- [55] [x] Team config (age_groups, parallel_games, etc.) is duplicated across input.json and .pipeline/stage1_config.json with overlapping/conflicting values. Consolidate so this configuration lives in only one place and the other derives from or references it. (2026-06-11)
 
 - [54] [x] Stream progress output from rvv_miniputt_run (and the other rvv_miniputt_* tools) (2026-06-11)
   instead of leaving the user staring at a bare "Working..." spinner during long runs.
