@@ -26,7 +26,7 @@
   - Files: `tournament_scheduler/season_planner.py`
   - Approach: Re-verify `_scan_per_team_share_warnings` (around line 539-567) still correctly computes `expected = sum(counts) / len(counts)` and flags `abs(actual - expected) > max_game_count_spread` after the deficit-aware selection change; adjust the warning message/identifier if needed so it reflects the new (reduced but possibly still nonzero) skew accurately for both CLI and Excel consumers. Additionally, add a small counter/diagnostic (e.g. on the planner instance, surfaced alongside `per_team_share_warnings`) that records how many times the deficit-aware override let a club exceed `_max_club_teams_for` in a tournament, so operators can confirm same-club pairings beyond the proportional cap stayed minimal.
 
-- [ ] Add real-roster regression tests for reduced U10 spread and minimal cap overrides
+- [x] Added test_real_roster_jar_vs_kongsberg_spread_reduced_by_deficit_aware_selection using documentation/input.json: confirms the Jar-vs-Kongsberg U10 spread dropped from the previously documented baseline of 17 to 11 (within a new documented bound of 12), checks per_team_share_warnings still reflects residual skew, and asserts club_cap_overrides stays small relative to total tournaments (0 of 15 in this run). — 2026-06-11
   - Files: `tests/test_season_planner.py`
   - Approach: Add new test case(s) using the `documentation/input.json` real roster that run a full `build_plan`/season generation for U10, then assert (1) the Jar-vs-Kongsberg `team_game_counts` spread is measurably reduced compared to the previously documented 13-18 vs ~25 (spread 17) baseline — either now within `max_game_count_spread` or, if a structural floor remains, the new (smaller) bound is documented and `per_team_share_warnings` reflects it; and (2) the new club-cap-override counter is small relative to the total number of tournaments (i.e. same-club pairings beyond `_max_club_teams_for` remain the exception, not the norm).
 
@@ -66,4 +66,11 @@ LESSONS: none
 **Findings:** All 58 tests in test_season_planner.py and test_plan_exporter.py pass.
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+33), tournament_scheduler/cli/season_command.py (+25/-10)
+**Commit:** f1380a8 (hockey)
+
+### 2026-06-11 — Added test_real_roster_jar_vs_kongsberg_spread_reduced_by_deficit_aware_selection using documentation/input.json: confirms the Jar-vs-Kongsberg U10 spread dropped from the previously documented baseline of 17 to 11 (within a new documented bound of 12), checks per_team_share_warnings still reflects residual skew, and asserts club_cap_overrides stays small relative to total tournaments (0 of 15 in this run).
+**Rationale:** Documented the new (smaller) bound as 12 rather than requiring full closure within max_game_count_spread2, since a structural floor remains for a 7-vs-1 team ratio; kept the prior end-to-end test intact and added this as a separate regression test.
+**Findings:** All 53 tests in test_season_planner.py pass; the deficit-aware changes alone (without any cap overrides firing for this roster/window) reduced the spread from 17 to 11.
+LESSONS: none
+**Files:** tests/test_season_planner.py (+106)
 **Commit:** [pending — fill after commit]

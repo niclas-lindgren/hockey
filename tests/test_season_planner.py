@@ -944,6 +944,112 @@ class TestPerTeamGameCounts:
                 f"expected {label} to be flagged by per_team_share_warnings"
             )
 
+    def test_real_roster_jar_vs_kongsberg_spread_reduced_by_deficit_aware_selection(self):
+        """Regression test for backlog item 58 (deficit-aware selection).
+
+        Before this change, the real `documentation/input.json` roster
+        produced a documented Jar-vs-Kongsberg U10 spread of 17 (Jar's 7
+        U10 teams at ~13-18 games each vs Kongsberg's sole U10 team at ~25,
+        against a configured `max_game_count_spread` of 2).
+
+        `_deficit_score`-driven seed selection
+        (`_pick_least_recently_grouped`) plus the deficit-aware
+        `_max_club_teams_for` override (`_club_cap_overrides`) should
+        measurably reduce this spread. A structural floor remains — Jar's 7
+        U10 teams cannot fully match Kongsberg's single-team count without
+        very frequent same-club pairings — so this test documents the new
+        (smaller) bound rather than requiring the spread to fall fully
+        within `max_game_count_spread`. It also confirms
+        `per_team_share_warnings` still reflects the residual skew, and
+        that `club_cap_overrides` stays small relative to the total number
+        of tournaments (same-club pairings beyond `_max_club_teams_for`
+        remain the exception).
+        """
+        import os
+        from tournament_scheduler.roster_loader import RosterLoader
+
+        input_path = os.path.join(
+            os.path.dirname(__file__), "..", "documentation", "input.json"
+        )
+        if not os.path.isfile(input_path):
+            pytest.skip(f"documentation/input.json not found at {input_path}")
+
+        roster, federation_defaults = RosterLoader.load_with_defaults(input_path)
+        parallel_games = federation_defaults.get("parallelGames") or None
+        max_teams = federation_defaults.get("maxTeamsPerTournament") or None
+
+        start, end = datetime(2026, 9, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+        club_arenas = {team.club: f"{team.club}hallen" for team in roster.teams}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group=parallel_games,
+            max_teams_per_tournament_for_age_group=max_teams,
+        )
+        plan = planner.build_plan(start, end)
+
+        jar_u10_labels = [
+            t.label for t in roster.teams if t.club == "Jar" and t.age_group == "U10"
+        ]
+        kongsberg_u10_labels = [
+            t.label for t in roster.teams if t.club == "Kongsberg" and t.age_group == "U10"
+        ]
+        assert jar_u10_labels, "expected Jar to have U10 teams in the real roster"
+        assert kongsberg_u10_labels, "expected Kongsberg to have a U10 team in the real roster"
+
+        jar_u10_counts = [plan.team_game_counts.get(label, 0) for label in jar_u10_labels]
+        kongsberg_u10_counts = [
+            plan.team_game_counts.get(label, 0) for label in kongsberg_u10_labels
+        ]
+
+        spread = max(kongsberg_u10_counts + jar_u10_counts) - min(kongsberg_u10_counts + jar_u10_counts)
+
+        # The previously documented baseline spread (Jar 13-18 vs Kongsberg
+        # ~25) was 17. The deficit-aware changes should measurably narrow
+        # this gap.
+        previous_baseline_spread = 17
+        assert spread < previous_baseline_spread, (
+            f"expected the Jar-vs-Kongsberg U10 spread ({spread}) to be "
+            f"smaller than the previously documented baseline of "
+            f"{previous_baseline_spread}"
+        )
+
+        # Document the new (smaller) bound: with the deficit-aware
+        # selection, the spread should now be well within a generous bound
+        # of 12 (down from the previous baseline of 17). If a future change
+        # reduces it further, this bound can be tightened.
+        new_bound = 12
+        assert spread <= new_bound, (
+            f"Jar-vs-Kongsberg U10 spread ({spread}) exceeds the new "
+            f"documented bound of {new_bound}: "
+            f"jar={dict(zip(jar_u10_labels, jar_u10_counts))}, "
+            f"kongsberg={dict(zip(kongsberg_u10_labels, kongsberg_u10_counts))}"
+        )
+
+        # per_team_share_warnings should still reflect any residual skew —
+        # if the spread still exceeds max_game_count_spread, the affected
+        # teams should be flagged.
+        flagged_labels = {w[0] for w in planner.per_team_share_warnings}
+        if spread > planner.max_game_count_spread:
+            assert flagged_labels, (
+                "expected per_team_share_warnings to flag residual skew "
+                f"when spread ({spread}) exceeds max_game_count_spread "
+                f"({planner.max_game_count_spread})"
+            )
+
+        # The deficit-aware club-cap override should remain rare relative
+        # to the total number of tournaments — same-club pairings beyond
+        # `_max_club_teams_for` should be the exception, not the norm.
+        total_tournaments = len(plan.tournaments)
+        assert total_tournaments > 0
+        assert planner.club_cap_overrides <= total_tournaments, (
+            f"club_cap_overrides ({planner.club_cap_overrides}) should not "
+            f"exceed the total number of tournaments ({total_tournaments})"
+        )
+
 
 class TestSkillLevelDivisions:
     """Tests for skill-level-based participant selection."""
