@@ -27,7 +27,7 @@ The hand-typed `_DISTANCE_MATRIX` in `club_distances.py` contains rough/inconsis
   - Files: tests/test_club_distances.py
   - Replace exact magic-number assertions tied to the old static matrix (e.g. "Holmen ~85km vs Jar ~80km from Kongsberg", "Kongsberg-Jar > 50") with assertions appropriate to the new haversine-based values: same-club returns 0, symmetric for all club pairs, all 9x9 distinct-club pairs > 0, and `furthest_traveling_team`/`compute_team_travel_distances` pick the team with the actual greater computed `distance()` (computed via the function itself rather than hardcoded km figures) so tests stay correct if coordinates are later refined.
 
-- [ ] Add a unit test for the haversine + road-correction calculation itself
+- [x] Added a TestHaversineDistance class with three tests: identical coordinates return 0, Kongsberg<->Jar great-circle distance falls within a realistic 40-80km range, and the road-corrected distance() result equals round(haversine * _ROAD_DISTANCE_FACTOR) and is greater than the raw great-circle distance. — 2026-06-11
   - Files: tests/test_club_distances.py
   - Add a `TestHaversineDistance` (or similar) test class that checks: distance between identical coordinates is 0, a known real-world pair (e.g. Kongsberg <-> Oslo-area clubs such as Jar) falls within a realistic km range (e.g. 60-100km, reflecting the corrected Tønsberg<->Sandefjord ~30km style fix), and the result scales with the `_ROAD_DISTANCE_FACTOR` (i.e. is greater than the raw great-circle haversine distance).
 
@@ -72,4 +72,11 @@ LESSONS: none
 **Findings:** All 19 tests pass (added 1 new test). Comments referencing old approximate matrix values (e.g. 'Kongsberg -> Jar is ~80 km') were removed since the magic numbers no longer applied.
 LESSONS: none
 **Files:** tests/test_club_distances.py (+12/-2)
+**Commit:** 0d032b4 (hockey)
+
+### 2026-06-11 — Added a TestHaversineDistance class with three tests: identical coordinates return 0, Kongsberg<->Jar great-circle distance falls within a realistic 40-80km range, and the road-corrected distance() result equals round(haversine * _ROAD_DISTANCE_FACTOR) and is greater than the raw great-circle distance.
+**Rationale:** none
+**Findings:** All 22 tests pass (3 new). Confirms _haversine_km and _ROAD_DISTANCE_FACTOR are correctly wired into distance().
+LESSONS: none
+**Files:** tests/test_club_distances.py (+29)
 **Commit:** [pending — fill after commit]

@@ -2,11 +2,40 @@
 
 from tournament_scheduler.models import SeasonPlan, Team, Tournament
 from tournament_scheduler.club_distances import (
+    _CLUB_COORDINATES,
+    _ROAD_DISTANCE_FACTOR,
+    _haversine_km,
     arena_to_club,
     compute_team_travel_distances,
     distance,
     furthest_traveling_team,
 )
+
+
+class TestHaversineDistance:
+    """Tests for the underlying haversine + road-correction calculation."""
+
+    def test_identical_coordinates_returns_zero(self):
+        coord = _CLUB_COORDINATES["Kongsberg"]
+        assert _haversine_km(coord, coord) == 0
+
+    def test_known_pair_within_realistic_range(self):
+        """Kongsberg <-> Jar should be a realistic Oslo-area driving distance."""
+        kongsberg = _CLUB_COORDINATES["Kongsberg"]
+        jar = _CLUB_COORDINATES["Jar"]
+        great_circle = _haversine_km(kongsberg, jar)
+        assert 40 <= great_circle <= 80
+
+    def test_road_correction_scales_up_great_circle_distance(self):
+        """The corrected distance() result should be larger than the raw
+        haversine great-circle distance, by exactly _ROAD_DISTANCE_FACTOR."""
+        kongsberg = _CLUB_COORDINATES["Kongsberg"]
+        jar = _CLUB_COORDINATES["Jar"]
+        great_circle = _haversine_km(kongsberg, jar)
+        road_distance = distance("Kongsberg", "Jar")
+
+        assert road_distance > great_circle
+        assert road_distance == round(great_circle * _ROAD_DISTANCE_FACTOR)
 
 
 class TestDistanceLookup:
