@@ -387,7 +387,7 @@ class TestOpponentHistoryTrackingAndScoring:
         planner._opponent_history = {frozenset((team_a.label, team_b.label)): 2}
 
         candidates = [team_a, team_b, team_c] + [t for t in teams if t not in (team_a, team_b, team_c)]
-        selected = planner._pick_least_recently_grouped(candidates, 2)
+        selected = planner._pick_least_recently_grouped(candidates, 2, "U10")
 
         assert team_a in selected
         # Given a choice, the second pick should avoid repeating with team_a

@@ -22,6 +22,7 @@ per-tournament games — those are filled in later by the round-robin
 generator.
 """
 
+import math
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
@@ -53,17 +54,21 @@ DEFAULT_MAX_TEAMS_PER_TOURNAMENT = 6
 DEFAULT_TOURNAMENT_START_TIME = "09:00"
 
 
-def _cap_at_one_per_club(teams: Sequence[Team]) -> List[Team]:
-    """Return at most one team per club from *teams*, keeping first occurrence.
+def _cap_per_club(teams: Sequence[Team], club_limits: Dict[str, int]) -> List[Team]:
+    """Return *teams* filtered so no club exceeds its per-club limit.
 
-    Used as a fast-path filter on the small-roster case to enforce the hard
-    ``max_club_teams_per_tournament`` constraint (no intra-club matchups).
+    `club_limits` maps club name -> maximum number of teams from that club
+    to keep, defaulting to 1 for clubs not present in the mapping. Keeps the
+    first occurrences encountered (roster order), mirroring
+    `_cap_at_one_per_club` but allowing club-specific allowances above 1.
     """
-    seen_clubs: set[str] = set()
+    seen_counts: Dict[str, int] = {}
     result: List[Team] = []
     for team in teams:
-        if team.club not in seen_clubs:
-            seen_clubs.add(team.club)
+        limit = club_limits.get(team.club, 1)
+        count = seen_counts.get(team.club, 0)
+        if count < limit:
+            seen_counts[team.club] = count + 1
             result.append(team)
     return result
 
@@ -604,17 +609,18 @@ class SeasonPlanner:
         """Scan completed tournaments for club-load violations.
 
         Appends structured warnings to ``_club_load_warnings`` for every
-        tournament where a club has more than ``max_club_teams_per_tournament``
-        teams participating.  This should never fire now that the constraint
-        is hard (``_pick_least_recently_grouped`` and ``_select_participants``
-        both enforce it), but is retained as a defensive check.
+        tournament where a club has more teams participating than its
+        per-club allowance (`_max_club_teams_for`).  This should never fire
+        now that the constraint is hard (``_pick_least_recently_grouped``
+        and ``_select_participants`` both enforce it), but is retained as a
+        defensive check.
         """
-        max_club = self.max_club_teams_per_tournament
         for t in tournaments:
             club_counts: Dict[str, int] = {}
             for team in t.teams:
                 club_counts[team.club] = club_counts.get(team.club, 0) + 1
             for club, count in club_counts.items():
+                max_club = self._max_club_teams_for(t.age_group, club)
                 if count > max_club:
                     self._club_load_warnings.append(
                         (club, t.age_group, t.date.isoformat(), count)
@@ -1111,27 +1117,28 @@ class SeasonPlanner:
     def _select_participants(self, age_group: str) -> List[Team]:
         """Select the teams to invite to a tournament for the given age group.
 
-        Enforces the hard ``max_club_teams_per_tournament`` constraint:
-        at most one team per club per tournament. Invites the whole
+        Enforces a per-club slot allowance (see `_max_club_teams_for`):
+        each club may have up to a number of teams in a single tournament
+        proportional to how many teams it fields in this age group,
+        capped by the age group's `_max_teams_for` limit. Invites the whole
         age-group roster when it is small enough for a sensible
         round-robin and club diversity allows it; otherwise picks a
         subset using a least-recently-grouped-together heuristic.
 
-        Root-cause note (club-size skew): with the default
-        ``max_club_teams_per_tournament=1``, each club gets at most one
+        Root-cause note (club-size skew): previously, with a flat
+        ``max_club_teams_per_tournament=1``, each club got at most one
         "slot" per tournament regardless of how many teams it fields in
         this age group. A club with many same-age-group teams (e.g. Jar
-        fielding 7 U10 teams) therefore has its single slot shared/rotated
+        fielding 7 U10 teams) therefore had its single slot shared/rotated
         across all of those teams, while a club with only one team in the
-        age group (e.g. Kongsberg's sole U10 team) gets that slot every
-        time. `_pick_least_recently_grouped`'s normalized invite-count
-        tie-break (`_normalized_invite_count`) ensures the shared slot
-        rotates evenly across a club's same-age-group siblings, but it
-        cannot equalize a sibling's individual game count with a
-        single-team club's count — that would require relaxing
-        `max_club_teams_per_tournament` for clubs with many same-age-group
-        teams, which is out of scope here. See `per_team_share_warnings`
-        (`_scan_per_team_share_warnings`) for the resulting diagnostic.
+        age group (e.g. Kongsberg's sole U10 team) got that slot every
+        time. `_max_club_teams_for` now grants such clubs a proportional
+        number of slots (rounded up, capped by the tournament size limit),
+        so several of a club's same-age-group siblings can be invited to
+        the same tournament when capacity allows, equalizing each
+        individual team's expected game count with a single-team club's
+        count. See `per_team_share_warnings`
+        (`_scan_per_team_share_warnings`) for any residual skew.
         """
         candidates = self.roster.by_age_group(age_group)
         if not candidates:
@@ -1139,10 +1146,15 @@ class SeasonPlanner:
 
         max_teams = self._max_teams_for(age_group)
         if len(candidates) <= max_teams:
-            # Enforce club constraint even on the small-roster fast path.
-            return _cap_at_one_per_club(candidates)
+            # Enforce per-club slot allowance even on the small-roster
+            # fast path.
+            club_limits = {
+                team.club: self._max_club_teams_for(age_group, team.club)
+                for team in candidates
+            }
+            return _cap_per_club(candidates, club_limits)
 
-        return self._pick_least_recently_grouped(candidates, max_teams)
+        return self._pick_least_recently_grouped(candidates, max_teams, age_group)
 
     def _max_teams_for(self, age_group: str) -> int:
         """Return the maximum number of teams to invite to a single tournament.
@@ -1159,6 +1171,36 @@ class SeasonPlanner:
             return max(4, min(DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games, parallel_games * 3))
         return DEFAULT_MAX_TEAMS_PER_TOURNAMENT
 
+    def _max_club_teams_for(self, age_group: str, club: str) -> int:
+        """Return how many teams from `club` may play in one `age_group` tournament.
+
+        Replaces the old flat ``max_club_teams_per_tournament`` cap with a
+        per-club allowance proportional to how many teams that club fields
+        in this age group, relative to the age group's total team count:
+
+            ceil(club_team_count / total_team_count * max_teams_per_tournament)
+
+        capped at the age group's `_max_teams_for` tournament-size limit, and
+        floored at `max_club_teams_per_tournament` (default 1) for any club
+        that has at least one team in the age group. This lets a club with
+        many same-age-group teams (e.g. Jar fielding 7 U10 teams) send
+        several of them to the same tournament when capacity permits,
+        instead of rotating a single shared slot — equalizing each
+        individual team's expected game count with a single-team club's
+        (e.g. Kongsberg's sole U10 team).
+        """
+        teams_in_age_group = self.roster.by_age_group(age_group)
+        total = len(teams_in_age_group)
+        if total == 0:
+            return self.max_club_teams_per_tournament
+        club_team_count = sum(1 for t in teams_in_age_group if t.club == club)
+        if club_team_count == 0:
+            return self.max_club_teams_per_tournament
+
+        max_teams = self._max_teams_for(age_group)
+        proportional = math.ceil(club_team_count / total * max_teams)
+        return max(self.max_club_teams_per_tournament, min(proportional, max_teams))
+
     def _normalized_invite_count(self, team: Team) -> float:
         """Return `team`'s invite count, normalized by club-size-in-age-group.
 
@@ -1174,7 +1216,9 @@ class SeasonPlanner:
         sibling_count = self._club_age_group_team_counts.get(team.label, 1)
         return self._invite_counts.get(team.label, 0) * sibling_count
 
-    def _pick_least_recently_grouped(self, candidates: Sequence[Team], count: int) -> List[Team]:
+    def _pick_least_recently_grouped(
+        self, candidates: Sequence[Team], count: int, age_group: str
+    ) -> List[Team]:
         """Greedily build a subset that minimizes repeat matchups.
 
         Starts from the team that has been invited least often overall, then
@@ -1187,22 +1231,22 @@ class SeasonPlanner:
         (`_grouped_with`), then lowest overall invite count, then roster
         order.
 
-        Enforces the hard ``max_club_teams_per_tournament`` constraint:
-        teams from a club that already has a team in the selected set are
-        excluded entirely.  If that leaves no candidates at all, falls back
-        to the soft penalty to avoid deadlock.
+        Enforces a per-club slot allowance: teams from a club that already
+        has `_max_club_teams_for(age_group, club)` teams in the selected set
+        are excluded entirely. If that leaves no candidates at all, falls
+        back to the soft penalty to avoid deadlock.
 
         Root-cause note (club-size skew): see `_select_participants` and
         `_record_grouping` for why raw `_invite_counts` alone would
         under-prioritize teams from clubs with many same-age-group
         siblings. This method's seed selection and tie-break both use
         `_normalized_invite_count` instead of raw `_invite_counts` to
-        rotate a club's shared per-tournament slot evenly across its
-        siblings. The residual skew this cannot resolve (a sibling's
-        individual count vs. a single-team club's count) is reported via
-        `per_team_share_warnings`.
+        rotate a club's shared per-tournament slot(s) evenly across its
+        siblings, while `_max_club_teams_for` grants clubs with many
+        same-age-group teams proportionally more slots per tournament so
+        individual siblings' game counts can match a single-team club's
+        count. Any residual skew is reported via `per_team_share_warnings`.
         """
-        max_club = self.max_club_teams_per_tournament
         remaining = list(candidates)
         if not remaining:
             return []
@@ -1229,20 +1273,23 @@ class SeasonPlanner:
                 grouped_with = self._grouped_with.get(team.label, set())
                 return sum(1 for s in selected if s.label in grouped_with)
 
-            # Hard club constraint: exclude teams from clubs already
-            # represented in the selected set.  Falls back to soft penalty
-            # when no candidates remain after filtering.
+            # Hard club constraint: exclude teams from clubs that already
+            # have their full per-club allowance represented in the
+            # selected set. Falls back to soft penalty when no candidates
+            # remain after filtering.
             hard_filtered: List[Team] = [
                 t for t in remaining
-                if sum(1 for s in selected if s.club == t.club) < max_club
+                if sum(1 for s in selected if s.club == t.club)
+                < self._max_club_teams_for(age_group, t.club)
             ]
             eligible = hard_filtered if hard_filtered else remaining
 
             # Club-load penalty for the fallback case (soft): push down
-            # candidates from clubs that already have max_club teams in
-            # the selected set.
+            # candidates from clubs that already have their full per-club
+            # allowance in the selected set.
             def club_penalty(team: Team) -> int:
                 club_count = sum(1 for s in selected if s.club == team.club)
+                max_club = self._max_club_teams_for(age_group, team.club)
                 if club_count >= max_club:
                     return club_count * 100  # outweighs typical match-up scores
                 return 0
@@ -1507,8 +1554,9 @@ class SeasonPlanner:
         appears in at least one pair recorded in `_opponent_history`), count
         its distinct opponents so far and divide by the number of "available
         opponents" — other teams in the same age group, excluding teams from
-        its own club (since `max_club_teams_per_tournament=1` means
-        intra-club matchups never occur).
+        its own club (intra-club matchups are filtered out by
+        `generate_round_robin_games`, so they never occur regardless of how
+        many same-club teams share a tournament).
 
         The overall score is the average of these per-team ratios, rounded
         to 3 decimals (1.0 = every team has played every eligible opponent
