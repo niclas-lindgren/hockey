@@ -1,15 +1,13 @@
-# Verification Report — Stream progress output (backlog #54)
+# Verification Report
 
-## Results
+STATUS: NEEDS_REVIEW
 
-1. **PASS** — When `/rvv-miniputt run` executes, the user sees a notification for each stage start before the stage completes. Code review: the slash command handler passes an onProgress callback to runPipeline that calls `ctx.ui.notify` (transient toast) and `ctx.ui.setStatus` (persistent footer) at every stage transition. See rvv-miniputt.ts lines 113-131.
-
-2. **PASS** — When the agent calls rvv_miniputt_run, each stage start/completion appears as an onUpdate partial result. Code review: the execute function passes `onUpdate` through to runPipeline's onProgress callback. See rvv-miniputt.ts lines 234-240.
-
-3. **PASS** — The existing lines[] accumulation and final return text is unchanged — only additive streaming is added. Code review: all 21 new `onProgress?.()` calls are additive; zero `lines.push()` calls were removed or modified. The final `return { status, text }` shape is untouched.
-
-4. **PASS** — rvv_miniputt_status, rvv_miniputt_logs, and rvv_miniputt_calendars continue to work as before. Code review: no changes to any of these three handler functions. `rvv_miniputt_status` confirmed working via tool call.
-
-5. **PASS** — Syntax: all three changed files have balanced braces (types.ts: 11/11, pipeline-runner.ts: 135/135, rvv-miniputt.ts: 97/97). The project uses jiti (no compilation required), and pre-existing tsc errors in other files are unrelated. `rvv_miniputt_status` tool confirmed extension loads correctly.
-
-**Final: ALL PASS**
+| Criterion | Verdict | Evidence |
+| --- | --- | --- |
+| All 4 defense-in-depth layers are verified to work on the current code. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| No path exists where BOOKUP_EMAIL or BOOKUP_PASSWORD values could appear in text sent to a local or remote LLM (scraper-agent.ts `callLLM`, llm_scraper.py `_extract_events_via_llm`). | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| No path exists where credential values could appear in pipeline log files (`.pipeline/logs/run-*.jsonl`). | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| No path exists where credential values could appear in error messages surfaced to stderr/stdout. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| run: pytest tests/test_browser_worker.py -v | PASS | exit 0; output: ============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0 -- /usr/bin/python3 |
+| Any gaps found are documented and, if fixable within this plan, addressed. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
