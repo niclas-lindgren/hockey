@@ -85,4 +85,4 @@ LESSONS: none
 **Findings:** All 91 season/planner/export/cli tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/cli/season_command.py (+18), tournament_scheduler/season_planner.py (+25)
-**Commit:** [pending — fill after commit]
+**Commit:** 83f56bb (hockey)
