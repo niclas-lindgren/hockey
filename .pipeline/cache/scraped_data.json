@@ -1,16 +1,154 @@
 {
   "_meta": {
-    "updated_at": "2026-06-11T13:31:32.773939",
-    "ttl_hours": 6,
+    "updated_at": "2026-06-11T20:34:07.364368",
+    "ttl_hours": 6.0,
     "start_date": "2026-09-01",
     "end_date": "2027-04-30"
   },
   "sources": {
+    "Tønsberg": {
+      "name": "Tønsberg",
+      "url": "https://www.bookup.no/utleie/Index/860",
+      "scrape_timestamp": "2026-06-11T17:28:27.098Z",
+      "event_count": 1,
+      "blocked": false,
+      "events": [
+        {
+          "date": "01.06.2026",
+          "name": "Booking 7:00-23:30",
+          "datetime": "2026-06-01T07:00:27.093356",
+          "duration_hours": 16.5
+        }
+      ]
+    },
+    "Sandefjord Penguins": {
+      "name": "Sandefjord Penguins",
+      "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen___/view:item/id:4497/part:/place:3907:SANDEFJORD/q:sandefjord/r:31/mod:book",
+      "scrape_timestamp": "2026-06-11T17:28:18.072Z",
+      "event_count": 19,
+      "blocked": false,
+      "events": [
+        {
+          "date": "01.06.2026",
+          "name": "Booking 7:00-22:30",
+          "datetime": "2026-06-01T07:00:12.848428",
+          "duration_hours": 15.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:00 - 16:00",
+          "datetime": "2026-06-01T14:00:12.848428",
+          "duration_hours": 2
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 15:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 7
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 20:30",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 4
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:30 - 15:30",
+          "datetime": "2026-06-01T14:30:12.848428",
+          "duration_hours": 1
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:00 - 16:00",
+          "datetime": "2026-06-01T14:00:12.848428",
+          "duration_hours": 2
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 15:00",
+          "datetime": "2026-06-01T08:00:12.848428",
+          "duration_hours": 7
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:12.848428",
+          "duration_hours": 5.5
+        }
+      ]
+    },
     "Ringerike": {
       "name": "Ringerike",
       "url": "https://ics.teamup.com/feed/ksr8bg1tpn5s3npskw/0.ics",
-      "scrape_timestamp": "2026-06-11T13:31:32.773939",
-      "ttl_hours": 6,
+      "scrape_timestamp": "2026-06-11T20:34:07.364368",
+      "ttl_hours": 6.0,
       "event_count": 1642,
       "blocked": false,
       "events": [
@@ -18,19 +156,19 @@
           "date": "01.09.2026",
           "name": "RIK vs Lillehammer",
           "datetime": "2026-09-01T13:00:00+02:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "06.09.2026",
           "name": "Region Viken Vest",
           "datetime": "2026-09-06T11:00:00+02:00",
-          "duration_hours": 3
+          "duration_hours": 3.0
         },
         {
           "date": "11.09.2026",
           "name": "RIK vs Stjernen",
           "datetime": "2026-09-11T13:00:00+02:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "12.09.2026",
@@ -42,7 +180,7 @@
           "date": "13.09.2026",
           "name": "JU18 vs Storhamar",
           "datetime": "2026-09-13T11:00:00+02:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "20.09.2026",
@@ -54,25 +192,25 @@
           "date": "11.11.2026",
           "name": "Ringerike Videregående",
           "datetime": "2026-11-11T08:30:00+01:00",
-          "duration_hours": 3
+          "duration_hours": 3.0
         },
         {
           "date": "16.04.2027",
           "name": "JU12 cup",
           "datetime": "2027-04-16T08:00:00+02:00",
-          "duration_hours": 15
+          "duration_hours": 15.0
         },
         {
           "date": "17.04.2027",
           "name": "JU12 cup",
           "datetime": "2027-04-17T08:00:00+02:00",
-          "duration_hours": 15
+          "duration_hours": 15.0
         },
         {
           "date": "18.04.2027",
           "name": "JU12 cup",
           "datetime": "2027-04-18T08:00:00+02:00",
-          "duration_hours": 15
+          "duration_hours": 15.0
         },
         {
           "date": "07.09.2026",
@@ -7164,211 +7302,211 @@
           "date": "03.09.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-09-03T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "10.09.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-09-10T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "17.09.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-09-17T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "24.09.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-09-24T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-01T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-08T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-15T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-22T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-29T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.11.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-11-05T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.11.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-11-12T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.11.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-11-19T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.11.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-11-26T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-03T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "10.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-10T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "17.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-17T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "24.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-24T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "31.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-31T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "07.01.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-01-07T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "14.01.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-01-14T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "21.01.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-01-21T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "28.01.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-01-28T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.02.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-02-04T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.02.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-02-11T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.02.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-02-18T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "25.02.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-02-25T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.03.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-03-04T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.03.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-03-11T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.03.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-03-18T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "25.03.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-03-25T18:40:00+01:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-01T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-08T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-15T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-22T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-29T18:40:00+02:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.09.2026",
@@ -9871,8 +10009,8 @@
     "Frisk Asker": {
       "name": "Frisk Asker",
       "url": "https://ics.teamup.com/feed/ksdwpwxysmxwnuftoy/0.ics",
-      "scrape_timestamp": "2026-06-11T13:31:32.773939",
-      "ttl_hours": 6,
+      "scrape_timestamp": "2026-06-11T20:34:07.364368",
+      "ttl_hours": 6.0,
       "event_count": 1204,
       "blocked": false,
       "events": [
@@ -9880,31 +10018,31 @@
           "date": "05.09.2026",
           "name": "Cup JU10",
           "datetime": "2026-09-05T09:00:00+02:00",
-          "duration_hours": 10
+          "duration_hours": 10.0
         },
         {
           "date": "06.09.2026",
           "name": "Tentativ Cup JU12",
           "datetime": "2026-09-06T09:00:00+02:00",
-          "duration_hours": 10
+          "duration_hours": 10.0
         },
         {
           "date": "12.09.2026",
           "name": "Cup U11",
           "datetime": "2026-09-12T09:00:00+02:00",
-          "duration_hours": 10
+          "duration_hours": 10.0
         },
         {
           "date": "13.09.2026",
           "name": "Cup U10",
           "datetime": "2026-09-13T09:00:00+02:00",
-          "duration_hours": 10
+          "duration_hours": 10.0
         },
         {
           "date": "20.09.2026",
           "name": "Cup U9",
           "datetime": "2026-09-20T09:00:00+02:00",
-          "duration_hours": 10
+          "duration_hours": 10.0
         },
         {
           "date": "16.09.2026",
@@ -17105,8 +17243,8 @@
     "Jutul": {
       "name": "Jutul",
       "url": "https://baerumishall.no/kalender/",
-      "scrape_timestamp": "2026-06-11T13:31:32.773939",
-      "ttl_hours": 6,
+      "scrape_timestamp": "2026-06-11T20:34:07.364368",
+      "ttl_hours": 6.0,
       "event_count": 240,
       "blocked": false,
       "events": [
@@ -17114,1449 +17252,1465 @@
           "date": "31.08.2026",
           "name": "Jutul ESH",
           "datetime": "2026-08-31T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Roger og venner",
           "datetime": "2026-09-01T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-01T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-03T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.09.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-09-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "07.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-07T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.09.2026",
           "name": "Roger og venner",
           "datetime": "2026-09-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "10.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-10T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.09.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-09-11T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-11T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "14.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-14T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.09.2026",
           "name": "Roger og venner",
           "datetime": "2026-09-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "17.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-17T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.09.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-09-18T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-18T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "21.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-21T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.09.2026",
           "name": "Roger og venner",
           "datetime": "2026-09-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "24.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-24T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "25.09.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-09-25T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "25.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-25T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "28.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-28T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.09.2026",
           "name": "Roger og venner",
           "datetime": "2026-09-29T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-29T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.09.2026",
           "name": "Jutul ESH",
           "datetime": "2026-09-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-01T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.10.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-10-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "06.10.2026",
           "name": "Roger og venner",
           "datetime": "2026-10-06T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "06.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-06T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "07.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-07T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.10.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-10-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "13.10.2026",
           "name": "Roger og venner",
           "datetime": "2026-10-13T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "13.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-13T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "14.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-14T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.10.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-10-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "20.10.2026",
           "name": "Roger og venner",
           "datetime": "2026-10-20T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "20.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-20T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "21.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-21T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.10.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-10-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-26T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "27.10.2026",
           "name": "Roger og venner",
           "datetime": "2026-10-27T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "27.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-27T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "28.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-28T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-29T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.10.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-10-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.10.2026",
           "name": "Jutul ESH",
           "datetime": "2026-10-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.11.2026",
           "name": "Roger og venner",
           "datetime": "2026-11-03T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-03T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "06.11.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-11-06T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "06.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-06T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "10.11.2026",
           "name": "Roger og venner",
           "datetime": "2026-11-10T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "10.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-10T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-11T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "13.11.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-11-13T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "13.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-13T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "17.11.2026",
           "name": "Roger og venner",
           "datetime": "2026-11-17T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "17.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-17T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-18T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "20.11.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-11-20T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "20.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-20T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "24.11.2026",
           "name": "Roger og venner",
           "datetime": "2026-11-24T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "24.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-24T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "25.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-25T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-26T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "27.11.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-11-27T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "27.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-27T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.11.2026",
           "name": "Jutul ESH",
           "datetime": "2026-11-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Roger og venner",
           "datetime": "2026-12-01T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-01T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-03T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.12.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-12-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "07.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-07T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.12.2026",
           "name": "Roger og venner",
           "datetime": "2026-12-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "10.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-10T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.12.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-12-11T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-11T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "14.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-14T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.12.2026",
           "name": "Roger og venner",
           "datetime": "2026-12-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "17.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-17T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.12.2026",
           "name": "Hansen Vekst",
           "datetime": "2026-12-18T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-18T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "21.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-21T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.12.2026",
           "name": "Roger og venner",
           "datetime": "2026-12-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.12.2026",
           "name": "Jutul ESH",
           "datetime": "2026-12-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.01.2027",
           "name": "Roger og venner",
           "datetime": "2027-01-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "06.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-06T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "07.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-07T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.01.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-01-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-11T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.01.2027",
           "name": "Roger og venner",
           "datetime": "2027-01-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "13.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-13T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "14.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-14T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.01.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-01-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-18T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.01.2027",
           "name": "Roger og venner",
           "datetime": "2027-01-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "20.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-20T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "21.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-21T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.01.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-01-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "25.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-25T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.01.2027",
           "name": "Roger og venner",
           "datetime": "2027-01-26T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-26T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "27.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-27T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "28.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-28T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.01.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-01-29T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.01.2027",
           "name": "Jutul ESH",
           "datetime": "2027-01-29T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.01.2027",
           "name": "Nasjonalt kunstløpstevne",
           "datetime": "2027-01-29T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.01.2027",
           "name": "Nasjonalt kunstløpstevne",
           "datetime": "2027-01-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "31.01.2027",
           "name": "Nasjonalt kunstløpstevne",
           "datetime": "2027-01-31T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-01T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.02.2027",
           "name": "Roger og venner",
           "datetime": "2027-02-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-03T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.02.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-02-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.02.2027",
           "name": "Roger og venner",
           "datetime": "2027-02-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "10.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-10T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-11T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.02.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-02-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.02.2027",
           "name": "Roger og venner",
           "datetime": "2027-02-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "17.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-17T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-18T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.02.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-02-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.02.2027",
           "name": "Jutul ESH",
           "datetime": "2027-02-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.02.2027",
           "name": "Roger og venner",
           "datetime": "2027-02-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.02.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-02-26T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-01T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.03.2027",
           "name": "Roger og venner",
           "datetime": "2027-03-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-03T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.03.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-03-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.03.2027",
           "name": "Roger og venner",
           "datetime": "2027-03-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "10.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-10T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "11.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-11T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.03.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-03-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.03.2027",
           "name": "Roger og venner",
           "datetime": "2027-03-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "17.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-17T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "18.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-18T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.03.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-03-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.03.2027",
           "name": "Roger og venner",
           "datetime": "2027-03-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "24.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-24T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "25.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-25T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.03.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-03-26T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-26T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-29T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.03.2027",
           "name": "Roger og venner",
           "datetime": "2027-03-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "31.03.2027",
           "name": "Jutul ESH",
           "datetime": "2027-03-31T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-01T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.04.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-04-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "02.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-02T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "06.04.2027",
           "name": "Roger og venner",
           "datetime": "2027-04-06T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "06.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-06T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "07.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-07T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "08.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-08T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.04.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-04-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "09.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-09T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "12.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-12T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "13.04.2027",
           "name": "Roger og venner",
           "datetime": "2027-04-13T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "13.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-13T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "14.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-14T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "15.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-15T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.04.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-04-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "16.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-16T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "19.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-19T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "20.04.2027",
           "name": "Roger og venner",
           "datetime": "2027-04-20T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "20.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-20T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "21.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-21T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "22.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-22T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.04.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-04-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "23.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-23T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "26.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-26T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "27.04.2027",
           "name": "Roger og venner",
           "datetime": "2027-04-27T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "27.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-27T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "28.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-28T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "29.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-29T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.04.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-04-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "30.04.2027",
           "name": "Jutul ESH",
           "datetime": "2027-04-30T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "03.05.2027",
           "name": "Jutul ESH",
           "datetime": "2027-05-03T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.05.2027",
           "name": "Roger og venner",
           "datetime": "2027-05-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "04.05.2027",
           "name": "Jutul ESH",
           "datetime": "2027-05-04T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "05.05.2027",
           "name": "Jutul ESH",
           "datetime": "2027-05-05T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "06.05.2027",
           "name": "Jutul ESH",
           "datetime": "2027-05-06T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "07.05.2027",
           "name": "Hansen Vekst",
           "datetime": "2027-05-07T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "07.05.2027",
           "name": "Jutul ESH",
           "datetime": "2027-05-07T00:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
+        }
+      ]
+    },
+    "Skien ishall": {
+      "name": "Skien ishall",
+      "url": "https://skienfritidspark.brp.exigo.no/ishallen",
+      "scrape_timestamp": "2026-06-11T20:34:07.364368",
+      "ttl_hours": 6.0,
+      "event_count": 1,
+      "blocked": false,
+      "events": [
+        {
+          "date": "01.09.2026",
+          "name": "Booking 08:00-22:30",
+          "datetime": "2026-09-01T08:00:00",
+          "duration_hours": 14.5
         }
       ]
     },
     "Kongsberg ishall": {
       "name": "Kongsberg ishall",
       "url": "https://kongsberghallen.no/webkalender/ishall/",
-      "scrape_timestamp": "2026-06-11T13:31:32.773939",
-      "ttl_hours": 6,
+      "scrape_timestamp": "2026-06-11T20:34:07.364368",
+      "ttl_hours": 6.0,
       "event_count": 11,
       "blocked": false,
       "events": [
@@ -18564,19 +18718,19 @@
           "date": "03.08.2026",
           "name": "HUSK påminnelse om kampoppsett for hockey",
           "datetime": "2026-08-03T09:00:00",
-          "duration_hours": 3
+          "duration_hours": 3.0
         },
         {
           "date": "03.08.2026",
           "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
           "datetime": "2026-08-03T10:00:00",
-          "duration_hours": 3
+          "duration_hours": 3.0
         },
         {
           "date": "24.08.2026",
           "name": "Kongsberg gruppen",
           "datetime": "2026-08-24T00:00:00",
-          "duration_hours": 0
+          "duration_hours": 0.0
         },
         {
           "date": "12.09.2026",
@@ -18594,7 +18748,7 @@
           "date": "28.09.2026",
           "name": "Tivoli ***",
           "datetime": "2026-09-28T00:00:00",
-          "duration_hours": 0
+          "duration_hours": 0.0
         },
         {
           "date": "17.10.2026",
@@ -18606,19 +18760,19 @@
           "date": "30.10.2026",
           "name": "HalloVenn",
           "datetime": "2026-10-30T08:00:00",
-          "duration_hours": 14
+          "duration_hours": 14.0
         },
         {
           "date": "31.10.2026",
           "name": "HalloVenn",
           "datetime": "2026-10-31T08:00:00",
-          "duration_hours": 14
+          "duration_hours": 14.0
         },
         {
           "date": "01.11.2026",
           "name": "HalloVenn",
           "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 14
+          "duration_hours": 14.0
         },
         {
           "date": "07.11.2026",
@@ -18628,27 +18782,11 @@
         }
       ]
     },
-    "Skien ishall": {
-      "name": "Skien ishall",
-      "url": "https://skienfritidspark.brp.exigo.no/ishallen",
-      "scrape_timestamp": "2026-06-11T13:31:32.773939",
-      "ttl_hours": 6,
-      "event_count": 1,
-      "blocked": false,
-      "events": [
-        {
-          "date": "01.09.2026",
-          "name": "Booking 08:00-22:30",
-          "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 14.5
-        }
-      ]
-    },
     "Jar": {
       "name": "Jar",
       "url": "https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true",
-      "scrape_timestamp": "2026-06-11T13:31:32.773939",
-      "ttl_hours": 6,
+      "scrape_timestamp": "2026-06-11T20:34:07.364368",
+      "ttl_hours": 6.0,
       "event_count": 368,
       "blocked": false,
       "events": [
@@ -18656,25 +18794,25 @@
           "date": "01.09.2026",
           "name": "Booking 06:15-07:15",
           "datetime": "2026-09-01T06:15:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 00:00-08:00",
           "datetime": "2026-09-01T00:00:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 00:00-09:00",
           "datetime": "2026-09-01T00:00:00",
-          "duration_hours": 9
+          "duration_hours": 9.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 07:00-08:00",
           "datetime": "2026-09-01T07:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
@@ -18686,7 +18824,7 @@
           "date": "01.09.2026",
           "name": "Booking 08:00-13:00",
           "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 5
+          "duration_hours": 5.0
         },
         {
           "date": "01.09.2026",
@@ -18698,25 +18836,25 @@
           "date": "01.09.2026",
           "name": "Booking 09:00-10:00",
           "datetime": "2026-09-01T09:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 10:00-11:00",
           "datetime": "2026-09-01T10:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 10:00-12:00",
           "datetime": "2026-09-01T10:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 11:00-12:00",
           "datetime": "2026-09-01T11:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
@@ -18740,13 +18878,13 @@
           "date": "01.09.2026",
           "name": "Booking 13:00-14:00",
           "datetime": "2026-09-01T13:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 14:30-15:30",
           "datetime": "2026-09-01T14:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
@@ -18770,13 +18908,13 @@
           "date": "01.09.2026",
           "name": "Booking 15:30-16:30",
           "datetime": "2026-09-01T15:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 15:30-17:30",
           "datetime": "2026-09-01T15:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.09.2026",
@@ -18812,7 +18950,7 @@
           "date": "01.09.2026",
           "name": "Booking 18:00-19:00",
           "datetime": "2026-09-01T18:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
@@ -18824,7 +18962,7 @@
           "date": "01.09.2026",
           "name": "Booking 19:00-21:00",
           "datetime": "2026-09-01T19:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.09.2026",
@@ -18842,7 +18980,7 @@
           "date": "01.09.2026",
           "name": "Booking 19:00-20:00",
           "datetime": "2026-09-01T19:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
@@ -18854,13 +18992,13 @@
           "date": "01.09.2026",
           "name": "Booking 20:30-21:30",
           "datetime": "2026-09-01T20:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 20:00-21:00",
           "datetime": "2026-09-01T20:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
@@ -18884,7 +19022,7 @@
           "date": "01.09.2026",
           "name": "Booking 21:00-22:00",
           "datetime": "2026-09-01T21:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
@@ -18896,61 +19034,61 @@
           "date": "01.09.2026",
           "name": "Booking 08:00-12:00",
           "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 4
+          "duration_hours": 4.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 12:00-14:00",
           "datetime": "2026-09-01T12:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 14:00-15:00",
           "datetime": "2026-09-01T14:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 15:00-16:00",
           "datetime": "2026-09-01T15:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 16:00-22:00",
           "datetime": "2026-09-01T16:00:00",
-          "duration_hours": 6
+          "duration_hours": 6.0
         },
         {
           "date": "01.09.2026",
           "name": "Booking 22:00-24:00",
           "datetime": "2026-09-01T22:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 06:15-07:15",
           "datetime": "2026-10-01T06:15:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 00:00-08:00",
           "datetime": "2026-10-01T00:00:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 00:00-09:00",
           "datetime": "2026-10-01T00:00:00",
-          "duration_hours": 9
+          "duration_hours": 9.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 07:00-08:00",
           "datetime": "2026-10-01T07:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
@@ -18962,7 +19100,7 @@
           "date": "01.10.2026",
           "name": "Booking 08:00-13:00",
           "datetime": "2026-10-01T08:00:00",
-          "duration_hours": 5
+          "duration_hours": 5.0
         },
         {
           "date": "01.10.2026",
@@ -18974,25 +19112,25 @@
           "date": "01.10.2026",
           "name": "Booking 09:00-10:00",
           "datetime": "2026-10-01T09:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 10:00-11:00",
           "datetime": "2026-10-01T10:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 10:00-12:00",
           "datetime": "2026-10-01T10:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 11:00-12:00",
           "datetime": "2026-10-01T11:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
@@ -19016,13 +19154,13 @@
           "date": "01.10.2026",
           "name": "Booking 13:00-14:00",
           "datetime": "2026-10-01T13:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 14:30-15:30",
           "datetime": "2026-10-01T14:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
@@ -19046,13 +19184,13 @@
           "date": "01.10.2026",
           "name": "Booking 15:30-16:30",
           "datetime": "2026-10-01T15:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 15:30-17:30",
           "datetime": "2026-10-01T15:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.10.2026",
@@ -19088,7 +19226,7 @@
           "date": "01.10.2026",
           "name": "Booking 18:00-19:00",
           "datetime": "2026-10-01T18:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
@@ -19100,7 +19238,7 @@
           "date": "01.10.2026",
           "name": "Booking 19:00-21:00",
           "datetime": "2026-10-01T19:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.10.2026",
@@ -19118,7 +19256,7 @@
           "date": "01.10.2026",
           "name": "Booking 19:00-20:00",
           "datetime": "2026-10-01T19:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
@@ -19130,13 +19268,13 @@
           "date": "01.10.2026",
           "name": "Booking 20:30-21:30",
           "datetime": "2026-10-01T20:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 20:00-21:00",
           "datetime": "2026-10-01T20:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
@@ -19160,7 +19298,7 @@
           "date": "01.10.2026",
           "name": "Booking 21:00-22:00",
           "datetime": "2026-10-01T21:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
@@ -19172,61 +19310,61 @@
           "date": "01.10.2026",
           "name": "Booking 08:00-12:00",
           "datetime": "2026-10-01T08:00:00",
-          "duration_hours": 4
+          "duration_hours": 4.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 12:00-14:00",
           "datetime": "2026-10-01T12:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 14:00-15:00",
           "datetime": "2026-10-01T14:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 15:00-16:00",
           "datetime": "2026-10-01T15:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 16:00-22:00",
           "datetime": "2026-10-01T16:00:00",
-          "duration_hours": 6
+          "duration_hours": 6.0
         },
         {
           "date": "01.10.2026",
           "name": "Booking 22:00-24:00",
           "datetime": "2026-10-01T22:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 06:15-07:15",
           "datetime": "2026-11-01T06:15:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 00:00-08:00",
           "datetime": "2026-11-01T00:00:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 00:00-09:00",
           "datetime": "2026-11-01T00:00:00",
-          "duration_hours": 9
+          "duration_hours": 9.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 07:00-08:00",
           "datetime": "2026-11-01T07:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
@@ -19238,7 +19376,7 @@
           "date": "01.11.2026",
           "name": "Booking 08:00-13:00",
           "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 5
+          "duration_hours": 5.0
         },
         {
           "date": "01.11.2026",
@@ -19250,25 +19388,25 @@
           "date": "01.11.2026",
           "name": "Booking 09:00-10:00",
           "datetime": "2026-11-01T09:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 10:00-11:00",
           "datetime": "2026-11-01T10:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 10:00-12:00",
           "datetime": "2026-11-01T10:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 11:00-12:00",
           "datetime": "2026-11-01T11:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
@@ -19292,13 +19430,13 @@
           "date": "01.11.2026",
           "name": "Booking 13:00-14:00",
           "datetime": "2026-11-01T13:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 14:30-15:30",
           "datetime": "2026-11-01T14:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
@@ -19322,13 +19460,13 @@
           "date": "01.11.2026",
           "name": "Booking 15:30-16:30",
           "datetime": "2026-11-01T15:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 15:30-17:30",
           "datetime": "2026-11-01T15:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.11.2026",
@@ -19364,7 +19502,7 @@
           "date": "01.11.2026",
           "name": "Booking 18:00-19:00",
           "datetime": "2026-11-01T18:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
@@ -19376,7 +19514,7 @@
           "date": "01.11.2026",
           "name": "Booking 19:00-21:00",
           "datetime": "2026-11-01T19:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.11.2026",
@@ -19394,7 +19532,7 @@
           "date": "01.11.2026",
           "name": "Booking 19:00-20:00",
           "datetime": "2026-11-01T19:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
@@ -19406,13 +19544,13 @@
           "date": "01.11.2026",
           "name": "Booking 20:30-21:30",
           "datetime": "2026-11-01T20:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 20:00-21:00",
           "datetime": "2026-11-01T20:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
@@ -19436,7 +19574,7 @@
           "date": "01.11.2026",
           "name": "Booking 21:00-22:00",
           "datetime": "2026-11-01T21:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
@@ -19448,61 +19586,61 @@
           "date": "01.11.2026",
           "name": "Booking 08:00-12:00",
           "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 4
+          "duration_hours": 4.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 12:00-14:00",
           "datetime": "2026-11-01T12:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 14:00-15:00",
           "datetime": "2026-11-01T14:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 15:00-16:00",
           "datetime": "2026-11-01T15:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 16:00-22:00",
           "datetime": "2026-11-01T16:00:00",
-          "duration_hours": 6
+          "duration_hours": 6.0
         },
         {
           "date": "01.11.2026",
           "name": "Booking 22:00-24:00",
           "datetime": "2026-11-01T22:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 06:15-07:15",
           "datetime": "2026-12-01T06:15:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 00:00-08:00",
           "datetime": "2026-12-01T00:00:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 00:00-09:00",
           "datetime": "2026-12-01T00:00:00",
-          "duration_hours": 9
+          "duration_hours": 9.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 07:00-08:00",
           "datetime": "2026-12-01T07:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
@@ -19514,7 +19652,7 @@
           "date": "01.12.2026",
           "name": "Booking 08:00-13:00",
           "datetime": "2026-12-01T08:00:00",
-          "duration_hours": 5
+          "duration_hours": 5.0
         },
         {
           "date": "01.12.2026",
@@ -19526,25 +19664,25 @@
           "date": "01.12.2026",
           "name": "Booking 09:00-10:00",
           "datetime": "2026-12-01T09:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 10:00-11:00",
           "datetime": "2026-12-01T10:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 10:00-12:00",
           "datetime": "2026-12-01T10:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 11:00-12:00",
           "datetime": "2026-12-01T11:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
@@ -19568,13 +19706,13 @@
           "date": "01.12.2026",
           "name": "Booking 13:00-14:00",
           "datetime": "2026-12-01T13:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 14:30-15:30",
           "datetime": "2026-12-01T14:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
@@ -19598,13 +19736,13 @@
           "date": "01.12.2026",
           "name": "Booking 15:30-16:30",
           "datetime": "2026-12-01T15:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 15:30-17:30",
           "datetime": "2026-12-01T15:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.12.2026",
@@ -19640,7 +19778,7 @@
           "date": "01.12.2026",
           "name": "Booking 18:00-19:00",
           "datetime": "2026-12-01T18:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
@@ -19652,7 +19790,7 @@
           "date": "01.12.2026",
           "name": "Booking 19:00-21:00",
           "datetime": "2026-12-01T19:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.12.2026",
@@ -19670,7 +19808,7 @@
           "date": "01.12.2026",
           "name": "Booking 19:00-20:00",
           "datetime": "2026-12-01T19:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
@@ -19682,13 +19820,13 @@
           "date": "01.12.2026",
           "name": "Booking 20:30-21:30",
           "datetime": "2026-12-01T20:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 20:00-21:00",
           "datetime": "2026-12-01T20:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
@@ -19712,7 +19850,7 @@
           "date": "01.12.2026",
           "name": "Booking 21:00-22:00",
           "datetime": "2026-12-01T21:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
@@ -19724,61 +19862,61 @@
           "date": "01.12.2026",
           "name": "Booking 08:00-12:00",
           "datetime": "2026-12-01T08:00:00",
-          "duration_hours": 4
+          "duration_hours": 4.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 12:00-14:00",
           "datetime": "2026-12-01T12:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 14:00-15:00",
           "datetime": "2026-12-01T14:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 15:00-16:00",
           "datetime": "2026-12-01T15:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 16:00-22:00",
           "datetime": "2026-12-01T16:00:00",
-          "duration_hours": 6
+          "duration_hours": 6.0
         },
         {
           "date": "01.12.2026",
           "name": "Booking 22:00-24:00",
           "datetime": "2026-12-01T22:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 06:15-07:15",
           "datetime": "2027-01-01T06:15:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 00:00-08:00",
           "datetime": "2027-01-01T00:00:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 00:00-09:00",
           "datetime": "2027-01-01T00:00:00",
-          "duration_hours": 9
+          "duration_hours": 9.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 07:00-08:00",
           "datetime": "2027-01-01T07:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
@@ -19790,7 +19928,7 @@
           "date": "01.01.2027",
           "name": "Booking 08:00-13:00",
           "datetime": "2027-01-01T08:00:00",
-          "duration_hours": 5
+          "duration_hours": 5.0
         },
         {
           "date": "01.01.2027",
@@ -19802,25 +19940,25 @@
           "date": "01.01.2027",
           "name": "Booking 09:00-10:00",
           "datetime": "2027-01-01T09:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 10:00-11:00",
           "datetime": "2027-01-01T10:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 10:00-12:00",
           "datetime": "2027-01-01T10:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 11:00-12:00",
           "datetime": "2027-01-01T11:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
@@ -19844,13 +19982,13 @@
           "date": "01.01.2027",
           "name": "Booking 13:00-14:00",
           "datetime": "2027-01-01T13:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 14:30-15:30",
           "datetime": "2027-01-01T14:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
@@ -19874,13 +20012,13 @@
           "date": "01.01.2027",
           "name": "Booking 15:30-16:30",
           "datetime": "2027-01-01T15:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 15:30-17:30",
           "datetime": "2027-01-01T15:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.01.2027",
@@ -19916,7 +20054,7 @@
           "date": "01.01.2027",
           "name": "Booking 18:00-19:00",
           "datetime": "2027-01-01T18:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
@@ -19928,7 +20066,7 @@
           "date": "01.01.2027",
           "name": "Booking 19:00-21:00",
           "datetime": "2027-01-01T19:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.01.2027",
@@ -19946,7 +20084,7 @@
           "date": "01.01.2027",
           "name": "Booking 19:00-20:00",
           "datetime": "2027-01-01T19:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
@@ -19958,13 +20096,13 @@
           "date": "01.01.2027",
           "name": "Booking 20:30-21:30",
           "datetime": "2027-01-01T20:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 20:00-21:00",
           "datetime": "2027-01-01T20:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
@@ -19988,7 +20126,7 @@
           "date": "01.01.2027",
           "name": "Booking 21:00-22:00",
           "datetime": "2027-01-01T21:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
@@ -20000,61 +20138,61 @@
           "date": "01.01.2027",
           "name": "Booking 08:00-12:00",
           "datetime": "2027-01-01T08:00:00",
-          "duration_hours": 4
+          "duration_hours": 4.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 12:00-14:00",
           "datetime": "2027-01-01T12:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 14:00-15:00",
           "datetime": "2027-01-01T14:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 15:00-16:00",
           "datetime": "2027-01-01T15:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 16:00-22:00",
           "datetime": "2027-01-01T16:00:00",
-          "duration_hours": 6
+          "duration_hours": 6.0
         },
         {
           "date": "01.01.2027",
           "name": "Booking 22:00-24:00",
           "datetime": "2027-01-01T22:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 06:15-07:15",
           "datetime": "2027-02-01T06:15:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 00:00-08:00",
           "datetime": "2027-02-01T00:00:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 00:00-09:00",
           "datetime": "2027-02-01T00:00:00",
-          "duration_hours": 9
+          "duration_hours": 9.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 07:00-08:00",
           "datetime": "2027-02-01T07:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
@@ -20066,7 +20204,7 @@
           "date": "01.02.2027",
           "name": "Booking 08:00-13:00",
           "datetime": "2027-02-01T08:00:00",
-          "duration_hours": 5
+          "duration_hours": 5.0
         },
         {
           "date": "01.02.2027",
@@ -20078,25 +20216,25 @@
           "date": "01.02.2027",
           "name": "Booking 09:00-10:00",
           "datetime": "2027-02-01T09:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 10:00-11:00",
           "datetime": "2027-02-01T10:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 10:00-12:00",
           "datetime": "2027-02-01T10:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 11:00-12:00",
           "datetime": "2027-02-01T11:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
@@ -20120,13 +20258,13 @@
           "date": "01.02.2027",
           "name": "Booking 13:00-14:00",
           "datetime": "2027-02-01T13:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 14:30-15:30",
           "datetime": "2027-02-01T14:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
@@ -20150,13 +20288,13 @@
           "date": "01.02.2027",
           "name": "Booking 15:30-16:30",
           "datetime": "2027-02-01T15:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 15:30-17:30",
           "datetime": "2027-02-01T15:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.02.2027",
@@ -20192,7 +20330,7 @@
           "date": "01.02.2027",
           "name": "Booking 18:00-19:00",
           "datetime": "2027-02-01T18:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
@@ -20204,7 +20342,7 @@
           "date": "01.02.2027",
           "name": "Booking 19:00-21:00",
           "datetime": "2027-02-01T19:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.02.2027",
@@ -20222,7 +20360,7 @@
           "date": "01.02.2027",
           "name": "Booking 19:00-20:00",
           "datetime": "2027-02-01T19:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
@@ -20234,13 +20372,13 @@
           "date": "01.02.2027",
           "name": "Booking 20:30-21:30",
           "datetime": "2027-02-01T20:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 20:00-21:00",
           "datetime": "2027-02-01T20:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
@@ -20264,7 +20402,7 @@
           "date": "01.02.2027",
           "name": "Booking 21:00-22:00",
           "datetime": "2027-02-01T21:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
@@ -20276,61 +20414,61 @@
           "date": "01.02.2027",
           "name": "Booking 08:00-12:00",
           "datetime": "2027-02-01T08:00:00",
-          "duration_hours": 4
+          "duration_hours": 4.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 12:00-14:00",
           "datetime": "2027-02-01T12:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 14:00-15:00",
           "datetime": "2027-02-01T14:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 15:00-16:00",
           "datetime": "2027-02-01T15:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 16:00-22:00",
           "datetime": "2027-02-01T16:00:00",
-          "duration_hours": 6
+          "duration_hours": 6.0
         },
         {
           "date": "01.02.2027",
           "name": "Booking 22:00-24:00",
           "datetime": "2027-02-01T22:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 06:15-07:15",
           "datetime": "2027-03-01T06:15:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 00:00-08:00",
           "datetime": "2027-03-01T00:00:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 00:00-09:00",
           "datetime": "2027-03-01T00:00:00",
-          "duration_hours": 9
+          "duration_hours": 9.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 07:00-08:00",
           "datetime": "2027-03-01T07:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
@@ -20342,7 +20480,7 @@
           "date": "01.03.2027",
           "name": "Booking 08:00-13:00",
           "datetime": "2027-03-01T08:00:00",
-          "duration_hours": 5
+          "duration_hours": 5.0
         },
         {
           "date": "01.03.2027",
@@ -20354,25 +20492,25 @@
           "date": "01.03.2027",
           "name": "Booking 09:00-10:00",
           "datetime": "2027-03-01T09:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 10:00-11:00",
           "datetime": "2027-03-01T10:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 10:00-12:00",
           "datetime": "2027-03-01T10:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 11:00-12:00",
           "datetime": "2027-03-01T11:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
@@ -20396,13 +20534,13 @@
           "date": "01.03.2027",
           "name": "Booking 13:00-14:00",
           "datetime": "2027-03-01T13:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 14:30-15:30",
           "datetime": "2027-03-01T14:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
@@ -20426,13 +20564,13 @@
           "date": "01.03.2027",
           "name": "Booking 15:30-16:30",
           "datetime": "2027-03-01T15:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 15:30-17:30",
           "datetime": "2027-03-01T15:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.03.2027",
@@ -20468,7 +20606,7 @@
           "date": "01.03.2027",
           "name": "Booking 18:00-19:00",
           "datetime": "2027-03-01T18:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
@@ -20480,7 +20618,7 @@
           "date": "01.03.2027",
           "name": "Booking 19:00-21:00",
           "datetime": "2027-03-01T19:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.03.2027",
@@ -20498,7 +20636,7 @@
           "date": "01.03.2027",
           "name": "Booking 19:00-20:00",
           "datetime": "2027-03-01T19:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
@@ -20510,13 +20648,13 @@
           "date": "01.03.2027",
           "name": "Booking 20:30-21:30",
           "datetime": "2027-03-01T20:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 20:00-21:00",
           "datetime": "2027-03-01T20:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
@@ -20540,7 +20678,7 @@
           "date": "01.03.2027",
           "name": "Booking 21:00-22:00",
           "datetime": "2027-03-01T21:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
@@ -20552,61 +20690,61 @@
           "date": "01.03.2027",
           "name": "Booking 08:00-12:00",
           "datetime": "2027-03-01T08:00:00",
-          "duration_hours": 4
+          "duration_hours": 4.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 12:00-14:00",
           "datetime": "2027-03-01T12:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 14:00-15:00",
           "datetime": "2027-03-01T14:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 15:00-16:00",
           "datetime": "2027-03-01T15:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 16:00-22:00",
           "datetime": "2027-03-01T16:00:00",
-          "duration_hours": 6
+          "duration_hours": 6.0
         },
         {
           "date": "01.03.2027",
           "name": "Booking 22:00-24:00",
           "datetime": "2027-03-01T22:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 06:15-07:15",
           "datetime": "2027-04-01T06:15:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 00:00-08:00",
           "datetime": "2027-04-01T00:00:00",
-          "duration_hours": 8
+          "duration_hours": 8.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 00:00-09:00",
           "datetime": "2027-04-01T00:00:00",
-          "duration_hours": 9
+          "duration_hours": 9.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 07:00-08:00",
           "datetime": "2027-04-01T07:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
@@ -20618,7 +20756,7 @@
           "date": "01.04.2027",
           "name": "Booking 08:00-13:00",
           "datetime": "2027-04-01T08:00:00",
-          "duration_hours": 5
+          "duration_hours": 5.0
         },
         {
           "date": "01.04.2027",
@@ -20630,25 +20768,25 @@
           "date": "01.04.2027",
           "name": "Booking 09:00-10:00",
           "datetime": "2027-04-01T09:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 10:00-11:00",
           "datetime": "2027-04-01T10:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 10:00-12:00",
           "datetime": "2027-04-01T10:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 11:00-12:00",
           "datetime": "2027-04-01T11:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
@@ -20672,13 +20810,13 @@
           "date": "01.04.2027",
           "name": "Booking 13:00-14:00",
           "datetime": "2027-04-01T13:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 14:30-15:30",
           "datetime": "2027-04-01T14:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
@@ -20702,13 +20840,13 @@
           "date": "01.04.2027",
           "name": "Booking 15:30-16:30",
           "datetime": "2027-04-01T15:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 15:30-17:30",
           "datetime": "2027-04-01T15:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.04.2027",
@@ -20744,7 +20882,7 @@
           "date": "01.04.2027",
           "name": "Booking 18:00-19:00",
           "datetime": "2027-04-01T18:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
@@ -20756,7 +20894,7 @@
           "date": "01.04.2027",
           "name": "Booking 19:00-21:00",
           "datetime": "2027-04-01T19:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.04.2027",
@@ -20774,7 +20912,7 @@
           "date": "01.04.2027",
           "name": "Booking 19:00-20:00",
           "datetime": "2027-04-01T19:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
@@ -20786,13 +20924,13 @@
           "date": "01.04.2027",
           "name": "Booking 20:30-21:30",
           "datetime": "2027-04-01T20:30:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 20:00-21:00",
           "datetime": "2027-04-01T20:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
@@ -20816,7 +20954,7 @@
           "date": "01.04.2027",
           "name": "Booking 21:00-22:00",
           "datetime": "2027-04-01T21:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
@@ -20828,169 +20966,46 @@
           "date": "01.04.2027",
           "name": "Booking 08:00-12:00",
           "datetime": "2027-04-01T08:00:00",
-          "duration_hours": 4
+          "duration_hours": 4.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 12:00-14:00",
           "datetime": "2027-04-01T12:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 14:00-15:00",
           "datetime": "2027-04-01T14:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 15:00-16:00",
           "datetime": "2027-04-01T15:00:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 16:00-22:00",
           "datetime": "2027-04-01T16:00:00",
-          "duration_hours": 6
+          "duration_hours": 6.0
         },
         {
           "date": "01.04.2027",
           "name": "Booking 22:00-24:00",
           "datetime": "2027-04-01T22:00:00",
-          "duration_hours": 2
-        }
-      ]
-    },
-    "Sandefjord Penguins": {
-      "name": "Sandefjord Penguins",
-      "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen___/view:item/id:4497/part:/place:3907:SANDEFJORD/q:sandefjord/r:31/mod:book",
-      "scrape_timestamp": "2026-06-11T17:28:18.072Z",
-      "event_count": 19,
-      "blocked": false,
-      "events": [
-        {
-          "date": "01.06.2026",
-          "name": "Booking 7:00-22:30",
-          "datetime": "2026-06-01T07:00:12.848428",
-          "duration_hours": 15.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 14:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 6
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 14:00 - 16:00",
-          "datetime": "2026-06-01T14:00:12.848428",
-          "duration_hours": 2
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 15:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 7
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 20:30",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 4
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 14:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 6
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 14:30 - 15:30",
-          "datetime": "2026-06-01T14:30:12.848428",
-          "duration_hours": 1
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 14:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 6
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 14:00 - 16:00",
-          "datetime": "2026-06-01T14:00:12.848428",
-          "duration_hours": 2
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 8:00 - 15:00",
-          "datetime": "2026-06-01T08:00:12.848428",
-          "duration_hours": 7
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
-        },
-        {
-          "date": "01.06.2026",
-          "name": "Booking 16:30 - 22:00",
-          "datetime": "2026-06-01T16:30:12.848428",
-          "duration_hours": 5.5
+          "duration_hours": 2.0
         }
       ]
     },
     "Holmen": {
       "name": "Holmen",
       "url": "https://kalender.sportello.no/booking/11055",
-      "scrape_timestamp": "2026-06-11T13:31:32.773939",
-      "ttl_hours": 6,
-      "event_count": 154,
+      "scrape_timestamp": "2026-06-11T20:34:07.364368",
+      "ttl_hours": 6.0,
+      "event_count": 176,
       "blocked": false,
       "events": [
         {
@@ -21015,7 +21030,7 @@
           "date": "01.09.2026",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.09.2026",
@@ -21045,7 +21060,7 @@
           "date": "01.09.2026",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2026-09-01T10:45:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.09.2026",
@@ -21069,7 +21084,7 @@
           "date": "01.09.2026",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2026-09-01T10:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.09.2026",
@@ -21126,6 +21141,138 @@
           "duration_hours": 0.8333333333333321
         },
         {
+          "date": "01.10.2026",
+          "name": "Booking 16:00 - 18:50",
+          "datetime": "2026-10-01T16:00:00",
+          "duration_hours": 2.833333333333332
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 19:00 - 19:50",
+          "datetime": "2026-10-01T19:00:00",
+          "duration_hours": 0.8333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 20:00 - 21:20",
+          "datetime": "2026-10-01T20:00:00",
+          "duration_hours": 1.3333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 8:00 - 10:00",
+          "datetime": "2026-10-01T08:00:00",
+          "duration_hours": 2.0
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 17:00 - 17:50",
+          "datetime": "2026-10-01T17:00:00",
+          "duration_hours": 0.8333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 18:00 - 18:50",
+          "datetime": "2026-10-01T18:00:00",
+          "duration_hours": 0.8333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 20:00 - 20:50",
+          "datetime": "2026-10-01T20:00:00",
+          "duration_hours": 0.8333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 21:00 - 22:20",
+          "datetime": "2026-10-01T21:00:00",
+          "duration_hours": 1.3333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 10:45 - 11:45",
+          "datetime": "2026-10-01T10:45:00",
+          "duration_hours": 1.0
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 16:00 - 19:50",
+          "datetime": "2026-10-01T16:00:00",
+          "duration_hours": 3.833333333333332
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 10:00 - 11:50",
+          "datetime": "2026-10-01T10:00:00",
+          "duration_hours": 1.833333333333334
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 13:00 - 14:50",
+          "datetime": "2026-10-01T13:00:00",
+          "duration_hours": 1.833333333333334
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 10:30 - 12:30",
+          "datetime": "2026-10-01T10:30:00",
+          "duration_hours": 2.0
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 19:00 - 20:20",
+          "datetime": "2026-10-01T19:00:00",
+          "duration_hours": 1.3333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 20:30 - 21:50",
+          "datetime": "2026-10-01T20:30:00",
+          "duration_hours": 1.3333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 9:00 - 12:50",
+          "datetime": "2026-10-01T09:00:00",
+          "duration_hours": 3.833333333333334
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 13:00 - 14:20",
+          "datetime": "2026-10-01T13:00:00",
+          "duration_hours": 1.333333333333334
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 16:00 - 17:20",
+          "datetime": "2026-10-01T16:00:00",
+          "duration_hours": 1.3333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 11:00 - 12:50",
+          "datetime": "2026-10-01T11:00:00",
+          "duration_hours": 1.833333333333334
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 14:30 - 15:50",
+          "datetime": "2026-10-01T14:30:00",
+          "duration_hours": 1.333333333333334
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 17:30 - 18:50",
+          "datetime": "2026-10-01T17:30:00",
+          "duration_hours": 1.3333333333333321
+        },
+        {
+          "date": "01.10.2026",
+          "name": "Booking 21:00 - 21:50",
+          "datetime": "2026-10-01T21:00:00",
+          "duration_hours": 0.8333333333333321
+        },
+        {
           "date": "01.11.2026",
           "name": "Booking 16:00 - 18:50",
           "datetime": "2026-11-01T16:00:00",
@@ -21147,7 +21294,7 @@
           "date": "01.11.2026",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.11.2026",
@@ -21177,7 +21324,7 @@
           "date": "01.11.2026",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2026-11-01T10:45:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.11.2026",
@@ -21201,7 +21348,7 @@
           "date": "01.11.2026",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2026-11-01T10:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.11.2026",
@@ -21279,7 +21426,7 @@
           "date": "01.12.2026",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2026-12-01T08:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.12.2026",
@@ -21309,7 +21456,7 @@
           "date": "01.12.2026",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2026-12-01T10:45:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.12.2026",
@@ -21333,7 +21480,7 @@
           "date": "01.12.2026",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2026-12-01T10:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.12.2026",
@@ -21411,7 +21558,7 @@
           "date": "01.01.2027",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2027-01-01T08:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.01.2027",
@@ -21441,7 +21588,7 @@
           "date": "01.01.2027",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2027-01-01T10:45:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.01.2027",
@@ -21465,7 +21612,7 @@
           "date": "01.01.2027",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2027-01-01T10:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.01.2027",
@@ -21543,7 +21690,7 @@
           "date": "01.02.2027",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2027-02-01T08:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.02.2027",
@@ -21573,7 +21720,7 @@
           "date": "01.02.2027",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2027-02-01T10:45:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.02.2027",
@@ -21597,7 +21744,7 @@
           "date": "01.02.2027",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2027-02-01T10:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.02.2027",
@@ -21675,7 +21822,7 @@
           "date": "01.03.2027",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2027-03-01T08:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.03.2027",
@@ -21705,7 +21852,7 @@
           "date": "01.03.2027",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2027-03-01T10:45:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.03.2027",
@@ -21729,7 +21876,7 @@
           "date": "01.03.2027",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2027-03-01T10:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.03.2027",
@@ -21807,7 +21954,7 @@
           "date": "01.04.2027",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2027-04-01T08:00:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.04.2027",
@@ -21837,7 +21984,7 @@
           "date": "01.04.2027",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2027-04-01T10:45:00",
-          "duration_hours": 1
+          "duration_hours": 1.0
         },
         {
           "date": "01.04.2027",
@@ -21861,7 +22008,7 @@
           "date": "01.04.2027",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2027-04-01T10:30:00",
-          "duration_hours": 2
+          "duration_hours": 2.0
         },
         {
           "date": "01.04.2027",
@@ -21918,23 +22065,8 @@
           "duration_hours": 0.8333333333333321
         }
       ]
-    },
-    "Tønsberg": {
-      "name": "Tønsberg",
-      "url": "https://www.bookup.no/utleie/Index/860",
-      "scrape_timestamp": "2026-06-11T17:28:27.098Z",
-      "event_count": 1,
-      "blocked": false,
-      "events": [
-        {
-          "date": "01.06.2026",
-          "name": "Booking 7:00-23:30",
-          "datetime": "2026-06-01T07:00:27.093356",
-          "duration_hours": 16.5
-        }
-      ]
     }
   },
   "source_count": 9,
-  "total_events": 3640
+  "total_events": 3662
 }
