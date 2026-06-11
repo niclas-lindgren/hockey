@@ -148,7 +148,7 @@ class HtmlExporter:
         heatmap_clubs_json = json.dumps(heatmap_clubs, ensure_ascii=False)
 
         # Club colors for heatmap (dark theme)
-        _club_colors = [
+        _club_colors_dark = [
             {"bg": "#1a3a5c", "text": "#64b5f6"},
             {"bg": "#1b3a1b", "text": "#81c784"},
             {"bg": "#3a2e0a", "text": "#ffd54f"},
@@ -159,11 +159,31 @@ class HtmlExporter:
             {"bg": "#1a3a2a", "text": "#aed581"},
             {"bg": "#3a1a0a", "text": "#ff8a65"},
         ]
-        club_color_map = {
-            club: _club_colors[i % len(_club_colors)]
+        # Club colors for heatmap (light theme) — pastel backgrounds with
+        # darker, high-contrast text, suited for a `--bg: #f4f4f5` page.
+        _club_colors_light = [
+            {"bg": "#dbeafe", "text": "#1d4ed8"},  # blue
+            {"bg": "#dcfce7", "text": "#15803d"},  # green
+            {"bg": "#fef3c7", "text": "#b45309"},  # amber
+            {"bg": "#ede9fe", "text": "#6d28d9"},  # purple
+            {"bg": "#ffe4e6", "text": "#be123c"},  # rose
+            {"bg": "#cffafe", "text": "#0e7490"},  # cyan
+            {"bg": "#fef9c3", "text": "#a16207"},  # yellow
+            {"bg": "#ecfccb", "text": "#4d7c0f"},  # lime
+            {"bg": "#ffedd5", "text": "#c2410c"},  # orange
+        ]
+        club_color_map_dark = {
+            club: _club_colors_dark[i % len(_club_colors_dark)]
             for i, club in enumerate(heatmap_clubs)
         }
-        heatmap_club_colors_json = json.dumps(club_color_map, ensure_ascii=False)
+        club_color_map_light = {
+            club: _club_colors_light[i % len(_club_colors_light)]
+            for i, club in enumerate(heatmap_clubs)
+        }
+        heatmap_club_colors_json = json.dumps(
+            {"dark": club_color_map_dark, "light": club_color_map_light},
+            ensure_ascii=False,
+        )
 
         # --- Per-club aggregate stats ---
         club_hosted: dict[str, int] = {}

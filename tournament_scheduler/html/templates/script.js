@@ -1,3 +1,12 @@
+// Restore saved theme before any rendering so theme-dependent colors
+// (e.g. heatmap club palette) pick the correct variant on first paint.
+(function() {
+  var saved = localStorage.getItem('rvv-theme');
+  if (saved === 'light' || saved === 'dark') {
+    document.documentElement.dataset.theme = saved;
+  }
+})();
+
 // Data embedded as JSON
 const TOURNAMENTS = $TOURNAMENTS_JSON$;
 const TEAM_GAME_COUNTS = $TEAM_GAME_COUNTS_JSON$;
@@ -5,7 +14,7 @@ const TEAM_TRAVEL = $TEAM_TRAVEL_JSON$;
 const HEATMAP = $HEATMAP_JSON$;
 const HEATMAP_WEEKS = $HEATMAP_WEEKS_JSON$;
 const HEATMAP_CLUBS = $HEATMAP_CLUBS_JSON$;
-const HEATMAP_CLUB_COLORS = $HEATMAP_CLUB_COLORS_JSON$;
+const HEATMAP_CLUB_COLORS_BY_THEME = $HEATMAP_CLUB_COLORS_JSON$;
 const CLUB_STATS = $CLUB_STATS_JSON$;
 const ALL_CLUBS = $ALL_CLUBS_JSON$;
 
@@ -145,9 +154,15 @@ function getClubFromTeam(team) {
     return;
   }
 
+  const currentTheme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  const HEATMAP_CLUB_COLORS = HEATMAP_CLUB_COLORS_BY_THEME[currentTheme] || HEATMAP_CLUB_COLORS_BY_THEME.dark || {};
+  const DEFAULT_CLUB_COLOR = currentTheme === 'light'
+    ? {bg: '#e4e4e7', text: '#52525b'}
+    : {bg: '#2a2a2a', text: '#999'};
+
   // Build legend
   HEATMAP_CLUBS.forEach(club => {
-    const c = HEATMAP_CLUB_COLORS[club] || {bg: '#2a2a2a', text: '#999'};
+    const c = HEATMAP_CLUB_COLORS[club] || DEFAULT_CLUB_COLOR;
     const span = document.createElement('span');
     span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;color:' + c.text;
     span.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:' + c.bg + ';border:1px solid ' + c.text + '"></span>' + club;
@@ -178,7 +193,7 @@ function getClubFromTeam(team) {
   // Build body: one row per club
   let bodyHtml = '';
   HEATMAP_CLUBS.forEach(club => {
-    const c = HEATMAP_CLUB_COLORS[club] || {bg: '#2a2a2a', text: '#999'};
+    const c = HEATMAP_CLUB_COLORS[club] || DEFAULT_CLUB_COLOR;
     bodyHtml += '<tr style="border-bottom:1px solid var(--border-dim)">';
     bodyHtml += '<td style="position:sticky;left:0;z-index:0;background:var(--bg);padding:6px 10px;font-size:12px;color:' + c.text + ';font-weight:600">' + club + '</td>';
     HEATMAP_WEEKS.forEach(wk => {
@@ -309,10 +324,6 @@ document.getElementById('filterClear').addEventListener('click', function() {
 (function() {
   var THEME_KEY = 'rvv-theme';
   var toggle = document.getElementById('themeToggle');
-  var saved = localStorage.getItem(THEME_KEY);
-  if (saved === 'light' || saved === 'dark') {
-    document.documentElement.dataset.theme = saved;
-  }
   if (toggle) {
     toggle.addEventListener('click', function() {
       var current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';

@@ -1,101 +1,56 @@
-# Plan: Avoid BookUp password leaking to the LLM
+# PLAN
 
-**Goal:** Investigate how to avoid the BookUp password leaking to the LLM when it's entered on-demand during the run flow — the pipeline currently prompts for BookUp credentials interactively (added for booking-calendar handling, backlog item #32) and the value may end up in LLM prompts/context (e.g. via ScraperAgent or scrape-llm). Audit the credential-prompt and scraper-agent code paths to ensure the password is never included in any text sent to a local or remote LLM, and propose a safer pattern (e.g. env var injection, redaction, out-of-band browser auth) if it currently is.
-**Created:** 2026-06-11
-**Intent:** Backlog #32 added interactive BookUp credential prompting for ScraperAgent-driven login, but the password is filled into a live page via Playwright and the resulting DOM snapshot/interactive-element list is embedded verbatim into the LLM prompt — this audit confirms the leak vector and closes it with sanitization at the source plus a defense-in-depth redaction layer.
-**Backlog-ref:** 54
+**Feature:** Improve light theme UI colors — heatmap background is too dark and there's too little differentiation between colors (all bright, hard to distinguish)
+**Goal:** Improve light theme UI colors — heatmap background is too dark and there's too little differentiation between colors (all bright, hard to distinguish)
+**Backlog-ref:** 53
+**Constraints:** none
+**Date:** 2026-06-11
+
+## Intent
+
+The season-plan HTML report's light theme currently reuses dark-theme-only color choices for the heatmap (a hardcoded dark club-color palette and a near-black empty-cell background), making the heatmap look too dark and the club colors too similar/low-contrast against the light background — this plan introduces a dedicated, well-differentiated light-theme color set for the heatmap and related UI elements.
 
 ## Tasks
-- [x] Added a module-level _sanitize_html() helper using a regex to blank value attributes on password/email/username input fields, and applied it to html and iframe_html in _snapshot() so credential values never leave the browser worker. — 2026-06-11
-  - Files: tournament_scheduler/pipeline/browser_worker.py
-  - Approach: Add a `_sanitize_html(html: str) -> str` helper that strips/blanks `value="..."` attributes from `<input type="password">` and `<input type="email">`/`<input>` elements matched against known credential field selectors (`#email`, `input[type='password']`). Call it on the `html` and `iframe_html` fields inside `_snapshot()` (lines ~102-134) before the dict is returned, so both `cmd_type`/`cmd_click`/`cmd_goto` results and the TS layer never see raw credential values.
 
-- [x] Added a _redact_credentials() helper that replaces literal occurrences of os.environ BOOKUP_EMAIL/BOOKUP_PASSWORD values with '[REDACTED]', and applied it to label_text in _interactive_elements() before truncation/inclusion in the snapshot. — 2026-06-11
-  - Files: tournament_scheduler/pipeline/browser_worker.py
-  - Approach: In `_interactive_elements()` (lines ~136-177), after building each element dict, scrub `text`/`placeholder`-derived `label_text` fields by replacing any substring equal to `os.environ.get("BOOKUP_EMAIL")` or `os.environ.get("BOOKUP_PASSWORD")` (when set and non-empty) with `"[REDACTED]"`, so credential values can't surface via input placeholders or echoed labels.
+- [x] Added a separate _club_colors_light pastel palette (9 hues: blue, green, amber, purple, rose, cyan, yellow, lime, orange) with darker high-contrast text alongside the renamed _club_colors_dark, serialized both as a nested {dark, light} map via HEATMAP_CLUB_COLORS_JSON, and updated script.js to pick the palette based on document.documentElement.dataset.theme (with theme-aware fallback colors and earlier theme restoration so it applies on first paint). — 2026-06-11
+  - Files: `tournament_scheduler/html/html_exporter.py`
+  - Acceptance: A new `_club_colors_light` list of 9 `{"bg": ..., "text": ...}` pairs is added alongside the existing `_club_colors` (renamed/commented as the dark-theme palette), using light, distinctly-hued backgrounds (e.g. pastel tints of blue, green, amber, purple, rose, cyan, yellow, lime, orange) with darker, high-contrast text colors suitable for a `--bg: #f4f4f5` page background. Both palettes are serialized to JSON (`heatmap_club_colors_dark_json` / `heatmap_club_colors_light_json`, or a single nested `{dark: {...}, light: {...}}` map) and injected into the template via existing placeholder mechanism (`$HEATMAP_CLUB_COLORS_JSON$` or a new placeholder).
 
-- [x] Added an exported redactCredentials(text) helper near substituteEnvVars() that replaces literal occurrences of process.env.BOOKUP_EMAIL/BOOKUP_PASSWORD with '[REDACTED]', and applied it to snapshot.html, snapshot.iframe_html, and each interactive element's text inside userMessage() before the message is built. — 2026-06-11
-  - Files: .pi/lib/scraper-agent.ts
-  - Approach: Add a `redactCredentials(text: string): string` helper near `substituteEnvVars()` (lines ~559-564) that replaces any occurrence of `process.env.BOOKUP_EMAIL` and `process.env.BOOKUP_PASSWORD` (when set and length > 0) in a given string with `"[REDACTED]"`. Apply it to the `snapshot.html`/`snapshot.iframe_html`/interactive-element text inside `userMessage()` (lines 137-174) before the message is returned to `callLLM()` (line 462), as a second layer in case the Python-side sanitization in browser_worker.py misses a path.
+- [ ] Wire theme-aware club colors into script.js heatmap renderer
+  - Files: `tournament_scheduler/html/templates/script.js`, `tournament_scheduler/html/html_exporter.py`
+  - Acceptance: `script.js` defines `HEATMAP_CLUB_COLORS` as an object keyed by theme (`{dark: {...}, light: {...}}`) populated from the new placeholder(s). The `renderHeatmap` IIFE (around line 137-200) reads `document.documentElement.dataset.theme` (defaulting to `'dark'`) and selects `HEATMAP_CLUB_COLORS[currentTheme]` when building the legend (line ~149-155) and table cells (line ~180-189), so club colors differ between dark and light themes.
 
-- [x] Added a _redact_credential_values(text) helper that scrubs literal BOOKUP_EMAIL/BOOKUP_PASSWORD env var values, and applied it to visible_text in capture_dom_snapshot() and again to the visible text used when building the LLM prompt in _extract_events_via_llm(), as a third layer of defense alongside browser_worker.py and scraper-agent.ts. — 2026-06-11
-  - Files: tournament_scheduler/pipeline/llm_scraper.py
-  - Approach: In `capture_dom_snapshot()` (around line 63, `page.content()`-based) and in the prompt-building code around line 829 (`visible_text` embedded as "Synlig tekst fra kalender-siden"), reuse the same redaction approach as scraper-agent.ts: after `_detect_and_login()` runs, scrub any literal occurrences of the resolved `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env var values from `raw_html`/`visible_text` before they are used to build the LLM user message.
+- [ ] Fix hardcoded empty-heatmap-cell background to be theme-aware
+  - Files: `tournament_scheduler/html/templates/script.js`
+  - Acceptance: The hardcoded `background:rgba(30,41,59,.4)` for empty cells (line ~191) is replaced with a CSS variable reference (e.g. `var(--bg-surface)` or a new `--heatmap-empty-bg` variable) so empty cells render as a subtle light-grey in light theme and the existing dark slate in dark theme — no literal dark rgba value remains in the empty-cell branch.
 
-- [x] Created tests/test_browser_worker.py with TestSanitizeHtml (6 tests covering password/email/username input stripping and unrelated-input passthrough) and TestRedactCredentials (4 tests covering BOOKUP_EMAIL/BOOKUP_PASSWORD redaction via monkeypatch.setenv and no-op behavior when unset). — 2026-06-11
-  - Files: tests/test_browser_worker.py
-  - Approach: New test file (no existing `test_browser_worker.py`; follow conventions in `tests/test_ical_scraper.py`). Test `_sanitize_html()` strips `value="secret123"` from `<input type="password" value="secret123">` and `<input id="email" value="user@example.com">`, and test `_interactive_elements()`-style label scrubbing replaces a credential substring with `"[REDACTED]"` when `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env vars are set (use `monkeypatch.setenv`).
+- [ ] Add a `--heatmap-empty-bg` CSS variable for both themes
+  - Files: `tournament_scheduler/html/templates/styles.css`
+  - Acceptance: `:root` defines `--heatmap-empty-bg: rgba(30,41,59,.4)` (preserving current dark-theme appearance) and `[data-theme="light"]` overrides it with a light, low-contrast neutral (e.g. `rgba(228,228,231,.6)` or similar derived from `--bg-surface`), referenced by `script.js` from the previous task.
 
-- [x] Created .pi/lib/scraper-agent.test.ts (vitest, following parsers.test.ts conventions) covering redactCredentials() (4 tests: password substring, email substring, no-op when env vars unset, no-op on empty string) and userMessage() (2 tests confirming snapshot.html and snapshot.iframe_html credential values are redacted in the output message). Exported userMessage (was previously unexported) so it could be tested directly. — 2026-06-11
-  - Files: .pi/lib/scraper-agent.test.ts
-  - Approach: New colocated test file following the `.pi/lib/parsers.test.ts` convention. Test `redactCredentials()` replaces a literal password/email substring (set via `process.env.BOOKUP_PASSWORD`/`BOOKUP_EMAIL` in the test) with `"[REDACTED]"` inside arbitrary HTML/text, and confirm `userMessage()` output no longer contains the raw credential value when `snapshot.html` includes it.
+- [ ] Update light-theme accent and tag color values for better differentiation
+  - Files: `tournament_scheduler/html/templates/styles.css`
+  - Acceptance: In `[data-theme="light"]` (lines 24-41), `--accent-dim` is corrected so it is darker than `--accent` (matching the dark theme's relationship, e.g. swap to a deeper blue such as `#0369a1`) to fix the inverted gradient on `.logo-icon` and `.timeline::before`. The `.tag--age`, `.tag--arena`, `.tag--teams`, `.tag--travel` background opacities (currently `rgba(...,.08)`) are increased (e.g. to `.14`-`.18`) within `[data-theme="light"]` via theme-scoped overrides so tags remain visually distinct against `--bg: #f4f4f5` without affecting dark theme.
 
-- [x] Added inline documentation across all three sanitization points: a module-level comment block in browser_worker.py describing the four-layer defense (DOM sanitization, label redaction, TS fallback, scrape-llm path) and the out-of-band auth alternative; expanded redactCredentials() docstring in scraper-agent.ts to reference the layer ordering and out-of-band alternative; expanded _redact_credential_values() docstring in llm_scraper.py to cross-reference the other layers and out-of-band auth alternative. — 2026-06-11
-  - Files: tournament_scheduler/pipeline/browser_worker.py, .pi/lib/scraper-agent.ts, tournament_scheduler/pipeline/llm_scraper.py
-  - Approach: Add inline code comments at each sanitization point explaining the two-layer defense (Python-side DOM sanitization as primary, TS/Python regex redaction as fallback) and note as a code comment near `_detect_and_login()`/`initial_navigation` that a longer-term alternative is out-of-band browser auth (persistent authenticated browser profile/cookie session established once outside the LLM loop), which would avoid feeding any login UI state to the LLM at all — out of scope for this fix.
-
-## Notes
-- Do not re-implement the existing `credential_env_vars` mechanism, interactive prompting in `rvv-miniputt.ts`, or the empty-placeholder pre-flight warning in `scraper-agent.ts` — these already exist (backlog #32, archived plan PLAN-2026-06-10-credential-aware-booking-calendar-handling.md).
-- The leak is conditional: it depends on whether the target site's DOM reflects the filled `value` attribute back via `page.content()`. Sanitize unconditionally regardless of whether a given site currently exhibits the reflection, since this is a security property that must hold for all sites.
-- Redaction must only trigger when the env var is set and non-empty, to avoid replacing common short strings (e.g. avoid redacting on empty-string env vars).
+- [ ] Verify generated HTML reports render correctly with both palettes
+  - Files: `tournament_scheduler/html/html_exporter.py`, `tests/` (existing test for html_exporter, if present)
+  - Acceptance: Run the project's HTML export (or its existing pytest coverage for `html_exporter.py`) and confirm the generated `season_plan.html` contains both `dark` and `light` keys in the serialized `HEATMAP_CLUB_COLORS` JSON, that `script.js` has no remaining literal `rgba(30,41,59,.4)` outside of the `:root` CSS variable definition, and that `python3 -m py_compile tournament_scheduler/html/html_exporter.py` and `node --check tournament_scheduler/html/templates/script.js` (if `node` is available) both succeed.
 
 ## Acceptance Criteria
-- `tournament_scheduler/pipeline/browser_worker.py` contains a sanitization function that removes `value="..."` attributes from password and email `<input>` elements before `_snapshot()` returns its result.
-- Calling `userMessage()` in `.pi/lib/scraper-agent.ts` with a snapshot whose `html` field contains a literal `BOOKUP_PASSWORD` value does not return that literal value in the resulting message string.
-- `tournament_scheduler/pipeline/llm_scraper.py` does not pass `BOOKUP_EMAIL` or `BOOKUP_PASSWORD` env var values through to the LLM prompt text built around `capture_dom_snapshot()`.
-- Running `pytest tests/test_browser_worker.py` passes and reports that sanitization tests for password/email input redaction succeed.
-- Running the new `.pi/lib/scraper-agent.test.ts` test suite passes and shows that `redactCredentials()` replaces credential substrings with `"[REDACTED]"`.
+
+Generated `season_plan.html` and `script.js` contain a `HEATMAP_CLUB_COLORS` object with separate `dark` and `light` color sets, and `script.js` selects the set matching `document.documentElement.dataset.theme` when rendering heatmap cells.
+The `[data-theme="light"]` block in `tournament_scheduler/html/templates/styles.css` defines a `--heatmap-empty-bg` variable whose value is not a near-black rgba, and `script.js` no longer outputs the literal `rgba(30,41,59,.4)` in the empty-heatmap-cell branch.
+The `[data-theme="light"]` block has `--accent-dim` darker than `--accent` (matching the dark theme's relative ordering), so the logo and timeline gradients are not inverted in light mode.
+`.tag--age`, `.tag--arena`, `.tag--teams`, and `.tag--travel` have light-theme-specific background opacity overrides that are visibly higher than the dark-theme `.08` value, producing better contrast against `--bg: #f4f4f5`.
+Running `python3 -m py_compile tournament_scheduler/html/html_exporter.py` exits with code 0 and the existing pytest suite (`pytest`) passes with no new failures introduced by these changes.
 
 ## Log
 
+- [2026-06-11] Plan created for backlog item 53 (light theme heatmap colors).
 
-<!-- pi-next appends entries here after each task -->
-
-### 2026-06-11 — Added a module-level _sanitize_html() helper using a regex to blank value attributes on password/email/username input fields, and applied it to html and iframe_html in _snapshot() so credential values never leave the browser worker.
-**Rationale:** Regex-based approach chosen over a full HTML parser to avoid adding a new dependency and keep the change minimal/fast for stdin/stdout snapshot serialization.
-**Findings:** Verified the regex correctly blanks value attrs on typepassword, typeemail, and id/nameemail/username/password/login inputs while leaving unrelated inputs (checkboxes, plain text fields) untouched. Full test suite: 311 passed, 1 pre-existing unrelated failure (test_zero_events_blocks_source, confirmed pre-existing via git stash), 1 skipped.
+### 2026-06-11 — Added a separate _club_colors_light pastel palette (9 hues: blue, green, amber, purple, rose, cyan, yellow, lime, orange) with darker high-contrast text alongside the renamed _club_colors_dark, serialized both as a nested {dark, light} map via HEATMAP_CLUB_COLORS_JSON, and updated script.js to pick the palette based on document.documentElement.dataset.theme (with theme-aware fallback colors and earlier theme restoration so it applies on first paint).
+**Rationale:** Used a single nested {dark, light} JSON map (per the plan's alternative) rather than two separate placeholders, since it required only one template substitution and let the JS pick the active palette client-side based on the existing theme attribute.
+**Findings:** Both palettes are generated for all heatmap_clubs; JS selects HEATMAP_CLUB_COLORS_BY_THEME[currentTheme]. Moved theme restoration from localStorage to the top of script.js so the heatmap renders with the correct palette on first paint instead of always defaulting to dark.
 LESSONS: none
-**Files:** tournament_scheduler/pipeline/browser_worker.py (+27/-2)
-**Commit:** a286846 (hockey)
-
-### 2026-06-11 — Added a _redact_credentials() helper that replaces literal occurrences of os.environ BOOKUP_EMAIL/BOOKUP_PASSWORD values with '[REDACTED]', and applied it to label_text in _interactive_elements() before truncation/inclusion in the snapshot.
-**Rationale:** Used a simple substring-replace approach against resolved env var values, consistent with the redaction approach planned for scraper-agent.ts and llm_scraper.py, rather than a regex, since the exact credential strings are known at runtime.
-**Findings:** Verified _redact_credentials replaces both BOOKUP_EMAIL and BOOKUP_PASSWORD substrings with [REDACTED] and is a no-op when env vars are unset/empty. Full test suite: 310 passed, 2 pre-existing/flaky failures unrelated to this change (test_zero_events_blocks_source and test_sources_run_in_different_threads, both confirmed failing on main via git stash).
-LESSONS: test_sources_run_in_different_threads is a pre-existing flaky test unrelated to credential sanitization work; do not attempt to fix it as part of this plan.
-**Files:** tournament_scheduler/pipeline/browser_worker.py (+19/-1)
-**Commit:** fdbc143 (hockey)
-
-### 2026-06-11 — Added an exported redactCredentials(text) helper near substituteEnvVars() that replaces literal occurrences of process.env.BOOKUP_EMAIL/BOOKUP_PASSWORD with '[REDACTED]', and applied it to snapshot.html, snapshot.iframe_html, and each interactive element's text inside userMessage() before the message is built.
-**Rationale:** Mirrors the same env-var-substring-replace approach used in the Python browser_worker.py redaction (task 2) for consistency across the two layers; function declaration hoisting in TS/JS allows redactCredentials to be defined after userMessage without issue.
-**Findings:** tsc --noEmit type-check on scraper-agent.ts shows no new type errors related to redactCredentials or userMessage. No package.json/test runner found for .pi/lib in this repo (node_modules appears to be a stray artifact), so a runtime test could not be executed for this file; unit test for redactCredentials is covered by the next planned task (scraper-agent.test.ts).
-LESSONS: No package.json/test runner exists for .pi/lib TS files in this repo; tsc --noEmit is the only available verification. The next task (scraper-agent.test.ts) should check whether a test runner needs to be set up first.
-**Files:** .pi/lib/scraper-agent.ts (+21/-3)
-**Commit:** 73902e6 (hockey)
-
-### 2026-06-11 — Added a _redact_credential_values(text) helper that scrubs literal BOOKUP_EMAIL/BOOKUP_PASSWORD env var values, and applied it to visible_text in capture_dom_snapshot() and again to the visible text used when building the LLM prompt in _extract_events_via_llm(), as a third layer of defense alongside browser_worker.py and scraper-agent.ts.
-**Rationale:** Mirrors the substring-replace approach used in tasks 2 and 3 for consistency. Applied redaction at both the snapshot-capture point (capture_dom_snapshot) and again at prompt-build time (_extract_events_via_llm) for defense-in-depth, since capture_dom_snapshot is also used elsewhere in the pipeline.
-**Findings:** Verified _redact_credential_values replaces BOOKUP_EMAIL/BOOKUP_PASSWORD substrings with [REDACTED] and is a no-op when unset. Full test suite: 310 passed, 2 pre-existing/flaky failures unrelated to this change (test_zero_events_blocks_source, test_sources_run_in_different_threads).
-LESSONS: none
-**Files:** tournament_scheduler/pipeline/llm_scraper.py (+23/-1)
-**Commit:** 9fedc91 (hockey)
-
-### 2026-06-11 — Created tests/test_browser_worker.py with TestSanitizeHtml (6 tests covering password/email/username input stripping and unrelated-input passthrough) and TestRedactCredentials (4 tests covering BOOKUP_EMAIL/BOOKUP_PASSWORD redaction via monkeypatch.setenv and no-op behavior when unset).
-**Rationale:** Followed the class-based test convention from tests/test_ical_scraper.py (TestX classes, plain assert statements, monkeypatch fixture for env vars).
-**Findings:** All 10 new tests pass. Full suite: 321 passed, 1 skipped, 1 pre-existing/flaky failure (test_zero_events_blocks_source) unrelated to this change.
-LESSONS: none
-**Files:** tests/test_browser_worker.py (+65/-0)
-**Commit:** 2bf4e69 (hockey)
-
-### 2026-06-11 — Created .pi/lib/scraper-agent.test.ts (vitest, following parsers.test.ts conventions) covering redactCredentials() (4 tests: password substring, email substring, no-op when env vars unset, no-op on empty string) and userMessage() (2 tests confirming snapshot.html and snapshot.iframe_html credential values are redacted in the output message). Exported userMessage (was previously unexported) so it could be tested directly.
-**Rationale:** Exporting userMessage is a minimal, low-risk change (function declaration export only); WorkerResponse type remains unexported but is structurally satisfied via object literals cast with 'as any' in the test, consistent with TS structural typing.
-**Findings:** Ran via 'npx vitest run' in .pi/lib (vitest not in repo node_modules but available via npx): all 13 tests pass (7 existing parsers.test.ts + 6 new scraper-agent.test.ts).
-LESSONS: vitest is not in this repo's node_modules but works via 'npx vitest run' inside .pi/lib; use that to run TS tests for .pi/lib.
-**Files:** .pi/lib/scraper-agent.test.ts (+106), .pi/lib/scraper-agent.ts (+1/-1)
-**Commit:** dee8ebf (hockey)
-
-### 2026-06-11 — Added inline documentation across all three sanitization points: a module-level comment block in browser_worker.py describing the four-layer defense (DOM sanitization, label redaction, TS fallback, scrape-llm path) and the out-of-band auth alternative; expanded redactCredentials() docstring in scraper-agent.ts to reference the layer ordering and out-of-band alternative; expanded _redact_credential_values() docstring in llm_scraper.py to cross-reference the other layers and out-of-band auth alternative.
-**Rationale:** Inline comments were chosen over a separate doc file per the task's Approach, keeping the rationale next to the code it documents for future maintainers/agents.
-**Findings:** Full pytest suite: 320 passed, 1 skipped, 2 pre-existing/flaky failures (test_zero_events_blocks_source, test_sources_run_in_different_threads — both confirmed pre-existing on main, unrelated to comment-only changes). vitest in .pi/lib: 13/13 passed.
-LESSONS: This completes the BookUp credential-leak mitigation plan (backlog item #54): all 6 implementation/test/doc tasks are now done.
-**Files:** tournament_scheduler/pipeline/browser_worker.py (+32), .pi/lib/scraper-agent.ts (+10/-3), tournament_scheduler/pipeline/llm_scraper.py (+15/-6)
-**Commit:** 36f8df3 (hockey)
+**Files:** tournament_scheduler/html/html_exporter.py (+28/-4), tournament_scheduler/html/templates/script.js (+25/-7)
+**Commit:** [pending — fill after commit]
