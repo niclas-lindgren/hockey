@@ -15,7 +15,7 @@ The hand-typed `_DISTANCE_MATRIX` in `club_distances.py` contains rough/inconsis
   - Files: tournament_scheduler/club_distances.py
   - Add a `_CLUB_COORDINATES: Dict[str, Tuple[float, float]]` dict with real (latitude, longitude) pairs for each of the 9 RVV club arenas (Kongsberg/Kongsberghallen, Jar/Jarhallen, Holmen/Holmenkollen ishall, Ringerike/Ringerikshallen, Skien/Skien ishall, Jutul/Bærum ishall, Frisk Asker/Varner Arena, Tønsberg/Tønsberghallen, Sandefjord Penguins/Sandefjord ishall), plus a `_haversine_km(coord_a, coord_b) -> float` helper and a `_ROAD_DISTANCE_FACTOR` constant (e.g. 1.3) applied to the great-circle distance to approximate real driving distance.
 
-- [ ] Replace `_DISTANCE_MATRIX` lookup in `distance()` with the coordinate-based calculation
+- [x] This was implemented together with task 1 — distance() now computes results purely from _CLUB_COORDINATES via _haversine_km and _ROAD_DISTANCE_FACTOR, with the same-club and unknown-pair contracts preserved. — 2026-06-11
   - Files: tournament_scheduler/club_distances.py
   - Rewrite `distance(club_a, club_b) -> int` to return 0 for `club_a == club_b`, look up both clubs in `_CLUB_COORDINATES`, return 0 if either is missing (preserving the "unknown pair -> 0" contract), and otherwise return `round(_haversine_km(...) * _ROAD_DISTANCE_FACTOR)`; remove `_DISTANCE_MATRIX` and `_normalise_key` (haversine is naturally symmetric) once no longer referenced.
 
@@ -51,4 +51,11 @@ The hand-typed `_DISTANCE_MATRIX` in `club_distances.py` contains rough/inconsis
 **Findings:** distance() now computes great-circle distance via _haversine_km and applies the road factor; the old _DISTANCE_MATRIX and _normalise_key were removed. One existing test asserted Holmen was farther than Jar from Kongsberg based on old approximate numbers, but real coordinates show Jar (~75km) is actually farther than Holmen (~64km), so that test assertion was corrected to match.
 LESSONS: Real coordinates change relative ordering of some club distances vs the old hand-picked matrix; downstream code/tests assuming old relative orderings (e.g. Jar vs Holmen distance from Kongsberg) need updating to match real-world geography.
 **Files:** tournament_scheduler/club_distances.py (+84/-71 combined with test), tests/test_club_distances.py (+3/-2)
+**Commit:** f17fbf2 (hockey)
+
+### 2026-06-11 — This was implemented together with task 1 — distance() now computes results purely from _CLUB_COORDINATES via _haversine_km and _ROAD_DISTANCE_FACTOR, with the same-club and unknown-pair contracts preserved.
+**Rationale:** none
+**Findings:** Verified no remaining references to _DISTANCE_MATRIX or _normalise_key in club_distances.py; the rewrite was already completed in the prior task's commit.
+LESSONS: none
+**Files:** none (already implemented in previous commit)
 **Commit:** [pending — fill after commit]
