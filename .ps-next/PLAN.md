@@ -91,4 +91,4 @@ LESSONS: none
 **Findings:** Ran via 'npx vitest run' in .pi/lib (vitest not in repo node_modules but available via npx): all 13 tests pass (7 existing parsers.test.ts + 6 new scraper-agent.test.ts).
 LESSONS: vitest is not in this repo's node_modules but works via 'npx vitest run' inside .pi/lib; use that to run TS tests for .pi/lib.
 **Files:** .pi/lib/scraper-agent.test.ts (+106), .pi/lib/scraper-agent.ts (+1/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** dee8ebf (hockey)
