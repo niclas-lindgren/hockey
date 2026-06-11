@@ -77,4 +77,4 @@ LESSONS: No package.json/test runner exists for .pi/lib TS files in this repo; t
 **Findings:** Verified _redact_credential_values replaces BOOKUP_EMAIL/BOOKUP_PASSWORD substrings with [REDACTED] and is a no-op when unset. Full test suite: 310 passed, 2 pre-existing/flaky failures unrelated to this change (test_zero_events_blocks_source, test_sources_run_in_different_threads).
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/llm_scraper.py (+23/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** 9fedc91 (hockey)
