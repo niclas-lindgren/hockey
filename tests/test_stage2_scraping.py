@@ -1,6 +1,6 @@
 """Tests for tournament_scheduler.pipeline.stage2_scraping."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -341,6 +341,36 @@ class TestUnifiedCache:
         assert src["from_cache"] is True
         assert src["event_count"] == 1
         assert src["events"][0]["name"] == "Cached practice"
+
+    def test_fresh_z_suffixed_timestamp_skips_scraping(self, tmp_path):
+        """Cache entries written with a 'Z'-suffixed (tz-aware) timestamp,
+        as the extension's ScraperAgent does, must still be recognized as
+        fresh by is_stale()."""
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        cached_events = _events_to_dicts([_make_event("Cached practice")])
+        fresh_z = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        self._seed_cache(
+            work_dir,
+            start_date=cfg["start_date"], end_date=cfg["end_date"],
+            source_name="Kongsberg", events=cached_events,
+            scrape_timestamp=fresh_z,
+        )
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+        ) as mock_scraper:
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_scraper.assert_not_called()
+        assert result["cached"] == ["Kongsberg"]
 
     def test_stale_cache_triggers_rescrape(self, tmp_path):
         work_dir = tmp_path / "pipeline"

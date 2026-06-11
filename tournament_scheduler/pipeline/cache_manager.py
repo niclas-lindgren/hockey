@@ -167,7 +167,8 @@ class ScrapedDataCache:
             return True
         try:
             scraped_at = datetime.fromisoformat(ts)
-            return datetime.now() - scraped_at > self.ttl
+            now = datetime.now(scraped_at.tzinfo) if scraped_at.tzinfo else datetime.now()
+            return now - scraped_at > self.ttl
         except (ValueError, TypeError):
             return True
 
