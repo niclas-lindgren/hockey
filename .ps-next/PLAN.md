@@ -84,4 +84,4 @@ LESSONS: none
 **Findings:** All 10 new tests pass. Full suite: 321 passed, 1 skipped, 1 pre-existing/flaky failure (test_zero_events_blocks_source) unrelated to this change.
 LESSONS: none
 **Files:** tests/test_browser_worker.py (+65/-0)
-**Commit:** [pending — fill after commit]
+**Commit:** 2bf4e69 (hockey)
