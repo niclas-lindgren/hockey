@@ -30,7 +30,7 @@
   - Files: tests/test_season_planner.py
   - Approach: Add a test that builds a roster mirroring `documentation/input.json` (Jar: 7 U10 + 6 U11 teams; Kongsberg: 1 U10 + 1 U11 team, plus the other clubs), runs `SeasonPlanner.build_plan` over a representative season window, and asserts on `plan.team_game_counts` to show the skew between an individual Jar team and Kongsberg's team before any fix (this test should currently demonstrate the imbalance, e.g. via a documented `xfail` or an assertion capturing the ratio).
 
-- [ ] Document the root cause inline in the selection code
+- [x] Added docstring notes to _select_participants, _record_grouping, and _pick_least_recently_grouped explaining that raw _invite_counts balances per-team labels without awareness of same-club/same-age-group team counts, so a club's single max_club_teams_per_tournament slot gets diluted across all its same-age-group teams, and cross-referencing _normalized_invite_count and per_team_share_warnings as the mitigation/diagnostic for future readers. — 2026-06-11
   - Files: tournament_scheduler/season_planner.py
   - Approach: Add docstring/comment notes to `_select_participants`, `_pick_least_recently_grouped`, and `_record_grouping` explaining that `_invite_counts` balances per-team labels but does not account for how many same-club teammates share an age group, so a club's fixed per-tournament "slot" gets diluted across all its same-age-group teams — referencing this PLAN's findings for future readers.
 
@@ -107,3 +107,10 @@ LESSONS: none
 LESSONS: For documentation/input.json with maxTeamsPerTournament6 and default max_club_teams_per_tournament1, Kongsberg's sole U10 team is invited to nearly every tournament (45 games) while each of Jar's 7 U10 teams gets only 10-15 games — fully resolving this would require relaxing max_club_teams_per_tournament for clubs with many same-age-group teams, which is a separate, larger change beyond this backlog item's scope (consider as a new backlog item).
 **Files:** tests/test_season_planner.py (+83)
 **Commit:** fdc6c6f (hockey)
+
+### 2026-06-11 — Added docstring notes to _select_participants, _record_grouping, and _pick_least_recently_grouped explaining that raw _invite_counts balances per-team labels without awareness of same-club/same-age-group team counts, so a club's single max_club_teams_per_tournament slot gets diluted across all its same-age-group teams, and cross-referencing _normalized_invite_count and per_team_share_warnings as the mitigation/diagnostic for future readers.
+**Rationale:** none
+**Findings:** All 52 season_planner tests pass (docstring-only change).
+LESSONS: none
+**Files:** tournament_scheduler/season_planner.py (+40/-1)
+**Commit:** [pending — fill after commit]

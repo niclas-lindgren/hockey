@@ -1116,6 +1116,22 @@ class SeasonPlanner:
         age-group roster when it is small enough for a sensible
         round-robin and club diversity allows it; otherwise picks a
         subset using a least-recently-grouped-together heuristic.
+
+        Root-cause note (club-size skew): with the default
+        ``max_club_teams_per_tournament=1``, each club gets at most one
+        "slot" per tournament regardless of how many teams it fields in
+        this age group. A club with many same-age-group teams (e.g. Jar
+        fielding 7 U10 teams) therefore has its single slot shared/rotated
+        across all of those teams, while a club with only one team in the
+        age group (e.g. Kongsberg's sole U10 team) gets that slot every
+        time. `_pick_least_recently_grouped`'s normalized invite-count
+        tie-break (`_normalized_invite_count`) ensures the shared slot
+        rotates evenly across a club's same-age-group siblings, but it
+        cannot equalize a sibling's individual game count with a
+        single-team club's count — that would require relaxing
+        `max_club_teams_per_tournament` for clubs with many same-age-group
+        teams, which is out of scope here. See `per_team_share_warnings`
+        (`_scan_per_team_share_warnings`) for the resulting diagnostic.
         """
         candidates = self.roster.by_age_group(age_group)
         if not candidates:
@@ -1175,6 +1191,16 @@ class SeasonPlanner:
         teams from a club that already has a team in the selected set are
         excluded entirely.  If that leaves no candidates at all, falls back
         to the soft penalty to avoid deadlock.
+
+        Root-cause note (club-size skew): see `_select_participants` and
+        `_record_grouping` for why raw `_invite_counts` alone would
+        under-prioritize teams from clubs with many same-age-group
+        siblings. This method's seed selection and tie-break both use
+        `_normalized_invite_count` instead of raw `_invite_counts` to
+        rotate a club's shared per-tournament slot evenly across its
+        siblings. The residual skew this cannot resolve (a sibling's
+        individual count vs. a single-team club's count) is reported via
+        `per_team_share_warnings`.
         """
         max_club = self.max_club_teams_per_tournament
         remaining = list(candidates)
@@ -1258,7 +1284,20 @@ class SeasonPlanner:
         return selected
 
     def _record_grouping(self, participants: Sequence[Team]) -> None:
-        """Record that `participants` were grouped together this tournament."""
+        """Record that `participants` were grouped together this tournament.
+
+        Note: `_invite_counts` (incremented here) tracks raw invitations
+        per team *label*, with no awareness of how many same-club teams
+        share an age group. Read alone, it would balance individual labels
+        evenly — but since `max_club_teams_per_tournament` caps a club to
+        one slot per tournament regardless of its team count, a club
+        fielding several same-age-group teams (e.g. Jar's 7 U10 teams)
+        effectively dilutes one shared slot's invites across all of them.
+        `_pick_least_recently_grouped` compensates for this via
+        `_normalized_invite_count`, which multiplies each team's
+        `_invite_counts` value by its club's same-age-group team count
+        before comparing — see that method's docstring for details.
+        """
         labels = [team.label for team in participants]
         for team in participants:
             self._invite_counts[team.label] = self._invite_counts.get(team.label, 0) + 1
