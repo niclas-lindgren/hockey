@@ -24,7 +24,7 @@ The season-plan HTML report's light theme currently reuses dark-theme-only color
   - Files: `tournament_scheduler/html/templates/script.js`
   - Acceptance: The hardcoded `background:rgba(30,41,59,.4)` for empty cells (line ~191) is replaced with a CSS variable reference (e.g. `var(--bg-surface)` or a new `--heatmap-empty-bg` variable) so empty cells render as a subtle light-grey in light theme and the existing dark slate in dark theme — no literal dark rgba value remains in the empty-cell branch.
 
-- [ ] Add a `--heatmap-empty-bg` CSS variable for both themes
+- [x] Defined --heatmap-empty-bg in :root as rgba(30,41,59,.4) (preserving the prior dark-theme empty-cell appearance) and overrode it in [data-theme"light"] with rgba(228,228,231,.6), a light low-contrast neutral derived from --bg-surface (#e4e4e7). — 2026-06-11
   - Files: `tournament_scheduler/html/templates/styles.css`
   - Acceptance: `:root` defines `--heatmap-empty-bg: rgba(30,41,59,.4)` (preserving current dark-theme appearance) and `[data-theme="light"]` overrides it with a light, low-contrast neutral (e.g. `rgba(228,228,231,.6)` or similar derived from `--bg-surface`), referenced by `script.js` from the previous task.
 
@@ -67,4 +67,11 @@ LESSONS: none
 **Findings:** No literal dark rgba value remains in the empty-cell branch of script.js; depends on the next task to define --heatmap-empty-bg or the cell will render with no background until then.
 LESSONS: none
 **Files:** tournament_scheduler/html/templates/script.js (+1/-1)
+**Commit:** 2501b58 (hockey)
+
+### 2026-06-11 — Defined --heatmap-empty-bg in :root as rgba(30,41,59,.4) (preserving the prior dark-theme empty-cell appearance) and overrode it in [data-theme"light"] with rgba(228,228,231,.6), a light low-contrast neutral derived from --bg-surface (#e4e4e7).
+**Rationale:** Chose rgba over a flat color to keep partial transparency consistent with the original dark-theme value and allow the underlying --bg to show through subtly in both themes.
+**Findings:** Variable now consumed by script.js (added in the previous task) for empty heatmap cells; dark theme appearance unchanged, light theme empty cells render as a subtle light-grey.
+LESSONS: none
+**Files:** tournament_scheduler/html/templates/styles.css (+2/-0)
 **Commit:** [pending — fill after commit]
