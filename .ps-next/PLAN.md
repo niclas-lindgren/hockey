@@ -99,4 +99,4 @@ LESSONS: The club-size normalization (task 1) cannot fully equalize per-team gam
 **Findings:** All 51 season_planner tests and full suite (313 passed/1 skipped, excluding pre-existing unrelated stage2 failure) pass.
 LESSONS: none
 **Files:** tests/test_season_planner.py (+62)
-**Commit:** [pending — fill after commit]
+**Commit:** de753d9 (hockey)
