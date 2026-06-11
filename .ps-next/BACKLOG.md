@@ -2,7 +2,15 @@
 
 ## Open
 
-- [53] [ ] Improve light theme UI colors — heatmap background is too dark and there's too little differentiation between colors (all bright, hard to distinguish)
+- [54] [ ] Stream progress output from rvv_miniputt_run (and the other rvv_miniputt_* tools)
+  instead of leaving the user staring at a bare "Working..." spinner during long runs.
+  The pipeline already builds up `lines: string[]` per stage in `.pi/lib/pipeline-runner.ts`
+  and the ScraperAgent loop in `.pi/lib/scraper-agent.ts` runs up to 25 iterations per
+  blocked source — both are long, silent stretches. Use the tool `execute`'s `onUpdate`
+  callback (currently `_onUpdate`, unused) to push incremental progress: stage
+  start/end, per-source scrape results, and ScraperAgent iteration/action progress
+  ("Jar: iterasjon 4/25 — click '#neste-mnd'"). Apply to `rvv_miniputt_run` first since
+  that's where the bulk of run time and silence is.
 
 - [45] [ ] Verify tournament/match scheduling fairness: game counts per team are very skewed (e.g. Jar club gets only 13 games while Kongsberg gets 84). Investigate the matching/scheduling algorithm - it appears a club's total team count is being matched against other clubs' totals instead of pairing comparable teams within similar age groups, so each team should get a roughly similar number of games regardless of club size.
 
@@ -58,6 +66,7 @@
 - [8] [x] Spond season-plan export — export the generated season plan (tournaments, dates, arenas, participating teams, and per-tournament round-robin game schedules) to Spond's Excel-import format for season planning. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use. (2026-06-10)
 
 ## Done
+- [53] [x] Improve light theme UI colors — heatmap background is too dark and there's too little differentiation between colors (all bright, hard to distinguish) (2026-06-11)
 - [54] [x] Investigate how to avoid the BookUp password leaking to the LLM when it's entered on-demand during the run flow — the pipeline currently prompts for BookUp credentials interactively (added for booking-calendar handling, backlog item #32) and the value may end up in LLM prompts/context (e.g. via ScraperAgent or scrape-llm). Audit the credential-prompt and scraper-agent code paths to ensure the password is never included in any text sent to a local or remote LLM, and propose a safer pattern (e.g. env var injection, redaction, out-of-band browser auth) if it currently is. (2026-06-11)
 - [46] [x] Verify/improve driving distance calculation: current values look incorrect. Implement a more reliable algorithm to compute from-to distances between venues (e.g. using a proper geocoding/distance matrix approach) and aggregate per-team/season travel distances correctly. (2026-06-11)
 - [52] [x] Fix /rvv-miniputt [arg] command argument parsing for local LLM models - with remote models the command and argument are correctly picked up and dispatched, but with local models (LM Studio/Qwen) argument extraction/dispatch fails. Investigate pi.registerCommand handlers in .pi/extensions/rvv-miniputt.ts (run/status/logs/calendars handlers around lines 40-206) and how Pi passes parsed args to runPipeline/parseStatusArgs/parseLogsArgs - the manual tokenization in the calendars handler (lines 146-152) is a likely culprit. Make argument parsing robust regardless of which model (local or remote) is driving the Pi session. (2026-06-11)
