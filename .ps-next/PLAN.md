@@ -19,7 +19,7 @@ The hand-typed `_DISTANCE_MATRIX` in `club_distances.py` contains rough/inconsis
   - Files: tournament_scheduler/club_distances.py
   - Rewrite `distance(club_a, club_b) -> int` to return 0 for `club_a == club_b`, look up both clubs in `_CLUB_COORDINATES`, return 0 if either is missing (preserving the "unknown pair -> 0" contract), and otherwise return `round(_haversine_km(...) * _ROAD_DISTANCE_FACTOR)`; remove `_DISTANCE_MATRIX` and `_normalise_key` (haversine is naturally symmetric) once no longer referenced.
 
-- [ ] Keep `_ARENA_TO_CLUB`, `arena_to_club()`, `furthest_traveling_team()`, and `compute_team_travel_distances()` working against the new `distance()`
+- [x] Verified _ARENA_TO_CLUB, arena_to_club(), furthest_traveling_team(), and compute_team_travel_distances() all continue to work unchanged against the new coordinate-based distance(); module docstring already describes the haversine + road-correction approach (updated as part of the initial rewrite). — 2026-06-11
   - Files: tournament_scheduler/club_distances.py
   - Verify these functions only depend on `distance()`/`arena_to_club()` (no direct `_DISTANCE_MATRIX`/`_normalise_key` references survive); update module docstring to describe the haversine + road-correction approach instead of "static distance lookups".
 
@@ -58,4 +58,11 @@ LESSONS: Real coordinates change relative ordering of some club distances vs the
 **Findings:** Verified no remaining references to _DISTANCE_MATRIX or _normalise_key in club_distances.py; the rewrite was already completed in the prior task's commit.
 LESSONS: none
 **Files:** none (already implemented in previous commit)
+**Commit:** 1b4b47f (hockey)
+
+### 2026-06-11 — Verified _ARENA_TO_CLUB, arena_to_club(), furthest_traveling_team(), and compute_team_travel_distances() all continue to work unchanged against the new coordinate-based distance(); module docstring already describes the haversine + road-correction approach (updated as part of the initial rewrite).
+**Rationale:** none
+**Findings:** No code changes needed — these functions only call distance()/arena_to_club() and never referenced _DISTANCE_MATRIX or _normalise_key directly; docstring already updated in the first commit.
+LESSONS: none
+**Files:** none (verification only, no file changes)
 **Commit:** [pending — fill after commit]
