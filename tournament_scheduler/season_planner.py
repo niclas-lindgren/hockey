@@ -175,6 +175,21 @@ class SeasonPlanner:
         # Tracks how many times each team has been invited overall, to keep
         # invitations roughly balanced across the season.
         self._invite_counts: Dict[str, int] = {team.label: 0 for team in roster.teams}
+        # Maps team label -> number of teams from the same club in the same
+        # age group (including itself). Used to normalize invite counts so
+        # that a club with many sibling teams in an age group (e.g. Jar
+        # fielding 6 U10 teams) doesn't have each individual team starved of
+        # invitations relative to a club with only one team in that age
+        # group (e.g. Kongsberg's sole U10 team) — each team should get a
+        # roughly similar number of games regardless of club size.
+        club_age_group_counts: Dict[Tuple[str, str], int] = {}
+        for team in roster.teams:
+            key = (team.club, team.age_group)
+            club_age_group_counts[key] = club_age_group_counts.get(key, 0) + 1
+        self._club_age_group_team_counts: Dict[str, int] = {
+            team.label: club_age_group_counts[(team.club, team.age_group)]
+            for team in roster.teams
+        }
         # Tracks, per unordered pair of teams (as a frozenset of labels),
         # how many times that pair has actually been scheduled to play each
         # other — distinct from `_grouped_with`, which only records mere
@@ -1042,6 +1057,21 @@ class SeasonPlanner:
             return max(4, min(DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games, parallel_games * 3))
         return DEFAULT_MAX_TEAMS_PER_TOURNAMENT
 
+    def _normalized_invite_count(self, team: Team) -> float:
+        """Return `team`'s invite count, normalized by club-size-in-age-group.
+
+        Multiplying the raw invite count by the number of same-club teams in
+        the same age group converts it into a proxy for the club's *total*
+        invitations to that age group. A Jar U10 team (1 of 6 siblings)
+        reaches the same normalized value as Kongsberg's sole U10 team only
+        after Jar's U10 teams collectively receive ~6x as many invitations,
+        so each individual team ends up with a roughly equal expected share
+        regardless of how many sibling teams its club fields in that age
+        group.
+        """
+        sibling_count = self._club_age_group_team_counts.get(team.label, 1)
+        return self._invite_counts.get(team.label, 0) * sibling_count
+
     def _pick_least_recently_grouped(self, candidates: Sequence[Team], count: int) -> List[Team]:
         """Greedily build a subset that minimizes repeat matchups.
 
@@ -1066,7 +1096,13 @@ class SeasonPlanner:
             return []
 
         # Seed with the least-invited team so invitations stay balanced.
-        remaining.sort(key=lambda t: (self._invite_counts.get(t.label, 0), candidates.index(t)))
+        # The invite count is normalized by the number of same-club teams in
+        # the same age group, so a team that is one of several siblings from
+        # the same club (e.g. one of Jar's 6 U10 teams) is prioritized
+        # roughly proportionally more often than a club's sole team in that
+        # age group (e.g. Kongsberg's only U10 team), equalizing each team's
+        # expected per-season invitation count.
+        remaining.sort(key=lambda t: (self._normalized_invite_count(t), candidates.index(t)))
         selected: List[Team] = [remaining.pop(0)]
 
         while remaining and len(selected) < count:
@@ -1125,7 +1161,7 @@ class SeasonPlanner:
                     club_penalty(t),
                     repeat_matchup_score(t),
                     overlap_score(t),
-                    self._invite_counts.get(t.label, 0),
+                    self._normalized_invite_count(t),
                     candidates.index(t),
                 )
             )
