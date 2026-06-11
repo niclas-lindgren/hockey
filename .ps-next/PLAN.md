@@ -78,4 +78,4 @@ LESSONS: none
 **Findings:** All 49 season_planner tests pass; new method follows the existing _scan_*_warnings pattern (club_load, hosting, month_load).
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+61)
-**Commit:** [pending — fill after commit]
+**Commit:** 15782a9 (hockey)
