@@ -16,13 +16,14 @@ import {
   resolveResumeStage,
   estimateDataVolume,
 } from "./pipeline-helpers";
+import type { ProgressEvent } from "./types";
 
 export interface PipelineRunResult {
   status: "success" | "failure";
   text: string;
 }
 
-export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Promise<PipelineRunResult> {
+export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onProgress?: (e: ProgressEvent) => void): Promise<PipelineRunResult> {
   const params = parseRunArgs(rawArgs);
   const cwdPath = ctx.cwd;
   const inputPath  = resolve(cwdPath, params.input     ?? "input.json");
@@ -67,6 +68,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
   // -------------------------------------------------------------------
   if (resumeFrom <= 1) {
     lines.push("Trinn 1: Laster og validerer konfigurasjon...");
+    onProgress?.({ stage: "config", status: "start", message: "Laster og validerer konfigurasjon..." });
     logger.stageStart("config");
     try {
       const { stdout, stderr } = await runStage(
@@ -78,6 +80,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
       if (stdout) lines.push(stdout);
       if (stderr) lines.push(`[stderr] ${stderr}`);
       lines.push("Trinn 1: OK\n");
+      onProgress?.({ stage: "config", status: "ok", message: "Konfigurasjon validert (OK)" });
 
       // Log data volume from checkpoint
       const ckpt = readCheckpoint(workDir, "stage1_config.json");
@@ -85,12 +88,14 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       lines.push(`Trinn 1 FEILET:\n${msg}`);
+      onProgress?.({ stage: "config", status: "error", message: "Konfigurasjon feilet", error: msg });
       logger.stageEnd("config", "failed", msg);
       logger.finalize("failure");
       return { status: "failure", text: lines.join("\n") };
     }
   } else {
     lines.push("Trinn 1: Hoppet over (gjenopptatt)\n");
+    onProgress?.({ stage: "config", status: "skip", message: "Konfigurasjon hoppet over (gjenopptatt)" });
     logger.stageStart("config");
     logger.stageEnd("config", "skipped");
   }
@@ -100,6 +105,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
   // -------------------------------------------------------------------
   if (resumeFrom <= 2) {
     lines.push("Trinn 2: Skraper kalenderkilder (deterministisk)...");
+    onProgress?.({ stage: "scraping", status: "start", message: "Skraper kalenderkilder (Trinn 2/4)..." });
     logger.stageStart("scraping");
     let stage2ok = true;
     let stage2error = "";
@@ -131,6 +137,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
 
     if (blocked.length > 0) {
       lines.push(`\nTrinn 2 utvidet: Skraper ${blocked.length} blokkerte kilder med Pi...`);
+      onProgress?.({ stage: "scraping-extended", status: "start", message: `Utvidet skraping: ${blocked.length} blokkerte kilder` });
       try {
         const { ScraperAgent } = await import("./scraper-agent");
         const agent = new ScraperAgent(ctx);
@@ -179,6 +186,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
           }
 
           lines.push(`  ${name}: skraper med ScraperAgent...`);
+          onProgress?.({ stage: "scraping-extended", status: "start", message: `Skraper ${name} med LLM-agent...`, blockedName: name });
           const initialNav = (strat.initial_navigation as Array<Record<string, unknown>>) ?? [];
           const events = await agent.scrape(strat.url as string, {
             strategy: (strat.engine === "styled_calendar" ? "styledcalendar" : "auto") as any,
@@ -187,6 +195,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
             initialNavigation: initialNav.length > 0 ? initialNav as any : undefined,
           });
           lines.push(`  ${name}: ${events.length} events funnet\n`);
+          onProgress?.({ stage: "scraping-extended", status: "ok", message: `${name}: ${events.length} events funnet`, blockedName: name, eventCount: events.length });
 
           // Update checkpoint data by writing to cache
           if (events.length > 0) {
@@ -226,12 +235,16 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
       } catch (agentErr: unknown) {
         const msg = agentErr instanceof Error ? agentErr.message : String(agentErr);
         lines.push(`ScraperAgent feilet: ${msg}\n`);
+        onProgress?.({ stage: "scraping-extended", status: "error", message: `Utvidet skraping feilet: ${msg}` });
       }
     }
 
+    const scrapingOk = stage2ok && blocked.length === 0;
+    onProgress?.({ stage: "scraping", status: "ok", message: scrapingOk ? "Alle kalendere skrapet (OK)" : `Kalendere skrapet (${blocked.length} kilder krevde LLM-assistanse)`, blockedCount: blocked.length });
     logger.stageEnd("scraping", stage2ok && blocked.length === 0 ? "ok" : "ok", undefined);
   } else {
     lines.push("Trinn 2: Hoppet over (gjenopptatt)\n");
+    onProgress?.({ stage: "scraping", status: "skip", message: "Skraping hoppet over (gjenopptatt)" });
     logger.stageStart("scraping");
     logger.stageEnd("scraping", "skipped");
   }
@@ -241,6 +254,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
   // -------------------------------------------------------------------
   if (resumeFrom <= 3) {
     lines.push("Trinn 3: Bygger sesongplan...");
+    onProgress?.({ stage: "planning", status: "start", message: "Bygger sesongplan (Trinn 3/4)..." });
     logger.stageStart("planning");
     try {
       const { stdout, stderr } = await runStage(
@@ -252,18 +266,21 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
       if (stdout) lines.push(stdout);
       if (stderr) lines.push(`[stderr] ${stderr}`);
       lines.push("Trinn 3: OK\n");
+      onProgress?.({ stage: "planning", status: "ok", message: "Sesongplan bygget (OK)" });
 
       const ckpt = readCheckpoint(workDir, "stage3_plan.json");
       logger.stageEnd("planning", "ok", undefined, estimateDataVolume(ckpt));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       lines.push(`Trinn 3 FEILET:\n${msg}`);
+      onProgress?.({ stage: "planning", status: "error", message: "Planlegging feilet", error: msg });
       logger.stageEnd("planning", "failed", msg);
       logger.finalize("failure");
       return { status: "failure", text: lines.join("\n") };
     }
   } else {
     lines.push("Trinn 3: Hoppet over (gjenopptatt)\n");
+    onProgress?.({ stage: "planning", status: "skip", message: "Planlegging hoppet over (gjenopptatt)" });
     logger.stageStart("planning");
     logger.stageEnd("planning", "skipped");
   }
@@ -273,6 +290,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
   // -------------------------------------------------------------------
   if (resumeFrom <= 4) {
     lines.push("Trinn 4: Eksporterer til Excel, iCal og CSV...");
+    onProgress?.({ stage: "export", status: "start", message: "Eksporterer til Excel, iCal og CSV (Trinn 4/4)..." });
     logger.stageStart("export");
     try {
       const { stdout, stderr } = await runStage(
@@ -284,18 +302,21 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
       if (stdout) lines.push(stdout);
       if (stderr) lines.push(`[stderr] ${stderr}`);
       lines.push("Trinn 4: OK\n");
+      onProgress?.({ stage: "export", status: "ok", message: "Eksport fullført (OK)" });
 
       const ckpt = readCheckpoint(workDir, "stage4_export.json");
       logger.stageEnd("export", "ok", undefined, estimateDataVolume(ckpt));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       lines.push(`Trinn 4 FEILET:\n${msg}`);
+      onProgress?.({ stage: "export", status: "error", message: "Eksport feilet", error: msg });
       logger.stageEnd("export", "failed", msg);
       logger.finalize("failure");
       return { status: "failure", text: lines.join("\n") };
     }
   } else {
     lines.push("Trinn 4: Hoppet over (gjenopptatt)\n");
+    onProgress?.({ stage: "export", status: "skip", message: "Eksport hoppet over (gjenopptatt)" });
     logger.stageStart("export");
     logger.stageEnd("export", "skipped");
   }
@@ -323,6 +344,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext): Prom
 
   // Finalize
   logger.finalize(overallStatus);
+  onProgress?.({ stage: "done", status: overallStatus === "success" ? "ok" : "error", message: overallStatus === "success" ? "Pipeline fullført" : "Pipeline feilet" });
 
   lines.push("=== Pipeline fullfort ===");
   lines.push(buildStatusText(workDir));

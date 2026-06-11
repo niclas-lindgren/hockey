@@ -1,7 +1,7 @@
 {
   "_meta": {
     "updated_at": "2026-06-10T10:47:58.620776",
-    "ttl_hours": 6.0,
+    "ttl_hours": 6,
     "start_date": "2026-09-01",
     "end_date": "2027-04-30"
   },
@@ -10,7 +10,7 @@
       "name": "Kongsberg ishall",
       "url": "https://kongsberghallen.no/webkalender/ishall/",
       "scrape_timestamp": "2026-06-10T04:21:11.676605",
-      "ttl_hours": 6.0,
+      "ttl_hours": 6,
       "event_count": 11,
       "blocked": false,
       "events": [
@@ -18,19 +18,19 @@
           "date": "03.08.2026",
           "name": "HUSK påminnelse om kampoppsett for hockey",
           "datetime": "2026-08-03T09:00:00",
-          "duration_hours": 3.0
+          "duration_hours": 3
         },
         {
           "date": "03.08.2026",
           "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
           "datetime": "2026-08-03T10:00:00",
-          "duration_hours": 3.0
+          "duration_hours": 3
         },
         {
           "date": "24.08.2026",
           "name": "Kongsberg gruppen",
           "datetime": "2026-08-24T00:00:00",
-          "duration_hours": 0.0
+          "duration_hours": 0
         },
         {
           "date": "12.09.2026",
@@ -48,7 +48,7 @@
           "date": "28.09.2026",
           "name": "Tivoli ***",
           "datetime": "2026-09-28T00:00:00",
-          "duration_hours": 0.0
+          "duration_hours": 0
         },
         {
           "date": "17.10.2026",
@@ -60,19 +60,19 @@
           "date": "30.10.2026",
           "name": "HalloVenn",
           "datetime": "2026-10-30T08:00:00",
-          "duration_hours": 14.0
+          "duration_hours": 14
         },
         {
           "date": "31.10.2026",
           "name": "HalloVenn",
           "datetime": "2026-10-31T08:00:00",
-          "duration_hours": 14.0
+          "duration_hours": 14
         },
         {
           "date": "01.11.2026",
           "name": "HalloVenn",
           "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 14.0
+          "duration_hours": 14
         },
         {
           "date": "07.11.2026",
@@ -86,7 +86,7 @@
       "name": "Skien ishall",
       "url": "https://skienfritidspark.brp.exigo.no/ishallen",
       "scrape_timestamp": "2026-06-10T04:21:11.676605",
-      "ttl_hours": 6.0,
+      "ttl_hours": 6,
       "event_count": 1,
       "blocked": false,
       "events": [
@@ -102,7 +102,7 @@
       "name": "Ringerike",
       "url": "https://ics.teamup.com/feed/ksr8bg1tpn5s3npskw/0.ics",
       "scrape_timestamp": "2026-06-10T04:21:11.676605",
-      "ttl_hours": 6.0,
+      "ttl_hours": 6,
       "event_count": 1642,
       "blocked": false,
       "events": [
@@ -110,19 +110,19 @@
           "date": "01.09.2026",
           "name": "RIK vs Lillehammer",
           "datetime": "2026-09-01T13:00:00+02:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "06.09.2026",
           "name": "Region Viken Vest",
           "datetime": "2026-09-06T11:00:00+02:00",
-          "duration_hours": 3.0
+          "duration_hours": 3
         },
         {
           "date": "11.09.2026",
           "name": "RIK vs Stjernen",
           "datetime": "2026-09-11T13:00:00+02:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "12.09.2026",
@@ -134,7 +134,7 @@
           "date": "13.09.2026",
           "name": "JU18 vs Storhamar",
           "datetime": "2026-09-13T11:00:00+02:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "20.09.2026",
@@ -146,25 +146,25 @@
           "date": "11.11.2026",
           "name": "Ringerike Videregående",
           "datetime": "2026-11-11T08:30:00+01:00",
-          "duration_hours": 3.0
+          "duration_hours": 3
         },
         {
           "date": "16.04.2027",
           "name": "JU12 cup",
           "datetime": "2027-04-16T08:00:00+02:00",
-          "duration_hours": 15.0
+          "duration_hours": 15
         },
         {
           "date": "17.04.2027",
           "name": "JU12 cup",
           "datetime": "2027-04-17T08:00:00+02:00",
-          "duration_hours": 15.0
+          "duration_hours": 15
         },
         {
           "date": "18.04.2027",
           "name": "JU12 cup",
           "datetime": "2027-04-18T08:00:00+02:00",
-          "duration_hours": 15.0
+          "duration_hours": 15
         },
         {
           "date": "07.09.2026",
@@ -7256,211 +7256,211 @@
           "date": "03.09.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-09-03T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "10.09.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-09-10T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "17.09.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-09-17T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "24.09.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-09-24T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-01T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "08.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-08T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "15.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-15T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "22.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-22T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "29.10.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-10-29T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "05.11.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-11-05T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "12.11.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-11-12T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "19.11.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-11-19T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "26.11.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-11-26T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "03.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-03T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "10.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-10T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "17.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-17T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "24.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-24T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "31.12.2026",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2026-12-31T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "07.01.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-01-07T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "14.01.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-01-14T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "21.01.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-01-21T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "28.01.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-01-28T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "04.02.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-02-04T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "11.02.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-02-11T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "18.02.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-02-18T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "25.02.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-02-25T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "04.03.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-03-04T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "11.03.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-03-11T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "18.03.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-03-18T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "25.03.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-03-25T18:40:00+01:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-01T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "08.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-08T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "15.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-15T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "22.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-22T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "29.04.2027",
           "name": "Stasjonstr. U11-12-13",
           "datetime": "2027-04-29T18:40:00+02:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "03.09.2026",
@@ -9964,7 +9964,7 @@
       "name": "Frisk Asker",
       "url": "https://ics.teamup.com/feed/ksdwpwxysmxwnuftoy/0.ics",
       "scrape_timestamp": "2026-06-10T04:21:11.676605",
-      "ttl_hours": 6.0,
+      "ttl_hours": 6,
       "event_count": 976,
       "blocked": false,
       "events": [
@@ -9972,31 +9972,31 @@
           "date": "05.09.2026",
           "name": "Cup JU10",
           "datetime": "2026-09-05T09:00:00+02:00",
-          "duration_hours": 10.0
+          "duration_hours": 10
         },
         {
           "date": "06.09.2026",
           "name": "Tentativ Cup JU12",
           "datetime": "2026-09-06T09:00:00+02:00",
-          "duration_hours": 10.0
+          "duration_hours": 10
         },
         {
           "date": "12.09.2026",
           "name": "Cup U11",
           "datetime": "2026-09-12T09:00:00+02:00",
-          "duration_hours": 10.0
+          "duration_hours": 10
         },
         {
           "date": "13.09.2026",
           "name": "Cup U10",
           "datetime": "2026-09-13T09:00:00+02:00",
-          "duration_hours": 10.0
+          "duration_hours": 10
         },
         {
           "date": "20.09.2026",
           "name": "Cup U9",
           "datetime": "2026-09-20T09:00:00+02:00",
-          "duration_hours": 10.0
+          "duration_hours": 10
         },
         {
           "date": "05.09.2026",
@@ -15845,7 +15845,7 @@
       "name": "Jar",
       "url": "https://www.forumbooking.no/schema.aspx?obj=2&schema=Jarhallen%20(ishall)&kalender=true&safarifix=true",
       "scrape_timestamp": "2026-06-10T04:21:11.676605",
-      "ttl_hours": 6.0,
+      "ttl_hours": 6,
       "event_count": 368,
       "blocked": false,
       "events": [
@@ -15853,25 +15853,25 @@
           "date": "01.09.2026",
           "name": "Booking 06:15-07:15",
           "datetime": "2026-09-01T06:15:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
           "name": "Booking 00:00-08:00",
           "datetime": "2026-09-01T00:00:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "01.09.2026",
           "name": "Booking 00:00-09:00",
           "datetime": "2026-09-01T00:00:00",
-          "duration_hours": 9.0
+          "duration_hours": 9
         },
         {
           "date": "01.09.2026",
           "name": "Booking 07:00-08:00",
           "datetime": "2026-09-01T07:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
@@ -15883,7 +15883,7 @@
           "date": "01.09.2026",
           "name": "Booking 08:00-13:00",
           "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 5.0
+          "duration_hours": 5
         },
         {
           "date": "01.09.2026",
@@ -15895,25 +15895,25 @@
           "date": "01.09.2026",
           "name": "Booking 09:00-10:00",
           "datetime": "2026-09-01T09:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
           "name": "Booking 10:00-11:00",
           "datetime": "2026-09-01T10:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
           "name": "Booking 10:00-12:00",
           "datetime": "2026-09-01T10:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.09.2026",
           "name": "Booking 11:00-12:00",
           "datetime": "2026-09-01T11:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
@@ -15937,13 +15937,13 @@
           "date": "01.09.2026",
           "name": "Booking 13:00-14:00",
           "datetime": "2026-09-01T13:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
           "name": "Booking 14:30-15:30",
           "datetime": "2026-09-01T14:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
@@ -15967,13 +15967,13 @@
           "date": "01.09.2026",
           "name": "Booking 15:30-16:30",
           "datetime": "2026-09-01T15:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
           "name": "Booking 15:30-17:30",
           "datetime": "2026-09-01T15:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.09.2026",
@@ -16009,7 +16009,7 @@
           "date": "01.09.2026",
           "name": "Booking 18:00-19:00",
           "datetime": "2026-09-01T18:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
@@ -16021,7 +16021,7 @@
           "date": "01.09.2026",
           "name": "Booking 19:00-21:00",
           "datetime": "2026-09-01T19:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.09.2026",
@@ -16039,7 +16039,7 @@
           "date": "01.09.2026",
           "name": "Booking 19:00-20:00",
           "datetime": "2026-09-01T19:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
@@ -16051,13 +16051,13 @@
           "date": "01.09.2026",
           "name": "Booking 20:30-21:30",
           "datetime": "2026-09-01T20:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
           "name": "Booking 20:00-21:00",
           "datetime": "2026-09-01T20:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
@@ -16081,7 +16081,7 @@
           "date": "01.09.2026",
           "name": "Booking 21:00-22:00",
           "datetime": "2026-09-01T21:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
@@ -16093,61 +16093,61 @@
           "date": "01.09.2026",
           "name": "Booking 08:00-12:00",
           "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 4.0
+          "duration_hours": 4
         },
         {
           "date": "01.09.2026",
           "name": "Booking 12:00-14:00",
           "datetime": "2026-09-01T12:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.09.2026",
           "name": "Booking 14:00-15:00",
           "datetime": "2026-09-01T14:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
           "name": "Booking 15:00-16:00",
           "datetime": "2026-09-01T15:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
           "name": "Booking 16:00-22:00",
           "datetime": "2026-09-01T16:00:00",
-          "duration_hours": 6.0
+          "duration_hours": 6
         },
         {
           "date": "01.09.2026",
           "name": "Booking 22:00-24:00",
           "datetime": "2026-09-01T22:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.10.2026",
           "name": "Booking 06:15-07:15",
           "datetime": "2026-10-01T06:15:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Booking 00:00-08:00",
           "datetime": "2026-10-01T00:00:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "01.10.2026",
           "name": "Booking 00:00-09:00",
           "datetime": "2026-10-01T00:00:00",
-          "duration_hours": 9.0
+          "duration_hours": 9
         },
         {
           "date": "01.10.2026",
           "name": "Booking 07:00-08:00",
           "datetime": "2026-10-01T07:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
@@ -16159,7 +16159,7 @@
           "date": "01.10.2026",
           "name": "Booking 08:00-13:00",
           "datetime": "2026-10-01T08:00:00",
-          "duration_hours": 5.0
+          "duration_hours": 5
         },
         {
           "date": "01.10.2026",
@@ -16171,25 +16171,25 @@
           "date": "01.10.2026",
           "name": "Booking 09:00-10:00",
           "datetime": "2026-10-01T09:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Booking 10:00-11:00",
           "datetime": "2026-10-01T10:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Booking 10:00-12:00",
           "datetime": "2026-10-01T10:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.10.2026",
           "name": "Booking 11:00-12:00",
           "datetime": "2026-10-01T11:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
@@ -16213,13 +16213,13 @@
           "date": "01.10.2026",
           "name": "Booking 13:00-14:00",
           "datetime": "2026-10-01T13:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Booking 14:30-15:30",
           "datetime": "2026-10-01T14:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
@@ -16243,13 +16243,13 @@
           "date": "01.10.2026",
           "name": "Booking 15:30-16:30",
           "datetime": "2026-10-01T15:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Booking 15:30-17:30",
           "datetime": "2026-10-01T15:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.10.2026",
@@ -16285,7 +16285,7 @@
           "date": "01.10.2026",
           "name": "Booking 18:00-19:00",
           "datetime": "2026-10-01T18:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
@@ -16297,7 +16297,7 @@
           "date": "01.10.2026",
           "name": "Booking 19:00-21:00",
           "datetime": "2026-10-01T19:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.10.2026",
@@ -16315,7 +16315,7 @@
           "date": "01.10.2026",
           "name": "Booking 19:00-20:00",
           "datetime": "2026-10-01T19:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
@@ -16327,13 +16327,13 @@
           "date": "01.10.2026",
           "name": "Booking 20:30-21:30",
           "datetime": "2026-10-01T20:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Booking 20:00-21:00",
           "datetime": "2026-10-01T20:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
@@ -16357,7 +16357,7 @@
           "date": "01.10.2026",
           "name": "Booking 21:00-22:00",
           "datetime": "2026-10-01T21:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
@@ -16369,61 +16369,61 @@
           "date": "01.10.2026",
           "name": "Booking 08:00-12:00",
           "datetime": "2026-10-01T08:00:00",
-          "duration_hours": 4.0
+          "duration_hours": 4
         },
         {
           "date": "01.10.2026",
           "name": "Booking 12:00-14:00",
           "datetime": "2026-10-01T12:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.10.2026",
           "name": "Booking 14:00-15:00",
           "datetime": "2026-10-01T14:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Booking 15:00-16:00",
           "datetime": "2026-10-01T15:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
           "name": "Booking 16:00-22:00",
           "datetime": "2026-10-01T16:00:00",
-          "duration_hours": 6.0
+          "duration_hours": 6
         },
         {
           "date": "01.10.2026",
           "name": "Booking 22:00-24:00",
           "datetime": "2026-10-01T22:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.11.2026",
           "name": "Booking 06:15-07:15",
           "datetime": "2026-11-01T06:15:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
           "name": "Booking 00:00-08:00",
           "datetime": "2026-11-01T00:00:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "01.11.2026",
           "name": "Booking 00:00-09:00",
           "datetime": "2026-11-01T00:00:00",
-          "duration_hours": 9.0
+          "duration_hours": 9
         },
         {
           "date": "01.11.2026",
           "name": "Booking 07:00-08:00",
           "datetime": "2026-11-01T07:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
@@ -16435,7 +16435,7 @@
           "date": "01.11.2026",
           "name": "Booking 08:00-13:00",
           "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 5.0
+          "duration_hours": 5
         },
         {
           "date": "01.11.2026",
@@ -16447,25 +16447,25 @@
           "date": "01.11.2026",
           "name": "Booking 09:00-10:00",
           "datetime": "2026-11-01T09:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
           "name": "Booking 10:00-11:00",
           "datetime": "2026-11-01T10:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
           "name": "Booking 10:00-12:00",
           "datetime": "2026-11-01T10:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.11.2026",
           "name": "Booking 11:00-12:00",
           "datetime": "2026-11-01T11:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
@@ -16489,13 +16489,13 @@
           "date": "01.11.2026",
           "name": "Booking 13:00-14:00",
           "datetime": "2026-11-01T13:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
           "name": "Booking 14:30-15:30",
           "datetime": "2026-11-01T14:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
@@ -16519,13 +16519,13 @@
           "date": "01.11.2026",
           "name": "Booking 15:30-16:30",
           "datetime": "2026-11-01T15:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
           "name": "Booking 15:30-17:30",
           "datetime": "2026-11-01T15:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.11.2026",
@@ -16561,7 +16561,7 @@
           "date": "01.11.2026",
           "name": "Booking 18:00-19:00",
           "datetime": "2026-11-01T18:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
@@ -16573,7 +16573,7 @@
           "date": "01.11.2026",
           "name": "Booking 19:00-21:00",
           "datetime": "2026-11-01T19:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.11.2026",
@@ -16591,7 +16591,7 @@
           "date": "01.11.2026",
           "name": "Booking 19:00-20:00",
           "datetime": "2026-11-01T19:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
@@ -16603,13 +16603,13 @@
           "date": "01.11.2026",
           "name": "Booking 20:30-21:30",
           "datetime": "2026-11-01T20:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
           "name": "Booking 20:00-21:00",
           "datetime": "2026-11-01T20:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
@@ -16633,7 +16633,7 @@
           "date": "01.11.2026",
           "name": "Booking 21:00-22:00",
           "datetime": "2026-11-01T21:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
@@ -16645,61 +16645,61 @@
           "date": "01.11.2026",
           "name": "Booking 08:00-12:00",
           "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 4.0
+          "duration_hours": 4
         },
         {
           "date": "01.11.2026",
           "name": "Booking 12:00-14:00",
           "datetime": "2026-11-01T12:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.11.2026",
           "name": "Booking 14:00-15:00",
           "datetime": "2026-11-01T14:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
           "name": "Booking 15:00-16:00",
           "datetime": "2026-11-01T15:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
           "name": "Booking 16:00-22:00",
           "datetime": "2026-11-01T16:00:00",
-          "duration_hours": 6.0
+          "duration_hours": 6
         },
         {
           "date": "01.11.2026",
           "name": "Booking 22:00-24:00",
           "datetime": "2026-11-01T22:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.12.2026",
           "name": "Booking 06:15-07:15",
           "datetime": "2026-12-01T06:15:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
           "name": "Booking 00:00-08:00",
           "datetime": "2026-12-01T00:00:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "01.12.2026",
           "name": "Booking 00:00-09:00",
           "datetime": "2026-12-01T00:00:00",
-          "duration_hours": 9.0
+          "duration_hours": 9
         },
         {
           "date": "01.12.2026",
           "name": "Booking 07:00-08:00",
           "datetime": "2026-12-01T07:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
@@ -16711,7 +16711,7 @@
           "date": "01.12.2026",
           "name": "Booking 08:00-13:00",
           "datetime": "2026-12-01T08:00:00",
-          "duration_hours": 5.0
+          "duration_hours": 5
         },
         {
           "date": "01.12.2026",
@@ -16723,25 +16723,25 @@
           "date": "01.12.2026",
           "name": "Booking 09:00-10:00",
           "datetime": "2026-12-01T09:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
           "name": "Booking 10:00-11:00",
           "datetime": "2026-12-01T10:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
           "name": "Booking 10:00-12:00",
           "datetime": "2026-12-01T10:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.12.2026",
           "name": "Booking 11:00-12:00",
           "datetime": "2026-12-01T11:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
@@ -16765,13 +16765,13 @@
           "date": "01.12.2026",
           "name": "Booking 13:00-14:00",
           "datetime": "2026-12-01T13:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
           "name": "Booking 14:30-15:30",
           "datetime": "2026-12-01T14:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
@@ -16795,13 +16795,13 @@
           "date": "01.12.2026",
           "name": "Booking 15:30-16:30",
           "datetime": "2026-12-01T15:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
           "name": "Booking 15:30-17:30",
           "datetime": "2026-12-01T15:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.12.2026",
@@ -16837,7 +16837,7 @@
           "date": "01.12.2026",
           "name": "Booking 18:00-19:00",
           "datetime": "2026-12-01T18:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
@@ -16849,7 +16849,7 @@
           "date": "01.12.2026",
           "name": "Booking 19:00-21:00",
           "datetime": "2026-12-01T19:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.12.2026",
@@ -16867,7 +16867,7 @@
           "date": "01.12.2026",
           "name": "Booking 19:00-20:00",
           "datetime": "2026-12-01T19:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
@@ -16879,13 +16879,13 @@
           "date": "01.12.2026",
           "name": "Booking 20:30-21:30",
           "datetime": "2026-12-01T20:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
           "name": "Booking 20:00-21:00",
           "datetime": "2026-12-01T20:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
@@ -16909,7 +16909,7 @@
           "date": "01.12.2026",
           "name": "Booking 21:00-22:00",
           "datetime": "2026-12-01T21:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
@@ -16921,61 +16921,61 @@
           "date": "01.12.2026",
           "name": "Booking 08:00-12:00",
           "datetime": "2026-12-01T08:00:00",
-          "duration_hours": 4.0
+          "duration_hours": 4
         },
         {
           "date": "01.12.2026",
           "name": "Booking 12:00-14:00",
           "datetime": "2026-12-01T12:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.12.2026",
           "name": "Booking 14:00-15:00",
           "datetime": "2026-12-01T14:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
           "name": "Booking 15:00-16:00",
           "datetime": "2026-12-01T15:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
           "name": "Booking 16:00-22:00",
           "datetime": "2026-12-01T16:00:00",
-          "duration_hours": 6.0
+          "duration_hours": 6
         },
         {
           "date": "01.12.2026",
           "name": "Booking 22:00-24:00",
           "datetime": "2026-12-01T22:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.01.2027",
           "name": "Booking 06:15-07:15",
           "datetime": "2027-01-01T06:15:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
           "name": "Booking 00:00-08:00",
           "datetime": "2027-01-01T00:00:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "01.01.2027",
           "name": "Booking 00:00-09:00",
           "datetime": "2027-01-01T00:00:00",
-          "duration_hours": 9.0
+          "duration_hours": 9
         },
         {
           "date": "01.01.2027",
           "name": "Booking 07:00-08:00",
           "datetime": "2027-01-01T07:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
@@ -16987,7 +16987,7 @@
           "date": "01.01.2027",
           "name": "Booking 08:00-13:00",
           "datetime": "2027-01-01T08:00:00",
-          "duration_hours": 5.0
+          "duration_hours": 5
         },
         {
           "date": "01.01.2027",
@@ -16999,25 +16999,25 @@
           "date": "01.01.2027",
           "name": "Booking 09:00-10:00",
           "datetime": "2027-01-01T09:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
           "name": "Booking 10:00-11:00",
           "datetime": "2027-01-01T10:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
           "name": "Booking 10:00-12:00",
           "datetime": "2027-01-01T10:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.01.2027",
           "name": "Booking 11:00-12:00",
           "datetime": "2027-01-01T11:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
@@ -17041,13 +17041,13 @@
           "date": "01.01.2027",
           "name": "Booking 13:00-14:00",
           "datetime": "2027-01-01T13:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
           "name": "Booking 14:30-15:30",
           "datetime": "2027-01-01T14:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
@@ -17071,13 +17071,13 @@
           "date": "01.01.2027",
           "name": "Booking 15:30-16:30",
           "datetime": "2027-01-01T15:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
           "name": "Booking 15:30-17:30",
           "datetime": "2027-01-01T15:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.01.2027",
@@ -17113,7 +17113,7 @@
           "date": "01.01.2027",
           "name": "Booking 18:00-19:00",
           "datetime": "2027-01-01T18:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
@@ -17125,7 +17125,7 @@
           "date": "01.01.2027",
           "name": "Booking 19:00-21:00",
           "datetime": "2027-01-01T19:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.01.2027",
@@ -17143,7 +17143,7 @@
           "date": "01.01.2027",
           "name": "Booking 19:00-20:00",
           "datetime": "2027-01-01T19:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
@@ -17155,13 +17155,13 @@
           "date": "01.01.2027",
           "name": "Booking 20:30-21:30",
           "datetime": "2027-01-01T20:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
           "name": "Booking 20:00-21:00",
           "datetime": "2027-01-01T20:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
@@ -17185,7 +17185,7 @@
           "date": "01.01.2027",
           "name": "Booking 21:00-22:00",
           "datetime": "2027-01-01T21:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
@@ -17197,61 +17197,61 @@
           "date": "01.01.2027",
           "name": "Booking 08:00-12:00",
           "datetime": "2027-01-01T08:00:00",
-          "duration_hours": 4.0
+          "duration_hours": 4
         },
         {
           "date": "01.01.2027",
           "name": "Booking 12:00-14:00",
           "datetime": "2027-01-01T12:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.01.2027",
           "name": "Booking 14:00-15:00",
           "datetime": "2027-01-01T14:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
           "name": "Booking 15:00-16:00",
           "datetime": "2027-01-01T15:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
           "name": "Booking 16:00-22:00",
           "datetime": "2027-01-01T16:00:00",
-          "duration_hours": 6.0
+          "duration_hours": 6
         },
         {
           "date": "01.01.2027",
           "name": "Booking 22:00-24:00",
           "datetime": "2027-01-01T22:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.02.2027",
           "name": "Booking 06:15-07:15",
           "datetime": "2027-02-01T06:15:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
           "name": "Booking 00:00-08:00",
           "datetime": "2027-02-01T00:00:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "01.02.2027",
           "name": "Booking 00:00-09:00",
           "datetime": "2027-02-01T00:00:00",
-          "duration_hours": 9.0
+          "duration_hours": 9
         },
         {
           "date": "01.02.2027",
           "name": "Booking 07:00-08:00",
           "datetime": "2027-02-01T07:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
@@ -17263,7 +17263,7 @@
           "date": "01.02.2027",
           "name": "Booking 08:00-13:00",
           "datetime": "2027-02-01T08:00:00",
-          "duration_hours": 5.0
+          "duration_hours": 5
         },
         {
           "date": "01.02.2027",
@@ -17275,25 +17275,25 @@
           "date": "01.02.2027",
           "name": "Booking 09:00-10:00",
           "datetime": "2027-02-01T09:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
           "name": "Booking 10:00-11:00",
           "datetime": "2027-02-01T10:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
           "name": "Booking 10:00-12:00",
           "datetime": "2027-02-01T10:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.02.2027",
           "name": "Booking 11:00-12:00",
           "datetime": "2027-02-01T11:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
@@ -17317,13 +17317,13 @@
           "date": "01.02.2027",
           "name": "Booking 13:00-14:00",
           "datetime": "2027-02-01T13:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
           "name": "Booking 14:30-15:30",
           "datetime": "2027-02-01T14:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
@@ -17347,13 +17347,13 @@
           "date": "01.02.2027",
           "name": "Booking 15:30-16:30",
           "datetime": "2027-02-01T15:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
           "name": "Booking 15:30-17:30",
           "datetime": "2027-02-01T15:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.02.2027",
@@ -17389,7 +17389,7 @@
           "date": "01.02.2027",
           "name": "Booking 18:00-19:00",
           "datetime": "2027-02-01T18:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
@@ -17401,7 +17401,7 @@
           "date": "01.02.2027",
           "name": "Booking 19:00-21:00",
           "datetime": "2027-02-01T19:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.02.2027",
@@ -17419,7 +17419,7 @@
           "date": "01.02.2027",
           "name": "Booking 19:00-20:00",
           "datetime": "2027-02-01T19:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
@@ -17431,13 +17431,13 @@
           "date": "01.02.2027",
           "name": "Booking 20:30-21:30",
           "datetime": "2027-02-01T20:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
           "name": "Booking 20:00-21:00",
           "datetime": "2027-02-01T20:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
@@ -17461,7 +17461,7 @@
           "date": "01.02.2027",
           "name": "Booking 21:00-22:00",
           "datetime": "2027-02-01T21:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
@@ -17473,61 +17473,61 @@
           "date": "01.02.2027",
           "name": "Booking 08:00-12:00",
           "datetime": "2027-02-01T08:00:00",
-          "duration_hours": 4.0
+          "duration_hours": 4
         },
         {
           "date": "01.02.2027",
           "name": "Booking 12:00-14:00",
           "datetime": "2027-02-01T12:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.02.2027",
           "name": "Booking 14:00-15:00",
           "datetime": "2027-02-01T14:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
           "name": "Booking 15:00-16:00",
           "datetime": "2027-02-01T15:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
           "name": "Booking 16:00-22:00",
           "datetime": "2027-02-01T16:00:00",
-          "duration_hours": 6.0
+          "duration_hours": 6
         },
         {
           "date": "01.02.2027",
           "name": "Booking 22:00-24:00",
           "datetime": "2027-02-01T22:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.03.2027",
           "name": "Booking 06:15-07:15",
           "datetime": "2027-03-01T06:15:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
           "name": "Booking 00:00-08:00",
           "datetime": "2027-03-01T00:00:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "01.03.2027",
           "name": "Booking 00:00-09:00",
           "datetime": "2027-03-01T00:00:00",
-          "duration_hours": 9.0
+          "duration_hours": 9
         },
         {
           "date": "01.03.2027",
           "name": "Booking 07:00-08:00",
           "datetime": "2027-03-01T07:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
@@ -17539,7 +17539,7 @@
           "date": "01.03.2027",
           "name": "Booking 08:00-13:00",
           "datetime": "2027-03-01T08:00:00",
-          "duration_hours": 5.0
+          "duration_hours": 5
         },
         {
           "date": "01.03.2027",
@@ -17551,25 +17551,25 @@
           "date": "01.03.2027",
           "name": "Booking 09:00-10:00",
           "datetime": "2027-03-01T09:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
           "name": "Booking 10:00-11:00",
           "datetime": "2027-03-01T10:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
           "name": "Booking 10:00-12:00",
           "datetime": "2027-03-01T10:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.03.2027",
           "name": "Booking 11:00-12:00",
           "datetime": "2027-03-01T11:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
@@ -17593,13 +17593,13 @@
           "date": "01.03.2027",
           "name": "Booking 13:00-14:00",
           "datetime": "2027-03-01T13:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
           "name": "Booking 14:30-15:30",
           "datetime": "2027-03-01T14:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
@@ -17623,13 +17623,13 @@
           "date": "01.03.2027",
           "name": "Booking 15:30-16:30",
           "datetime": "2027-03-01T15:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
           "name": "Booking 15:30-17:30",
           "datetime": "2027-03-01T15:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.03.2027",
@@ -17665,7 +17665,7 @@
           "date": "01.03.2027",
           "name": "Booking 18:00-19:00",
           "datetime": "2027-03-01T18:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
@@ -17677,7 +17677,7 @@
           "date": "01.03.2027",
           "name": "Booking 19:00-21:00",
           "datetime": "2027-03-01T19:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.03.2027",
@@ -17695,7 +17695,7 @@
           "date": "01.03.2027",
           "name": "Booking 19:00-20:00",
           "datetime": "2027-03-01T19:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
@@ -17707,13 +17707,13 @@
           "date": "01.03.2027",
           "name": "Booking 20:30-21:30",
           "datetime": "2027-03-01T20:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
           "name": "Booking 20:00-21:00",
           "datetime": "2027-03-01T20:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
@@ -17737,7 +17737,7 @@
           "date": "01.03.2027",
           "name": "Booking 21:00-22:00",
           "datetime": "2027-03-01T21:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
@@ -17749,61 +17749,61 @@
           "date": "01.03.2027",
           "name": "Booking 08:00-12:00",
           "datetime": "2027-03-01T08:00:00",
-          "duration_hours": 4.0
+          "duration_hours": 4
         },
         {
           "date": "01.03.2027",
           "name": "Booking 12:00-14:00",
           "datetime": "2027-03-01T12:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.03.2027",
           "name": "Booking 14:00-15:00",
           "datetime": "2027-03-01T14:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
           "name": "Booking 15:00-16:00",
           "datetime": "2027-03-01T15:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
           "name": "Booking 16:00-22:00",
           "datetime": "2027-03-01T16:00:00",
-          "duration_hours": 6.0
+          "duration_hours": 6
         },
         {
           "date": "01.03.2027",
           "name": "Booking 22:00-24:00",
           "datetime": "2027-03-01T22:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.04.2027",
           "name": "Booking 06:15-07:15",
           "datetime": "2027-04-01T06:15:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Booking 00:00-08:00",
           "datetime": "2027-04-01T00:00:00",
-          "duration_hours": 8.0
+          "duration_hours": 8
         },
         {
           "date": "01.04.2027",
           "name": "Booking 00:00-09:00",
           "datetime": "2027-04-01T00:00:00",
-          "duration_hours": 9.0
+          "duration_hours": 9
         },
         {
           "date": "01.04.2027",
           "name": "Booking 07:00-08:00",
           "datetime": "2027-04-01T07:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
@@ -17815,7 +17815,7 @@
           "date": "01.04.2027",
           "name": "Booking 08:00-13:00",
           "datetime": "2027-04-01T08:00:00",
-          "duration_hours": 5.0
+          "duration_hours": 5
         },
         {
           "date": "01.04.2027",
@@ -17827,25 +17827,25 @@
           "date": "01.04.2027",
           "name": "Booking 09:00-10:00",
           "datetime": "2027-04-01T09:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Booking 10:00-11:00",
           "datetime": "2027-04-01T10:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Booking 10:00-12:00",
           "datetime": "2027-04-01T10:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.04.2027",
           "name": "Booking 11:00-12:00",
           "datetime": "2027-04-01T11:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
@@ -17869,13 +17869,13 @@
           "date": "01.04.2027",
           "name": "Booking 13:00-14:00",
           "datetime": "2027-04-01T13:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Booking 14:30-15:30",
           "datetime": "2027-04-01T14:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
@@ -17899,13 +17899,13 @@
           "date": "01.04.2027",
           "name": "Booking 15:30-16:30",
           "datetime": "2027-04-01T15:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Booking 15:30-17:30",
           "datetime": "2027-04-01T15:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.04.2027",
@@ -17941,7 +17941,7 @@
           "date": "01.04.2027",
           "name": "Booking 18:00-19:00",
           "datetime": "2027-04-01T18:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
@@ -17953,7 +17953,7 @@
           "date": "01.04.2027",
           "name": "Booking 19:00-21:00",
           "datetime": "2027-04-01T19:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.04.2027",
@@ -17971,7 +17971,7 @@
           "date": "01.04.2027",
           "name": "Booking 19:00-20:00",
           "datetime": "2027-04-01T19:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
@@ -17983,13 +17983,13 @@
           "date": "01.04.2027",
           "name": "Booking 20:30-21:30",
           "datetime": "2027-04-01T20:30:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Booking 20:00-21:00",
           "datetime": "2027-04-01T20:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
@@ -18013,7 +18013,7 @@
           "date": "01.04.2027",
           "name": "Booking 21:00-22:00",
           "datetime": "2027-04-01T21:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
@@ -18025,37 +18025,37 @@
           "date": "01.04.2027",
           "name": "Booking 08:00-12:00",
           "datetime": "2027-04-01T08:00:00",
-          "duration_hours": 4.0
+          "duration_hours": 4
         },
         {
           "date": "01.04.2027",
           "name": "Booking 12:00-14:00",
           "datetime": "2027-04-01T12:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.04.2027",
           "name": "Booking 14:00-15:00",
           "datetime": "2027-04-01T14:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Booking 15:00-16:00",
           "datetime": "2027-04-01T15:00:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
           "name": "Booking 16:00-22:00",
           "datetime": "2027-04-01T16:00:00",
-          "duration_hours": 6.0
+          "duration_hours": 6
         },
         {
           "date": "01.04.2027",
           "name": "Booking 22:00-24:00",
           "datetime": "2027-04-01T22:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         }
       ]
     },
@@ -18063,7 +18063,7 @@
       "name": "Holmen",
       "url": "https://kalender.sportello.no/booking/11055",
       "scrape_timestamp": "2026-06-10T04:21:11.676605",
-      "ttl_hours": 6.0,
+      "ttl_hours": 6,
       "event_count": 176,
       "blocked": false,
       "events": [
@@ -18089,7 +18089,7 @@
           "date": "01.09.2026",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.09.2026",
@@ -18119,7 +18119,7 @@
           "date": "01.09.2026",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2026-09-01T10:45:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.09.2026",
@@ -18143,7 +18143,7 @@
           "date": "01.09.2026",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2026-09-01T10:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.09.2026",
@@ -18221,7 +18221,7 @@
           "date": "01.10.2026",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2026-10-01T08:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.10.2026",
@@ -18251,7 +18251,7 @@
           "date": "01.10.2026",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2026-10-01T10:45:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.10.2026",
@@ -18275,7 +18275,7 @@
           "date": "01.10.2026",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2026-10-01T10:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.10.2026",
@@ -18353,7 +18353,7 @@
           "date": "01.11.2026",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.11.2026",
@@ -18383,7 +18383,7 @@
           "date": "01.11.2026",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2026-11-01T10:45:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.11.2026",
@@ -18407,7 +18407,7 @@
           "date": "01.11.2026",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2026-11-01T10:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.11.2026",
@@ -18485,7 +18485,7 @@
           "date": "01.12.2026",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2026-12-01T08:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.12.2026",
@@ -18515,7 +18515,7 @@
           "date": "01.12.2026",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2026-12-01T10:45:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.12.2026",
@@ -18539,7 +18539,7 @@
           "date": "01.12.2026",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2026-12-01T10:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.12.2026",
@@ -18617,7 +18617,7 @@
           "date": "01.01.2027",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2027-01-01T08:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.01.2027",
@@ -18647,7 +18647,7 @@
           "date": "01.01.2027",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2027-01-01T10:45:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.01.2027",
@@ -18671,7 +18671,7 @@
           "date": "01.01.2027",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2027-01-01T10:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.01.2027",
@@ -18749,7 +18749,7 @@
           "date": "01.02.2027",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2027-02-01T08:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.02.2027",
@@ -18779,7 +18779,7 @@
           "date": "01.02.2027",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2027-02-01T10:45:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.02.2027",
@@ -18803,7 +18803,7 @@
           "date": "01.02.2027",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2027-02-01T10:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.02.2027",
@@ -18881,7 +18881,7 @@
           "date": "01.03.2027",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2027-03-01T08:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.03.2027",
@@ -18911,7 +18911,7 @@
           "date": "01.03.2027",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2027-03-01T10:45:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.03.2027",
@@ -18935,7 +18935,7 @@
           "date": "01.03.2027",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2027-03-01T10:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.03.2027",
@@ -19013,7 +19013,7 @@
           "date": "01.04.2027",
           "name": "Booking 8:00 - 10:00",
           "datetime": "2027-04-01T08:00:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.04.2027",
@@ -19043,7 +19043,7 @@
           "date": "01.04.2027",
           "name": "Booking 10:45 - 11:45",
           "datetime": "2027-04-01T10:45:00",
-          "duration_hours": 1.0
+          "duration_hours": 1
         },
         {
           "date": "01.04.2027",
@@ -19067,7 +19067,7 @@
           "date": "01.04.2027",
           "name": "Booking 10:30 - 12:30",
           "datetime": "2027-04-01T10:30:00",
-          "duration_hours": 2.0
+          "duration_hours": 2
         },
         {
           "date": "01.04.2027",
@@ -19128,22 +19128,148 @@
     "Tønsberg": {
       "name": "Tønsberg",
       "url": "https://www.bookup.no/utleie/Index/860",
-      "scrape_timestamp": "2026-06-10T04:21:11.676605",
-      "ttl_hours": 6.0,
-      "event_count": 0,
-      "blocked": true,
-      "events": []
+      "scrape_timestamp": "2026-06-11T09:48:40.790Z",
+      "event_count": 2,
+      "blocked": false,
+      "events": [
+        {
+          "date": "01.06.2026",
+          "name": "Booking 7:00-23:30",
+          "datetime": "2026-06-01T07:00:25.239602",
+          "duration_hours": 16.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 7:00-23:30",
+          "datetime": "2026-06-01T07:00:33.712010",
+          "duration_hours": 16.5
+        }
+      ]
     },
     "Sandefjord Penguins": {
       "name": "Sandefjord Penguins",
-      "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen",
-      "scrape_timestamp": "2026-06-10T04:21:11.676605",
-      "ttl_hours": 6.0,
-      "event_count": 0,
-      "blocked": true,
-      "events": []
+      "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen___/view:item/id:4497/part:/place:3907:SANDEFJORD/q:sandefjord/r:31/mod:book",
+      "scrape_timestamp": "2026-06-11T09:48:14.939Z",
+      "event_count": 19,
+      "blocked": false,
+      "events": [
+        {
+          "date": "01.06.2026",
+          "name": "Booking 7:00-22:30",
+          "datetime": "2026-06-01T07:00:05.914217",
+          "duration_hours": 15.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:05.914217",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:00 - 16:00",
+          "datetime": "2026-06-01T14:00:05.914217",
+          "duration_hours": 2
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 15:00",
+          "datetime": "2026-06-01T08:00:05.914217",
+          "duration_hours": 7
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 20:30",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 4
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:05.914217",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:30 - 15:30",
+          "datetime": "2026-06-01T14:30:05.914217",
+          "duration_hours": 1
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 14:00",
+          "datetime": "2026-06-01T08:00:05.914217",
+          "duration_hours": 6
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 14:00 - 16:00",
+          "datetime": "2026-06-01T14:00:05.914217",
+          "duration_hours": 2
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 8:00 - 15:00",
+          "datetime": "2026-06-01T08:00:05.914217",
+          "duration_hours": 7
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        },
+        {
+          "date": "01.06.2026",
+          "name": "Booking 16:30 - 22:00",
+          "datetime": "2026-06-01T16:30:05.914217",
+          "duration_hours": 5.5
+        }
+      ]
     }
   },
   "source_count": 9,
-  "total_events": 3175
+  "total_events": 3196
 }

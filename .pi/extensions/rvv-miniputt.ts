@@ -7,7 +7,7 @@ import { buildStatusText } from "../lib/pipeline-helpers";
 import { buildLogsListText, buildLogsShowText, buildLogsStatsText } from "../lib/log-inspector";
 import { runPipeline, type PipelineRunResult } from "../lib/pipeline-runner";
 import { interactiveGuide } from "../lib/interactive-guide";
-import { LOG_LEVELS } from "../lib/types";
+import { LOG_LEVELS, type ProgressEvent } from "../lib/types";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 /** Build the logs report text for a given args string. Shared by the command and tool. */
@@ -110,7 +110,27 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       return filtered.length ? filtered.map((value) => ({ value, label: value })) : null;
     },
     handler: async (args, ctx) => {
-      notifyPipelineResult(ctx, await runPipeline(args, ctx));
+      const result = await runPipeline(args, ctx, (e) => {
+        if (e.status === "error") {
+          ctx.ui.notify(`❌ ${e.message}`, "error");
+        } else if (e.stage === "done") {
+          ctx.ui.setStatus("rvv-miniputt", undefined);
+          ctx.ui.notify(e.status === "ok" ? "✅ Pipeline fullført" : `❌ ${e.message}`, e.status === "ok" ? "info" : "error");
+        } else {
+          const stageLabel = e.stage === "scraping-extended"
+            ? `2x: ${e.blockedName ?? "?"}`
+            : e.stage === "scraping" ? "2/4 Skraping"
+            : e.stage === "config" ? "1/4 Konfig"
+            : e.stage === "planning" ? "3/4 Planlegging"
+            : e.stage === "export" ? "4/4 Eksport"
+            : e.stage;
+          ctx.ui.setStatus("rvv-miniputt", `${stageLabel}...`);
+          if (e.status === "ok" && e.stage !== "scraping-extended") {
+            ctx.ui.notify(`✅ ${e.message}`, "info");
+          }
+        }
+      });
+      notifyPipelineResult(ctx, result);
     },
   });
 
@@ -210,8 +230,12 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
         description: "Same flags as '/rvv-miniputt run', e.g. '--resume-from 2 --log-level verbose'",
       })),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const result = await runPipeline(params.args ?? "", ctx);
+    async execute(_toolCallId, params, _signal, onUpdate, ctx) {
+      const result = await runPipeline(params.args ?? "", ctx, (e) => {
+        onUpdate?.({
+          content: [{ type: "text", text: `[${e.stage}] ${e.status === "start" ? "▶" : e.status === "ok" ? "✅" : e.status === "skip" ? "⏭️" : "❌"} ${e.message}` }],
+        });
+      });
       return { content: [{ type: "text", text: result.text }], details: result };
     },
   });

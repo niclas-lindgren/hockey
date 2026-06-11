@@ -75,3 +75,18 @@ export interface SelfImproveEntry extends LogEntry {
 }
 
 export const LOG_LEVELS = ["info", "verbose"] as const;
+
+/** Progress event emitted by the pipeline runner as stages execute. */
+export interface ProgressEvent {
+  stage: "config" | "scraping" | "scraping-extended" | "planning" | "export" | "done";
+  status: "start" | "ok" | "skip" | "error";
+  message: string;
+  /** Only set for status=error */
+  error?: string;
+  /** Number of blocked sources (stage=scraping, status=ok) */
+  blockedCount?: number;
+  /** Name of the blocked source being scraped (stage=scraping-extended) */
+  blockedName?: string;
+  /** Events found for blocked source (stage=scraping-extended, status=ok) */
+  eventCount?: number;
+}
