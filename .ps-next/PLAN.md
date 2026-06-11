@@ -14,7 +14,7 @@
   - Files: tournament_scheduler/pipeline/browser_worker.py
   - Approach: In `_interactive_elements()` (lines ~136-177), after building each element dict, scrub `text`/`placeholder`-derived `label_text` fields by replacing any substring equal to `os.environ.get("BOOKUP_EMAIL")` or `os.environ.get("BOOKUP_PASSWORD")` (when set and non-empty) with `"[REDACTED]"`, so credential values can't surface via input placeholders or echoed labels.
 
-- [ ] Add defense-in-depth credential redaction in scraper-agent.ts before calling the LLM
+- [x] Added an exported redactCredentials(text) helper near substituteEnvVars() that replaces literal occurrences of process.env.BOOKUP_EMAIL/BOOKUP_PASSWORD with '[REDACTED]', and applied it to snapshot.html, snapshot.iframe_html, and each interactive element's text inside userMessage() before the message is built. — 2026-06-11
   - Files: .pi/lib/scraper-agent.ts
   - Approach: Add a `redactCredentials(text: string): string` helper near `substituteEnvVars()` (lines ~559-564) that replaces any occurrence of `process.env.BOOKUP_EMAIL` and `process.env.BOOKUP_PASSWORD` (when set and length > 0) in a given string with `"[REDACTED]"`. Apply it to the `snapshot.html`/`snapshot.iframe_html`/interactive-element text inside `userMessage()` (lines 137-174) before the message is returned to `callLLM()` (line 462), as a second layer in case the Python-side sanitization in browser_worker.py misses a path.
 
@@ -64,3 +64,10 @@ LESSONS: none
 LESSONS: test_sources_run_in_different_threads is a pre-existing flaky test unrelated to credential sanitization work; do not attempt to fix it as part of this plan.
 **Files:** tournament_scheduler/pipeline/browser_worker.py (+19/-1)
 **Commit:** fdbc143 (hockey)
+
+### 2026-06-11 — Added an exported redactCredentials(text) helper near substituteEnvVars() that replaces literal occurrences of process.env.BOOKUP_EMAIL/BOOKUP_PASSWORD with '[REDACTED]', and applied it to snapshot.html, snapshot.iframe_html, and each interactive element's text inside userMessage() before the message is built.
+**Rationale:** Mirrors the same env-var-substring-replace approach used in the Python browser_worker.py redaction (task 2) for consistency across the two layers; function declaration hoisting in TS/JS allows redactCredentials to be defined after userMessage without issue.
+**Findings:** tsc --noEmit type-check on scraper-agent.ts shows no new type errors related to redactCredentials or userMessage. No package.json/test runner found for .pi/lib in this repo (node_modules appears to be a stray artifact), so a runtime test could not be executed for this file; unit test for redactCredentials is covered by the next planned task (scraper-agent.test.ts).
+LESSONS: No package.json/test runner exists for .pi/lib TS files in this repo; tsc --noEmit is the only available verification. The next task (scraper-agent.test.ts) should check whether a test runner needs to be set up first.
+**Files:** .pi/lib/scraper-agent.ts (+21/-3)
+**Commit:** [pending — fill after commit]

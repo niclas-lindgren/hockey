@@ -147,18 +147,18 @@ function userMessage(
     `URL: ${snapshot.url ?? "ukjent"}`,
     "",
     "Synlig HTML (første 3000 tegn):",
-    (snapshot.html ?? "").slice(0, 3000),
+    redactCredentials((snapshot.html ?? "").slice(0, 3000)),
   ];
 
   if (snapshot.iframe_html) {
     lines.push("", "Iframe HTML (første 3000 tegn):");
-    lines.push(snapshot.iframe_html.slice(0, 3000));
+    lines.push(redactCredentials(snapshot.iframe_html.slice(0, 3000)));
   }
 
   if (snapshot.interactive && snapshot.interactive.length > 0) {
     lines.push("", "Interaktive elementer:");
     for (const el of snapshot.interactive.slice(0, 30)) {
-      lines.push(`  <${el.tag}> "${el.text}" → ${el.selector}`);
+      lines.push(`  <${el.tag}> "${redactCredentials(el.text)}" → ${el.selector}`);
     }
   }
 
@@ -561,6 +561,24 @@ export function substituteEnvVars(text: string): string {
   return text.replace(/\$\{(\w+)\}/g, (_match, name: string) => {
     return process.env[name] ?? '';
   });
+}
+
+/**
+ * Defense-in-depth: scrub any literal occurrences of the resolved
+ * ``BOOKUP_EMAIL``/``BOOKUP_PASSWORD`` credential values from text before it
+ * is sent to the LLM. This is a fallback in case the Python-side DOM
+ * sanitization in browser_worker.py misses a path (e.g. a credential value
+ * echoed into an interactive-element label or placeholder).
+ */
+export function redactCredentials(text: string): string {
+  let result = text;
+  for (const envVar of ['BOOKUP_EMAIL', 'BOOKUP_PASSWORD']) {
+    const value = process.env[envVar];
+    if (value) {
+      result = result.split(value).join('[REDACTED]');
+    }
+  }
+  return result;
 }
 
 
