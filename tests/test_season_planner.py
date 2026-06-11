@@ -858,6 +858,89 @@ class TestPerTeamGameCounts:
         assert "Holmen U11" not in warnings_by_label
         assert "Skien U11" not in warnings_by_label
 
+    def test_real_roster_end_to_end_jar_vs_kongsberg(self):
+        """End-to-end check against the real `documentation/input.json`
+        roster (Jar: 7 U10 teams, Kongsberg: 1 U10 team, plus the other RVV
+        clubs), over the 2026-09-01 to 2027-04-30 season window.
+
+        This documents the real-world outcome of the club-size
+        normalization fix: each individual Jar U10 team gets a non-trivial,
+        roughly-even share of games (no team starved at 0), while
+        Kongsberg's sole U10 team — invited to (almost) every tournament
+        under the default `max_club_teams_per_tournament=1` — ends up with
+        a much higher individual count. `per_team_share_warnings` correctly
+        flags this residual structural skew for both Kongsberg and Jar's
+        teams, confirming the new diagnostic (task: "Extend
+        game-count-spread checking") surfaces the real-roster imbalance
+        described in the original backlog item.
+        """
+        import os
+        from tournament_scheduler.roster_loader import RosterLoader
+
+        input_path = os.path.join(
+            os.path.dirname(__file__), "..", "documentation", "input.json"
+        )
+        if not os.path.isfile(input_path):
+            pytest.skip(f"documentation/input.json not found at {input_path}")
+
+        roster, federation_defaults = RosterLoader.load_with_defaults(input_path)
+        parallel_games = federation_defaults.get("parallelGames") or None
+        max_teams = federation_defaults.get("maxTeamsPerTournament") or None
+
+        start, end = datetime(2026, 9, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+        club_arenas = {team.club: f"{team.club}hallen" for team in roster.teams}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group=parallel_games,
+            max_teams_per_tournament_for_age_group=max_teams,
+        )
+        plan = planner.build_plan(start, end)
+
+        jar_u10_labels = [
+            t.label for t in roster.teams if t.club == "Jar" and t.age_group == "U10"
+        ]
+        kongsberg_u10_labels = [
+            t.label for t in roster.teams if t.club == "Kongsberg" and t.age_group == "U10"
+        ]
+        assert jar_u10_labels, "expected Jar to have U10 teams in the real roster"
+        assert kongsberg_u10_labels, "expected Kongsberg to have a U10 team in the real roster"
+
+        jar_u10_counts = [plan.team_game_counts.get(label, 0) for label in jar_u10_labels]
+        kongsberg_u10_counts = [
+            plan.team_game_counts.get(label, 0) for label in kongsberg_u10_labels
+        ]
+
+        # No Jar U10 team should be starved entirely.
+        assert all(c > 0 for c in jar_u10_counts), (
+            f"some Jar U10 teams got zero games: {dict(zip(jar_u10_labels, jar_u10_counts))}"
+        )
+        assert all(c > 0 for c in kongsberg_u10_counts)
+
+        # Jar's U10 siblings should rotate roughly evenly amongst
+        # themselves: no sibling should get more than double another's
+        # count.
+        assert max(jar_u10_counts) <= 2 * min(jar_u10_counts), (
+            f"Jar U10 sibling teams are unevenly invited: {jar_u10_counts}"
+        )
+
+        # The per-team-share diagnostic (task: "Extend game-count-spread
+        # checking") should surface the residual club-size skew on the real
+        # roster: both Kongsberg's over-invited U10 team and Jar's
+        # under-invited U10 teams should be flagged.
+        flagged_labels = {w[0] for w in planner.per_team_share_warnings}
+        for label in kongsberg_u10_labels:
+            assert label in flagged_labels, (
+                f"expected {label} to be flagged by per_team_share_warnings"
+            )
+        for label in jar_u10_labels:
+            assert label in flagged_labels, (
+                f"expected {label} to be flagged by per_team_share_warnings"
+            )
+
 
 class TestSkillLevelDivisions:
     """Tests for skill-level-based participant selection."""
