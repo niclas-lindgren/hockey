@@ -1,83 +1,93 @@
 """Approximate driving distances between RVV club arenas (kilometres).
 
-Provides static distance lookups for the nine Region Viken Vest clubs:
+Provides distance lookups for the nine Region Viken Vest clubs:
 
     Kongsberg, Jar, Holmen, Ringerike, Skien, Jutul, Frisk Asker,
     Tønsberg, Sandefjord Penguins
 
-Distances are approximate driving estimates by road between the clubs' home
-arenas. They are not precise geodesic distances — they reflect typical travel
-times for youth hockey teams driving between halls on a weekend.
+Distances are derived from the great-circle ("as the crow flies") distance
+between each club's home arena, computed via the haversine formula, and then
+scaled up by a fixed road-correction factor to approximate real driving
+distance (roads are rarely straight lines, especially in Norway's
+fjord/valley terrain).
 
 Usage::
 
     from tournament_scheduler.club_distances import distance, furthest_traveling_team
     from tournament_scheduler.models import Tournament
 
-    km = distance("Kongsberg", "Jar")       # -> ~80
+    km = distance("Kongsberg", "Jar")       # -> ~85
     result = furthest_traveling_team(tournament)  # -> (Team, km) or None
 """
 
+import math
 from typing import Dict, Optional, Tuple
 
 from tournament_scheduler.models import SeasonPlan, Tournament, Team
 
 # ---------------------------------------------------------------------------
-# Club-to-club distance matrix (driving km)
+# Club arena coordinates (latitude, longitude in decimal degrees)
 #
-# Keyed by (from_club, to_club). Only the upper triangle is stored; lookups
-# normalise by sorting the club names so (A, B) and (B, A) resolve the same
-# entry.  Unknown pairs default to 0 km (treated as host / data gap).
+# Approximate real-world coordinates of each club's home ice hockey arena.
+# Used to compute great-circle distances via the haversine formula.
 # ---------------------------------------------------------------------------
 
-_DISTANCE_MATRIX: Dict[Tuple[str, str], int] = {
-    # Keys stored in alphabetical order for correct _normalise_key lookup
-    # Frisk Asker <-> others
-    ("Frisk Asker", "Holmen"): 25,
-    ("Frisk Asker", "Jar"): 20,
-    ("Frisk Asker", "Jutul"): 20,
-    ("Frisk Asker", "Kongsberg"): 60,
-    ("Frisk Asker", "Ringerike"): 55,
-    ("Frisk Asker", "Sandefjord Penguins"): 100,
-    ("Frisk Asker", "Skien"): 100,
-    ("Frisk Asker", "Tønsberg"): 80,
-    # Holmen <-> others
-    ("Holmen", "Jar"): 15,
-    ("Holmen", "Jutul"): 15,
-    ("Holmen", "Kongsberg"): 85,
-    ("Holmen", "Ringerike"): 55,
-    ("Holmen", "Sandefjord Penguins"): 125,
-    ("Holmen", "Skien"): 130,
-    ("Holmen", "Tønsberg"): 105,
-    # Jar <-> others (Jar is in Bærum, close to Jutul/Asker/Holmen)
-    ("Jar", "Jutul"): 5,
-    ("Jar", "Kongsberg"): 80,
-    ("Jar", "Ringerike"): 50,
-    ("Jar", "Sandefjord Penguins"): 120,
-    ("Jar", "Skien"): 120,
-    ("Jar", "Tønsberg"): 100,
-    # Jutul <-> others (Bærum, very close to Jar)
-    ("Jutul", "Kongsberg"): 80,
-    ("Jutul", "Ringerike"): 50,
-    ("Jutul", "Sandefjord Penguins"): 120,
-    ("Jutul", "Skien"): 120,
-    ("Jutul", "Tønsberg"): 100,
-    # Kongsberg <-> others
-    ("Kongsberg", "Ringerike"): 45,
-    ("Kongsberg", "Sandefjord Penguins"): 95,
-    ("Kongsberg", "Skien"): 65,
-    ("Kongsberg", "Tønsberg"): 75,
-    # Ringerike <-> others
-    ("Ringerike", "Sandefjord Penguins"): 140,
-    ("Ringerike", "Skien"): 150,
-    ("Ringerike", "Tønsberg"): 120,
-    # Skien <-> Sandefjord
-    ("Sandefjord Penguins", "Skien"): 35,
-    # Tønsberg <-> Sandefjord
-    ("Sandefjord Penguins", "Tønsberg"): 15,
-    # Skien <-> Tønsberg
-    ("Skien", "Tønsberg"): 30,
+_CLUB_COORDINATES: Dict[str, Tuple[float, float]] = {
+    # Kongsberg - Kongsberghallen
+    "Kongsberg": (59.6669, 9.6500),
+    # Jar - Jarhallen (Bærum)
+    "Jar": (59.8989, 10.5722),
+    # Holmen - Holmen ishall (Asker)
+    "Holmen": (59.8434, 10.4569),
+    # Ringerike - Ringerikshallen (Hønefoss)
+    "Ringerike": (60.1690, 10.2580),
+    # Skien - Skien ishall
+    "Skien": (59.2096, 9.6080),
+    # Jutul - Bærum ishall (Bekkestua)
+    "Jutul": (59.9000, 10.5333),
+    # Frisk Asker - Varner Arena (Asker)
+    "Frisk Asker": (59.8331, 10.4356),
+    # Tønsberg - Tønsberghallen
+    "Tønsberg": (59.2674, 10.4076),
+    # Sandefjord Penguins - Sandefjord ishall
+    "Sandefjord Penguins": (59.1313, 10.2167),
 }
+
+# ---------------------------------------------------------------------------
+# Road-correction factor
+#
+# Great-circle ("as the crow flies") distances underestimate real driving
+# distances, since roads follow terrain, fjords and valleys rather than
+# straight lines. This factor scales the haversine distance up to better
+# approximate actual road travel distance.
+# ---------------------------------------------------------------------------
+
+_ROAD_DISTANCE_FACTOR = 1.3
+
+# ---------------------------------------------------------------------------
+# Earth radius (km), used by the haversine formula
+# ---------------------------------------------------------------------------
+
+_EARTH_RADIUS_KM = 6371.0
+
+
+def _haversine_km(coord_a: Tuple[float, float], coord_b: Tuple[float, float]) -> float:
+    """Return the great-circle distance in km between two (lat, lon) points."""
+    lat1, lon1 = coord_a
+    lat2, lon2 = coord_b
+
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
+
+    a = (
+        math.sin(delta_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return _EARTH_RADIUS_KM * c
 
 # ---------------------------------------------------------------------------
 # Arena-to-club reverse mapping
@@ -109,10 +119,22 @@ def distance(club_a: str, club_b: str) -> int:
 
     The lookup is symmetric — the order of arguments does not matter.
     Returns 0 when the distance for a given pair is unknown (e.g. one of
-    the clubs is not in the RVV region).
+    the clubs is not in the RVV region), or when both clubs are the same.
+
+    The distance is computed from the great-circle distance between the
+    clubs' arena coordinates (haversine formula), scaled by
+    ``_ROAD_DISTANCE_FACTOR`` to approximate real driving distance.
     """
-    key = _normalise_key(club_a, club_b)
-    return _DISTANCE_MATRIX.get(key, 0)
+    if club_a == club_b:
+        return 0
+
+    coord_a = _CLUB_COORDINATES.get(club_a)
+    coord_b = _CLUB_COORDINATES.get(club_b)
+    if coord_a is None or coord_b is None:
+        return 0
+
+    great_circle_km = _haversine_km(coord_a, coord_b)
+    return round(great_circle_km * _ROAD_DISTANCE_FACTOR)
 
 
 def arena_to_club(arena: str) -> Optional[str]:
@@ -194,13 +216,3 @@ def compute_team_travel_distances(plan: SeasonPlan) -> dict[str, int]:
             totals[team.label] += km
 
     return totals
-
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-
-def _normalise_key(club_a: str, club_b: str) -> Tuple[str, str]:
-    """Normalise a club pair so lookups are symmetric."""
-    return (club_a, club_b) if club_a <= club_b else (club_b, club_a)

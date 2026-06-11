@@ -83,8 +83,9 @@ class TestFurthestTravelingTeam:
         result = furthest_traveling_team(t)
         assert result is not None
         team, km = result
-        # Holmen (~85 km) is slightly farther than Jar (~80 km) from Kongsberg
-        assert team.label == "Holmen U10"
+        # Based on real arena coordinates, Jar (~75 km) is farther than
+        # Holmen (~64 km) from Kongsberg.
+        assert team.label == "Jar 1"
         assert km > 50
 
     def test_unknown_arena_returns_none(self):
