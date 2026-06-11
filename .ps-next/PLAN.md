@@ -92,4 +92,4 @@ LESSONS: none
 **Findings:** Diagnostic run showed Kongsberg U1064 games vs each individual Jar U10 team8-16 games (age-group average 38.4); per_team_share_warnings correctly flags all 16 affected teams across U10/U11. All 50 season_planner tests and full suite (312 passed/1 skipped, excluding pre-existing unrelated stage2 failure) pass.
 LESSONS: The club-size normalization (task 1) cannot fully equalize per-team game counts when max_club_teams_per_tournament1 — a club with N sibling teams in an age group will always collectively share roughly 1/N of a single-team club's invitations. Fully resolving this would require relaxing the per-club-per-tournament cap for large clubs, which is out of scope for this backlog item; per_team_share_warnings (task 2) now surfaces this residual skew for visibility.
 **Files:** tests/test_season_planner.py (+99)
-**Commit:** [pending — fill after commit]
+**Commit:** 301368a (hockey)
