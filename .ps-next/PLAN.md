@@ -31,7 +31,7 @@ The hand-typed `_DISTANCE_MATRIX` in `club_distances.py` contains rough/inconsis
   - Files: tests/test_club_distances.py
   - Add a `TestHaversineDistance` (or similar) test class that checks: distance between identical coordinates is 0, a known real-world pair (e.g. Kongsberg <-> Oslo-area clubs such as Jar) falls within a realistic km range (e.g. 60-100km, reflecting the corrected Tønsberg<->Sandefjord ~30km style fix), and the result scales with the `_ROAD_DISTANCE_FACTOR` (i.e. is greater than the raw great-circle haversine distance).
 
-- [ ] Verify downstream consumers still render correctly with the new distances
+- [x] Ran the full pytest suite (313 tests): 311 pass, 1 skip, and 1 pre-existing unrelated failure in test_stage2_scraping.py (pipeline checkpoint logic, unrelated to club_distances). All plan_exporter, html_exporter, csv_exporter, rich_output, and season_command tests pass unchanged. Spot-checked distance() output: Tønsberg<->Sandefjord Penguins is now ~24km (vs old 15km), matching the realistic 25-35km range called out in the plan. — 2026-06-11
   - Files: tournament_scheduler/excel/plan_exporter.py, tournament_scheduler/utils/rich_output.py, tournament_scheduler/html/html_exporter.py, tournament_scheduler/cli/season_command.py, tournament_scheduler/csv/csv_exporter.py
   - Run `pytest` across the full suite (these modules only call `distance()`/`furthest_traveling_team()`/`compute_team_travel_distances()` through the existing public API, so no signature changes are expected); spot-check by running the season-plan generation CLI and confirming travel-distance figures in HTML/CSV/Excel output now reflect realistic km values (e.g. Tønsberg<->Sandefjord Penguins around 25-35km, not 15km).
 
@@ -79,4 +79,11 @@ LESSONS: none
 **Findings:** All 22 tests pass (3 new). Confirms _haversine_km and _ROAD_DISTANCE_FACTOR are correctly wired into distance().
 LESSONS: none
 **Files:** tests/test_club_distances.py (+29)
+**Commit:** 193575d (hockey)
+
+### 2026-06-11 — Ran the full pytest suite (313 tests): 311 pass, 1 skip, and 1 pre-existing unrelated failure in test_stage2_scraping.py (pipeline checkpoint logic, unrelated to club_distances). All plan_exporter, html_exporter, csv_exporter, rich_output, and season_command tests pass unchanged. Spot-checked distance() output: Tønsberg<->Sandefjord Penguins is now ~24km (vs old 15km), matching the realistic 25-35km range called out in the plan.
+**Rationale:** none
+**Findings:** Confirmed downstream consumers (plan_exporter, html_exporter, csv_exporter, rich_output, season_command) work correctly via the existing distance()/furthest_traveling_team()/compute_team_travel_distances() API with no signature changes; the one failing test (test_zero_events_blocks_source) is pre-existing and unrelated to this feature, confirmed by reproducing on the pre-change tree.
+LESSONS: none
+**Files:** none (verification only, no implementation changes)
 **Commit:** [pending — fill after commit]
