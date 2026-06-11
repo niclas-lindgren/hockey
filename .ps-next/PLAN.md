@@ -26,7 +26,7 @@
   - Files: tests/test_browser_worker.py
   - Approach: New test file (no existing `test_browser_worker.py`; follow conventions in `tests/test_ical_scraper.py`). Test `_sanitize_html()` strips `value="secret123"` from `<input type="password" value="secret123">` and `<input id="email" value="user@example.com">`, and test `_interactive_elements()`-style label scrubbing replaces a credential substring with `"[REDACTED]"` when `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env vars are set (use `monkeypatch.setenv`).
 
-- [ ] Add unit tests for redaction in scraper-agent.ts
+- [x] Created .pi/lib/scraper-agent.test.ts (vitest, following parsers.test.ts conventions) covering redactCredentials() (4 tests: password substring, email substring, no-op when env vars unset, no-op on empty string) and userMessage() (2 tests confirming snapshot.html and snapshot.iframe_html credential values are redacted in the output message). Exported userMessage (was previously unexported) so it could be tested directly. — 2026-06-11
   - Files: .pi/lib/scraper-agent.test.ts
   - Approach: New colocated test file following the `.pi/lib/parsers.test.ts` convention. Test `redactCredentials()` replaces a literal password/email substring (set via `process.env.BOOKUP_PASSWORD`/`BOOKUP_EMAIL` in the test) with `"[REDACTED]"` inside arbitrary HTML/text, and confirm `userMessage()` output no longer contains the raw credential value when `snapshot.html` includes it.
 
@@ -85,3 +85,10 @@ LESSONS: none
 LESSONS: none
 **Files:** tests/test_browser_worker.py (+65/-0)
 **Commit:** 2bf4e69 (hockey)
+
+### 2026-06-11 — Created .pi/lib/scraper-agent.test.ts (vitest, following parsers.test.ts conventions) covering redactCredentials() (4 tests: password substring, email substring, no-op when env vars unset, no-op on empty string) and userMessage() (2 tests confirming snapshot.html and snapshot.iframe_html credential values are redacted in the output message). Exported userMessage (was previously unexported) so it could be tested directly.
+**Rationale:** Exporting userMessage is a minimal, low-risk change (function declaration export only); WorkerResponse type remains unexported but is structurally satisfied via object literals cast with 'as any' in the test, consistent with TS structural typing.
+**Findings:** Ran via 'npx vitest run' in .pi/lib (vitest not in repo node_modules but available via npx): all 13 tests pass (7 existing parsers.test.ts + 6 new scraper-agent.test.ts).
+LESSONS: vitest is not in this repo's node_modules but works via 'npx vitest run' inside .pi/lib; use that to run TS tests for .pi/lib.
+**Files:** .pi/lib/scraper-agent.test.ts (+106), .pi/lib/scraper-agent.ts (+1/-1)
+**Commit:** [pending — fill after commit]

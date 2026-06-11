@@ -134,7 +134,7 @@ function systemPrompt(type: string, url: string): string {
   return base.join("\n");
 }
 
-function userMessage(
+export function userMessage(
   snapshot: WorkerResponse,
   iteration: number,
   maxIterations: number,
