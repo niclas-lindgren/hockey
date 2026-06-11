@@ -71,4 +71,4 @@
 **Findings:** All 75 season/planner-related tests pass; full suite has 1 pre-existing unrelated failure (test_zero_events_blocks_source) confirmed present before this change too.
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+38/-2)
-**Commit:** [pending — fill after commit]
+**Commit:** 8cdd5a5 (hockey)
