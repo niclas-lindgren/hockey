@@ -63,4 +63,4 @@ LESSONS: none
 **Findings:** Verified _redact_credentials replaces both BOOKUP_EMAIL and BOOKUP_PASSWORD substrings with [REDACTED] and is a no-op when env vars are unset/empty. Full test suite: 310 passed, 2 pre-existing/flaky failures unrelated to this change (test_zero_events_blocks_source and test_sources_run_in_different_threads, both confirmed failing on main via git stash).
 LESSONS: test_sources_run_in_different_threads is a pre-existing flaky test unrelated to credential sanitization work; do not attempt to fix it as part of this plan.
 **Files:** tournament_scheduler/pipeline/browser_worker.py (+19/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** fdbc143 (hockey)
