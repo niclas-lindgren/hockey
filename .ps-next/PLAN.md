@@ -10,7 +10,7 @@
   - Files: tournament_scheduler/pipeline/browser_worker.py
   - Approach: Add a `_sanitize_html(html: str) -> str` helper that strips/blanks `value="..."` attributes from `<input type="password">` and `<input type="email">`/`<input>` elements matched against known credential field selectors (`#email`, `input[type='password']`). Call it on the `html` and `iframe_html` fields inside `_snapshot()` (lines ~102-134) before the dict is returned, so both `cmd_type`/`cmd_click`/`cmd_goto` results and the TS layer never see raw credential values.
 
-- [ ] Sanitize interactive-elements list for credential echoes
+- [x] Added a _redact_credentials() helper that replaces literal occurrences of os.environ BOOKUP_EMAIL/BOOKUP_PASSWORD values with '[REDACTED]', and applied it to label_text in _interactive_elements() before truncation/inclusion in the snapshot. — 2026-06-11
   - Files: tournament_scheduler/pipeline/browser_worker.py
   - Approach: In `_interactive_elements()` (lines ~136-177), after building each element dict, scrub `text`/`placeholder`-derived `label_text` fields by replacing any substring equal to `os.environ.get("BOOKUP_EMAIL")` or `os.environ.get("BOOKUP_PASSWORD")` (when set and non-empty) with `"[REDACTED]"`, so credential values can't surface via input placeholders or echoed labels.
 
@@ -57,3 +57,10 @@
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/browser_worker.py (+27/-2)
 **Commit:** a286846 (hockey)
+
+### 2026-06-11 — Added a _redact_credentials() helper that replaces literal occurrences of os.environ BOOKUP_EMAIL/BOOKUP_PASSWORD values with '[REDACTED]', and applied it to label_text in _interactive_elements() before truncation/inclusion in the snapshot.
+**Rationale:** Used a simple substring-replace approach against resolved env var values, consistent with the redaction approach planned for scraper-agent.ts and llm_scraper.py, rather than a regex, since the exact credential strings are known at runtime.
+**Findings:** Verified _redact_credentials replaces both BOOKUP_EMAIL and BOOKUP_PASSWORD substrings with [REDACTED] and is a no-op when env vars are unset/empty. Full test suite: 310 passed, 2 pre-existing/flaky failures unrelated to this change (test_zero_events_blocks_source and test_sources_run_in_different_threads, both confirmed failing on main via git stash).
+LESSONS: test_sources_run_in_different_threads is a pre-existing flaky test unrelated to credential sanitization work; do not attempt to fix it as part of this plan.
+**Files:** tournament_scheduler/pipeline/browser_worker.py (+19/-1)
+**Commit:** [pending — fill after commit]

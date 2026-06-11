@@ -40,6 +40,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import signal
 import sys
@@ -75,6 +76,23 @@ def _sanitize_html(html: str) -> str:
     if not html:
         return html
     return _CREDENTIAL_INPUT_RE.sub(r"\1\2", html)
+
+
+def _redact_credentials(text: str) -> str:
+    """Replace any literal BookUp credential values found in `text`.
+
+    Defense-in-depth: even if a credential value somehow ends up in an
+    interactive-element label/placeholder echo (e.g. a form pre-filled by
+    the page itself), scrub any substring matching the resolved
+    `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env vars before it leaves this process.
+    """
+    if not text:
+        return text
+    for env_var in ("BOOKUP_EMAIL", "BOOKUP_PASSWORD"):
+        value = os.environ.get(env_var, "")
+        if value:
+            text = text.replace(value, "[REDACTED]")
+    return text
 
 
 # ---------------------------------------------------------------------------
@@ -192,7 +210,7 @@ class BrowserWorker:
                     sel = self._build_selector(buttons.nth(i))
                     elements.append({
                         "tag": tag,
-                        "text": label_text[:80],
+                        "text": _redact_credentials(label_text)[:80],
                         "selector": sel,
                     })
                 except Exception:
