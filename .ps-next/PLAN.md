@@ -98,4 +98,4 @@ LESSONS: vitest is not in this repo's node_modules but works via 'npx vitest run
 **Findings:** Full pytest suite: 320 passed, 1 skipped, 2 pre-existing/flaky failures (test_zero_events_blocks_source, test_sources_run_in_different_threads — both confirmed pre-existing on main, unrelated to comment-only changes). vitest in .pi/lib: 13/13 passed.
 LESSONS: This completes the BookUp credential-leak mitigation plan (backlog item #54): all 6 implementation/test/doc tasks are now done.
 **Files:** tournament_scheduler/pipeline/browser_worker.py (+32), .pi/lib/scraper-agent.ts (+10/-3), tournament_scheduler/pipeline/llm_scraper.py (+15/-6)
-**Commit:** [pending — fill after commit]
+**Commit:** 36f8df3 (hockey)
