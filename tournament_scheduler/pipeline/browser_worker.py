@@ -52,6 +52,31 @@ def _now_iso() -> str:
     return datetime.now().isoformat()
 
 
+# Matches `value="..."` / `value='...'` attributes on <input> elements whose
+# tag also declares a credential-related type or known field id/name, so we
+# never leak entered passwords/emails into HTML snapshots forwarded to the
+# extension/LLM layers.
+_CREDENTIAL_INPUT_RE = re.compile(
+    r"""(<input\b[^>]*?\b(?:type=["']?(?:password|email)["']?|
+          (?:id|name)=["']?(?:email|password|username|user|login)["']?)
+        [^>]*?\bvalue=["'])[^"']*(["'])""",
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _sanitize_html(html: str) -> str:
+    """Strip credential `value="..."` attributes from input fields in HTML.
+
+    Blanks the `value` attribute of `<input>` elements that are password
+    fields, email fields, or commonly-named username/login fields, so that
+    raw HTML/iframe snapshots returned from `_snapshot()` never contain
+    credential values entered by the user.
+    """
+    if not html:
+        return html
+    return _CREDENTIAL_INPUT_RE.sub(r"\1\2", html)
+
+
 # ---------------------------------------------------------------------------
 # Command handlers
 # ---------------------------------------------------------------------------
@@ -126,8 +151,8 @@ class BrowserWorker:
         except Exception:
             pass
         return {
-            "html": html,
-            "iframe_html": iframe_html,
+            "html": _sanitize_html(html),
+            "iframe_html": _sanitize_html(iframe_html),
             "url": url,
             "title": title,
             "interactive": self._interactive_elements(),

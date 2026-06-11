@@ -1,89 +1,59 @@
-# PLAN
+# Plan: Avoid BookUp password leaking to the LLM
 
-**Feature:** Verify/improve driving distance calculation: current values look incorrect. Implement a more reliable algorithm to compute from-to distances between venues (e.g. using a proper geocoding/distance matrix approach) and aggregate per-team/season travel distances correctly.
-**Goal:** Verify/improve driving distance calculation: current values look incorrect. Implement a more reliable algorithm to compute from-to distances between venues (e.g. using a proper geocoding/distance matrix approach) and aggregate per-team/season travel distances correctly.
-**Backlog-ref:** 46
-**Constraints:** none
-**Date:** 2026-06-11
-
-## Intent
-The hand-typed `_DISTANCE_MATRIX` in `club_distances.py` contains rough/inconsistent guesses (e.g. Tønsberg<->Sandefjord Penguins listed as 15km when the real road distance is closer to 30km); replacing it with a coordinate-based haversine + road-correction calculation gives accurate, verifiable, offline-computable distances that feed the existing per-team/season travel aggregation correctly.
+**Goal:** Investigate how to avoid the BookUp password leaking to the LLM when it's entered on-demand during the run flow — the pipeline currently prompts for BookUp credentials interactively (added for booking-calendar handling, backlog item #32) and the value may end up in LLM prompts/context (e.g. via ScraperAgent or scrape-llm). Audit the credential-prompt and scraper-agent code paths to ensure the password is never included in any text sent to a local or remote LLM, and propose a safer pattern (e.g. env var injection, redaction, out-of-band browser auth) if it currently is.
+**Created:** 2026-06-11
+**Intent:** Backlog #32 added interactive BookUp credential prompting for ScraperAgent-driven login, but the password is filled into a live page via Playwright and the resulting DOM snapshot/interactive-element list is embedded verbatim into the LLM prompt — this audit confirms the leak vector and closes it with sanitization at the source plus a defense-in-depth redaction layer.
+**Backlog-ref:** 54
 
 ## Tasks
+- [x] Added a module-level _sanitize_html() helper using a regex to blank value attributes on password/email/username input fields, and applied it to html and iframe_html in _snapshot() so credential values never leave the browser worker. — 2026-06-11
+  - Files: tournament_scheduler/pipeline/browser_worker.py
+  - Approach: Add a `_sanitize_html(html: str) -> str` helper that strips/blanks `value="..."` attributes from `<input type="password">` and `<input type="email">`/`<input>` elements matched against known credential field selectors (`#email`, `input[type='password']`). Call it on the `html` and `iframe_html` fields inside `_snapshot()` (lines ~102-134) before the dict is returned, so both `cmd_type`/`cmd_click`/`cmd_goto` results and the TS layer never see raw credential values.
 
-- [x] Replaced the static hand-tuned distance matrix in club_distances.py with a haversine-based calculation using real (lat, lon) coordinates for each of the 9 RVV club arenas, scaled by a _ROAD_DISTANCE_FACTOR of 1.3 to approximate driving distance. — 2026-06-11
-  - Files: tournament_scheduler/club_distances.py
-  - Add a `_CLUB_COORDINATES: Dict[str, Tuple[float, float]]` dict with real (latitude, longitude) pairs for each of the 9 RVV club arenas (Kongsberg/Kongsberghallen, Jar/Jarhallen, Holmen/Holmenkollen ishall, Ringerike/Ringerikshallen, Skien/Skien ishall, Jutul/Bærum ishall, Frisk Asker/Varner Arena, Tønsberg/Tønsberghallen, Sandefjord Penguins/Sandefjord ishall), plus a `_haversine_km(coord_a, coord_b) -> float` helper and a `_ROAD_DISTANCE_FACTOR` constant (e.g. 1.3) applied to the great-circle distance to approximate real driving distance.
+- [ ] Sanitize interactive-elements list for credential echoes
+  - Files: tournament_scheduler/pipeline/browser_worker.py
+  - Approach: In `_interactive_elements()` (lines ~136-177), after building each element dict, scrub `text`/`placeholder`-derived `label_text` fields by replacing any substring equal to `os.environ.get("BOOKUP_EMAIL")` or `os.environ.get("BOOKUP_PASSWORD")` (when set and non-empty) with `"[REDACTED]"`, so credential values can't surface via input placeholders or echoed labels.
 
-- [x] This was implemented together with task 1 — distance() now computes results purely from _CLUB_COORDINATES via _haversine_km and _ROAD_DISTANCE_FACTOR, with the same-club and unknown-pair contracts preserved. — 2026-06-11
-  - Files: tournament_scheduler/club_distances.py
-  - Rewrite `distance(club_a, club_b) -> int` to return 0 for `club_a == club_b`, look up both clubs in `_CLUB_COORDINATES`, return 0 if either is missing (preserving the "unknown pair -> 0" contract), and otherwise return `round(_haversine_km(...) * _ROAD_DISTANCE_FACTOR)`; remove `_DISTANCE_MATRIX` and `_normalise_key` (haversine is naturally symmetric) once no longer referenced.
+- [ ] Add defense-in-depth credential redaction in scraper-agent.ts before calling the LLM
+  - Files: .pi/lib/scraper-agent.ts
+  - Approach: Add a `redactCredentials(text: string): string` helper near `substituteEnvVars()` (lines ~559-564) that replaces any occurrence of `process.env.BOOKUP_EMAIL` and `process.env.BOOKUP_PASSWORD` (when set and length > 0) in a given string with `"[REDACTED]"`. Apply it to the `snapshot.html`/`snapshot.iframe_html`/interactive-element text inside `userMessage()` (lines 137-174) before the message is returned to `callLLM()` (line 462), as a second layer in case the Python-side sanitization in browser_worker.py misses a path.
 
-- [x] Verified _ARENA_TO_CLUB, arena_to_club(), furthest_traveling_team(), and compute_team_travel_distances() all continue to work unchanged against the new coordinate-based distance(); module docstring already describes the haversine + road-correction approach (updated as part of the initial rewrite). — 2026-06-11
-  - Files: tournament_scheduler/club_distances.py
-  - Verify these functions only depend on `distance()`/`arena_to_club()` (no direct `_DISTANCE_MATRIX`/`_normalise_key` references survive); update module docstring to describe the haversine + road-correction approach instead of "static distance lookups".
+- [ ] Sanitize llm_scraper.py DOM snapshot and prompt building for the scrape-llm CLI path
+  - Files: tournament_scheduler/pipeline/llm_scraper.py
+  - Approach: In `capture_dom_snapshot()` (around line 63, `page.content()`-based) and in the prompt-building code around line 829 (`visible_text` embedded as "Synlig tekst fra kalender-siden"), reuse the same redaction approach as scraper-agent.ts: after `_detect_and_login()` runs, scrub any literal occurrences of the resolved `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env var values from `raw_html`/`visible_text` before they are used to build the LLM user message.
 
-- [x] Updated test docstrings/comments to describe the haversine-based approach instead of the old static matrix, and added a new test_all_pairs_are_symmetric covering all 9x9 club pairs symmetrically; existing magic-number assertions already used distance() computed values rather than hardcoded km figures. — 2026-06-11
-  - Files: tests/test_club_distances.py
-  - Replace exact magic-number assertions tied to the old static matrix (e.g. "Holmen ~85km vs Jar ~80km from Kongsberg", "Kongsberg-Jar > 50") with assertions appropriate to the new haversine-based values: same-club returns 0, symmetric for all club pairs, all 9x9 distinct-club pairs > 0, and `furthest_traveling_team`/`compute_team_travel_distances` pick the team with the actual greater computed `distance()` (computed via the function itself rather than hardcoded km figures) so tests stay correct if coordinates are later refined.
+- [ ] Add unit tests for sanitization in browser_worker.py
+  - Files: tests/test_browser_worker.py
+  - Approach: New test file (no existing `test_browser_worker.py`; follow conventions in `tests/test_ical_scraper.py`). Test `_sanitize_html()` strips `value="secret123"` from `<input type="password" value="secret123">` and `<input id="email" value="user@example.com">`, and test `_interactive_elements()`-style label scrubbing replaces a credential substring with `"[REDACTED]"` when `BOOKUP_EMAIL`/`BOOKUP_PASSWORD` env vars are set (use `monkeypatch.setenv`).
 
-- [x] Added a TestHaversineDistance class with three tests: identical coordinates return 0, Kongsberg<->Jar great-circle distance falls within a realistic 40-80km range, and the road-corrected distance() result equals round(haversine * _ROAD_DISTANCE_FACTOR) and is greater than the raw great-circle distance. — 2026-06-11
-  - Files: tests/test_club_distances.py
-  - Add a `TestHaversineDistance` (or similar) test class that checks: distance between identical coordinates is 0, a known real-world pair (e.g. Kongsberg <-> Oslo-area clubs such as Jar) falls within a realistic km range (e.g. 60-100km, reflecting the corrected Tønsberg<->Sandefjord ~30km style fix), and the result scales with the `_ROAD_DISTANCE_FACTOR` (i.e. is greater than the raw great-circle haversine distance).
+- [ ] Add unit tests for redaction in scraper-agent.ts
+  - Files: .pi/lib/scraper-agent.test.ts
+  - Approach: New colocated test file following the `.pi/lib/parsers.test.ts` convention. Test `redactCredentials()` replaces a literal password/email substring (set via `process.env.BOOKUP_PASSWORD`/`BOOKUP_EMAIL` in the test) with `"[REDACTED]"` inside arbitrary HTML/text, and confirm `userMessage()` output no longer contains the raw credential value when `snapshot.html` includes it.
 
-- [x] Ran the full pytest suite (313 tests): 311 pass, 1 skip, and 1 pre-existing unrelated failure in test_stage2_scraping.py (pipeline checkpoint logic, unrelated to club_distances). All plan_exporter, html_exporter, csv_exporter, rich_output, and season_command tests pass unchanged. Spot-checked distance() output: Tønsberg<->Sandefjord Penguins is now ~24km (vs old 15km), matching the realistic 25-35km range called out in the plan. — 2026-06-11
-  - Files: tournament_scheduler/excel/plan_exporter.py, tournament_scheduler/utils/rich_output.py, tournament_scheduler/html/html_exporter.py, tournament_scheduler/cli/season_command.py, tournament_scheduler/csv/csv_exporter.py
-  - Run `pytest` across the full suite (these modules only call `distance()`/`furthest_traveling_team()`/`compute_team_travel_distances()` through the existing public API, so no signature changes are expected); spot-check by running the season-plan generation CLI and confirming travel-distance figures in HTML/CSV/Excel output now reflect realistic km values (e.g. Tønsberg<->Sandefjord Penguins around 25-35km, not 15km).
+- [ ] Document the defense-in-depth credential-leak mitigation and out-of-band-auth alternative
+  - Files: tournament_scheduler/pipeline/browser_worker.py, .pi/lib/scraper-agent.ts, tournament_scheduler/pipeline/llm_scraper.py
+  - Approach: Add inline code comments at each sanitization point explaining the two-layer defense (Python-side DOM sanitization as primary, TS/Python regex redaction as fallback) and note as a code comment near `_detect_and_login()`/`initial_navigation` that a longer-term alternative is out-of-band browser auth (persistent authenticated browser profile/cookie session established once outside the LLM loop), which would avoid feeding any login UI state to the LLM at all — out of scope for this fix.
+
+## Notes
+- Do not re-implement the existing `credential_env_vars` mechanism, interactive prompting in `rvv-miniputt.ts`, or the empty-placeholder pre-flight warning in `scraper-agent.ts` — these already exist (backlog #32, archived plan PLAN-2026-06-10-credential-aware-booking-calendar-handling.md).
+- The leak is conditional: it depends on whether the target site's DOM reflects the filled `value` attribute back via `page.content()`. Sanitize unconditionally regardless of whether a given site currently exhibits the reflection, since this is a security property that must hold for all sites.
+- Redaction must only trigger when the env var is set and non-empty, to avoid replacing common short strings (e.g. avoid redacting on empty-string env vars).
 
 ## Acceptance Criteria
-
-- `tournament_scheduler/club_distances.py` no longer contains `_DISTANCE_MATRIX` or `_normalise_key`, and `distance()` computes its result from `_CLUB_COORDINATES` via a haversine helper.
-- Running `pytest tests/test_club_distances.py` passes with no failures, including new tests for the haversine+road-correction calculation.
-- `distance("Tønsberg", "Sandefjord Penguins")` returns a value in the 20-40km range (correcting the previous incorrect 15km static estimate).
-- `distance(club, club)` returns 0 for every club, and `distance(a, b) == distance(b, a)` for every pair of the 9 RVV clubs.
-- Running the full `pytest` suite from the repo root exits with code 0, confirming downstream exporters (Excel, CSV, HTML, CLI, rich output) still produce output using the new distance values without errors.
+- `tournament_scheduler/pipeline/browser_worker.py` contains a sanitization function that removes `value="..."` attributes from password and email `<input>` elements before `_snapshot()` returns its result.
+- Calling `userMessage()` in `.pi/lib/scraper-agent.ts` with a snapshot whose `html` field contains a literal `BOOKUP_PASSWORD` value does not return that literal value in the resulting message string.
+- `tournament_scheduler/pipeline/llm_scraper.py` does not pass `BOOKUP_EMAIL` or `BOOKUP_PASSWORD` env var values through to the LLM prompt text built around `capture_dom_snapshot()`.
+- Running `pytest tests/test_browser_worker.py` passes and reports that sanitization tests for password/email input redaction succeed.
+- Running the new `.pi/lib/scraper-agent.test.ts` test suite passes and shows that `redactCredentials()` replaces credential substrings with `"[REDACTED]"`.
 
 ## Log
-- 2026-06-11: Plan created for backlog item #46 (driving distance calculation fix).
 
-### 2026-06-11 — Replaced the static hand-tuned distance matrix in club_distances.py with a haversine-based calculation using real (lat, lon) coordinates for each of the 9 RVV club arenas, scaled by a _ROAD_DISTANCE_FACTOR of 1.3 to approximate driving distance.
-**Rationale:** none
-**Findings:** distance() now computes great-circle distance via _haversine_km and applies the road factor; the old _DISTANCE_MATRIX and _normalise_key were removed. One existing test asserted Holmen was farther than Jar from Kongsberg based on old approximate numbers, but real coordinates show Jar (~75km) is actually farther than Holmen (~64km), so that test assertion was corrected to match.
-LESSONS: Real coordinates change relative ordering of some club distances vs the old hand-picked matrix; downstream code/tests assuming old relative orderings (e.g. Jar vs Holmen distance from Kongsberg) need updating to match real-world geography.
-**Files:** tournament_scheduler/club_distances.py (+84/-71 combined with test), tests/test_club_distances.py (+3/-2)
-**Commit:** f17fbf2 (hockey)
 
-### 2026-06-11 — This was implemented together with task 1 — distance() now computes results purely from _CLUB_COORDINATES via _haversine_km and _ROAD_DISTANCE_FACTOR, with the same-club and unknown-pair contracts preserved.
-**Rationale:** none
-**Findings:** Verified no remaining references to _DISTANCE_MATRIX or _normalise_key in club_distances.py; the rewrite was already completed in the prior task's commit.
+<!-- pi-next appends entries here after each task -->
+
+### 2026-06-11 — Added a module-level _sanitize_html() helper using a regex to blank value attributes on password/email/username input fields, and applied it to html and iframe_html in _snapshot() so credential values never leave the browser worker.
+**Rationale:** Regex-based approach chosen over a full HTML parser to avoid adding a new dependency and keep the change minimal/fast for stdin/stdout snapshot serialization.
+**Findings:** Verified the regex correctly blanks value attrs on typepassword, typeemail, and id/nameemail/username/password/login inputs while leaving unrelated inputs (checkboxes, plain text fields) untouched. Full test suite: 311 passed, 1 pre-existing unrelated failure (test_zero_events_blocks_source, confirmed pre-existing via git stash), 1 skipped.
 LESSONS: none
-**Files:** none (already implemented in previous commit)
-**Commit:** 1b4b47f (hockey)
-
-### 2026-06-11 — Verified _ARENA_TO_CLUB, arena_to_club(), furthest_traveling_team(), and compute_team_travel_distances() all continue to work unchanged against the new coordinate-based distance(); module docstring already describes the haversine + road-correction approach (updated as part of the initial rewrite).
-**Rationale:** none
-**Findings:** No code changes needed — these functions only call distance()/arena_to_club() and never referenced _DISTANCE_MATRIX or _normalise_key directly; docstring already updated in the first commit.
-LESSONS: none
-**Files:** none (verification only, no file changes)
-**Commit:** bbfc222 (hockey)
-
-### 2026-06-11 — Updated test docstrings/comments to describe the haversine-based approach instead of the old static matrix, and added a new test_all_pairs_are_symmetric covering all 9x9 club pairs symmetrically; existing magic-number assertions already used distance() computed values rather than hardcoded km figures.
-**Rationale:** none
-**Findings:** All 19 tests pass (added 1 new test). Comments referencing old approximate matrix values (e.g. 'Kongsberg -> Jar is ~80 km') were removed since the magic numbers no longer applied.
-LESSONS: none
-**Files:** tests/test_club_distances.py (+12/-2)
-**Commit:** 0d032b4 (hockey)
-
-### 2026-06-11 — Added a TestHaversineDistance class with three tests: identical coordinates return 0, Kongsberg<->Jar great-circle distance falls within a realistic 40-80km range, and the road-corrected distance() result equals round(haversine * _ROAD_DISTANCE_FACTOR) and is greater than the raw great-circle distance.
-**Rationale:** none
-**Findings:** All 22 tests pass (3 new). Confirms _haversine_km and _ROAD_DISTANCE_FACTOR are correctly wired into distance().
-LESSONS: none
-**Files:** tests/test_club_distances.py (+29)
-**Commit:** 193575d (hockey)
-
-### 2026-06-11 — Ran the full pytest suite (313 tests): 311 pass, 1 skip, and 1 pre-existing unrelated failure in test_stage2_scraping.py (pipeline checkpoint logic, unrelated to club_distances). All plan_exporter, html_exporter, csv_exporter, rich_output, and season_command tests pass unchanged. Spot-checked distance() output: Tønsberg<->Sandefjord Penguins is now ~24km (vs old 15km), matching the realistic 25-35km range called out in the plan.
-**Rationale:** none
-**Findings:** Confirmed downstream consumers (plan_exporter, html_exporter, csv_exporter, rich_output, season_command) work correctly via the existing distance()/furthest_traveling_team()/compute_team_travel_distances() API with no signature changes; the one failing test (test_zero_events_blocks_source) is pre-existing and unrelated to this feature, confirmed by reproducing on the pre-change tree.
-LESSONS: none
-**Files:** none (verification only, no implementation changes)
+**Files:** tournament_scheduler/pipeline/browser_worker.py (+27/-2)
 **Commit:** [pending — fill after commit]
