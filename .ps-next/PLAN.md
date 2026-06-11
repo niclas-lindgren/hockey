@@ -32,7 +32,7 @@ The season-plan HTML report's light theme currently reuses dark-theme-only color
   - Files: `tournament_scheduler/html/templates/styles.css`
   - Acceptance: In `[data-theme="light"]` (lines 24-41), `--accent-dim` is corrected so it is darker than `--accent` (matching the dark theme's relationship, e.g. swap to a deeper blue such as `#0369a1`) to fix the inverted gradient on `.logo-icon` and `.timeline::before`. The `.tag--age`, `.tag--arena`, `.tag--teams`, `.tag--travel` background opacities (currently `rgba(...,.08)`) are increased (e.g. to `.14`-`.18`) within `[data-theme="light"]` via theme-scoped overrides so tags remain visually distinct against `--bg: #f4f4f5` without affecting dark theme.
 
-- [ ] Verify generated HTML reports render correctly with both palettes
+- [x] Wrote a temporary standalone script that builds a minimal SeasonPlan with two host clubs and calls HtmlExporter().export() to a temp file, then asserted the rendered HTML's HEATMAP_CLUB_COLORS_BY_THEME JSON contains both 'dark' and 'light' keys with bg/text entries for each club, and that no literal 'rgba(30,41,59,.4)' remains while '--heatmap-empty-bg' is present in the output. — 2026-06-11
   - Files: `tournament_scheduler/html/html_exporter.py`, `tests/` (existing test for html_exporter, if present)
   - Acceptance: Run the project's HTML export (or its existing pytest coverage for `html_exporter.py`) and confirm the generated `season_plan.html` contains both `dark` and `light` keys in the serialized `HEATMAP_CLUB_COLORS` JSON, that `script.js` has no remaining literal `rgba(30,41,59,.4)` outside of the `:root` CSS variable definition, and that `python3 -m py_compile tournament_scheduler/html/html_exporter.py` and `node --check tournament_scheduler/html/templates/script.js` (if `node` is available) both succeed.
 
@@ -81,4 +81,11 @@ LESSONS: none
 **Findings:** Light theme tags now have visible background tint and border against --bg: #f4f4f5; dark theme rules and values are unaffected.
 LESSONS: none
 **Files:** tournament_scheduler/html/templates/styles.css (+5/-1)
+**Commit:** 728039f (hockey)
+
+### 2026-06-11 — Wrote a temporary standalone script that builds a minimal SeasonPlan with two host clubs and calls HtmlExporter().export() to a temp file, then asserted the rendered HTML's HEATMAP_CLUB_COLORS_BY_THEME JSON contains both 'dark' and 'light' keys with bg/text entries for each club, and that no literal 'rgba(30,41,59,.4)' remains while '--heatmap-empty-bg' is present in the output.
+**Rationale:** Used a throwaway script + temp dir rather than the full pipeline to avoid touching tracked export/ artifacts; deleted the script after verification since it was only for this check.
+**Findings:** All assertions passed: dark/light keys present with correct club colors (e.g. Kongsberg dark #1a3a5c/#64b5f6, light #dbeafe/#1d4ed8); python3 -m py_compile and node --check both succeed; full html/export/heatmap pytest subset (20 tests) passes.
+LESSONS: none
+**Files:** none (verification only, no source changes)
 **Commit:** [pending — fill after commit]
