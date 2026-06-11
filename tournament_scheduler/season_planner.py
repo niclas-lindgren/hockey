@@ -458,6 +458,22 @@ class SeasonPlanner:
         return list(self._per_team_share_warnings)
 
     @property
+    def club_cap_overrides(self) -> int:
+        """Number of times the deficit-aware club-cap override fired.
+
+        Counts how many times a team was selected for a tournament despite
+        its club already having reached its `_max_club_teams_for(age_group,
+        club)` allowance for that tournament — i.e. a same-club pairing
+        beyond the proportional cap, allowed only because no under-cap
+        candidate had as large a game-count deficit (`_deficit_score`).
+
+        Read alongside `per_team_share_warnings`: a small value relative to
+        the total number of tournaments confirms such overrides remain the
+        exception, used only to reduce per-team game-count skew.
+        """
+        return self._club_cap_overrides
+
+    @property
     def month_load_warnings(self) -> List[Tuple[int, int, int, float, float]]:
         """Month-load imbalance warnings after ``build_plan``.
 
@@ -812,6 +828,23 @@ class SeasonPlanner:
                 ),
                 "kategori": "Anbefaling",
             })
+
+        report.append({
+            "regel": "Behovsbasert unntak fra klubb-tak per turnering",
+            "forklaring": (
+                "Når et lag fra en klubb som allerede har fylt sin "
+                "forholdsmessige andel av plassene i en turnering "
+                "(_max_club_teams_for) har et større etterslep i antall "
+                "spilte kamper enn alle ledige lag fra andre klubber, kan "
+                "laget likevel velges — med en straff i prioriteringen "
+                "proporsjonal med hvor langt over taket klubben er. Dette "
+                "gjør at klubber med mange lag i samme aldersgruppe "
+                "(f.eks. Jar) ikke blir systematisk underforsynt med "
+                f"kamper. Dette unntaket er brukt {self._club_cap_overrides} "
+                "gang(er) i denne sesongplanen."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
 
         report.append({
             "regel": "Ingen overlappende aldersgrupper",

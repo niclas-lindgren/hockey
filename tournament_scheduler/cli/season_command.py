@@ -250,15 +250,20 @@ class SeasonCommand:
     def _print_per_team_share_warnings(planner) -> None:
         """Print warnings for teams whose game count deviates from their age group's average."""
         warnings = planner.per_team_share_warnings
-        if not warnings:
-            return
-        TournamentOutput.print_warning(
-            f"Advarsel — {len(warnings)} lag avviker fra gjennomsnittlig "
-            f"antall kamper i sin aldersgruppe med mer enn {planner.max_game_count_spread}:"
-        )
-        for label, club, age_group, actual, expected in warnings:
-            direction = "flere" if actual > expected else "færre"
+        if warnings:
             TournamentOutput.print_warning(
-                f"  • {label} ({club}, {age_group}): {actual} kamper "
-                f"(forventet ~{expected:.1f}, {abs(actual - expected):.1f} {direction} enn snittet)"
+                f"Advarsel — {len(warnings)} lag avviker fra gjennomsnittlig "
+                f"antall kamper i sin aldersgruppe med mer enn {planner.max_game_count_spread}:"
+            )
+            for label, club, age_group, actual, expected in warnings:
+                direction = "flere" if actual > expected else "færre"
+                TournamentOutput.print_warning(
+                    f"  • {label} ({club}, {age_group}): {actual} kamper "
+                    f"(forventet ~{expected:.1f}, {abs(actual - expected):.1f} {direction} enn snittet)"
+                )
+
+        if planner.club_cap_overrides:
+            TournamentOutput.print_info(
+                f"Klubb-tak per turnering ble overstyrt {planner.club_cap_overrides} "
+                f"gang(er) for å redusere skjevhet i kampfordelingen."
             )
