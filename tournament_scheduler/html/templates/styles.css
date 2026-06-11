@@ -32,7 +32,7 @@
   --text-secondary: #52525b;
   --text-muted: #71717a;
   --accent: #0284c7;
-  --accent-dim: #38bdf8;
+  --accent-dim: #0369a1;
   --accent-glow: rgba(2, 132, 199, 0.10);
   --amber: #d97706;
   --emerald: #059669;
@@ -41,6 +41,10 @@
   --hover-overlay: rgba(0, 0, 0, 0.05);
   --heatmap-empty-bg: rgba(228, 228, 231, 0.6);
 }
+[data-theme="light"] .tag--age { background: rgba(14,165,233,.16); border-color: rgba(14,165,233,.3); }
+[data-theme="light"] .tag--arena { background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.3); }
+[data-theme="light"] .tag--teams { background: rgba(16,185,129,.16); border-color: rgba(16,185,129,.3); }
+[data-theme="light"] .tag--travel { background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.3); }
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
 body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100dvh; font-size: 15px; }

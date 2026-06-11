@@ -28,7 +28,7 @@ The season-plan HTML report's light theme currently reuses dark-theme-only color
   - Files: `tournament_scheduler/html/templates/styles.css`
   - Acceptance: `:root` defines `--heatmap-empty-bg: rgba(30,41,59,.4)` (preserving current dark-theme appearance) and `[data-theme="light"]` overrides it with a light, low-contrast neutral (e.g. `rgba(228,228,231,.6)` or similar derived from `--bg-surface`), referenced by `script.js` from the previous task.
 
-- [ ] Update light-theme accent and tag color values for better differentiation
+- [x] Changed [data-theme"light"] --accent-dim from #38bdf8 (lighter than --accent) to #0369a1 (darker than --accent #0284c7), matching the dark theme's accent/accent-dim relationship and fixing the inverted gradient on .logo-icon and .timeline::before. Added theme-scoped overrides for .tag--age, .tag--arena, .tag--teams, .tag--travel raising background opacity from .08 to .16 and border opacity from .15 to .3 in light theme only. — 2026-06-11
   - Files: `tournament_scheduler/html/templates/styles.css`
   - Acceptance: In `[data-theme="light"]` (lines 24-41), `--accent-dim` is corrected so it is darker than `--accent` (matching the dark theme's relationship, e.g. swap to a deeper blue such as `#0369a1`) to fix the inverted gradient on `.logo-icon` and `.timeline::before`. The `.tag--age`, `.tag--arena`, `.tag--teams`, `.tag--travel` background opacities (currently `rgba(...,.08)`) are increased (e.g. to `.14`-`.18`) within `[data-theme="light"]` via theme-scoped overrides so tags remain visually distinct against `--bg: #f4f4f5` without affecting dark theme.
 
@@ -74,4 +74,11 @@ LESSONS: none
 **Findings:** Variable now consumed by script.js (added in the previous task) for empty heatmap cells; dark theme appearance unchanged, light theme empty cells render as a subtle light-grey.
 LESSONS: none
 **Files:** tournament_scheduler/html/templates/styles.css (+2/-0)
+**Commit:** fc7039e (hockey)
+
+### 2026-06-11 — Changed [data-theme"light"] --accent-dim from #38bdf8 (lighter than --accent) to #0369a1 (darker than --accent #0284c7), matching the dark theme's accent/accent-dim relationship and fixing the inverted gradient on .logo-icon and .timeline::before. Added theme-scoped overrides for .tag--age, .tag--arena, .tag--teams, .tag--travel raising background opacity from .08 to .16 and border opacity from .15 to .3 in light theme only.
+**Rationale:** Used attribute-selector overrides ([data-theme"light"] .tag--X) rather than duplicating the full rule, keeping dark-theme rules untouched and minimizing diff.
+**Findings:** Light theme tags now have visible background tint and border against --bg: #f4f4f5; dark theme rules and values are unaffected.
+LESSONS: none
+**Files:** tournament_scheduler/html/templates/styles.css (+5/-1)
 **Commit:** [pending — fill after commit]
