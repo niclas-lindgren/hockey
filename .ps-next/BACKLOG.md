@@ -2,7 +2,7 @@
 
 ## Open
 
-- [54] [ ] Stream progress output from rvv_miniputt_run (and the other rvv_miniputt_* tools)
+- [54] [x] Stream progress output from rvv_miniputt_run (and the other rvv_miniputt_* tools) (2026-06-11)
   instead of leaving the user staring at a bare "Working..." spinner during long runs.
   The pipeline already builds up `lines: string[]` per stage in `.pi/lib/pipeline-runner.ts`
   and the ScraperAgent loop in `.pi/lib/scraper-agent.ts` runs up to 25 iterations per
