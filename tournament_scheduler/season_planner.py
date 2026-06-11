@@ -206,6 +206,15 @@ class SeasonPlanner:
         # Month-load warnings collected after build_plan runs.
         self._month_load_warnings: List[Tuple[int, int, int, float, float]] = []
 
+        # Per-team-share warnings collected after build_plan runs. Each
+        # entry is `(team_label, club, age_group, actual_count,
+        # expected_count)` for every team whose actual game count deviates
+        # from the average for its age group by more than
+        # `max_game_count_spread` — surfacing club/age-group skew
+        # explicitly (e.g. a Jar U10 team under-invited relative to
+        # Kongsberg's U10 team).
+        self._per_team_share_warnings: List[Tuple[str, str, str, int, float]] = []
+
         self.max_month_deviation_ratio = max_month_deviation_ratio
         self.events_by_club = events_by_club or {}
 
@@ -320,6 +329,8 @@ class SeasonPlanner:
         self._scan_hosting_warnings(plan)
         # Scan for game-count spread violations and early-finish issues.
         self._scan_game_count_warnings(plan.start_date, plan.end_date)
+        # Scan for per-club/per-age-group game-count share skew.
+        self._scan_per_team_share_warnings()
         # Scan for month-load imbalance warnings.
         self._scan_month_load_warnings(expected_per_month, plan.start_date)
 
@@ -430,6 +441,23 @@ class SeasonPlanner:
         return list(self._game_count_warnings)
 
     @property
+    def per_team_share_warnings(self) -> List[Tuple[str, str, str, int, float]]:
+        """Per-team game-count-share warnings after ``build_plan``.
+
+        Each entry is ``(team_label, club, age_group, actual_count,
+        expected_count)`` for every team whose actual game count
+        (``team_game_counts``) deviates from the average game count for its
+        age group by more than ``max_game_count_spread``.
+
+        This complements ``game_count_warnings`` (which only flags the
+        global high/low extremes) by surfacing club- and age-group-level
+        skew explicitly — e.g. a club fielding many sibling teams in one age
+        group whose teams are systematically under- or over-invited relative
+        to other teams in the same age group.
+        """
+        return list(self._per_team_share_warnings)
+
+    @property
     def month_load_warnings(self) -> List[Tuple[int, int, int, float, float]]:
         """Month-load imbalance warnings after ``build_plan``.
 
@@ -501,6 +529,39 @@ class SeasonPlanner:
                 if gap > self.max_early_finish_gap_days:
                     self._game_count_warnings.append(
                         (label, self._team_game_counts.get(label, 0), gap, "early_finish")
+                    )
+
+    def _scan_per_team_share_warnings(self) -> None:
+        """Scan computed game counts for per-club/per-age-group skew.
+
+        For each age group, computes the average game count across all of
+        that age group's teams (using ``_team_game_counts``, treating teams
+        with no recorded games as 0), then flags every team whose actual
+        count deviates from that age-group average by more than
+        ``max_game_count_spread``. Appends
+        ``(team_label, club, age_group, actual_count, expected_count)``
+        tuples to ``_per_team_share_warnings``.
+
+        This surfaces skew that ``_scan_game_count_warnings`` (global
+        high/low extremes only) can miss — e.g. a club fielding many sibling
+        teams in one age group being systematically under-invited relative
+        to other teams in the same age group.
+        """
+        self._per_team_share_warnings = []
+
+        teams_by_age_group: Dict[str, List[Team]] = {}
+        for team in self.roster.teams:
+            teams_by_age_group.setdefault(team.age_group, []).append(team)
+
+        for age_group, teams in teams_by_age_group.items():
+            if not teams:
+                continue
+            counts = [self._team_game_counts.get(team.label, 0) for team in teams]
+            expected = sum(counts) / len(counts)
+            for team, actual in zip(teams, counts):
+                if abs(actual - expected) > self.max_game_count_spread:
+                    self._per_team_share_warnings.append(
+                        (team.label, team.club, age_group, actual, expected)
                     )
 
     def _scan_month_load_warnings(

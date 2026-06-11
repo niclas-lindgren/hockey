@@ -38,7 +38,7 @@
   - Files: tournament_scheduler/season_planner.py
   - Approach: In `_pick_least_recently_grouped`, normalize the seeding/tie-break key derived from `_invite_counts` by the number of same-club teams in that team's age group (e.g. compare `invite_count * num_club_teams_in_age_group` or an equivalent normalized "expected share" metric) so a Jar U10 team with 6 siblings is prioritized roughly 7x more often than Kongsberg's sole U10 team for the same number of raw invites, equalizing each team's expected per-season invitation count.
 
-- [ ] Extend game-count-spread checking to report per-club/per-age-group skew explicitly
+- [x] Added '_scan_per_team_share_warnings', a new scan method computing each age group's average game count and flagging teams whose actual count deviates by more than max_game_count_spread, exposed via a new 'per_team_share_warnings' property and called from build_plan. — 2026-06-11
   - Files: tournament_scheduler/season_planner.py
   - Approach: Extend `_scan_game_count_warnings` (or add a new `_scan_per_team_share_warnings` method following the same pattern) to compute, for each team, an "expected" game count derived from its club/age-group team count and flag teams whose actual `_team_game_counts` deviates from this expectation beyond `max_game_count_spread`, surfacing club name and age group in the warning tuple.
 
@@ -72,3 +72,10 @@
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+38/-2)
 **Commit:** 8cdd5a5 (hockey)
+
+### 2026-06-11 — Added '_scan_per_team_share_warnings', a new scan method computing each age group's average game count and flagging teams whose actual count deviates by more than max_game_count_spread, exposed via a new 'per_team_share_warnings' property and called from build_plan.
+**Rationale:** none
+**Findings:** All 49 season_planner tests pass; new method follows the existing _scan_*_warnings pattern (club_load, hosting, month_load).
+LESSONS: none
+**Files:** tournament_scheduler/season_planner.py (+61)
+**Commit:** [pending — fill after commit]
