@@ -4,7 +4,7 @@
 
 - [57] [x] Verify that supplied bookup credentials cannot leak to the LLM (e.g. via llm-bridge prompts, logs, or error messages) — audit the pipeline for any path where credentials could be included in data sent to a local/remote LLM. (2026-06-11)
 
-- [56] [ ] Bundle pipeline exports and the generated input file together into a single export subfolder named with a date-time stamp, instead of writing them to separate/scattered locations.
+- [56] [x] Bundle pipeline exports and the generated input file together into a single export subfolder named with a date-time stamp, instead of writing them to separate/scattered locations. (2026-06-11)
 
 - [55] [ ] Team config (age_groups, parallel_games, etc.) is duplicated across input.json and .pipeline/stage1_config.json with overlapping/conflicting values. Consolidate so this configuration lives in only one place and the other derives from or references it.
 

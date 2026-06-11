@@ -32,6 +32,12 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   const resumeFrom = params.resume_from ? resolveResumeStage(params.resume_from) : 1;
   const verbose    = params.log_level === "verbose";
 
+  // Compute timestamped export subfolder (Python %Y-%m-%dT%H%M format)
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}${pad(now.getMinutes())}`;
+  const timestampedExportDir = resolve(exportDir, ts);
+
   mkdirSync(workDir, { recursive: true });
 
   const logger = new PipelineLogger(workDir);
@@ -302,12 +308,12 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       const { stdout, stderr } = await runStage(
         cwdPath,
         "tournament_scheduler.pipeline.stage4_export",
-        [...baseArgs, "--export-dir", exportDir],
+        [...baseArgs, "--export-dir", timestampedExportDir],
       );
       if (verbose) logger.logStageOutput("export", stdout, stderr);
       if (stdout) lines.push(stdout);
       if (stderr) lines.push(`[stderr] ${stderr}`);
-      lines.push("Trinn 4: OK\n");
+      lines.push(`Trinn 4: OK → ${timestampedExportDir}\n`);
       onProgress?.({ stage: "export", status: "ok", message: "Eksport fullført (OK)" });
 
       const ckpt = readCheckpoint(workDir, "stage4_export.json");
@@ -327,25 +333,37 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     logger.stageEnd("export", "skipped");
   }
 
-  // Copy season plan HTML next to calendars.html for navbar linking
+  // Bundle: copy input.json into timestamped export folder
   try {
-    const seasonPlanSrc = resolve(cwdPath, "export", "season_plan.html");
-    const seasonPlanDst = resolve(exportDir, "season_plan.html");
-    if (existsSync(seasonPlanSrc)) {
-      const { copyFileSync } = await import("node:fs");
-      copyFileSync(seasonPlanSrc, seasonPlanDst);
-      lines.push("Sesongplan kopiert til pipeline-katalog\n");
-    }
+    const { copyFileSync } = await import("node:fs");
+    copyFileSync(inputPath, resolve(timestampedExportDir, "input.json"));
+    lines.push(`Input kopiert til ${timestampedExportDir}\n`);
   } catch {}
 
-  // Regenerate viewer to include navbar with all report links
+  // Regenerate viewer into timestamped export folder
   try {
     const { execFile } = await import("node:child_process");
     const { promisify } = await import("node:util");
     const execFileAsync = promisify(execFile);
     const python = resolve(cwdPath, "venv", "bin", "python3");
     const exe = existsSync(python) ? python : "python3";
-    await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir], { cwd: cwdPath });
+    await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir, "--export-dir", timestampedExportDir], { cwd: cwdPath });
+  } catch {}
+
+  // Copy key files from timestamped folder to flat export/ for convenience
+  try {
+    const { copyFileSync } = await import("node:fs");
+    const flatFiles = [
+      "season_plan.xlsx", "season_plan.ics", "season_plan.csv",
+      "season_plan_overview.csv", "season_plan.html",
+      "season_plan_spond.xlsx", "calendars.html", "input.json",
+    ];
+    for (const file of flatFiles) {
+      const src = resolve(timestampedExportDir, file);
+      const dst = resolve(exportDir, file);
+      if (existsSync(src)) copyFileSync(src, dst);
+    }
+    lines.push(`Flate kopier lagt i ${exportDir}\n`);
   } catch {}
 
   // Finalize
@@ -359,10 +377,11 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   if (overallStatus === "success") {
     lines.push("");
     lines.push("Genererte filer:");
-    lines.push(`  🗓️  Skrapede kalendere:  ${resolve(exportDir, "calendars.html")}`);
-    const sp = resolve(exportDir, "season_plan.html");
+    lines.push(`  📁 Eksport-mappe:       ${timestampedExportDir}`);
+    lines.push(`  🗓️  Skrapede kalendere:  ${resolve(timestampedExportDir, "calendars.html")}`);
+    const sp = resolve(timestampedExportDir, "season_plan.html");
     if (existsSync(sp)) lines.push(`  📋 Sesongplan:         ${sp}`);
-    lines.push(`  📊 Sesongplan (Excel):  ${resolve(cwdPath, "export", "season_plan.xlsx")}`);
+    lines.push(`  📊 Sesongplan (Excel):  ${resolve(timestampedExportDir, "season_plan.xlsx")}`);
     lines.push("");
     lines.push("For å se kjøringshistorikk og trender:");
     lines.push("  /rvv-miniputt logs list   — vis siste kjøringer");
