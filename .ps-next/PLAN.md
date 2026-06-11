@@ -106,4 +106,4 @@ LESSONS: none
 **Findings:** All 52 season_planner tests and full suite (314 passed/1 skipped, excluding pre-existing unrelated stage2 failure) pass.
 LESSONS: For documentation/input.json with maxTeamsPerTournament6 and default max_club_teams_per_tournament1, Kongsberg's sole U10 team is invited to nearly every tournament (45 games) while each of Jar's 7 U10 teams gets only 10-15 games — fully resolving this would require relaxing max_club_teams_per_tournament for clubs with many same-age-group teams, which is a separate, larger change beyond this backlog item's scope (consider as a new backlog item).
 **Files:** tests/test_season_planner.py (+83)
-**Commit:** [pending — fill after commit]
+**Commit:** fdc6c6f (hockey)
