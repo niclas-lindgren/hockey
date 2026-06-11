@@ -30,7 +30,7 @@
   - Files: `tests/test_season_planner.py`
   - Approach: Add new test case(s) using the `documentation/input.json` real roster that run a full `build_plan`/season generation for U10, then assert (1) the Jar-vs-Kongsberg `team_game_counts` spread is measurably reduced compared to the previously documented 13-18 vs ~25 (spread 17) baseline — either now within `max_game_count_spread` or, if a structural floor remains, the new (smaller) bound is documented and `per_team_share_warnings` reflects it; and (2) the new club-cap-override counter is small relative to the total number of tournaments (i.e. same-club pairings beyond `_max_club_teams_for` remain the exception, not the norm).
 
-- [ ] Document the deficit-aware club-cap override behavior
+- [x] Added a new 'Season Planning' section to README.md (no prior season-planning section existed) describing the per-club proportional cap (_max_club_teams_for), the deficit-aware override that lets an over-cap team with the largest deficit be selected over a lower-deficit under-cap team, and the per_team_share_warnings/club_cap_overrides diagnostics surfaced in CLI and Excel output. — 2026-06-11
   - Files: `README.md`
   - Approach: Add a short section to `README.md` describing the deficit-aware override: when a team from a club at its `_max_club_teams_for` cap has a larger game-count deficit than every available under-cap candidate, it can still be selected (with a same-club penalty applied), so a club fielding many same-age-group teams (e.g. Jar) isn't structurally starved of games — and explain that this is intended to make multiple same-club teams per tournament rare, occurring only when needed to keep per-team game counts balanced. Follow the existing documentation style/conventions used elsewhere in `README.md`.
 
@@ -73,4 +73,11 @@ LESSONS: none
 **Findings:** All 53 tests in test_season_planner.py pass; the deficit-aware changes alone (without any cap overrides firing for this roster/window) reduced the spread from 17 to 11.
 LESSONS: none
 **Files:** tests/test_season_planner.py (+106)
+**Commit:** 0679b10 (hockey)
+
+### 2026-06-11 — Added a new 'Season Planning' section to README.md (no prior season-planning section existed) describing the per-club proportional cap (_max_club_teams_for), the deficit-aware override that lets an over-cap team with the largest deficit be selected over a lower-deficit under-cap team, and the per_team_share_warnings/club_cap_overrides diagnostics surfaced in CLI and Excel output.
+**Rationale:** README.md had no existing season-planning section to extend, so added a new top-level section following the README's terse bullet-point style, placed after Output and before Search History.
+**Findings:** Doc-only change; no build/test impact.
+LESSONS: none
+**Files:** README.md (+41)
 **Commit:** [pending — fill after commit]

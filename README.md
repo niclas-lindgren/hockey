@@ -196,6 +196,47 @@ Traditional output format:
   - Norwegian public holiday weeks
   - Excel-provided exclusions
 
+## Season Planning
+
+The season-planning extension (`tournament_scheduler/season_planner.py`) builds a
+full-season schedule across all clubs, picking which teams are invited to each
+tournament for every age group.
+
+### Per-club tournament caps and the deficit-aware override
+
+Each club gets a per-tournament slot allowance for an age group
+(`_max_club_teams_for`), proportional to how many teams that club fields in
+that age group relative to the total. A club fielding many same-age-group
+teams (e.g. Jar with 7 U10 teams) gets several slots per tournament, while a
+club with a single team in that age group (e.g. Kongsberg's sole U10 team)
+gets one.
+
+Even with this proportional cap, a club with many same-age-group teams can
+still end up with a lower per-team game count than a single-team club,
+because its slots are shared/rotated across more siblings. To reduce this
+remaining skew, team selection includes a **deficit-aware override**:
+
+- If a team from a club that has already filled its per-tournament cap has a
+  larger game-count deficit (i.e. it has played fewer games so far relative
+  to its age group's running average — see `_deficit_score`) than every
+  available under-cap team, it can still be selected for that tournament. A
+  same-club penalty proportional to how far over the cap the club is makes
+  this happen only when the deficit is large enough to outweigh the penalty.
+- This keeps same-club pairings beyond the proportional cap rare — they occur
+  only when needed to keep individual teams' game counts balanced, not as the
+  norm.
+
+### Diagnostics
+
+- **`per_team_share_warnings`** — flags any team whose total game count
+  deviates from its age group's average by more than
+  `max_game_count_spread`. Surfaced in both the CLI output and the Excel
+  rules report.
+- **`club_cap_overrides`** — counts how many times the deficit-aware override
+  above let a club exceed its per-tournament cap. A small value relative to
+  the total number of tournaments confirms such overrides remain the
+  exception. Also surfaced in the CLI output and the Excel rules report.
+
 ## Search History
 
 The interactive mode automatically saves all searches to `~/.hockey_scheduler_history.json`.
