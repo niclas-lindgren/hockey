@@ -145,6 +145,21 @@ def run(
 
     for source_cfg in sources:
         name = source_cfg.get("name", "ukjent kilde")
+        url = source_cfg.get("url", "").strip()
+        if not url:
+            source_results.append({
+                "name": name,
+                "url": "",
+                "type": source_cfg.get("type", SOURCE_OUTLOOK).lower(),
+                "events": [],
+                "event_count": 0,
+                "blocked": False,
+                "block_reason": "",
+                "llm_fallback": False,
+                "skipped": True,
+                "skip_reason": "Tom URL — kilden er deaktivert i input.json.",
+            })
+            continue
         entry = cache_sources.get(name)
         if (
             not force_refresh
