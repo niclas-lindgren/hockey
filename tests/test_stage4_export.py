@@ -4,6 +4,7 @@ from datetime import date
 from pathlib import Path
 import re
 
+import openpyxl
 import pytest
 
 from tournament_scheduler.models import Game, Roster, SeasonPlan, Team, Tournament
@@ -61,6 +62,21 @@ def _make_multi_age_group_plan_dict():
         }
     )
     data["plan"]["arena_counts"]["Bærum ishall"] = 1
+    return data
+
+
+def _make_spond_plan_dict():
+    data = _make_plan_dict()
+    data["plan"]["tournaments"][0]["teams"] = [
+        {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
+        {"club": "Skien", "label": "Skien U10A", "age_group": "U10"},
+        {"club": "Holmen", "label": "Holmen U10A", "age_group": "U10"},
+    ]
+    data["plan"]["tournaments"][0]["games"] = [
+        {"home": "Kongsberg U10A", "away": "Skien U10A", "parallel_slot": 0, "round_number": 1},
+        {"home": "Kongsberg U10A", "away": "Holmen U10A", "parallel_slot": 0, "round_number": 2},
+        {"home": "Skien U10A", "away": "Holmen U10A", "parallel_slot": 0, "round_number": 3},
+    ]
     return data
 
 
@@ -156,6 +172,21 @@ class TestRunStage4:
         for path in flat_paths:
             assert path.exists()
             assert path.parent == tmp_path / "export"
+
+    def test_stage4_spond_export_uses_tournament_rows(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_spond_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+        )
+        files = result.get("output_files", {})
+        workbook = openpyxl.load_workbook(files["spond"])
+        sheet = workbook["Sesongplan"]
+        rows = list(sheet.iter_rows(values_only=True))
+
+        assert rows[0][0:5] == ("Dato", "Aktivitet", "Sted", "Start", "Slutt")
+        assert rows[1][9] == "turnering"
+        assert len(rows) == 2  # header + one tournament row, not one row per game
 
     def test_produces_csv_files(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")

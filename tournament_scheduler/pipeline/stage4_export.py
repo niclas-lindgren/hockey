@@ -170,8 +170,19 @@ def run(
 
     # --- Spond ---
     try:
+        round_length_for_age_group: dict[str, int] = {}
+        try:
+            config_ckpt = state.read_stage(StageName.CONFIG)
+            if isinstance(config_ckpt, dict):
+                round_length_for_age_group = dict(config_ckpt.get("round_length_minutes", {}))
+        except Exception:
+            pass
         spond_path = str(primary_export_path / f"{basename}_spond.xlsx")
-        SpondExporter().export(plan, spond_path)
+        SpondExporter().export(
+            plan,
+            spond_path,
+            round_length_for_age_group=round_length_for_age_group,
+        )
         output_files["spond"] = spond_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Spond-eksport feilet: {exc}")
