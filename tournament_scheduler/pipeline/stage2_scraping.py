@@ -74,6 +74,7 @@ def run(
     end_date: datetime,
     *,
     strict: bool = True,
+    allow_missing_sources: bool = False,
     max_workers: int = 4,
     force_refresh: bool = False,
 ) -> dict[str, Any]:
@@ -100,6 +101,9 @@ def run(
         Date range for scraping.
     strict:
         If ``True``, raise :class:`Stage2Error` when any source is blocked.
+    allow_missing_sources:
+        If ``True``, keep partial scrape results as a successful checkpoint and
+        continue downstream even when some sources are blocked.
     max_workers:
         Number of worker threads for the executor. Default 4.
     force_refresh:
@@ -221,15 +225,23 @@ def run(
         "llm_fallback": llm_fallback,
     }
 
-    status = StageStatus.DONE if not blocked else StageStatus.FAILED
+    status = StageStatus.DONE if (not blocked or allow_missing_sources) else StageStatus.FAILED
+    checkpoint["checkpoint_path"] = str(state.checkpoint_path(StageName.SCRAPING))
+    if blocked:
+        checkpoint["warning"] = _blocked_sources_warning(
+            blocked,
+            state,
+            allow_missing_sources=allow_missing_sources,
+        )
+
     state.write_stage(StageName.SCRAPING, checkpoint, status=status)
-    if not blocked:
+    if status == StageStatus.DONE:
         state.mark_done(StageName.SCRAPING)
 
     # Persist freshly-scraped results to the unified cache for future runs
     cache.build_from_checkpoint(config, checkpoint)
 
-    if blocked and strict:
+    if blocked and strict and not allow_missing_sources:
         raise Stage2Error(blocked)
 
     return checkpoint
@@ -329,14 +341,14 @@ def _scrape_source(
     # --- If still no events, assess LLM fallback viability ---
     if not events:
         strategy = get_strategy(name)
-        credential_hint = _credential_hint_for_source(name)
         block_reason = (
             f"Kilde '{name}' returnerte 0 hendelser -- "
             "skraper odelagt eller hallen er stengt?"
-            + (f" {credential_hint}" if credential_hint else "")
         )
+        recovery_hint = _recovery_hint_for_source(name)
         result["blocked"] = True
-        result["block_reason"] = block_reason
+        result["block_reason"] = f"{block_reason} {recovery_hint}".strip()
+        result["recovery_hint"] = recovery_hint
 
         # Mark for LLM fallback if the source has a strategy that needs it
         if strategy and needs_llm_agent(strategy):
@@ -355,25 +367,41 @@ def _scrape_source(
     return result
 
 
-def _credential_hint_for_source(source_name: str) -> str:
-    """Return a Norwegian credential hint for a source, or empty string.
-
-    Looks up the scraper strategy and, if it requires environment-variable
-    credentials, returns a message naming them so the user knows what to set.
-    """
+def _recovery_hint_for_source(source_name: str) -> str:
+    """Return a Norwegian hint that explains how to recover from a blocked source."""
     try:
         strategy = get_strategy(source_name)
         if strategy and requires_credentials(strategy):
-            vars_list = ", ".join(strategy.credential_env_vars)
             engine = strategy.engine.value.replace("_", " ")
+            vars_list = ", ".join(strategy.credential_env_vars)
+            missing = [var for var in strategy.credential_env_vars if not os.environ.get(var)]
+            if missing:
+                credential_text = f"Mangler miljovariablene {', '.join(missing)}."
+            else:
+                credential_text = f"Fyll innloggingsdetaljene for {engine}."
             return (
-                f"Kilden bruker {engine} og krever innlogging. "
-                f"Angi miljovariablene {vars_list}, "
-                f"eller kjor pipeline interaktivt for a bli spurt."
+                f"{credential_text} Kildens innlogging bruker {vars_list}. Kjor `rvv-miniputt run` pa nytt nar kilden er tilgjengelig, "
+                "eller bruk `rvv-miniputt run --allow-missing-sources` for a fortsette med delvise resultater."
             )
     except Exception:
         pass
-    return ""
+    return (
+        "Kjor `rvv-miniputt run` pa nytt nar kalenderen er tilgjengelig, "
+        "eller bruk `rvv-miniputt run --allow-missing-sources` for a fortsette med delvise resultater."
+    )
+
+
+def _blocked_sources_warning(
+    blocked: list[dict[str, Any]],
+    state: PipelineState,
+    *,
+    allow_missing_sources: bool,
+) -> str:
+    names = ", ".join(sorted({b.get('name', '?') for b in blocked})) or "ukjent kilde"
+    path = state.checkpoint_path(StageName.SCRAPING)
+    recovery = _recovery_hint_for_source(blocked[0].get("name", "")) if blocked else _recovery_hint_for_source("")
+    prefix = "Delvise resultater er lagret" if allow_missing_sources else "Delvise resultater er lagret, men Stage 2 er markert som feilet"
+    return f"{prefix} i {path}. Blokkerte kilder: {names}. {recovery}"
 
 
 def _try_credentialed_scrape(
@@ -1329,6 +1357,10 @@ if __name__ == "__main__":  # pragma: no cover
         help="Don't raise on blocked sources — write checkpoint anyway"
     )
     parser.add_argument(
+        "--allow-missing-sources", action="store_true",
+        help="Mark blocked sources as an operator-approved skip and keep partial results"
+    )
+    parser.add_argument(
         "--force-refresh", action="store_true",
         help="Ignore the unified scrape cache and re-scrape every source"
     )
@@ -1351,12 +1383,15 @@ if __name__ == "__main__":  # pragma: no cover
         _result = run(
             _cfg, _state, _start, _end,
             strict=not cli_args.non_strict,
+            allow_missing_sources=cli_args.allow_missing_sources,
             force_refresh=cli_args.force_refresh,
         )
         n_sources = len(_result.get("sources", []))
         blocked = _result.get("blocked", [])
         cached = _result.get("cached", [])
         print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(cached)} fra cache, {len(blocked)} blokkert")
+        if _result.get("warning"):
+            print(_result["warning"])
         sys.exit(0)
     except Stage2Error as _e:
         print(str(_e), file=sys.stderr)

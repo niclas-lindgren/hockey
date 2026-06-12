@@ -112,6 +112,35 @@ class TestRunStage2:
         blocked = result.get("blocked", [])
         assert "HallY" in blocked
 
+    def test_allow_missing_sources_keeps_partial_results(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {
+                "name": "Sandefjord Penguins",
+                "type": SOURCE_OUTLOOK,
+                "url": "https://www.bookup.no/Utleie/#Bug%C3%A5rdshallen___/view:item/id:4497/part:/place:3907:SANDEFJORD/q:sandefjord/r:31/mod:book",
+            },
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_bookup_scraper",
+            return_value=([], ""),
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=True,
+                allow_missing_sources=True,
+            )
+
+        assert state.is_done(StageName.SCRAPING)
+        assert not state.is_failed(StageName.SCRAPING)
+        assert result["blocked"] == ["Sandefjord Penguins"]
+        assert "--allow-missing-sources" in result["warning"]
+        src = result["sources"][0]
+        assert "BOOKUP_EMAIL" in src["recovery_hint"]
+        assert "BOOKUP_PASSWORD" in src["recovery_hint"]
+
     def test_outlook_source_with_events_passes(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         cfg = _make_config_with_sources([

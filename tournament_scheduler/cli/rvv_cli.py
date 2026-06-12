@@ -71,6 +71,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Continue on blocked sources or warnings",
     )
     run.add_argument(
+        "--allow-missing-sources",
+        action="store_true",
+        help="Treat blocked sources as an operator-approved skip and keep partial results",
+    )
+    run.add_argument(
         "--timestamped-export",
         action="store_true",
         help="Write exports to a timestamped subfolder (diffable between runs)",
@@ -415,8 +420,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     # Stage 2: Scraping
     _console.print("[bold]Stage 2:[/bold] Skraping...")
+    allow_missing_sources = args.allow_missing_sources
     try:
-        scraping = stage2_run(cfg, state, start, end, strict=strict)
+        scraping = stage2_run(
+            cfg,
+            state,
+            start,
+            end,
+            strict=strict,
+            allow_missing_sources=allow_missing_sources,
+        )
         n = len(scraping.get("sources", []))
         blocked = scraping.get("blocked", [])
         llm_fallback = scraping.get("llm_fallback", [])
@@ -426,6 +439,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
             for b in blocked:
                 _console.print(f"    [yellow]⚠[/yellow] {b}")
                 _log(f"  Blocked: {b}")
+            if scraping.get("warning"):
+                _console.print(f"  [dim]{scraping['warning']}[/dim]")
+            if allow_missing_sources:
+                _console.print("  [green]✓[/green] Delvise resultater er lagret og pipeline fortsetter med godkjente mangler.")
+            else:
+                _console.print("  [dim]Delvise resultater er lagret; kjør [bold]rvv-miniputt run --allow-missing-sources[/bold] for å fortsette med slike mangler neste gang.[/dim]")
         if llm_fallback:
             _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
             for fb in llm_fallback:
@@ -438,8 +457,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
     except Exception as exc:
         _console.print(f"  [red]✗[/red] {exc}")
         _log(f"Stage 2 FAILED: {exc}")
-        # Always check the checkpoint for llm_fallback, even in strict mode
+        # Always check the checkpoint for blocked sources and llm_fallback, even in strict mode
         scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": [], "llm_fallback": []}
+        if scraping.get("warning"):
+            _console.print(f"  [dim]{scraping['warning']}[/dim]")
         llm_fallback = scraping.get("llm_fallback", [])
         if llm_fallback:
             _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
@@ -936,6 +957,8 @@ def _cmd_scrape(args: argparse.Namespace) -> int:
 
     if blocked:
         _console.print(f"  [red]✗[/red] Blokkert: {result.get('block_reason', '')}")
+        if result.get("recovery_hint"):
+            _console.print(f"  [dim]{result['recovery_hint']}[/dim]")
     if result.get("scraper_error"):
         _console.print(f"  [red]✗[/red] Scraper-feil: {result['scraper_error']}")
 
