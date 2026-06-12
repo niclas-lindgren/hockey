@@ -87,8 +87,12 @@ class TestRunStage2:
                     strict=True,
                 )
         assert "HallX" in str(exc_info.value)
-        # No checkpoint file should be written when the pipeline blocks strictly
-        assert not state.checkpoint_path(StageName.SCRAPING).exists()
+        assert state.checkpoint_path(StageName.SCRAPING).exists()
+        assert state.is_failed(StageName.SCRAPING)
+        envelope = state.read_envelope(StageName.SCRAPING)
+        assert envelope["status"] == "failed"
+        assert envelope["data"]["blocked"] == ["HallX"]
+        assert envelope["data"]["sources"][0]["name"] == "HallX"
 
     def test_zero_events_strict_false_does_not_raise(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -266,9 +270,17 @@ class TestParallelExecution:
         ])
 
         thread_ids: set[int] = set()
+        call_state = {"count": 0}
+        start_barrier = threading.Barrier(2)
 
         def record_thread(*args, **kwargs):
+            call_state["count"] += 1
             thread_ids.add(threading.get_ident())
+            if call_state["count"] <= 2:
+                try:
+                    start_barrier.wait(timeout=5)
+                except threading.BrokenBarrierError as exc:
+                    raise AssertionError("Expected at least two worker threads") from exc
             return [_make_event("ev")]
 
         with patch(
