@@ -1,292 +1,55 @@
-# Hockey Tournament Scheduler
+# RVV Miniputt
 
-Find optimal weekend dates for hockey tournaments by analyzing conflicts from multiple sources.
+RVV Miniputt is the season-planning and calendar-scraping pipeline for RVV hockey clubs.
+It replaces the older single-tournament workflow with a four-stage pipeline that:
 
-## Features
+1. validates season input (`input.json` + roster data)
+2. scrapes club calendars and caches results
+3. builds a season plan
+4. exports Excel, CSV, iCal, HTML, and Spond files
 
-### Core Functionality
-- **Interactive Mode** - User-friendly guided interface (Norwegian language)
-- **Search History** - Save and reuse previous searches
-- Reschedule existing tournaments - Find alternative dates when all teams are available
-- Find dates for new tournaments
-- Weekend-only suggestions (Saturday and Sunday)
-
-### Calendar Integration
-- **Kongsberg ice hall** - Local tournament conflicts
-- **Kongsberg ball hall** - Wardrobe availability (warnings only)
-- **Skien ice hall** - External team conflicts (via Google Calendar iCal feed)
-
-### Smart Conflict Detection
-- Team availability across multiple calendars
-- Norwegian public holidays (excludes weekends before holidays)
-- Excel-based tournament schedules
-- Same-day conflicts (blocks dates)
-- Same-weekend conflicts (warnings with details)
-
-### Time Slot Analysis
-- Suggests earliest available start times (11:00-14:00 window)
-- Requires minimum 2.5 hours for tournaments
-- Shows all available time slots for each date
-- Considers existing bookings from all calendars
-
-## Installation
-
-1. Create virtual environment:
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Install Playwright browsers:
-```bash
-playwright install chromium
-```
-
-## Usage
-
-### Interactive Mode (Recommended)
-
-The interactive mode provides a user-friendly guided experience:
+## Quick start
 
 ```bash
-./venv/bin/python3 tournament_scheduler_interactive.py
+rvv-miniputt run --input input.json --export-dir export
 ```
 
-Features:
-- **Norwegian language interface** - All prompts and output in Norwegian
-- **Guided workflow** - Step-by-step questions for all parameters
-- **Search history** - Automatically saves searches
-  - Reuse previous searches without re-entering parameters
-  - Browse up to 20 most recent searches
-  - History stored in `~/.hockey_scheduler_history.json`
-- **Smart defaults** - Suggests reasonable date ranges
-- **Multiple calendar selection** - Choose which calendars to check
-- **Detailed results** with:
-  - Suggested time slots (earliest available)
-  - Weekend conflict warnings
-  - Team-specific conflict details
+If you use the Pi extension, the matching slash commands are:
 
-Example workflow:
-1. Choose: Reschedule tournament or find new dates
-2. Enter date range (defaults to 6 months)
-3. If rescheduling: Provide Excel file and tournament date
-4. Select calendars to check (Kongsberg ice/ball, Skien ice)
-5. View results with suggested times and warnings
-6. Search automatically saved to history
+- `/rvv-miniputt run`
+- `/rvv-miniputt calendars`
+- `/rvv-miniputt logs`
+- `/rvv-miniputt status`
 
-### Command-Line Mode
+## Current commands
 
-For automation or scripting, use the command-line interface:
+- `rvv-miniputt run` — full pipeline run
+- `rvv-miniputt calendars` — regenerate calendar HTML from cache
+- `rvv-miniputt calendars --refresh` — force a fresh scrape first
+- `rvv-miniputt scrape --club NAME` — scrape one calendar source for troubleshooting
+- `rvv-miniputt scrape-llm --club NAME` — use the LLM-guided browser scraper for blocked JS-heavy sources
+- `rvv-miniputt logs` — show pipeline logs
+- `rvv-miniputt cancel` / `replan` — cancel or move an existing tournament
+- `rvv-miniputt tournament ...` — list/add/remove/cancel tournaments in the plan
 
-Show help and examples:
-```bash
-./tournament-scheduler.sh --help
-```
+## Inputs
 
-Basic usage:
-```bash
-./tournament-scheduler.sh --start-date 2025-01-01 --end-date 2025-06-30
-```
+Pipeline runs start from `input.json`.
+See `docs/rvv-miniputt-pipeline.md` for the full schema, source formats, and examples.
 
-Reschedule an existing tournament:
-```bash
-./tournament-scheduler.sh \
-  --reschedule 2026-01-17 \
-  --excel-file existing_schedule/tournament_schedule.xlsx \
-  --start-date 2026-02-01 \
-  --end-date 2026-06-30
-```
+## Outputs
 
-Filter by team names:
-```bash
-./tournament-scheduler.sh --teams "Kongsberg,Drammen,Oslo" --start-date 2025-01-01
-```
+A successful run writes exports under `export/` by default:
 
-## Command-Line Options
+- `season_plan.xlsx`
+- `season_plan.csv` + `season_plan_overview.csv`
+- `season_plan.ics`
+- `season_plan.html`
+- `season_plan_spond.xlsx`
+- `calendars.html`
 
-- `--teams` - Comma-separated list of team names to filter conflicts
-- `--excel-file` - Path to Excel file containing existing tournament dates
-- `--start-date` - Start date in YYYY-MM-DD format (default: today)
-- `--end-date` - End date in YYYY-MM-DD format (default: 6 months from start)
-- `--reschedule` - Reschedule tournament from this date in YYYY-MM-DD format (requires --excel-file)
+With `--timestamped-export`, exports are also written to a timestamped subfolder for diffable runs.
 
-### Rescheduling Mode
+## More documentation
 
-When using `--reschedule`, the system will:
-1. Extract all teams participating in the tournament on the specified date from the Excel file
-2. Search for alternative weekend dates in the specified range
-3. Check that ALL teams are available on each candidate date
-4. Apply all standard conflict checks (ice hall, ball hall, holidays, other tournaments)
-5. Return only dates when all teams are free and no other conflicts exist
-
-## Excel File Format
-
-The Excel file can contain tournament dates in various formats:
-- DateTime cells (preferred)
-- Text dates in formats: DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD
-
-Example structure:
-```
-| Tournament Name      | Date       |
-|---------------------|------------|
-| Winter Cup 2025     | 18.01.2025 |
-| Spring Tournament   | 15.02.2025 |
-```
-
-## Output
-
-### Interactive Mode Output
-
-Example output with all features:
-
-```
-============================================================
-RESULTAT
-============================================================
-
-Søkte: 10 helgedatoer
-Ledige: 7 datoer
-Blokkert: 3 datoer med konflikter
-
-Grunner for blokkerte datoer:
-  • Excel Team Conflict: 2 datoer
-  • Holiday: 1 datoer
-
-============================================================
-✓ LEDIGE DATOER (alle 6 lag ledige):
-============================================================
-  2026-03-01 (Søndag) - Foreslått: 11:00-13:30 ⚠️  HELGE-KONFLIKT
-      → Jar 6 spiller Lør feb 28: Frisk Asker - Askerhallen
-      → Skien spiller Lør feb 28: Frisk Asker - Askerhallen
-  2026-03-07 (Lørdag) - Foreslått: 11:00-13:30
-  2026-03-08 (Søndag) - Foreslått: 14:00-16:30
-  2026-03-15 (Søndag) - Foreslått: 14:00-16:30 ⚠️  HELGE-KONFLIKT
-      → Sandefjord spiller Lør mar 14: Ringerike - Schjongshallen
-
-────────────────────────────────────────────────────────────
-DETALJERT TIDSPUNKT-TILGJENGELIGHET:
-────────────────────────────────────────────────────────────
-  2026-03-08: 14:00-16:30, 15:00-17:30
-```
-
-**Output includes:**
-- **Summary statistics** - Total searched, available, blocked dates
-- **Exclusion breakdown** - Reasons for blocked dates
-- **Available dates** with:
-  - Norwegian day names (Lørdag, Søndag)
-  - **Suggested time slot** - Earliest possible start time
-  - **Weekend conflict warnings** (⚠️) - Teams playing same weekend
-  - Team-specific details showing venue and date
-- **Detailed time slots** - All available time windows for each date
-
-### Command-Line Mode Output
-
-Traditional output format:
-- List of available weekend dates in chronological order
-- Summary statistics (total weekends checked, available, excluded)
-- Breakdown of exclusion reasons:
-  - Ice hall conflicts (other hockey tournaments)
-  - Ball hall events (wardrobe unavailable)
-  - Team schedule conflicts
-  - Norwegian public holiday weeks
-  - Excel-provided exclusions
-
-## Season Planning
-
-The season-planning extension (`tournament_scheduler/season_planner.py`) builds a
-full-season schedule across all clubs, picking which teams are invited to each
-tournament for every age group.
-
-### Per-club tournament caps and the deficit-aware override
-
-Each club gets a per-tournament slot allowance for an age group
-(`_max_club_teams_for`), proportional to how many teams that club fields in
-that age group relative to the total. A club fielding many same-age-group
-teams (e.g. Jar with 7 U10 teams) gets several slots per tournament, while a
-club with a single team in that age group (e.g. Kongsberg's sole U10 team)
-gets one.
-
-Even with this proportional cap, a club with many same-age-group teams can
-still end up with a lower per-team game count than a single-team club,
-because its slots are shared/rotated across more siblings. To reduce this
-remaining skew, team selection includes a **deficit-aware override**:
-
-- If a team from a club that has already filled its per-tournament cap has a
-  larger game-count deficit (i.e. it has played fewer games so far relative
-  to its age group's running average — see `_deficit_score`) than every
-  available under-cap team, it can still be selected for that tournament. A
-  same-club penalty proportional to how far over the cap the club is makes
-  this happen only when the deficit is large enough to outweigh the penalty.
-- This keeps same-club pairings beyond the proportional cap rare — they occur
-  only when needed to keep individual teams' game counts balanced, not as the
-  norm.
-
-### Diagnostics
-
-- **`per_team_share_warnings`** — flags any team whose total game count
-  deviates from its age group's average by more than
-  `max_game_count_spread`. Surfaced in both the CLI output and the Excel
-  rules report.
-- **`club_cap_overrides`** — counts how many times the deficit-aware override
-  above let a club exceed its per-tournament cap. A small value relative to
-  the total number of tournaments confirms such overrides remain the
-  exception. Also surfaced in the CLI output and the Excel rules report.
-
-## Search History
-
-The interactive mode automatically saves all searches to `~/.hockey_scheduler_history.json`.
-
-**Features:**
-- Stores last 50 searches
-- Browse and rerun previous searches
-- Shows search summary with key parameters
-- Includes timestamp for each search
-
-**History format:**
-```json
-{
-  "is_reschedule": true,
-  "start_date": "2026-03-01",
-  "end_date": "2026-03-15",
-  "excel_file": "/path/to/schedule.xlsx",
-  "tournament_date": "2026-01-31",
-  "check_kongsberg_ice": false,
-  "check_kongsberg_ball": false,
-  "check_skien_ice": true,
-  "timestamp": "2025-12-06T11:32:16"
-}
-```
-
-To clear history:
-```bash
-rm ~/.hockey_scheduler_history.json
-```
-
-## Requirements
-
-- Python 3.7+
-- requests
-- beautifulsoup4
-- openpyxl
-- holidays
-- playwright (with chromium browser installed)
-- icalendar
-- recurring-ical-events
-
-## Notes
-
-- **Interactive mode** uses Norwegian language for all prompts and output
-- **Weekend-only** - Only suggests Saturday and Sunday dates
-- **Holiday exclusion** - Automatically excludes weekends before Norwegian public holidays
-- **Multiple calendars**:
-  - Kongsberg ice hall: Playwright-based Outlook calendar scraper
-  - Kongsberg ball hall: Playwright-based Outlook calendar scraper
-  - Skien ice hall: Google Calendar iCal feed (no browser required)
-- **Time slot analysis** - Requires 2.5 hours minimum, suggests 11:00-14:00 window
-- **Weekend warnings** - Same-weekend conflicts don't block dates, just warn
-- If calendar scraping fails, the script continues with available data sources
+- [Pipeline guide](docs/rvv-miniputt-pipeline.md)

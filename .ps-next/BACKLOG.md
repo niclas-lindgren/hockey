@@ -3,9 +3,6 @@
 ## Open
 
 
-- [73] [ ] Refactor the pipeline stages into smaller, focused modules/functions: split oversized stage1_config.py, stage2_scraping.py, stage3_planning.py, and stage4_export.py into clearer helpers so each stage stays maintainable, testable, and easier to extend.
-- [64] [ ] Refresh README/docs for the current RVV Miniputt four-stage pipeline: document /rvv-miniputt commands, input.json/team config, BookUp credentials, timestamped export folder, Spond export, HTML reports, resume/status/log flows, and remove outdated claims from the older single-tournament scheduler docs.
-
 - [65] [ ] Add report/export regression tests for generated outputs: verify season_plan.html age-group filters are data-driven, light/dark theme assets and export links exist, no emoji/debug-dashboard regression appears, and CSV/ICS/XLSX/Spond outputs are generated into the same timestamped export folder.
 
 - [66] [ ] Change the Spond export to match the intended import workflow: export tournament-level events only (not one row per internal game) on one Excel sheet/table with autofilter enabled and explicit filter columns for participating clubs, teams, age group, host club, arena, date, start/end, and import scope. The organizer should be able to filter the single sheet to e.g. Kongsberg-relevant tournament events and import the filtered rows directly into Spond; optionally also generate per-club prefiltered Spond XLSX files for convenience.
@@ -21,6 +18,10 @@
 - [71] [ ] Add club review/approval exports: generate per-club review packets showing only that club's proposed Spond events, home-hosting duties, travel, and game schedule attachments, with an accept/change-request workflow that can feed back into replanning.
 
 ## Done
+- [64] [x] Refresh README/docs for the current RVV Miniputt four-stage pipeline: document /rvv-miniputt commands, input.json/team config, BookUp credentials, timestamped export folder, Spond export, HTML reports, resume/status/log flows, and remove outdated claims from the older single-tournament scheduler docs. (2026-06-12)
+
+- [73] [x] Refactor the pipeline stages into smaller, focused modules/functions: split oversized stage1_config.py, stage2_scraping.py, stage3_planning.py, and stage4_export.py into clearer helpers so each stage stays maintainable, testable, and easier to extend. (2026-06-12)
+
 - [63] [x] Improve BookUp/blocked-source recovery UX: when Tønsberg/Sandefjord or other authenticated sources block, show exact missing env vars/credential steps, preserve partial scrape results, support an explicit operator-approved skip/allow-missing-sources mode, and make rerun/resume instructions clear in Norwegian. (2026-06-12)
 
 - [62] [x] Invalidate or mark stale downstream pipeline checkpoints when an upstream stage fails or its inputs change: if Stage 2 fails, Stage 3/4 must not appear cleanly reusable from a previous run; status/logs should clearly show stale downstream outputs and require rerun after the failure is resolved. (2026-06-12)
