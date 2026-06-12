@@ -33,9 +33,8 @@ fi
 printf -- '- %s: %s; plan: %s; built %s\n' "$DATE" "${GOAL:-Completed plan}" "${DEST#$PS_DIR/}" "$FILES" >> "$PS_DIR/HISTORY.md"
 
 if [ -n "$BACKLOG_ID" ] && [ -f "$PS_DIR/BACKLOG.md" ]; then
-  tmp="$(mktemp)"
-  sed -E "s/^- \[$BACKLOG_ID\] \[ \] (.*)$/- [$BACKLOG_ID] [x] \1 ($DATE)/" "$PS_DIR/BACKLOG.md" > "$tmp"
-  mv "$tmp" "$PS_DIR/BACKLOG.md"
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  "$SCRIPT_DIR/pi-next-backlog.sh" "$PS_DIR" done "$BACKLOG_ID" >/dev/null
 fi
 
 echo "$DEST"

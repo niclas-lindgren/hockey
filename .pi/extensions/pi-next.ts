@@ -42,11 +42,6 @@ function getPlanFile(cwd: string): string {
   return join(getPsDir(cwd), "PLAN.md");
 }
 
-function nextBacklogId(backlog: string): number {
-  const matches = [...backlog.matchAll(/^- \[(\d+)\] \[[ x]\] /gm)].map((m) => Number(m[1]));
-  return matches.length ? Math.max(...matches) + 1 : 1;
-}
-
 function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -656,38 +651,31 @@ export default function piNextExtension(pi: ExtensionAPI) {
       text: Type.Optional(Type.String({ description: "Backlog text for add" })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const psDir = getPsDir(ctx.cwd);
-      const file = join(psDir, "BACKLOG.md");
-      if (!existsSync(file)) throw new Error(`BACKLOG.md not found at ${file}`);
-      const backlog = readFileSync(file, "utf8");
+      const runBacklog = async (action: string, extra: string[] = []) => {
+        const { stdout } = await runScript(ctx.cwd, "pi-next-backlog.sh", [ctx.cwd, action, ...extra]);
+        return stdout;
+      };
 
       if (params.action === "list") {
-        const lines = backlog.split(/\r?\n/).filter((l) => /^- \[\d+\] \[ \] /.test(l));
-        return { content: [{ type: "text", text: lines.join("\n") || "No open backlog items." }], details: { count: lines.length } };
+        const stdout = await runBacklog("list");
+        const lines = stdout.split(/\r?\n/).filter(Boolean);
+        return { content: [{ type: "text", text: stdout || "No open backlog items." }], details: { count: lines.length } };
       }
       if (params.action === "get") {
         if (params.id == null) throw new Error("id is required for get");
-        const line = backlog.split(/\r?\n/).find((l) => l.startsWith(`- [${params.id}] [ ] `));
-        if (!line) throw new Error(`Open backlog item [${params.id}] not found`);
-        return { content: [{ type: "text", text: line.replace(/^- \[\d+\] \[ \] /, "") }], details: { id: params.id, line } };
+        const stdout = await runBacklog("get", [String(params.id)]);
+        return { content: [{ type: "text", text: stdout.replace(/^- \[\d+\] \[ \] /, "") }], details: { id: params.id, block: stdout } };
       }
       if (params.action === "add") {
         if (!params.text?.trim()) throw new Error("text is required for add");
-        const id = nextBacklogId(backlog);
-        const newLine = `- [${id}] [ ] ${params.text.trim()}`;
-        const updated = backlog.includes("## Open")
-          ? backlog.replace(/(## Open\s*)/, `$1\n${newLine}\n`)
-          : `${backlog.trim()}\n\n## Open\n${newLine}\n`;
-        writeFileSync(file, updated);
-        return { content: [{ type: "text", text: newLine }], details: { id } };
+        const stdout = await runBacklog("add", [params.text.trim()]);
+        const match = stdout.match(/^- \[(\d+)\] \[ \] /);
+        return { content: [{ type: "text", text: stdout }], details: { id: match ? Number(match[1]) : undefined } };
       }
       if (params.action === "done") {
         if (params.id == null) throw new Error("id is required for done");
-        const re = new RegExp(`^- \\[${params.id}\\] \\[ \\] (.*)$`, "m");
-        if (!re.test(backlog)) throw new Error(`Open backlog item [${params.id}] not found`);
-        const updated = backlog.replace(re, `- [${params.id}] [x] $1 (${today()})`);
-        writeFileSync(file, updated);
-        return { content: [{ type: "text", text: `Marked [${params.id}] done.` }], details: { id: params.id } };
+        const stdout = await runBacklog("done", [String(params.id)]);
+        return { content: [{ type: "text", text: stdout }], details: { id: params.id } };
       }
       throw new Error("Unhandled action");
     },
