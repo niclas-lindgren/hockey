@@ -2,6 +2,7 @@
 
 from datetime import date
 from pathlib import Path
+import re
 
 import pytest
 
@@ -42,6 +43,27 @@ def _make_plan_dict():
     }
 
 
+def _make_multi_age_group_plan_dict():
+    data = _make_plan_dict()
+    data["plan"]["tournaments"].append(
+        {
+            "date": "2025-11-02",
+            "arena": "Bærum ishall",
+            "age_group": "JU11",
+            "host_club": "Jutul",
+            "teams": [
+                {"club": "Jutul", "label": "Jutul JU11A", "age_group": "JU11"},
+                {"club": "Holmen", "label": "Holmen JU11A", "age_group": "JU11"},
+            ],
+            "games": [
+                {"home": "Jutul JU11A", "away": "Holmen JU11A", "parallel_slot": 0, "round_number": 1},
+            ],
+        }
+    )
+    data["plan"]["arena_counts"]["Bærum ishall"] = 1
+    return data
+
+
 class TestDictToPlan:
     def test_round_trips_plan(self):
         plan_dict = _make_plan_dict()["plan"]
@@ -73,6 +95,28 @@ class TestRunStage4:
         assert "excel" in files
         assert Path(files["excel"]).exists()
 
+    def test_generates_html_with_plan_driven_filters_and_ui_assets(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_multi_age_group_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+        )
+        files = result.get("output_files", {})
+        html_path = Path(files["html"])
+        html = html_path.read_text(encoding="utf-8")
+
+        assert '<option value="U10">U10</option>' in html
+        assert '<option value="JU11">JU11</option>' in html
+        assert re.search(r'Alle \((?:JU11 \+ U10|U10 \+ JU11)\)', html)
+        assert 'id="themeToggle"' in html
+        assert 'class="theme-toggle"' in html
+        assert 'href="season_plan.xlsx"' in html
+        assert 'href="season_plan.csv"' in html
+        assert 'href="season_plan.ics"' in html
+        assert 'href="season_plan.csv" class="export-link-btn"' in html or 'href="season_plan.csv"' in html
+        assert 'debug-dashboard' not in html.lower()
+        assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
+
     def test_produces_ical_file(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         result = run(
@@ -87,6 +131,31 @@ class TestRunStage4:
         content = ics_path.read_text()
         assert "BEGIN:VCALENDAR" in content
         assert "VEVENT" in content
+
+    def test_writes_timestamped_exports_and_flat_copies(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+            timestamped_export=True,
+        )
+        files = result.get("output_files", {})
+
+        timestamped_paths = [Path(files[key]) for key in ("excel", "ical", "csv_games", "csv_overview", "html", "spond")]
+        timestamp_dirs = {path.parent for path in timestamped_paths}
+        assert len(timestamp_dirs) == 1
+        timestamp_dir = timestamp_dirs.pop()
+        assert timestamp_dir.parent == tmp_path / "export"
+        assert timestamp_dir.name
+
+        for path in timestamped_paths:
+            assert path.exists()
+            assert path.parent == timestamp_dir
+
+        flat_paths = [Path(files[key]) for key in ("excel_flat", "ical_flat", "csv_games_flat", "csv_overview_flat", "html_flat", "spond_flat")]
+        for path in flat_paths:
+            assert path.exists()
+            assert path.parent == tmp_path / "export"
 
     def test_produces_csv_files(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")

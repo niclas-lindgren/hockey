@@ -1,9 +1,9 @@
 # Verification Report
 
-STATUS: NEEDS_REVIEW
+STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `README.md` mentions the current `rvv-miniputt` pipeline commands and no longer centers the old single-tournament conflict-checker flow. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `docs/rvv-miniputt-pipeline.md` contains sections for `input.json`, `sources`, BookUp credentials, timestamped exports, and the available export formats. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| The docs describe how operators resume, inspect status/logs, or recover from partial runs without referencing deprecated behavior. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `pytest tests/test_stage4_export.py` passes with coverage for HTML regressions and timestamped multi-format exports. | PASS | `pytest tests/test_stage4_export.py -q` => 9 passed. |
+| Show that the generated `season_plan.html` uses plan-driven filter options and includes the expected export/theme UI. | PASS | Regression test asserts age-group options, theme toggle markup, export links, and no debug/emoji strings. |
+| Show that `xlsx`, `ics`, `csv`, `html`, and `spond` land in the same timestamped export directory. | PASS | Regression test asserts one timestamped parent directory plus flat root copies for all formats. |
