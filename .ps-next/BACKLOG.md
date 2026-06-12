@@ -2,6 +2,8 @@
 
 ## Open
 
+
+- [73] [ ] Refactor the pipeline stages into smaller, focused modules/functions: split oversized stage1_config.py, stage2_scraping.py, stage3_planning.py, and stage4_export.py into clearer helpers so each stage stays maintainable, testable, and easier to extend.
 - [64] [ ] Refresh README/docs for the current RVV Miniputt four-stage pipeline: document /rvv-miniputt commands, input.json/team config, BookUp credentials, timestamped export folder, Spond export, HTML reports, resume/status/log flows, and remove outdated claims from the older single-tournament scheduler docs.
 
 - [65] [ ] Add report/export regression tests for generated outputs: verify season_plan.html age-group filters are data-driven, light/dark theme assets and export links exist, no emoji/debug-dashboard regression appears, and CSV/ICS/XLSX/Spond outputs are generated into the same timestamped export folder.
