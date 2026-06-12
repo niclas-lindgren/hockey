@@ -2,8 +2,6 @@
 
 ## Open
 
-- [62] [ ] Invalidate or mark stale downstream pipeline checkpoints when an upstream stage fails or its inputs change: if Stage 2 fails, Stage 3/4 must not appear cleanly reusable from a previous run; status/logs should clearly show stale downstream outputs and require rerun after the failure is resolved.
-
 - [63] [ ] Improve BookUp/blocked-source recovery UX: when Tønsberg/Sandefjord or other authenticated sources block, show exact missing env vars/credential steps, preserve partial scrape results, support an explicit operator-approved skip/allow-missing-sources mode, and make rerun/resume instructions clear in Norwegian.
 
 - [64] [ ] Refresh README/docs for the current RVV Miniputt four-stage pipeline: document /rvv-miniputt commands, input.json/team config, BookUp credentials, timestamped export folder, Spond export, HTML reports, resume/status/log flows, and remove outdated claims from the older single-tournament scheduler docs.
@@ -23,6 +21,8 @@
 - [71] [ ] Add club review/approval exports: generate per-club review packets showing only that club's proposed Spond events, home-hosting duties, travel, and game schedule attachments, with an accept/change-request workflow that can feed back into replanning.
 
 ## Done
+- [62] [x] Invalidate or mark stale downstream pipeline checkpoints when an upstream stage fails or its inputs change: if Stage 2 fails, Stage 3/4 must not appear cleanly reusable from a previous run; status/logs should clearly show stale downstream outputs and require rerun after the failure is resolved. (2026-06-12)
+
 - [61] [x] Fix Stage 2 strict-failure checkpoint semantics and tests: define that blocked sources write an inspectable FAILED checkpoint before raising Stage2Error, update tests/test_stage2_scraping.py accordingly, and ensure pytest passes. (2026-06-12)
 
 - [60] [x] Clean the existing .ps-next/BACKLOG.md structure after fixing the helper: move all checked items currently under ## Open into ## Done, resolve duplicate/conflicting item IDs, and verify pi_next_state/pi_next_backlog list still report only real open items. (2026-06-12)

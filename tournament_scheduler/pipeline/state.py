@@ -168,6 +168,8 @@ class PipelineState:
         }
         path = self.checkpoint_path(stage)
         path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+        if status in (StageStatus.DONE, StageStatus.FAILED):
+            self._invalidate_downstream(stage, reason=self._default_stale_reason(stage, status))
         return path
 
     def mark_done(self, stage: StageName) -> None:
@@ -221,6 +223,10 @@ class PipelineState:
     def is_failed(self, stage: StageName) -> bool:
         """Return ``True`` if *stage* has status ``failed``."""
         return self.status(stage) == StageStatus.FAILED
+
+    def is_stale(self, stage: StageName) -> bool:
+        """Return ``True`` if *stage* was invalidated by an upstream stage."""
+        return bool(self.read_envelope(stage).get("stale", False))
 
     def summary(self) -> dict[StageName, StageStatus]:
         """Return a mapping of every stage to its current status."""
@@ -297,3 +303,32 @@ class PipelineState:
             envelope.update(extra)
         path = self.checkpoint_path(stage)
         path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+        if status in (StageStatus.DONE, StageStatus.FAILED):
+            reason = None
+            if extra:
+                reason = extra.get("error")
+            self._invalidate_downstream(stage, reason=reason or self._default_stale_reason(stage, status))
+
+    def _default_stale_reason(self, stage: StageName, status: StageStatus) -> str:
+        if status == StageStatus.FAILED:
+            return f"Upstream stage {stage.value} failed"
+        return f"Upstream stage {stage.value} changed"
+
+    def _downstream_stages(self, stage: StageName) -> list[StageName]:
+        idx = _STAGE_ORDER.index(stage)
+        return _STAGE_ORDER[idx + 1 :]
+
+    def _invalidate_downstream(self, stage: StageName, *, reason: str) -> None:
+        for downstream in self._downstream_stages(stage):
+            path = self.checkpoint_path(downstream)
+            if not path.exists():
+                continue
+            envelope = self.read_envelope(downstream)
+            envelope["status"] = StageStatus.FAILED.value
+            envelope["stale"] = True
+            envelope["stale_from"] = stage.value
+            envelope["stale_reason"] = reason
+            envelope["updated_at"] = datetime.now(tz=timezone.utc).isoformat()
+            if not envelope.get("error"):
+                envelope["error"] = f"Stale etter endring i {stage.value}: {reason}"
+            path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")

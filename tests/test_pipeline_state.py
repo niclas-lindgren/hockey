@@ -43,6 +43,36 @@ class TestPipelineState:
         tmp_state.mark_failed(StageName.CONFIG, error="something broke")
         assert tmp_state.is_failed(StageName.CONFIG)
 
+    def test_failed_stage_invalidates_downstream_checkpoints(self, tmp_state):
+        tmp_state.write_stage(StageName.SCRAPING, {"sources": ["a"]}, status=StageStatus.DONE)
+        tmp_state.write_stage(StageName.PLANNING, {"plan": {"id": 1}}, status=StageStatus.DONE)
+        tmp_state.write_stage(StageName.EXPORT, {"output_files": {"excel": "x.xlsx"}}, status=StageStatus.DONE)
+
+        tmp_state.write_stage(StageName.SCRAPING, {"sources": ["new"]}, status=StageStatus.FAILED)
+        tmp_state.mark_failed(StageName.SCRAPING, error="stage 2 failed")
+
+        assert tmp_state.is_failed(StageName.SCRAPING)
+        assert tmp_state.is_failed(StageName.PLANNING)
+        assert tmp_state.is_failed(StageName.EXPORT)
+        assert tmp_state.is_stale(StageName.PLANNING)
+        assert tmp_state.is_stale(StageName.EXPORT)
+        assert tmp_state.read_envelope(StageName.PLANNING)["stale_from"] == StageName.SCRAPING.value
+        assert tmp_state.read_envelope(StageName.EXPORT)["stale_reason"]
+
+    def test_upstream_config_change_invalidates_downstream_checkpoints(self, tmp_state):
+        tmp_state.write_stage(StageName.CONFIG, {"teams": ["A"]}, status=StageStatus.DONE)
+        tmp_state.write_stage(StageName.SCRAPING, {"sources": ["a"]}, status=StageStatus.DONE)
+        tmp_state.write_stage(StageName.PLANNING, {"plan": {"id": 1}}, status=StageStatus.DONE)
+
+        tmp_state.write_stage(StageName.CONFIG, {"teams": ["B"]}, status=StageStatus.DONE)
+
+        assert tmp_state.is_done(StageName.CONFIG)
+        assert tmp_state.is_failed(StageName.SCRAPING)
+        assert tmp_state.is_failed(StageName.PLANNING)
+        assert tmp_state.is_stale(StageName.SCRAPING)
+        assert tmp_state.is_stale(StageName.PLANNING)
+        assert tmp_state.read_envelope(StageName.SCRAPING)["stale_from"] == StageName.CONFIG.value
+
     def test_read_envelope_contains_status(self, tmp_state):
         tmp_state.write_stage(StageName.SCRAPING, {"x": 1}, status=StageStatus.RUNNING)
         env = tmp_state.read_envelope(StageName.SCRAPING)
