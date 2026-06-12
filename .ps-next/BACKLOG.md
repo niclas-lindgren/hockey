@@ -18,7 +18,7 @@
   ("Jar: iterasjon 4/25 — click '#neste-mnd'"). Apply to `rvv_miniputt_run` first since
   that's where the bulk of run time and silence is.
 
-- [44] [ ] Fix season_plan.html filtering: it currently only displays U10/U11 even when input.json defines additional age_groups - filtering should be driven by the configured age_groups list, not hardcoded.
+- [44] [x] Fix season_plan.html filtering: it currently only displays U10/U11 even when input.json defines additional age_groups - filtering should be driven by the configured age_groups list, not hardcoded. (2026-06-11)
 
 - [43] [x] Redesign the HTML season-plan report (calendars.html / season_plan.html) with professional UX/UI — remove all emojis (🏒📋📊🗓️🎯⚠️📅🔗🏟️ etc.), replace with a clean typographic design system, proper visual hierarchy, subtle color palette, and polished interactive controls. The report should look like a premium sports analytics tool, not a debug dashboard. (2026-06-10)
 - [42] [x] Refactor rvv-miniputt.ts (~1539 lines) into smaller dedicated modules: types.ts, parsers.ts, pipeline-logger.ts, pipeline-helpers.ts, log-inspector.ts, interactive-guide.ts, pipeline-runner.ts — keeping only the extension entry point and command registrations in rvv-miniputt.ts (2026-06-10)
