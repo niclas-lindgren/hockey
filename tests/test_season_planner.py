@@ -723,6 +723,37 @@ class TestPerTeamGameCounts:
         assert bye_rounds, "expected a bye/rest round when the participant count is odd"
         assert all(len(labels) == 1 for labels in bye_rounds.values())
 
+    @pytest.mark.parametrize(
+        "parallel_games, team_count",
+        [
+            (4, 7),
+            (3, 5),
+            (2, 3),
+        ],
+    )
+    def test_odd_team_count_gets_one_rest_team_per_round(self, parallel_games, team_count):
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        clubs = [f"Club {i}" for i in range(1, team_count + 1)]
+        roster = _build_roster(clubs, ["U10"])
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": parallel_games},
+        )
+        plan = planner.build_plan(start, end)
+        tournament = next(t for t in plan.tournaments if t.age_group == "U10")
+
+        assert len(tournament.teams) == team_count
+        bye_rounds = tournament.get_bye_rounds()
+        assert len(bye_rounds) == team_count
+        assert all(len(labels) == 1 for labels in bye_rounds.values())
+        assert set().union(*bye_rounds.values()) == {team.label for team in tournament.teams}
+
     def test_jar_vs_kongsberg_team_counts_skew_is_bounded(self):
         """Reproduces the club-size-skew scenario from documentation/input.json:
         Jar fields 7 U10 teams and 6 U11 teams, while Kongsberg fields only 1
