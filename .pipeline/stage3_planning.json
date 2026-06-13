@@ -1,7 +1,7 @@
 {
   "stage": "planning",
   "status": "done",
-  "updated_at": "2026-06-12T06:05:48.477360+00:00",
+  "updated_at": "2026-06-13T10:35:52.039372+00:00",
   "data": {
     "plan": {
       "start_date": "2026-09-01",
@@ -38,6 +38,105 @@
         "Jar 7": 35
       },
       "game_count_spread": 23,
+      "fairness_gate": {
+        "status": "fail",
+        "score": 45,
+        "metrics": [
+          {
+            "key": "game_count_spread",
+            "label": "Kamper per lag",
+            "value": 23,
+            "threshold": 2,
+            "direction": "max",
+            "severity": "fail",
+            "status": "fail",
+            "score": 0,
+            "unit": "",
+            "detail": "Største gap mellom lag er 23 kamper."
+          },
+          {
+            "key": "hosting_deviation",
+            "label": "Hjemmebanebelastning",
+            "value": 5.428571428571429,
+            "threshold": 1,
+            "direction": "max",
+            "severity": "fail",
+            "status": "fail",
+            "score": 0,
+            "unit": "",
+            "detail": "Frisk Asker: 8 avviker fra forventet ~2.6"
+          },
+          {
+            "key": "travel_distance",
+            "label": "Reisebelastning",
+            "value": 547,
+            "threshold": 250,
+            "direction": "max",
+            "severity": "warn",
+            "status": "warn",
+            "score": 0,
+            "unit": "km",
+            "detail": "Lengst reisende lag har 547 km total reise."
+          },
+          {
+            "key": "opponent_diversity",
+            "label": "Motstandervariasjon",
+            "value": 1.04,
+            "threshold": 0.75,
+            "direction": "min",
+            "severity": "warn",
+            "status": "pass",
+            "score": 100,
+            "unit": "",
+            "detail": "Snittet av unik motstanderdekning er 1.040."
+          },
+          {
+            "key": "pairwise_matchups",
+            "label": "Nye matchups",
+            "value": 0.383,
+            "threshold": 0.75,
+            "direction": "min",
+            "severity": "warn",
+            "status": "warn",
+            "score": 51,
+            "unit": "",
+            "detail": "Andel nye kampoppsett er 0.383."
+          },
+          {
+            "key": "month_balance",
+            "label": "Månedsbalanse",
+            "value": 0.767,
+            "threshold": 0.75,
+            "direction": "min",
+            "severity": "warn",
+            "status": "pass",
+            "score": 100,
+            "unit": "",
+            "detail": "Månedsbalansen er 0.767."
+          },
+          {
+            "key": "same_weekend_club_load",
+            "label": "Klubblast per helg",
+            "value": 4,
+            "threshold": 3,
+            "direction": "max",
+            "severity": "warn",
+            "status": "warn",
+            "score": 67,
+            "unit": "",
+            "detail": "maks 4 lag fra samme klubb i samme uke"
+          }
+        ],
+        "thresholds": {
+          "max_game_count_spread": 2,
+          "max_hosting_deviation": 1,
+          "max_team_travel_km": 250,
+          "min_diversity_score": 0.75,
+          "min_pairwise_matchup_score": 0.75,
+          "min_month_balance_score": 0.75,
+          "max_same_weekend_club_load": 3
+        }
+      },
       "team_last_game_dates": {
         "Jar 2": "2027-04-18",
         "Holmen 1": "2027-03-14",
@@ -60,7 +159,7 @@
       },
       "tournaments": [
         {
-          "id": "39e90a76",
+          "id": "d4bf6b82",
           "date": "2026-09-06",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -291,7 +390,7 @@
           "start_time": "12:20"
         },
         {
-          "id": "a0998d7a",
+          "id": "4b63a517",
           "date": "2026-09-26",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -417,7 +516,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "1d60fe6d",
+          "id": "ee2479e9",
           "date": "2026-10-11",
           "arena": "Ringerikshallen",
           "age_group": "U10",
@@ -690,7 +789,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "568ad56f",
+          "id": "3226fa15",
           "date": "2026-10-25",
           "arena": "Sandefjord ishall",
           "age_group": "U11",
@@ -810,7 +909,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "5ddc5d03",
+          "id": "e65026d8",
           "date": "2026-11-14",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -1047,7 +1146,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "526495ef",
+          "id": "2ebd8275",
           "date": "2026-11-28",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -1161,7 +1260,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "fb0490a6",
+          "id": "164f7844",
           "date": "2026-12-13",
           "arena": "Skien ishall",
           "age_group": "U10",
@@ -1392,7 +1491,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "900d5566",
+          "id": "181b99ee",
           "date": "2027-01-09",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -1506,7 +1605,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "fd9e49ae",
+          "id": "8406cb25",
           "date": "2027-01-16",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -1743,7 +1842,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "e66d5b67",
+          "id": "514dd61b",
           "date": "2027-01-31",
           "arena": "Jarhallen",
           "age_group": "U11",
@@ -1851,7 +1950,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "1535e0d7",
+          "id": "cca66d3e",
           "date": "2027-02-14",
           "arena": "Jarhallen",
           "age_group": "U10",
@@ -2082,7 +2181,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "3d0c5df6",
+          "id": "7b4ff118",
           "date": "2027-03-06",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -2196,7 +2295,7 @@
           "start_time": "11:50"
         },
         {
-          "id": "6cd2a876",
+          "id": "f948566e",
           "date": "2027-03-14",
           "arena": "Jarhallen",
           "age_group": "U10",
@@ -2457,7 +2556,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "a447f27b",
+          "id": "0d314153",
           "date": "2027-04-10",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -2577,7 +2676,7 @@
           "start_time": "10:50"
         },
         {
-          "id": "5924aa36",
+          "id": "9357e9c2",
           "date": "2027-04-18",
           "arena": "Tonsberghallen",
           "age_group": "U10",
