@@ -1,9 +1,9 @@
 # Backlog
 
 ## Open
-- [79] [ ] Remove the planner’s same-club matchup filter so same-club games can be scheduled when needed.
-
 ## Done
+- [79] [x] Remove the planner’s same-club matchup filter so same-club games can be scheduled when needed. (2026-06-13)
+
 - [78] [x] Remove the separate maximum participating teams limit and derive capacity from the number of parallel matches; Handle odd team counts below the calculated expected teams by assigning one team to rest (2026-06-13)
 
 - [71] [x] Add club review/approval exports: generate per-club review packets showing only that club's proposed Spond events, home-hosting duties, travel, and game schedule attachments, with an accept/change-request workflow that can feed back into replanning. (2026-06-13)
