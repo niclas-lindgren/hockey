@@ -76,6 +76,12 @@ def run(
     dict
         The plan serialised to a JSON-compatible dict.
     """
+    existing_checkpoint = state.read_stage(StageName.PLANNING) or {}
+    existing_manual_adjustments = dict(
+        existing_checkpoint.get("plan", {}).get("manual_adjustments", {})
+        or existing_checkpoint.get("manual_adjustments", {})
+    )
+
     state.write_stage(StageName.PLANNING, {}, status=StageStatus.RUNNING)
 
     roster = _build_roster(config)
@@ -85,6 +91,7 @@ def run(
     division_skill_band = config.get("divisionSkillBand", 2)
     max_hosting_deviation = config.get("maxHostingDeviation", 1)
     events_by_club = _build_events_by_club(scraping_result)
+    fairness_thresholds = config.get("fairness_thresholds", {})
 
     planner = _make_planner(
         roster,
@@ -94,6 +101,7 @@ def run(
         max_hosting_deviation,
         round_length_config,
         events_by_club,
+        fairness_thresholds,
     )
     plan = planner.build_plan(start_date, end_date)
 
@@ -104,6 +112,8 @@ def run(
             raise Stage3Error(reason)
         return {}
 
+    if existing_manual_adjustments:
+        plan.manual_adjustments = dict(existing_manual_adjustments)
     plan_dict = _plan_to_dict(plan)
     rules_report = planner.rules_report()
 

@@ -207,6 +207,84 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Write exports to a timestamped subfolder (diffable between runs)",
     )
 
+    # adjust — manual organizer loop for the final plan
+    adjust = sub.add_parser(
+        "adjust",
+        help="Apply manual organizer adjustments (lock/ban/pin/host rules) and re-export",
+    )
+    adjust.add_argument(
+        "--lock-date",
+        action="append",
+        default=[],
+        help="Lock a tournament date (repeatable, YYYY-MM-DD)",
+    )
+    adjust.add_argument(
+        "--ban-date",
+        action="append",
+        default=[],
+        help="Ban a tournament date from future planning (repeatable, YYYY-MM-DD)",
+    )
+    adjust.add_argument(
+        "--pin-tournament",
+        action="append",
+        default=[],
+        help="Pin a tournament ID so it is preserved during adjustments",
+    )
+    adjust.add_argument(
+        "--force-host-club",
+        action="append",
+        default=[],
+        help="Prefer this club as host when reapplying host rules (repeatable)",
+    )
+    adjust.add_argument(
+        "--exclude-host-club",
+        action="append",
+        default=[],
+        help="Exclude this club from host selection (repeatable)",
+    )
+    adjust.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    adjust.add_argument(
+        "--export-dir",
+        default="export",
+        help="Export output directory (default: export)",
+    )
+    adjust.add_argument(
+        "--timestamped-export",
+        action="store_true",
+        help="Write exports to a timestamped subfolder (diffable between runs)",
+    )
+
+    # review — apply club responses from review packets
+    review = sub.add_parser(
+        "review",
+        help="Apply club review responses (accept/change-request) and re-export",
+    )
+    review.add_argument(
+        "--response",
+        action="append",
+        required=True,
+        help="Response file or packet directory with response_template.json (repeatable)",
+    )
+    review.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    review.add_argument(
+        "--export-dir",
+        default="export",
+        help="Export output directory (default: export)",
+    )
+    review.add_argument(
+        "--timestamped-export",
+        action="store_true",
+        help="Write exports to a timestamped subfolder (diffable between runs)",
+    )
+
     # tournament — add/remove/list/cancel tournaments
     t_sub = sub.add_parser("tournament", help="Manage tournaments: list, add, remove, cancel")
     t_cmds = t_sub.add_subparsers(dest="t_command", title="tournament commands")
@@ -690,18 +768,18 @@ def _do_re_export(work_dir: str, export_dir: str, *, timestamped_export: bool = 
 
 def _load_plan_and_updater(work_dir: str):
     """Load the season plan and return (plan, updater, state). Raises SystemExit on error."""
-    from ..pipeline.state import PipelineState
+    from ..pipeline.state import PipelineState, StageName
     from ..pipeline.tournament_updater import TournamentUpdater
 
     work_path = Path(work_dir)
-    if not (work_path / "stage3_plan.json").exists():
+    state = PipelineState(work_dir)
+    if not state.checkpoint_path(StageName.PLANNING).exists():
         _console.print(
             f"[red]✗[/red] Ingen Stage 3-plan funnet i {work_path}/. "
             f"Kjør [bold]rvv-miniputt run[/bold] først."
         )
         sys.exit(1)
 
-    state = PipelineState(work_dir)
     updater = TournamentUpdater(state=state)
     try:
         plan = updater.load_plan()
@@ -902,6 +980,36 @@ def _cmd_replan(args: argparse.Namespace) -> int:
     # Re-export
     _console.print("\n[bold]Re-eksporterer...[/bold]")
     return _do_re_export(args.work_dir, args.export_dir, timestamped_export=getattr(args, 'timestamped_export', False))
+
+
+def _cmd_adjust(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt adjust`` — manual organizer adjustment loop."""
+    from .update_command import AdjustmentCommand
+
+    cmd = AdjustmentCommand()
+    return cmd.run(
+        lock_dates=args.lock_date,
+        ban_dates=args.ban_date,
+        pin_tournaments=args.pin_tournament,
+        force_host_clubs=args.force_host_club,
+        exclude_host_clubs=args.exclude_host_club,
+        work_dir=args.work_dir,
+        export_dir=args.export_dir,
+        timestamped_export=args.timestamped_export,
+    )
+
+
+def _cmd_review(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt review`` — apply club responses and re-export."""
+    from .review_command import ReviewCommand
+
+    cmd = ReviewCommand()
+    return cmd.run(
+        args.response,
+        work_dir=args.work_dir,
+        export_dir=args.export_dir,
+        timestamped_export=args.timestamped_export,
+    )
 
 
 def _cmd_scrape(args: argparse.Namespace) -> int:
@@ -1231,6 +1339,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_cancel(args)
     elif args.command == "replan":
         return _cmd_replan(args)
+    elif args.command == "adjust":
+        return _cmd_adjust(args)
+    elif args.command == "review":
+        return _cmd_review(args)
     elif args.command == "tournament":
         return _cmd_tournament(args)
     elif args.command == "scrape":

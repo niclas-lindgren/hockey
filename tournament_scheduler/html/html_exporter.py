@@ -9,6 +9,7 @@ HTML is assembled from template fragments in ``templates/``.
 
 from __future__ import annotations
 
+import html as _html
 import json
 import os
 from pathlib import Path
@@ -261,6 +262,8 @@ class HtmlExporter:
         if scrape_age:
             scrape_age_html = f'<div class="metrics-group"><span class="metrics-group-label">Data-alder</span><span class="metrics-group-value">{scrape_age}</span></div>'
 
+        fairness_gate_html = self._fairness_gate_html(plan.fairness_gate)
+
         # --- Export download links ---
         export_links_html = ""
         if output_files:
@@ -347,6 +350,10 @@ class HtmlExporter:
             "$DIVERSITY_SCORE$": str(int((plan.diversity_score or 0) * 100)),
             "$MONTH_BALANCE_SCORE$": str(int((plan.month_balance_score or 0) * 100)),
             "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),
+            "$FAIRNESS_GATE_SCORE$": str(int((plan.fairness_gate.get("score", 0) if isinstance(plan.fairness_gate, dict) else 0))),
+            "$FAIRNESS_GATE_STATUS$": str((plan.fairness_gate.get("status", "pass") if isinstance(plan.fairness_gate, dict) else "pass")),
+            "$FAIRNESS_GATE_STATUS_LABEL$": str({"pass": "PASS", "warn": "VARSEL", "fail": "FEIL"}.get(plan.fairness_gate.get("status", "pass") if isinstance(plan.fairness_gate, dict) else "pass", "PASS")),
+            "$FAIRNESS_GATE_HTML$": fairness_gate_html,
             "$AGE_GROUP_OPTIONS$": age_group_options,
             "$TOURNAMENTS_JSON$": tournaments_json,
             "$EXPORT_LINKS_HTML$": export_links_html,
@@ -402,6 +409,57 @@ class HtmlExporter:
                 entry["cr"] = t.cancellation_reason or ""
             data.append(entry)
         return json.dumps(data, ensure_ascii=False)
+
+    @staticmethod
+    def _fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
+        """Render the fairness gate summary and metric cards."""
+        if not fairness_gate or not isinstance(fairness_gate, dict):
+            return ""
+
+        metrics = fairness_gate.get("metrics", [])
+        if not metrics:
+            return ""
+
+        status = str(fairness_gate.get("status", "pass")).lower()
+        score = int(fairness_gate.get("score", 0) or 0)
+        status_labels = {"pass": "PASS", "warn": "VARSEL", "fail": "FEIL"}
+        status_label = status_labels.get(status, "PASS")
+
+        metric_cards = []
+        for metric in metrics:
+            metric_status = str(metric.get("status", "pass")).lower()
+            metric_label = _html.escape(str(metric.get("label", "")))
+            value = metric.get("value", "")
+            threshold = metric.get("threshold", "")
+            unit = str(metric.get("unit", ""))
+            if unit and value != "":
+                value = f"{value} {unit}"
+            if unit and threshold != "":
+                threshold = f"{threshold} {unit}"
+            metric_cards.append(
+                f"<div class=\"fairness-metric fairness-metric--{metric_status}\">"
+                "<div class=\"fairness-metric-head\">"
+                f"<span class=\"fairness-metric-label\">{metric_label}</span>"
+                f"<span class=\"fairness-metric-status fairness-metric-status--{metric_status}\">{status_labels.get(metric_status, metric_status.upper())}</span>"
+                "</div>"
+                f"<div class=\"fairness-metric-value\"><strong>{_html.escape(str(value))}</strong> · terskel {_html.escape(str(threshold))}</div>"
+                f"<div class=\"fairness-metric-score\">Score {int(metric.get('score', 0) or 0)}%</div>"
+                f"<div class=\"fairness-metric-detail\">{_html.escape(str(metric.get('detail', '')))}</div>"
+                "</div>"
+            )
+
+        return (
+            '<div class="fairness-gate-panel">'
+            '<div class="fairness-gate-head">'
+            '<div>'
+            '<div class="metrics-group-label">Rettferdighetsgate</div>'
+            f'<div class="metrics-group-value"><strong>{score}%</strong> · {status_label}</div>'
+            '</div>'
+            f'<span class="fairness-gate-status fairness-gate-status--{status}">{status_label}</span>'
+            '</div>'
+            f'<div class="fairness-gate-grid">{"".join(metric_cards)}</div>'
+            '</div>'
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -38,6 +38,18 @@ def _make_plan_dict():
             "pairwise_matchup_score": 1.0,
             "month_balance_score": 1.0,
             "arena_counts": {"Kongsberghallen": 1},
+            "manual_adjustments": {
+                "locked_dates": ["2025-10-05"],
+                "banned_dates": ["2025-11-01"],
+            },
+            "fairness_gate": {
+                "status": "pass",
+                "score": 100,
+                "metrics": [
+                    {"label": "Kamper per lag", "value": 0, "threshold": 2, "status": "pass", "score": 100, "unit": "", "detail": "Lik kampfordeling."},
+                    {"label": "Månedsbalanse", "value": 1.0, "threshold": 0.75, "status": "pass", "score": 100, "unit": "", "detail": "Jevn sesongbelastning."},
+                ],
+            },
             "tournaments": [t1],
         },
         "llm_confidence": 0.9,
@@ -95,6 +107,7 @@ class TestDictToPlan:
         assert len(t.games) == 1
         assert t.games[0].home.label == "Kongsberg U10A"
         assert t.games[0].round_number == 3
+        assert plan.manual_adjustments["locked_dates"] == ["2025-10-05"]
 
     def test_handles_missing_dates(self):
         plan_dict = {"tournaments": [], "diversity_score": 0.0,
@@ -121,6 +134,21 @@ class TestRunStage4:
         assert rows[1][7] == "09:00"
         assert rows[1][8] == "09:45"
 
+    def test_includes_fairness_gate_sheet(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+        )
+        files = result.get("output_files", {})
+        workbook = openpyxl.load_workbook(files["excel"])
+        assert "Rettferdighet" in workbook.sheetnames
+        sheet = workbook["Rettferdighet"]
+        rows = list(sheet.iter_rows(values_only=True))
+        assert rows[0][0] == "Overordnet status"
+        assert rows[2][0] == "Metrikk"
+        assert rows[3][0] == "Kamper per lag"
+
     def test_generates_html_with_plan_driven_filters_and_ui_assets(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         result = run(
@@ -140,6 +168,8 @@ class TestRunStage4:
         assert 'href="season_plan.csv"' in html
         assert 'href="season_plan.ics"' in html
         assert 'href="season_plan.csv" class="export-link-btn"' in html or 'href="season_plan.csv"' in html
+        assert 'Rettferdighetsgate' in html
+        assert 'score-item--gate' in html
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
 

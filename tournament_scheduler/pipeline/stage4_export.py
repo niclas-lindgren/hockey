@@ -8,6 +8,7 @@ and writes three output files:
 - ``<export_dir>/season_plan.csv``    — flat game CSV + ``_overview.csv`` via :class:`CsvExporter`
 - ``<export_dir>/season_plan.html``   — interactive HTML overview via :class:`~tournament_scheduler.html.html_exporter.HtmlExporter`
 - ``<export_dir>/season_plan_spond_games.xlsx`` — printable tournament-by-tournament schedule attachment for Spond
+- ``<export_dir>/review_packets/`` — per-club approval folders with review workbook, Spond import, schedule attachment, and response template
 
 File paths are written to the Stage 4 checkpoint.
 """
@@ -24,6 +25,7 @@ from ..excel.plan_exporter import SeasonPlanExporter
 from ..ical.ical_exporter import ICalExporter
 from ..csv.csv_exporter import CsvExporter
 from ..html.html_exporter import HtmlExporter
+from ..review.review_packet_exporter import ReviewPacketExporter
 from ..spond.spond_exporter import SpondExporter
 from .state import PipelineState, StageName, StageStatus
 from .stage4_helpers import _dict_to_plan
@@ -201,13 +203,30 @@ def run(
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Spond-eksport feilet: {exc}")
 
+    # --- Per-club review packets ---
+    try:
+        review_dir = primary_export_path / "review_packets"
+        clubs = sorted({team.club for tournament in plan.tournaments for team in tournament.teams})
+        ReviewPacketExporter().export(
+            plan,
+            review_dir,
+            clubs=clubs,
+            round_length_for_age_group=round_length_for_age_group,
+        )
+        output_files["review_packets"] = str(review_dir)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"Review-pakker feilet: {exc}")
+
     # --- Copy to flat directory for convenience ---
     if timestamped_export:
         import shutil
         for label, path in list(output_files.items()):
             try:
-                flat_path = export_path / Path(path).name
-                shutil.copy2(path, flat_path)
+                src = Path(path)
+                if not src.is_file():
+                    continue
+                flat_path = export_path / src.name
+                shutil.copy2(src, flat_path)
                 output_files[f"{label}_flat"] = str(flat_path)
             except Exception as exc:
                 errors.append(f"Kopiering til flat katalog feilet ({label}): {exc}")

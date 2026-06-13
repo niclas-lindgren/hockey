@@ -95,6 +95,24 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .metrics-group-value strong { color: var(--accent); }
 .metrics-warning { color: var(--amber); font-size: 11px; }
 
+/* Fairness gate */
+.score-item--gate .score-status,
+.fairness-gate-status,
+.fairness-metric-status { display: inline-flex; align-items: center; padding: 1px 7px; margin-left: 4px; border-radius: var(--radius-pill); border: 1px solid var(--border-dim); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.score-status--pass, .fairness-gate-status--pass, .fairness-metric-status--pass { color: var(--emerald); background: rgba(16,185,129,.08); }
+.score-status--warn, .fairness-gate-status--warn, .fairness-metric-status--warn { color: var(--amber); background: rgba(245,158,11,.08); }
+.score-status--fail, .fairness-gate-status--fail, .fairness-metric-status--fail { color: var(--rose); background: rgba(244,63,94,.08); }
+.fairness-gate-panel { padding: 14px 18px 18px; margin-bottom: 20px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); }
+.fairness-gate-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.fairness-gate-head .metrics-group-label { margin-bottom: 2px; }
+.fairness-gate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.fairness-metric { padding: 10px 12px; background: var(--bg); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 4px; }
+.fairness-metric-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fairness-metric-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.fairness-metric-value { font-size: 12px; color: var(--text-muted); }
+.fairness-metric-score { font-size: 11px; color: var(--accent); font-weight: 600; }
+.fairness-metric-detail { font-size: 11px; color: var(--text-muted); }
+
 /* Filters */
 .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border-dim); }
 .filter-group { display: flex; flex-direction: column; gap: 4px; }

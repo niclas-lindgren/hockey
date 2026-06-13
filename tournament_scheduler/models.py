@@ -219,9 +219,16 @@ class SeasonPlan:
     # Difference between the team with the most games and the team with
     # the fewest games (max - min of team_game_counts values).
     game_count_spread: int = 0
+    # Structured fairness gate summarising pass/warn/fail status for the
+    # main roster-based season fairness metrics.
+    fairness_gate: Dict[str, object] = field(default_factory=dict)
     # Maps team label -> date of their last round-robin game in the season.
     # Used for early-finish detection (teams that finish weeks before others).
     team_last_game_dates: Dict[str, date] = field(default_factory=dict)
+    # Manual operator adjustments preserved across checkpoint round-trips.
+    # Keys are small string lists such as locked_dates, banned_dates,
+    # forced_host_clubs, excluded_host_clubs, and pinned_tournament_ids.
+    manual_adjustments: Dict[str, list[str]] = field(default_factory=dict)
 
 
 # Mapping of age groups whose player pools are known to overlap (e.g. a player

@@ -1,15 +1,17 @@
-"""--update-tournament CLI mode: modify a generated season plan.
+"""CLI helpers for modifying a generated season plan.
 
-Supports dropping a team from a tournament, moving a tournament to a
-different weekend, adding a new tournament, or removing a tournament
-entirely — reading from and writing back to the Stage 3 checkpoint.
+Supports targeted tournament updates plus a manual organizer adjustment loop
+that can lock or ban dates, pin tournaments, and apply host-club rules before
+re-export.
 """
 
 from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
-from tournament_scheduler.pipeline.state import PipelineState
+from tournament_scheduler.pipeline.manual_adjustment_workflow import ManualAdjustmentWorkflow
+from tournament_scheduler.pipeline.state import PipelineState, StageName
+from tournament_scheduler.pipeline.stage4_export import run as run_export
 from tournament_scheduler.pipeline.tournament_updater import TournamentUpdater, UpdateResult
 from tournament_scheduler.utils.rich_output import TournamentOutput
 
@@ -37,14 +39,15 @@ class UpdateCommand:
 
         # Resolve work directory (used by all operations)
         work_path = Path(work_dir)
-        if not (work_path / "stage3_plan.json").exists():
+        state = PipelineState(str(work_path))
+        plan_path = state.checkpoint_path(StageName.PLANNING)
+        if not plan_path.exists():
             TournamentOutput.print_error(
                 f"Ingen Stage 3-plan funnet i {work_path}/. "
                 f"Kjør pipelinen (--generate-season) forst."
             )
             return
 
-        state = PipelineState(str(work_path))
         updater = TournamentUpdater(state=state)
 
         try:
@@ -161,3 +164,112 @@ class UpdateCommand:
                 TournamentOutput.print_info(f"Logget til: {log_path}")
         else:
             TournamentOutput.print_error(result.summary_nb)
+
+
+class AdjustmentCommand:
+    """Apply manual organizer adjustments and re-export the season plan."""
+
+    def run(
+        self,
+        *,
+        lock_dates: Optional[list[str]] = None,
+        ban_dates: Optional[list[str]] = None,
+        pin_tournaments: Optional[list[str]] = None,
+        force_host_clubs: Optional[list[str]] = None,
+        exclude_host_clubs: Optional[list[str]] = None,
+        work_dir: str = ".pipeline",
+        export_dir: str = "export",
+        timestamped_export: bool = False,
+    ) -> int:
+        TournamentOutput.print_header("MANUELL JUSTERING")
+
+        work_path = Path(work_dir)
+        state = PipelineState(str(work_path))
+        plan_path = state.checkpoint_path(StageName.PLANNING)
+        if not plan_path.exists():
+            TournamentOutput.print_error(
+                f"Ingen Stage 3-plan funnet i {work_path}/. Kjør pipelinen først."
+            )
+            return 1
+
+        updater = TournamentUpdater(state=state)
+        workflow = ManualAdjustmentWorkflow(state=state, updater=updater)
+
+        try:
+            plan = workflow.load_plan()
+        except ValueError as exc:
+            TournamentOutput.print_error(str(exc))
+            return 1
+
+        plan.manual_adjustments = self._merge_adjustments(
+            plan.manual_adjustments,
+            lock_dates=lock_dates,
+            ban_dates=ban_dates,
+            pin_tournaments=pin_tournaments,
+            force_host_clubs=force_host_clubs,
+            exclude_host_clubs=exclude_host_clubs,
+        )
+
+        try:
+            result = workflow.apply(plan)
+        except ValueError as exc:
+            TournamentOutput.print_error(str(exc))
+            return 1
+
+        if not result.success:
+            TournamentOutput.print_error(result.summary_nb)
+            return 1
+
+        updater.write_updated_checkpoint(plan, log_entry=result)
+        log_path = updater.log_update(result)
+
+        TournamentOutput.print_success("Manuelle justeringer brukt!")
+        TournamentOutput.print_info(result.summary_nb)
+        TournamentOutput.print_info(f"Plan oppdatert: {work_path}/stage3_plan.json")
+        if log_path:
+            TournamentOutput.print_info(f"Logget til: {log_path}")
+
+        TournamentOutput.print_info("\nRe-eksporterer...")
+        try:
+            export_result = run_export(
+                state.read_stage(StageName.PLANNING),
+                state=state,
+                export_dir=export_dir,
+                strict=True,
+                timestamped_export=timestamped_export,
+            )
+        except Exception as exc:  # noqa: BLE001
+            TournamentOutput.print_error(f"Eksport feilet: {exc}")
+            return 1
+
+        files = export_result.get("output_files", {})
+        TournamentOutput.print_success(f"{len(files)} fil(er) eksportert")
+        for label, path in files.items():
+            TournamentOutput.print_info(f"  → {path}")
+
+        return 0
+
+    @staticmethod
+    def _merge_adjustments(
+        existing: dict[str, list[str]],
+        *,
+        lock_dates: Optional[list[str]],
+        ban_dates: Optional[list[str]],
+        pin_tournaments: Optional[list[str]],
+        force_host_clubs: Optional[list[str]],
+        exclude_host_clubs: Optional[list[str]],
+    ) -> dict[str, list[str]]:
+        def _append_unique(base: list[str], extra: Optional[list[str]]) -> list[str]:
+            result = list(base)
+            for value in extra or []:
+                if value not in result:
+                    result.append(value)
+            return result
+
+        return {
+            "locked_dates": _append_unique(existing.get("locked_dates", []), lock_dates),
+            "banned_dates": _append_unique(existing.get("banned_dates", []), ban_dates),
+            "pinned_tournament_ids": _append_unique(existing.get("pinned_tournament_ids", []), pin_tournaments),
+            "forced_host_clubs": _append_unique(existing.get("forced_host_clubs", []), force_host_clubs),
+            "excluded_host_clubs": _append_unique(existing.get("excluded_host_clubs", []), exclude_host_clubs),
+        }

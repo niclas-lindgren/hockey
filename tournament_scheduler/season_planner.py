@@ -26,6 +26,7 @@ import math
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
+from tournament_scheduler.club_distances import compute_team_travel_distances
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
     CalendarEvent,
@@ -53,6 +54,18 @@ DEFAULT_MAX_TEAMS_PER_TOURNAMENT = 6
 # per-age-group scheduling is available yet.
 DEFAULT_TOURNAMENT_START_TIME = "09:00"
 
+# Default thresholds for the roster-based fairness gate. These can be
+# overridden via the planner constructor and (optionally) pipeline config.
+DEFAULT_FAIRNESS_THRESHOLDS = {
+    "max_game_count_spread": 2,
+    "max_hosting_deviation": 1,
+    "max_team_travel_km": 250,
+    "min_diversity_score": 0.75,
+    "min_pairwise_matchup_score": 0.75,
+    "min_month_balance_score": 0.75,
+    "max_same_weekend_club_load": 3,
+}
+
 
 class SeasonPlanner:
     """Greedy season-plan builder on top of `TournamentScheduler`."""
@@ -73,6 +86,7 @@ class SeasonPlanner:
         max_hosting_deviation: int = 1,
         max_month_deviation_ratio: float = 0.5,
         events_by_club: Optional[Dict[str, List[CalendarEvent]]] = None,
+        fairness_thresholds: Optional[Dict[str, float]] = None,
     ):
         """Initialize the planner.
 
@@ -116,6 +130,9 @@ class SeasonPlanner:
                 `start_time` (and possibly its host arena, via fallback) is
                 derived from `TournamentScheduler.find_arena_slot_for_date`
                 instead of always using `DEFAULT_TOURNAMENT_START_TIME`.
+            fairness_thresholds: Optional mapping overriding the default
+                roster-based fairness gate thresholds (e.g. max game count
+                spread or minimum diversity score).
         """
         self.scheduler = scheduler
         self.roster = roster
@@ -217,6 +234,9 @@ class SeasonPlanner:
 
         self.max_month_deviation_ratio = max_month_deviation_ratio
         self.events_by_club = events_by_club or {}
+        self.fairness_thresholds = dict(DEFAULT_FAIRNESS_THRESHOLDS)
+        if fairness_thresholds:
+            self.fairness_thresholds.update(fairness_thresholds)
 
         # Fallback-host substitutions made during the most recent
         # `build_plan` run, for surfacing in the rules/decisions report.
@@ -322,6 +342,9 @@ class SeasonPlanner:
         plan.team_last_game_dates = dict(self._team_last_date)
         if self._team_game_counts:
             plan.game_count_spread = max(self._team_game_counts.values()) - min(self._team_game_counts.values())
+
+        # Build the roster-based fairness gate from the final plan scores.
+        plan.fairness_gate = self._build_fairness_gate(plan)
 
         # Scan for club-load violations and record warnings.
         self._scan_club_load_warnings(plan.tournaments)
@@ -484,6 +507,175 @@ class SeasonPlanner:
         Only months exceeding ``max_month_deviation_ratio`` are included.
         """
         return list(self._month_load_warnings)
+
+    def _build_fairness_gate(self, plan: SeasonPlan) -> Dict[str, object]:
+        """Return a structured pass/warn/fail summary for key fairness metrics."""
+        thresholds = self.fairness_thresholds
+        metrics: List[Dict[str, object]] = []
+
+        def add_metric(
+            key: str,
+            label: str,
+            value: float | int,
+            threshold: float | int,
+            *,
+            direction: str,
+            severity: str,
+            detail: str,
+            unit: str = "",
+        ) -> None:
+            if threshold is None:
+                threshold_value = 0.0
+            else:
+                threshold_value = float(threshold)
+            value_float = float(value)
+            if direction == "max":
+                within = value_float <= threshold_value
+                if threshold_value <= 0:
+                    score = 100 if value_float <= 0 else 0
+                elif within:
+                    score = 100
+                else:
+                    score = max(0, int(round(100 * max(0.0, 2 - (value_float / threshold_value)))))
+            else:
+                within = value_float >= threshold_value
+                if threshold_value <= 0:
+                    score = 100 if value_float > 0 else 0
+                elif within:
+                    score = 100
+                else:
+                    score = max(0, int(round(100 * max(0.0, value_float / threshold_value))))
+            status = "pass" if within else ("fail" if severity == "fail" else "warn")
+            metrics.append(
+                {
+                    "key": key,
+                    "label": label,
+                    "value": value,
+                    "threshold": threshold,
+                    "direction": direction,
+                    "severity": severity,
+                    "status": status,
+                    "score": score,
+                    "unit": unit,
+                    "detail": detail,
+                }
+            )
+
+        team_travel = compute_team_travel_distances(plan)
+        max_team_travel = max(team_travel.values()) if team_travel else 0
+
+        club_team_counts: Dict[str, int] = {}
+        for team in self.roster.teams:
+            club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
+        total_teams = sum(club_team_counts.values()) or 1
+        num_tournaments = len(plan.tournaments) or 1
+        hosting_deviation = 0.0
+        hosting_detail = ""
+        actual_hosting: Dict[str, int] = {}
+        for tournament in plan.tournaments:
+            host = tournament.host_club
+            if host:
+                actual_hosting[host] = actual_hosting.get(host, 0) + 1
+        for club in self.roster.clubs():
+            team_count = club_team_counts.get(club, 0)
+            expected = team_count / total_teams * num_tournaments
+            actual = actual_hosting.get(club, 0)
+            deviation = abs(actual - expected)
+            if deviation >= hosting_deviation:
+                hosting_deviation = deviation
+                hosting_detail = f"{club}: {actual} avviker fra forventet ~{expected:.1f}"
+
+        same_weekend_load = 0
+        weekend_loads: Dict[tuple[int, int], Dict[str, int]] = {}
+        for tournament in plan.tournaments:
+            iso_year, iso_week, _ = tournament.date.isocalendar()
+            bucket = weekend_loads.setdefault((iso_year, iso_week), {})
+            for team in tournament.teams:
+                bucket[team.club] = bucket.get(team.club, 0) + 1
+        for loads in weekend_loads.values():
+            if loads:
+                same_weekend_load = max(same_weekend_load, max(loads.values()))
+        weekend_detail = f"maks {same_weekend_load} lag fra samme klubb i samme uke"
+
+        add_metric(
+            "game_count_spread",
+            "Kamper per lag",
+            plan.game_count_spread,
+            thresholds.get("max_game_count_spread", self.max_game_count_spread),
+            direction="max",
+            severity="fail",
+            detail=f"Største gap mellom lag er {plan.game_count_spread} kamper.",
+        )
+        add_metric(
+            "hosting_deviation",
+            "Hjemmebanebelastning",
+            hosting_deviation,
+            thresholds.get("max_hosting_deviation", self.max_hosting_deviation),
+            direction="max",
+            severity="fail",
+            detail=hosting_detail or "Proporsjonal vertskapsfordeling ligger innenfor terskelen.",
+        )
+        add_metric(
+            "travel_distance",
+            "Reisebelastning",
+            max_team_travel,
+            thresholds.get("max_team_travel_km", DEFAULT_FAIRNESS_THRESHOLDS["max_team_travel_km"]),
+            direction="max",
+            severity="warn",
+            detail=f"Lengst reisende lag har {max_team_travel} km total reise.",
+            unit="km",
+        )
+        add_metric(
+            "opponent_diversity",
+            "Motstandervariasjon",
+            plan.diversity_score,
+            thresholds.get("min_diversity_score", DEFAULT_FAIRNESS_THRESHOLDS["min_diversity_score"]),
+            direction="min",
+            severity="warn",
+            detail=f"Snittet av unik motstanderdekning er {plan.diversity_score:.3f}.",
+        )
+        add_metric(
+            "pairwise_matchups",
+            "Nye matchups",
+            plan.pairwise_matchup_score,
+            thresholds.get("min_pairwise_matchup_score", DEFAULT_FAIRNESS_THRESHOLDS["min_pairwise_matchup_score"]),
+            direction="min",
+            severity="warn",
+            detail=f"Andel nye kampoppsett er {plan.pairwise_matchup_score:.3f}.",
+        )
+        add_metric(
+            "month_balance",
+            "Månedsbalanse",
+            plan.month_balance_score,
+            thresholds.get("min_month_balance_score", DEFAULT_FAIRNESS_THRESHOLDS["min_month_balance_score"]),
+            direction="min",
+            severity="warn",
+            detail=f"Månedsbalansen er {plan.month_balance_score:.3f}.",
+        )
+        add_metric(
+            "same_weekend_club_load",
+            "Klubblast per helg",
+            same_weekend_load,
+            thresholds.get("max_same_weekend_club_load", DEFAULT_FAIRNESS_THRESHOLDS["max_same_weekend_club_load"]),
+            direction="max",
+            severity="warn",
+            detail=weekend_detail,
+        )
+
+        statuses = [str(m["status"]) for m in metrics]
+        if "fail" in statuses:
+            overall_status = "fail"
+        elif "warn" in statuses:
+            overall_status = "warn"
+        else:
+            overall_status = "pass"
+        overall_score = int(round(sum(float(m["score"]) for m in metrics) / len(metrics))) if metrics else 100
+        return {
+            "status": overall_status,
+            "score": overall_score,
+            "metrics": metrics,
+            "thresholds": dict(thresholds),
+        }
 
     def _compute_game_counts(self, tournaments: Sequence[Tournament]) -> None:
         """Compute per-team round-robin game counts and last-game dates.

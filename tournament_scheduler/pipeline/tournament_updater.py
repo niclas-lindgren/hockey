@@ -22,6 +22,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from ..club_registry import CLUB_REGISTRY
 from ..models import Game, Roster, SeasonPlan, Team, Tournament
 from ..scheduler import TournamentScheduler
 from ..season_planner import SeasonPlanner
@@ -97,6 +98,7 @@ class TournamentUpdater:
             tournaments=tournaments,
             start_date=_parse_date(plan_data.get("start_date")),
             end_date=_parse_date(plan_data.get("end_date")),
+            manual_adjustments=dict(plan_data.get("manual_adjustments", {})),
         )
         return plan
 
@@ -328,6 +330,46 @@ class TournamentUpdater:
             changes=change_details,
             conflicts=conflicts,
             cascade=cascade_changes,
+            success=True,
+        )
+
+    # ------------------------------------------------------------------
+    # Operation: set host club
+    # ------------------------------------------------------------------
+
+    def set_host_club(
+        self,
+        tournament_id: str,
+        host_club: str,
+        plan: Optional[SeasonPlan] = None,
+    ) -> UpdateResult:
+        """Change a tournament's host club (and arena when known)."""
+        if plan is None:
+            plan = self.load_plan()
+
+        tournament = self.find_tournament(plan, tournament_id)
+        original_host = tournament.host_club
+        original_arena = tournament.arena
+        tournament.host_club = host_club
+
+        arena = self._arena_for_club(host_club)
+        if arena:
+            tournament.arena = arena
+
+        return UpdateResult(
+            summary_nb=(
+                f"Oppdatert host for turnering {tournament_id} ({tournament.age_group})\n"
+                f"  Vertsklubb: {original_host or 'ukjent'} → {host_club}\n"
+                f"  Hall: {original_arena} → {tournament.arena}"
+            ),
+            tournament_id=tournament_id,
+            operation="host_change",
+            changes={
+                "original_host_club": original_host,
+                "new_host_club": host_club,
+                "original_arena": original_arena,
+                "new_arena": tournament.arena,
+            },
             success=True,
         )
 
@@ -602,6 +644,14 @@ class TournamentUpdater:
 
         self.state.write_stage(StageName.PLANNING, checkpoint, status=StageStatus.DONE)
 
+    def persist_update(self, plan: SeasonPlan, result: UpdateResult) -> str:
+        """Persist a modified plan and append its structured log entry.
+
+        Returns the log path written by :meth:`log_update`.
+        """
+        self.write_updated_checkpoint(plan, log_entry=result)
+        return self.log_update(result)
+
     # ------------------------------------------------------------------
     # Logging
     # ------------------------------------------------------------------
@@ -736,6 +786,13 @@ class TournamentUpdater:
         setting when regenerating round-robin schedules.
         """
         return self._infer_parallel_games_from_count(len(tournament.teams))
+
+    @staticmethod
+    def _arena_for_club(club: str) -> Optional[str]:
+        """Return the known home arena for `club`, if available."""
+        entry = CLUB_REGISTRY.get(club)
+        arena = getattr(entry, "arena", None) if entry else None
+        return arena or None
 
     @staticmethod
     def _infer_parallel_games_from_count(team_count: int) -> int:

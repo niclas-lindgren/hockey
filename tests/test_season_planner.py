@@ -1685,3 +1685,59 @@ class TestSlotAwareScheduling:
         # originally-assigned host/arena and the default start time.
         assert planner.fallback_host_substitutions == []
         assert all(t.start_time == DEFAULT_TOURNAMENT_START_TIME for t in plan.tournaments)
+
+
+class TestFairnessGate:
+    """Tests for the structured fairness acceptance gate."""
+
+    def test_fairness_gate_passes_with_lenient_thresholds(self, season_window):
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+        roster = _build_roster(["Jar", "Holmen", "Kongsberg"], ["U10", "U11"])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={club: f"{club}hallen" for club in roster.clubs()},
+            parallel_games_for_age_group={"U10": 3, "U11": 3},
+            fairness_thresholds={
+                "max_game_count_spread": 999,
+                "max_hosting_deviation": 999,
+                "max_team_travel_km": 9999,
+                "min_diversity_score": 0.0,
+                "min_pairwise_matchup_score": 0.0,
+                "min_month_balance_score": 0.0,
+                "max_same_weekend_club_load": 999,
+            },
+        )
+        plan = planner.build_plan(start, end)
+        gate = plan.fairness_gate
+
+        assert gate["status"] == "pass"
+        assert gate["score"] == 100
+        assert gate["metrics"]
+        assert all(metric["status"] == "pass" for metric in gate["metrics"])
+
+    def test_fairness_gate_flags_skew_with_tight_thresholds(self, season_window):
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+        roster = _build_roster(["Jar", "Holmen", "Kongsberg"], ["U10"])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={club: f"{club}hallen" for club in roster.clubs()},
+            parallel_games_for_age_group={"U10": 3},
+            fairness_thresholds={
+                "max_game_count_spread": -1,
+                "max_hosting_deviation": -1,
+                "max_team_travel_km": 0,
+                "min_diversity_score": 1.0,
+                "min_pairwise_matchup_score": 1.0,
+                "min_month_balance_score": 1.0,
+                "max_same_weekend_club_load": 0,
+            },
+        )
+        plan = planner.build_plan(start, end)
+        gate = plan.fairness_gate
+
+        assert gate["status"] in {"warn", "fail"}
+        assert any(metric["status"] == "fail" for metric in gate["metrics"])

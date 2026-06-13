@@ -120,6 +120,7 @@ class SpondExporter:
         plan: SeasonPlan,
         output_path: str,
         *,
+        club: str | None = None,
         round_length_for_age_group: Optional[dict[str, int]] = None,
     ) -> str:
         """Build a printable workbook with one game-schedule sheet per tournament."""
@@ -128,7 +129,7 @@ class SpondExporter:
 
         round_length_for_age_group = round_length_for_age_group or {}
         used_titles: set[str] = set()
-        tournaments = sorted(plan.tournaments, key=lambda t: t.date)
+        tournaments = self._tournaments_for_club(plan, club)
 
         if not tournaments:
             sheet = wb.create_sheet(title="Kamper")
@@ -312,6 +313,13 @@ class SpondExporter:
         if not rows:
             rows.append(self._summary_row_for_tournament(tournament, round_length_for_age_group))
         return rows
+
+    @staticmethod
+    def _tournaments_for_club(plan: SeasonPlan, club: str | None) -> list[Tournament]:
+        tournaments = sorted(plan.tournaments, key=lambda t: t.date)
+        if not club:
+            return tournaments
+        return [t for t in tournaments if any(team.club == club for team in t.teams)]
 
     @staticmethod
     def _join_unique(values: Iterable[str]) -> str:

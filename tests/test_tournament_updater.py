@@ -302,6 +302,13 @@ class TestCheckpointRoundTrip:
     ):
         """After a drop_team, writing the checkpoint and re-reading should preserve the change."""
         plan = SeasonPlan(tournaments=[six_team_tournament])
+        plan.manual_adjustments = {
+            "locked_dates": ["2027-01-16"],
+            "banned_dates": ["2027-03-14"],
+            "forced_host_clubs": ["Jar"],
+            "excluded_host_clubs": ["Skien"],
+            "pinned_tournament_ids": [six_team_tournament.id],
+        }
         state = make_state_with_plan(plan, tmp_path)
         updater = TournamentUpdater(state=state)
         tid = six_team_tournament.id
@@ -320,6 +327,8 @@ class TestCheckpointRoundTrip:
         assert len(plan2.tournaments[0].teams) == 5
         assert "Jar 1" not in {t.label for t in plan2.tournaments[0].teams}
         assert len(plan2.tournaments[0].games) == 10
+        assert plan2.manual_adjustments["locked_dates"] == ["2027-01-16"]
+        assert plan2.manual_adjustments["pinned_tournament_ids"] == [six_team_tournament.id]
 
     def test_log_update_writes_jsonl_entry(self, six_team_tournament: Tournament, tmp_path: Any):
         """log_update should append a JSONL entry to the pipeline logs directory."""

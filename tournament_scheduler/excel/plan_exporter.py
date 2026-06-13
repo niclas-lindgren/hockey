@@ -38,6 +38,7 @@ _OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "L
 _GAMES_HEADERS = ["Runde", "Hjemmelag", "Bortelag", "Parallellbane"]
 _CLUB_SUMMARY_HEADERS = ["Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena"]
 _RULES_HEADERS = ["Regel", "Forklaring", "Kategori"]
+_FAIRNESS_HEADERS = ["Metrikk", "Verdi", "Terskel", "Score", "Status", "Detalj"]
 
 # Club worksheet titles are prefixed to distinguish them from tournament
 # sheets and to keep them grouped together when sorted alphabetically.
@@ -86,6 +87,11 @@ class SeasonPlanExporter:
             rules_sheet = self.workbook.create_sheet(title="Regler og avgjørelser")
             used_titles.add(rules_sheet.title)
             self._write_rules_sheet(rules_sheet, rules_report)
+
+        if plan.fairness_gate:
+            fairness_sheet = self.workbook.create_sheet(title="Rettferdighet")
+            used_titles.add(fairness_sheet.title)
+            self._write_fairness_sheet(fairness_sheet, plan.fairness_gate)
 
         for index, tournament in enumerate(plan.tournaments, start=1):
             sheet = self.workbook.create_sheet(title=self._unique_sheet_title(tournament, index, used_titles))
@@ -158,6 +164,49 @@ class SeasonPlanExporter:
                 rule.get("forklaring", ""),
                 rule.get("kategori", ""),
             ])
+
+        self._autosize_columns(sheet)
+
+    # ------------------------------------------------------------------
+    # Fairness gate sheet
+    # ------------------------------------------------------------------
+
+    def _write_fairness_sheet(self, sheet: Worksheet, fairness_gate: dict) -> None:
+        sheet.append(["Overordnet status", fairness_gate.get("status", ""), "", fairness_gate.get("score", ""), "", ""])
+        sheet.append([])
+        sheet.append(_FAIRNESS_HEADERS)
+        header_row_index = sheet.max_row
+        for cell in sheet[header_row_index]:
+            cell.font = cell.font.copy(bold=True)
+
+        _status_fills = {
+            "pass": PatternFill(start_color="D9F99D", end_color="D9F99D", fill_type="solid"),
+            "warn": PatternFill(start_color="FDE68A", end_color="FDE68A", fill_type="solid"),
+            "fail": PatternFill(start_color="FCA5A5", end_color="FCA5A5", fill_type="solid"),
+        }
+
+        metrics = fairness_gate.get("metrics", []) if isinstance(fairness_gate, dict) else []
+        for metric in metrics:
+            unit = metric.get("unit", "")
+            value = metric.get("value", "")
+            threshold = metric.get("threshold", "")
+            if unit and value != "":
+                value = f"{value} {unit}"
+            if unit and threshold != "":
+                threshold = f"{threshold} {unit}"
+            sheet.append([
+                metric.get("label", ""),
+                value,
+                threshold,
+                metric.get("score", ""),
+                str(metric.get("status", "")).upper(),
+                metric.get("detail", ""),
+            ])
+            status = str(metric.get("status", "")).lower()
+            fill = _status_fills.get(status)
+            if fill:
+                for cell in sheet[sheet.max_row]:
+                    cell.fill = fill
 
         self._autosize_columns(sheet)
 

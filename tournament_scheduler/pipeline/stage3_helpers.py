@@ -43,7 +43,7 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
             d["cancellation_reason"] = t.cancellation_reason
         return d
 
-    return {
+    checkpoint = {
         "start_date": plan.start_date.isoformat() if plan.start_date else None,
         "end_date": plan.end_date.isoformat() if plan.end_date else None,
         "diversity_score": plan.diversity_score,
@@ -52,11 +52,15 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
         "arena_counts": plan.arena_counts,
         "team_game_counts": dict(plan.team_game_counts),
         "game_count_spread": plan.game_count_spread,
+        "fairness_gate": plan.fairness_gate,
         "team_last_game_dates": {
             k: v.isoformat() for k, v in plan.team_last_game_dates.items()
         },
         "tournaments": [_tournament_to_dict(t) for t in plan.tournaments],
     }
+    if plan.manual_adjustments:
+        checkpoint["manual_adjustments"] = plan.manual_adjustments
+    return checkpoint
 
 
 # ---------------------------------------------------------------------------
@@ -138,6 +142,7 @@ def _make_planner(
     max_hosting_deviation: int = 1,
     round_length_config: dict[str, int] | None = None,
     events_by_club: dict[str, list[CalendarEvent]] | None = None,
+    fairness_thresholds: dict[str, float] | None = None,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner`."""
     from ..scheduler import TournamentScheduler
@@ -158,6 +163,7 @@ def _make_planner(
         division_skill_band=division_skill_band,
         max_hosting_deviation=max_hosting_deviation,
         events_by_club=events_by_club or None,
+        fairness_thresholds=fairness_thresholds or None,
     )
 
 

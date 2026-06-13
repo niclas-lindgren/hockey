@@ -378,7 +378,7 @@ export default function piNextExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "pi_next_quality_gate",
     label: "Pi Next Quality Gate",
-    description: "Run standard project quality checks such as typecheck, lint, tests, and build.",
+    description: "Run project quality checks using the repo-appropriate toolchain (Python or Node) such as typecheck, lint, tests, and build.",
     promptSnippet: "Run pi-next quality gates before task completion or archive",
     promptGuidelines: ["Use pi_next_quality_gate before marking substantial pi-next tasks done and before archiving."],
     parameters: Type.Object({
@@ -386,12 +386,27 @@ export default function piNextExtension(pi: ExtensionAPI) {
     }),
     async execute(_toolCallId, params, _signal, onUpdate, ctx) {
       const pkgFile = join(ctx.cwd, "package.json");
+      const pyProjectFile = join(ctx.cwd, "pyproject.toml");
+      const pytestFile = join(ctx.cwd, "pytest.ini");
       const pkg = existsSync(pkgFile) ? JSON.parse(readFileSync(pkgFile, "utf8")) as { scripts?: Record<string, string> } : {};
       const scripts = pkg.scripts ?? {};
       const level = params.level ?? "standard";
-      const wanted = level === "quick" ? ["typecheck", "lint"] : level === "full" ? ["typecheck", "lint", "test", "build"] : ["typecheck", "lint", "test"];
-      const commands = wanted.filter((script) => scripts[script]).map((script) => `npm run ${script}`);
-      if (commands.length === 0) commands.push("npm test");
+      const notes: string[] = [];
+      let commands: string[] = [];
+
+      if (existsSync(pkgFile)) {
+        const wanted = level === "quick" ? ["typecheck", "lint"] : level === "full" ? ["typecheck", "lint", "test", "build"] : ["typecheck", "lint", "test"];
+        commands = wanted.filter((script) => scripts[script]).map((script) => `npm run ${script}`);
+        if (commands.length === 0) commands.push("npm test");
+      } else if (existsSync(pyProjectFile) || existsSync(pytestFile)) {
+        notes.push("Python repo detected; package.json is absent so npm checks were skipped.");
+        commands = level === "full"
+          ? ["python3 -m pytest -q", "python3 -m compileall tournament_scheduler tests"]
+          : ["python3 -m pytest -q"];
+      } else {
+        notes.push("No package.json or Python test config found; falling back to npm test.");
+        commands = ["npm test"];
+      }
 
       const results: Array<{ command: string; ok: boolean; output: string }> = [];
       for (const command of commands) {
@@ -406,7 +421,7 @@ export default function piNextExtension(pi: ExtensionAPI) {
         }
       }
       const ok = results.every((r) => r.ok);
-      const text = [`STATUS: ${ok ? "PASS" : "FAIL"}`, ...results.map((r) => `\n## ${r.command}\n${r.ok ? "PASS" : "FAIL"}\n${r.output}`)].join("\n");
+      const text = [`STATUS: ${ok ? "PASS" : "FAIL"}`, ...notes.map((note) => `NOTE: ${note}`), ...results.map((r) => `\n## ${r.command}\n${r.ok ? "PASS" : "FAIL"}\n${r.output}`)].join("\n");
       return { content: [{ type: "text", text }], details: { ok, level, results } };
     },
   });

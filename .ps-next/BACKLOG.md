@@ -2,13 +2,13 @@
 
 ## Open
 
-- [69] [ ] Implement a season fairness acceptance gate using real roster data: fail or warn clearly when per-team games, home/away hosting burden, travel distance, opponent diversity, month spread, and same-weekend multi-team club load exceed configured thresholds; expose the scores in Excel/HTML and tests.
-
-- [70] [ ] Add a manual organizer adjustment loop for the final season plan: let the organizer lock/ban dates, force or exclude host clubs, pin specific tournament events, then re-run planning while preserving locks and rechecking fairness/conflicts before export.
-
 - [71] [ ] Add club review/approval exports: generate per-club review packets showing only that club's proposed Spond events, home-hosting duties, travel, and game schedule attachments, with an accept/change-request workflow that can feed back into replanning.
 
 ## Done
+- [70] [x] Add a manual organizer adjustment loop for the final season plan: let the organizer lock/ban dates, force or exclude host clubs, pin specific tournament events, then re-run planning while preserving locks and rechecking fairness/conflicts before export. (2026-06-13)
+
+- [69] [x] Implement a season fairness acceptance gate using real roster data: fail or warn clearly when per-team games, home/away hosting burden, travel distance, opponent diversity, month spread, and same-weekend multi-team club load exceed configured thresholds; expose the scores in Excel/HTML and tests. (2026-06-13)
+
 - [76] [x] Review and fix scraping cache reuse so the pipeline does not re-scrape sources on every run when cached data is still valid. (2026-06-13)
 
 - [77] [x] Align pi-next with the updated PS:next skill in /Users/niclasl/src/PS_claude-skills: decide whether pi-next should stay a thin proxy over shared PS:next behavior rather than reimplementing the same functionality, and document the intended boundary for future cleanup. (2026-06-13)

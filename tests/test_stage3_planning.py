@@ -8,7 +8,7 @@ from tournament_scheduler.pipeline.stage3_planning import (
     _plan_to_dict,
     run,
 )
-from tournament_scheduler.pipeline.state import PipelineState, StageName
+from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
 
 
 def _make_config():
@@ -80,6 +80,30 @@ class TestRunStage3:
             datetime(2025, 9, 1), datetime(2025, 12, 15),
         )
         assert state.is_done(StageName.PLANNING)
+
+    def test_preserves_manual_adjustments_from_previous_checkpoint(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        first = run(
+            _make_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+        )
+        checkpoint = dict(first)
+        checkpoint["plan"] = dict(first["plan"])
+        checkpoint["plan"]["manual_adjustments"] = {
+            "locked_dates": ["2025-10-05"],
+            "pinned_tournament_ids": ["abc12345"],
+        }
+        state.write_stage(StageName.PLANNING, checkpoint, status=StageStatus.DONE)
+
+        second = run(
+            _make_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+        )
+
+        assert second["plan"]["manual_adjustments"]["locked_dates"] == ["2025-10-05"]
+        assert second["plan"]["manual_adjustments"]["pinned_tournament_ids"] == ["abc12345"]
 
 
 class TestPlanToDict:
