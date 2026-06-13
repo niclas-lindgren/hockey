@@ -1,6 +1,7 @@
 # Backlog
 
 ## Open
+- [79] [ ] Remove the planner’s same-club matchup filter so same-club games can be scheduled when needed.
 
 ## Done
 - [78] [x] Remove the separate maximum participating teams limit and derive capacity from the number of parallel matches; Handle odd team counts below the calculated expected teams by assigning one team to rest (2026-06-13)

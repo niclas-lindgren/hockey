@@ -113,8 +113,9 @@ class SeasonPlanner:
                 affects selection.
             max_club_teams_per_tournament: Hard constraint on how many teams
                 from the same club can be invited to a single tournament.
-                Default 1 — at most one team per club per tournament,
-                guaranteeing no intra-club matchups.
+                Default 1 — at most one team per club per tournament unless
+                the proportional allowance or other overrides permit more,
+                which means same-club matchups can occur when needed.
             division_skill_band: Maximum skill-level difference treated as
                 "adjacent" for the skill-division penalty in participant
                 selection. Default 2 means levels 3 and 5 are adjacent but
@@ -1815,7 +1816,7 @@ class SeasonPlanner:
         once), and within each round games are assigned to `parallel_slot`
         indices so that up to `parallel_games` games run concurrently.
 
-        When same-club pairings are filtered out, the surviving games are
+        When the generated game list is sparse, the surviving games are
         repacked into the smallest possible number of balanced rounds so the
         exported plan stays easy to read.
 
@@ -1854,10 +1855,6 @@ class SeasonPlanner:
                 away = rotation[slot_count - 1 - i]
                 if home is None or away is None:
                     continue  # bye — this team sits out this round
-                # Safety filter: skip intra-club matchups (belt-and-suspenders
-                # guard alongside the hard constraint in participant selection).
-                if home is not None and away is not None and home.club == away.club:
-                    continue
                 round_pairs.append((home, away))
 
             # Alternate home/away across rounds for a fairer split.
@@ -1890,8 +1887,8 @@ class SeasonPlanner:
         """Pack games into the smallest balanced set of rounds possible.
 
         The circle method yields a valid round structure when all pairings are
-        kept. When same-club pairings are filtered out, the remaining games can
-        become lumpy; this helper reassigns them to rounds so that:
+        kept. When the generated game list becomes lumpy for any reason,
+        this helper reassigns games to rounds so that:
 
         - no team appears twice in the same round,
         - no round exceeds ``parallel_games`` games, and
@@ -2099,9 +2096,7 @@ class SeasonPlanner:
         appears in at least one pair recorded in `_opponent_history`), count
         its distinct opponents so far and divide by the number of "available
         opponents" — other teams in the same age group, excluding teams from
-        its own club (intra-club matchups are filtered out by
-        `generate_round_robin_games`, so they never occur regardless of how
-        many same-club teams share a tournament).
+        its own club.
 
         The overall score is the average of these per-team ratios, rounded
         to 3 decimals (1.0 = every team has played every eligible opponent

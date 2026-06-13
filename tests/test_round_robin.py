@@ -121,7 +121,7 @@ class TestRoundRobinGenerator:
                 f"n={n}: expected {_expected_min_rounds(n, 10)} rounds, got {len(rounds)}"
             )
 
-    def test_balances_rounds_when_same_club_pairings_are_filtered(self):
+    def test_balances_rounds_when_same_club_pairings_are_allowed(self):
         teams = [
             Team(club="Jar", label="Jar1", age_group="U10"),
             Team(club="Jar", label="Jar2", age_group="U10"),
@@ -137,7 +137,14 @@ class TestRoundRobinGenerator:
             rounds.setdefault(game.round_number, []).append(game)
 
         assert len(rounds) == 5
-        assert sorted(len(round_games) for round_games in rounds.values()) == [2, 2, 2, 2, 3]
+        assert sorted(len(round_games) for round_games in rounds.values()) == [3, 3, 3, 3, 3]
+
+        seen_pairs = {frozenset((game.home.label, game.away.label)) for game in games}
+        assert frozenset(("Jar1", "Jar2")) in seen_pairs
+        assert frozenset(("Jar1", "Jar3")) in seen_pairs
+        assert frozenset(("Jar2", "Jar3")) in seen_pairs
+        assert frozenset(("Frisk1", "Frisk2")) in seen_pairs
+
         for round_games in rounds.values():
             seen = set()
             for game in round_games:
