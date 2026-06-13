@@ -1,7 +1,8 @@
 # Verification Report
 
-STATUS: NEEDS_REVIEW
+STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `input.json` no longer points at `documentation/input.json`, and stage 1 accepts the file as a self-contained config. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The pi-next skill file contains an explicit thin-proxy/boundary note that distinguishes shared PS:next behavior from local project-specific glue. | PASS | See `.agents/skills/pi-next/SKILL.md` boundary section. |
+| `pytest tests/test_pi_next_skill_boundary.py` passes. | PASS | `pytest -q tests/test_pi_next_backlog_scripts.py tests/test_pi_next_skill_boundary.py` → 5 passed. |
