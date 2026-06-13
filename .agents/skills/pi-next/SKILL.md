@@ -1,11 +1,11 @@
 ---
 name: pi-next
-description: Autonomous Pi workflow driver for projects that use .ps-next task lists. Reads .ps-next/PROJECT.md, BACKLOG.md, PLAN.md, and HISTORY.md; selects the next backlog item or a requested item; writes an implementation plan; executes tasks one-by-one; verifies acceptance criteria; archives completed plans and marks backlog items done. Use with /skill:pi-next, /skill:pi-next auto, /skill:pi-next <backlog-id>, /skill:pi-next plan <feature>, or /skill:pi-next backlog list/add/done.
+description: Thin project-local proxy for PS:next workflow on projects that use .ps-next task lists. Reads .ps-next/PROJECT.md, BACKLOG.md, PLAN.md, and HISTORY.md; selects the next backlog item or a requested item; writes an implementation plan; executes tasks one-by-one; verifies acceptance criteria; archives completed plans and marks backlog items done. Use with /skill:pi-next, /skill:pi-next auto, /skill:pi-next <backlog-id>, /skill:pi-next plan <feature>, or /skill:pi-next backlog list/add/done.
 ---
 
 # pi-next — autonomous .ps-next task runner for Pi
 
-You are running inside Pi, not Claude Code. This skill ports the PS:next workflow to Pi's available tools (`read`, `bash`, `edit`, `write`) and the local `.ps-next` task list.
+You are running inside Pi, not Claude Code. This skill is a thin project-local proxy over the shared PS:next workflow: it keeps the project-specific `.ps-next` state, backlog, and lock helpers here, while the canonical planning/routing/verification/archive behavior lives in the shared PS:next skill and shell scripts.
 
 ## Core rule
 
@@ -51,6 +51,12 @@ When the extension is loaded, prefer its tools for state/backlog/task/archive op
 - `pi_next_archive` — archive completed PLAN.md
 
 If this skill is installed outside the project, resolve helper paths relative to this SKILL.md's directory.
+
+## Boundary / cleanup target
+
+- Keep local logic limited to project state access, backlog manipulation, locking, and handoff safety.
+- Prefer syncing or delegating to the shared PS:next workflow for plan routing, task execution, verification, and archive semantics.
+- Do not duplicate the shared PS:next protocol or reimplement its lifecycle locally unless the shared contract cannot cover the project.
 
 ## Arguments
 
