@@ -27,6 +27,7 @@ from ..csv.csv_exporter import CsvExporter
 from ..html.html_exporter import HtmlExporter
 from ..review.review_packet_exporter import ReviewPacketExporter
 from ..spond.spond_exporter import SpondExporter
+from .stage1_config import load_effective_config
 from .state import PipelineState, StageName, StageStatus
 from .stage4_helpers import _dict_to_plan
 # ---------------------------------------------------------------------------
@@ -103,13 +104,18 @@ def run(
 
     errors: list[str] = []
     output_files: dict[str, str] = {}
-    round_length_for_age_group: dict[str, int] = {}
+    effective_config: dict[str, Any] = {}
     try:
-        config_ckpt = state.read_stage(StageName.CONFIG)
-        if isinstance(config_ckpt, dict):
-            round_length_for_age_group = dict(config_ckpt.get("round_length_minutes", {}))
+        effective_config = load_effective_config(state)
     except Exception:
-        pass
+        effective_config = {}
+    round_length_for_age_group: dict[str, int] = dict(effective_config.get("round_length_minutes", {}))
+    configured_age_groups = list(
+        dict.fromkeys(
+            effective_config.get("age_groups", [])
+            or sorted({t.age_group for t in plan.tournaments})
+        )
+    )
 
     # --- Excel ---
     try:
@@ -155,7 +161,10 @@ def run(
                 pipeline_meta["source_count"] = len(sources)
                 pipeline_meta["total_events"] = sum(s.get("event_count", 0) for s in sources)
                 pipeline_meta["blocked"] = scraping_ckpt.get("blocked", [])
-                pipeline_meta["date_range"] = f"{cfg.get('start_date','')} &ndash; {cfg.get('end_date','')}"
+                pipeline_meta["date_range"] = (
+                    f"{effective_config.get('start_date', '')} &ndash; {effective_config.get('end_date', '')}"
+                )
+                pipeline_meta["age_groups"] = configured_age_groups
                 updated = scraping_ckpt.get("updated_at", "")
                 if updated:
                     from datetime import datetime as _dt
@@ -178,7 +187,14 @@ def run(
             meta = ScrapedDataCache(state.work_dir).read().get("_meta")
         except Exception:
             pass
-        HtmlExporter().export(plan, html_path, meta=meta, output_files=output_files, pipeline_meta=pipeline_meta)
+        HtmlExporter().export(
+            plan,
+            html_path,
+            meta=meta,
+            output_files=output_files,
+            pipeline_meta=pipeline_meta,
+            age_groups=configured_age_groups,
+        )
         output_files["html"] = html_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"HTML-eksport feilet: {exc}")
@@ -216,20 +232,6 @@ def run(
         output_files["review_packets"] = str(review_dir)
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Review-pakker feilet: {exc}")
-
-    # --- Copy to flat directory for convenience ---
-    if timestamped_export:
-        import shutil
-        for label, path in list(output_files.items()):
-            try:
-                src = Path(path)
-                if not src.is_file():
-                    continue
-                flat_path = export_path / src.name
-                shutil.copy2(src, flat_path)
-                output_files[f"{label}_flat"] = str(flat_path)
-            except Exception as exc:
-                errors.append(f"Kopiering til flat katalog feilet ({label}): {exc}")
 
     checkpoint: dict[str, Any] = {
         "output_files": output_files,

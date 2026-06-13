@@ -120,3 +120,54 @@ class TestRoundRobinGenerator:
             assert len(rounds) == _expected_min_rounds(n, parallel_games=10), (
                 f"n={n}: expected {_expected_min_rounds(n, 10)} rounds, got {len(rounds)}"
             )
+
+    def test_balances_rounds_when_same_club_pairings_are_filtered(self):
+        teams = [
+            Team(club="Jar", label="Jar1", age_group="U10"),
+            Team(club="Jar", label="Jar2", age_group="U10"),
+            Team(club="Jar", label="Jar3", age_group="U10"),
+            Team(club="Frisk Asker", label="Frisk1", age_group="U10"),
+            Team(club="Frisk Asker", label="Frisk2", age_group="U10"),
+            Team(club="Sandefjord", label="Sandefjord1", age_group="U10"),
+        ]
+
+        games = SeasonPlanner.generate_round_robin_games(teams, parallel_games=3)
+        rounds = {}
+        for game in games:
+            rounds.setdefault(game.round_number, []).append(game)
+
+        assert len(rounds) == 5
+        assert sorted(len(round_games) for round_games in rounds.values()) == [2, 2, 2, 2, 3]
+        for round_games in rounds.values():
+            seen = set()
+            for game in round_games:
+                assert game.home.label not in seen
+                assert game.away.label not in seen
+                seen.add(game.home.label)
+                seen.add(game.away.label)
+
+    def test_three_parallel_games_and_six_teams_make_five_full_rounds(self):
+        teams = [
+            Team(club="ClubA", label="ClubA 1", age_group="U10"),
+            Team(club="ClubB", label="ClubB 1", age_group="U10"),
+            Team(club="ClubC", label="ClubC 1", age_group="U10"),
+            Team(club="ClubD", label="ClubD 1", age_group="U10"),
+            Team(club="ClubE", label="ClubE 1", age_group="U10"),
+            Team(club="ClubF", label="ClubF 1", age_group="U10"),
+        ]
+
+        games = SeasonPlanner.generate_round_robin_games(teams, parallel_games=3)
+        rounds = {}
+        for game in games:
+            rounds.setdefault(game.round_number, []).append(game)
+
+        assert len(rounds) == 5
+        assert all(len(round_games) == 3 for round_games in rounds.values())
+        assert len(games) == 15
+        for round_games in rounds.values():
+            seen = set()
+            for game in round_games:
+                assert game.home.label not in seen
+                assert game.away.label not in seen
+                seen.add(game.home.label)
+                seen.add(game.away.label)

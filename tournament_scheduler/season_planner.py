@@ -1815,6 +1815,10 @@ class SeasonPlanner:
         once), and within each round games are assigned to `parallel_slot`
         indices so that up to `parallel_games` games run concurrently.
 
+        When same-club pairings are filtered out, the surviving games are
+        repacked into the smallest possible number of balanced rounds so the
+        exported plan stays easy to read.
+
         Args:
             teams: The participating teams (all the same age group).
             parallel_games: Max number of games that can run concurrently.
@@ -1873,7 +1877,204 @@ class SeasonPlanner:
             # Rotate all but the first fixed element (standard circle method).
             rotation = [rotation[0]] + [rotation[-1]] + rotation[1:-1]
 
-        return games
+        round_sizes: dict[int, int] = {}
+        for game in games:
+            round_sizes[game.round_number] = round_sizes.get(game.round_number, 0) + 1
+        expected_round_size = n // 2
+        if round_sizes and all(count == expected_round_size for count in round_sizes.values()):
+            return games
+        return SeasonPlanner._rebalance_rounds(games, parallel_games)
+
+    @staticmethod
+    def _rebalance_rounds(games: Sequence[Game], parallel_games: int) -> List[Game]:
+        """Pack games into the smallest balanced set of rounds possible.
+
+        The circle method yields a valid round structure when all pairings are
+        kept. When same-club pairings are filtered out, the remaining games can
+        become lumpy; this helper reassigns them to rounds so that:
+
+        - no team appears twice in the same round,
+        - no round exceeds ``parallel_games`` games, and
+        - the round counts stay as even as the constraints allow.
+        """
+        if not games:
+            return []
+
+        parallel_games = max(1, parallel_games)
+
+        team_degree: dict[str, int] = {}
+        for game in games:
+            team_degree[game.home.label] = team_degree.get(game.home.label, 0) + 1
+            team_degree[game.away.label] = team_degree.get(game.away.label, 0) + 1
+
+        max_team_games = max(team_degree.values(), default=0)
+        required_rounds = max(max_team_games, math.ceil(len(games) / parallel_games))
+        required_rounds = max(1, required_rounds)
+
+        base_size, remainder = divmod(len(games), required_rounds)
+        ideal_sizes = [base_size + (1 if i < remainder else 0) for i in range(required_rounds)]
+
+        def _target_candidates() -> list[list[int]]:
+            candidates: list[list[int]] = []
+
+            def build(prefix: list[int], remaining: int, max_next: int, rounds_left: int) -> None:
+                if rounds_left == 0:
+                    if remaining == 0:
+                        candidates.append(prefix[:])
+                    return
+
+                if remaining < rounds_left or remaining > rounds_left * parallel_games:
+                    return
+
+                upper = min(max_next, remaining - (rounds_left - 1))
+                lower = max(1, math.ceil(remaining / rounds_left))
+                for size in range(upper, lower - 1, -1):
+                    prefix.append(size)
+                    build(prefix, remaining - size, size, rounds_left - 1)
+                    prefix.pop()
+
+            build([], len(games), parallel_games, required_rounds)
+            if not candidates:
+                candidates.append(ideal_sizes)
+
+            average = len(games) / required_rounds
+            candidates.sort(
+                key=lambda sizes: (
+                    max(sizes) - min(sizes),
+                    sum((size - average) ** 2 for size in sizes),
+                    tuple(-size for size in sizes),
+                )
+            )
+            return candidates
+
+        ordered = list(enumerate(games))
+        ordered.sort(
+            key=lambda item: (
+                -(team_degree[item[1].home.label] + team_degree[item[1].away.label]),
+                item[1].round_number or 0,
+                item[1].home.label,
+                item[1].away.label,
+                item[0],
+            )
+        )
+
+        round_games: list[list[tuple[int, Game]]] = []
+        round_teams: list[set[str]] = []
+        round_counts: list[int] = []
+
+        def try_targets(target_sizes: list[int]) -> bool:
+            nonlocal round_games, round_teams, round_counts
+            round_games = [[] for _ in range(required_rounds)]
+            round_teams = [set() for _ in range(required_rounds)]
+            round_counts = [0 for _ in range(required_rounds)]
+
+            def backtrack(index: int) -> bool:
+                if index >= len(ordered):
+                    return True
+
+                remaining_slots = sum(target_sizes[r] - round_counts[r] for r in range(required_rounds))
+                if remaining_slots < len(ordered) - index:
+                    return False
+
+                original_index, game = ordered[index]
+                candidate_rounds = [
+                    r for r in range(required_rounds)
+                    if round_counts[r] < target_sizes[r]
+                    and game.home.label not in round_teams[r]
+                    and game.away.label not in round_teams[r]
+                ]
+                candidate_rounds.sort(key=lambda r: (round_counts[r], r))
+
+                for round_index in candidate_rounds:
+                    round_games[round_index].append((original_index, game))
+                    round_counts[round_index] += 1
+                    round_teams[round_index].update({game.home.label, game.away.label})
+
+                    if backtrack(index + 1):
+                        return True
+
+                    round_games[round_index].pop()
+                    round_counts[round_index] -= 1
+                    round_teams[round_index].discard(game.home.label)
+                    round_teams[round_index].discard(game.away.label)
+
+                return False
+
+            return backtrack(0)
+
+        solved = False
+        for target_sizes in _target_candidates():
+            if try_targets(target_sizes):
+                solved = True
+                break
+
+        if not solved:
+            return games
+
+
+        rebased: List[Game] = []
+        for round_index, games_in_round in enumerate(round_games, start=1):
+            games_in_round.sort(
+                key=lambda item: (
+                    item[1].round_number or 0,
+                    item[0],
+                    item[1].home.label,
+                    item[1].away.label,
+                )
+            )
+            for slot_index, (_, game) in enumerate(games_in_round):
+                game.round_number = round_index
+                game.parallel_slot = slot_index % parallel_games
+                rebased.append(game)
+        return rebased
+
+    @staticmethod
+    def _best_round_subset(
+        candidates: Sequence[tuple[int, Game]],
+        parallel_games: int,
+    ) -> list[tuple[int, Game]]:
+        """Return the largest compatible subset of games for one round."""
+        limit = max(1, parallel_games)
+        ordered = list(candidates)
+        best: list[tuple[int, Game]] = []
+        best_signature: tuple[int, ...] | None = None
+
+        def signature(selection: list[tuple[int, Game]]) -> tuple[int, ...]:
+            return tuple(index for index, _ in selection)
+
+        def consider(selection: list[tuple[int, Game]]) -> None:
+            nonlocal best, best_signature
+            current_signature = signature(selection)
+            if len(selection) > len(best):
+                best = selection[:]
+                best_signature = current_signature
+            elif len(selection) == len(best):
+                if best_signature is None or current_signature < best_signature:
+                    best = selection[:]
+                    best_signature = current_signature
+
+        def backtrack(index: int, chosen: list[tuple[int, Game]], used_teams: set[str]) -> None:
+            consider(chosen)
+
+            if index >= len(ordered) or len(chosen) >= limit:
+                return
+            if len(chosen) + (len(ordered) - index) <= len(best):
+                return
+
+            # Skip the current candidate.
+            backtrack(index + 1, chosen, used_teams)
+
+            # Or include it when it doesn't collide with the teams already
+            # chosen for this round.
+            original_index, game = ordered[index]
+            if game.home.label in used_teams or game.away.label in used_teams:
+                return
+            chosen.append((original_index, game))
+            backtrack(index + 1, chosen, used_teams | {game.home.label, game.away.label})
+            chosen.pop()
+
+        backtrack(0, [], set())
+        return best
 
     # ------------------------------------------------------------------
     # Plan metadata helpers

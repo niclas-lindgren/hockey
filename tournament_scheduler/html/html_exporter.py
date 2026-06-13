@@ -74,6 +74,7 @@ class HtmlExporter:
         output_files: dict[str, str] | None = None,
         pipeline_meta: dict[str, Any] | None = None,
         round_length_for_age_group: dict[str, int] | None = None,
+        age_groups: list[str] | None = None,
     ) -> str:
         """Write an interactive HTML overview to *path*, return the path.
 
@@ -229,10 +230,10 @@ class HtmlExporter:
         all_clubs_json = json.dumps(all_clubs_list, ensure_ascii=False)
 
         season_label = _season_label(plan)
-        age_groups = sorted({t.age_group for t in plan.tournaments})
+        display_age_groups = list(dict.fromkeys(age_groups or sorted({t.age_group for t in plan.tournaments})))
         age_group_options = "".join(
             f'<option value="{ag}">{ag}</option>'
-            for ag in age_groups
+            for ag in display_age_groups
         )
 
         # Scrape metadata for navbar
@@ -318,7 +319,7 @@ class HtmlExporter:
             "$SEASON_PLAN_HREF$": season_plan_href,
             "$SEASON_LABEL$": season_label,
             "$SCRAPE_META$": scrape_meta,
-            "$AGE_GROUPS$": " + ".join(age_groups),
+            "$AGE_GROUPS$": " + ".join(display_age_groups),
             "$TOURNAMENT_COUNT$": str(len(plan.tournaments)),
             "$GAME_COUNT$": str(sum(len(t.games) for t in plan.tournaments)),
             "$UNIQUE_TEAMS$": str(len(all_teams)),

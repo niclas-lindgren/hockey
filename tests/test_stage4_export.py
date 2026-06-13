@@ -149,8 +149,27 @@ class TestRunStage4:
         assert rows[2][0] == "Metrikk"
         assert rows[3][0] == "Kamper per lag"
 
-    def test_generates_html_with_plan_driven_filters_and_ui_assets(self, tmp_path):
+    def test_generates_html_with_configured_age_group_filters(self, tmp_path):
+        input_path = tmp_path / "input.json"
+        input_path.write_text(
+            json.dumps(
+                {
+                    "start_date": "2025-09-01",
+                    "end_date": "2025-12-01",
+                    "age_groups": ["U10", "U11", "U12", "JU11"],
+                    "parallel_games": {"U10": 2, "U11": 2, "U12": 2, "JU11": 2},
+                    "teams": [],
+                    "sources": [],
+                }
+            ),
+            encoding="utf-8",
+        )
         state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.CONFIG,
+            {"input_path": str(input_path), "round_length_minutes": {}},
+            status=StageStatus.DONE,
+        )
         result = run(
             _make_multi_age_group_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
@@ -161,7 +180,8 @@ class TestRunStage4:
 
         assert '<option value="U10">U10</option>' in html
         assert '<option value="JU11">JU11</option>' in html
-        assert re.search(r'Alle \((?:JU11 \+ U10|U10 \+ JU11)\)', html)
+        assert '<option value="U12">U12</option>' in html
+        assert 'Alle (U10 + U11 + U12 + JU11)' in html
         assert 'id="themeToggle"' in html
         assert 'class="theme-toggle"' in html
         assert 'href="season_plan.xlsx"' in html
@@ -206,7 +226,7 @@ class TestRunStage4:
         assert "DTSTART:20251005T090000Z" in content
         assert "DTEND:20251005T100000Z" in content
 
-    def test_writes_timestamped_exports_and_flat_copies(self, tmp_path):
+    def test_writes_timestamped_exports_without_flat_copies(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         result = run(
             _make_plan_dict(), state,
@@ -226,10 +246,11 @@ class TestRunStage4:
             assert path.exists()
             assert path.parent == timestamp_dir
 
-        flat_paths = [Path(files[key]) for key in ("excel_flat", "ical_flat", "csv_games_flat", "csv_overview_flat", "html_flat", "spond_flat", "spond_games_flat")]
-        for path in flat_paths:
-            assert path.exists()
-            assert path.parent == tmp_path / "export"
+        assert not any(key.endswith("_flat") for key in files)
+        assert list((tmp_path / "export").glob("*.xlsx")) == []
+        assert list((tmp_path / "export").glob("*.csv")) == []
+        assert list((tmp_path / "export").glob("*.ics")) == []
+        assert list((tmp_path / "export").glob("*.html")) == []
 
     def test_stage4_spond_export_uses_tournament_rows(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
