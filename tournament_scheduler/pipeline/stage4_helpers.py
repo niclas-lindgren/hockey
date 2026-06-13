@@ -49,6 +49,7 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
                 host_club=t_dict.get("host_club"),
                 cancelled=bool(t_dict.get("cancelled", False)),
                 cancellation_reason=t_dict.get("cancellation_reason"),
+                start_time=t_dict.get("start_time"),
             )
         )
 

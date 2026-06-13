@@ -41,6 +41,8 @@ _SPOND_HEADERS = [
     "Import scope",
 ]
 
+_SCHEDULE_HEADERS = ["Runde", "Hjemmelag", "Bortelag", "Parallellbane"]
+
 
 class SpondExporter:
     """Export a :class:`~tournament_scheduler.models.SeasonPlan` to Spond's Excel-import format.
@@ -75,7 +77,7 @@ class SpondExporter:
             club=club,
             round_length_for_age_group=round_length_for_age_group,
         )
-        self._style_header_row(sheet)
+        self._style_header_row(sheet, 1)
         self._configure_sheet(sheet)
         self._autosize_columns(sheet)
 
@@ -113,6 +115,45 @@ class SpondExporter:
             )
         return written
 
+    def export_schedule_attachment(
+        self,
+        plan: SeasonPlan,
+        output_path: str,
+        *,
+        round_length_for_age_group: Optional[dict[str, int]] = None,
+    ) -> str:
+        """Build a printable workbook with one game-schedule sheet per tournament."""
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+
+        round_length_for_age_group = round_length_for_age_group or {}
+        used_titles: set[str] = set()
+        tournaments = sorted(plan.tournaments, key=lambda t: t.date)
+
+        if not tournaments:
+            sheet = wb.create_sheet(title="Kamper")
+            sheet.append(["Ingen turneringer å vise"])
+            self._style_title_row(sheet, 1)
+            self._configure_attachment_sheet(sheet)
+            self._autosize_columns(sheet)
+        else:
+            for index, tournament in enumerate(tournaments, start=1):
+                sheet = wb.create_sheet(
+                    title=self._unique_attachment_sheet_title(tournament, index, used_titles)
+                )
+                used_titles.add(sheet.title)
+                self._write_schedule_attachment_sheet(
+                    sheet,
+                    tournament,
+                    round_length_for_age_group,
+                )
+
+        out = Path(output_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        wb.save(str(out))
+        console.print(f"[green]Spond-kampoppsett lagret til[/green] [bold]{out}[/bold]")
+        return str(out)
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
@@ -142,6 +183,63 @@ class SpondExporter:
             end_ref = sheet.cell(row=sheet.max_row, column=sheet.max_column).coordinate
             sheet.auto_filter.ref = f"A1:{end_ref}"
         sheet.freeze_panes = "A2"
+
+    def _write_schedule_attachment_sheet(
+        self,
+        sheet: Worksheet,
+        tournament: Tournament,
+        round_length_for_age_group: dict[str, int],
+    ) -> None:
+        date_str = tournament.date.strftime("%d.%m.%Y")
+        title = f"{date_str} ({self._weekday_name(tournament.date)}) — {tournament.age_group} — {tournament.arena}"
+        if tournament.cancelled:
+            title = f"(AVLYST) {title}"
+
+        sheet.append([title])
+        self._style_title_row(sheet, 1)
+
+        if tournament.cancelled:
+            reason = tournament.cancellation_reason or "ingen grunn oppgitt"
+            sheet.append([f"AVLYST: {reason}"])
+            self._style_title_row(sheet, 2)
+
+        sheet.append([f"Vertsklubb: {tournament.host_club or ''}"])
+        sheet.append([f"Deltakende lag: {', '.join(team.label for team in tournament.teams)}"])
+
+        time_bits = []
+        if tournament.start_time:
+            time_bits.append(f"Start: {tournament.start_time}")
+            round_length = round_length_for_age_group.get(tournament.age_group)
+            if round_length:
+                end_time = tournament.end_time(round_length)
+                if end_time:
+                    time_bits.append(f"Slutt: {end_time}")
+        if time_bits:
+            sheet.append([" • ".join(time_bits)])
+
+        sheet.append([])
+        sheet.append(_SCHEDULE_HEADERS)
+        self._style_header_row(sheet, sheet.max_row)
+
+        for game in tournament.games:
+            sheet.append([
+                game.round_number,
+                game.home.label,
+                game.away.label,
+                game.parallel_slot + 1,
+            ])
+
+        if not tournament.games:
+            sheet.append(["-", "Ingen kamper", "", ""])
+
+        bye_rounds = tournament.get_bye_rounds()
+        if bye_rounds:
+            for round_num in sorted(bye_rounds):
+                for team_label in bye_rounds[round_num]:
+                    sheet.append([round_num, "(Pause)", team_label, ""])
+
+        self._configure_attachment_sheet(sheet)
+        self._autosize_columns(sheet)
 
     def _summary_row_for_tournament(
         self,
@@ -228,18 +326,33 @@ class SpondExporter:
         slug = re.sub(r"[^A-Za-z0-9]+", "_", value).strip("_")
         return slug or "club"
 
-    # ------------------------------------------------------------------
-    # Helpers (mirror SeasonPlanExporter conventions)
-    # ------------------------------------------------------------------
+    @staticmethod
+    def _weekday_name(value) -> str:
+        weekdays = ["mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag"]
+        return weekdays[value.weekday()]
 
     @staticmethod
-    def _style_header_row(sheet: Worksheet) -> None:
-        for cell in sheet[1]:
+    def _style_title_row(sheet: Worksheet, row_number: int) -> None:
+        for cell in sheet[row_number]:
+            cell.font = cell.font.copy(bold=True)
+
+    @staticmethod
+    def _style_header_row(sheet: Worksheet, row_number: int = 1) -> None:
+        for cell in sheet[row_number]:
             cell.font = cell.font.copy(bold=True)
 
     @staticmethod
     def _configure_sheet(sheet: Worksheet) -> None:
         sheet.sheet_view.showGridLines = False
+
+    @staticmethod
+    def _configure_attachment_sheet(sheet: Worksheet) -> None:
+        sheet.sheet_view.showGridLines = False
+        sheet.freeze_panes = "A6"
+        sheet.page_setup.orientation = "landscape"
+        sheet.page_setup.fitToWidth = 1
+        sheet.page_setup.fitToHeight = 0
+        sheet.sheet_properties.pageSetUpPr.fitToPage = True
 
     @staticmethod
     def _autosize_columns(sheet: Worksheet, max_width: int = 60) -> None:
@@ -253,3 +366,28 @@ class SpondExporter:
                 widths[col_letter] = max(widths.get(col_letter, 0), width)
         for col_letter, width in widths.items():
             sheet.column_dimensions[col_letter].width = min(width + 2, max_width)
+
+    @staticmethod
+    def _unique_attachment_sheet_title(tournament: Tournament, index: int, used_titles) -> str:
+        date_part = tournament.date.strftime("%d.%m")
+        base = f"{date_part} {tournament.age_group} {tournament.arena}".strip()
+        return SpondExporter._unique_sheet_title_from_base(base, index, used_titles)
+
+    @staticmethod
+    def _unique_sheet_title_from_base(base: str, index: int, used_titles) -> str:
+        base = SpondExporter._sanitize_sheet_title(base)
+        title = base[:31]
+        if title not in used_titles:
+            return title
+        while True:
+            suffix = f" ({index})"
+            trimmed_len = 31 - len(suffix)
+            title = f"{base[:trimmed_len]}{suffix}"
+            if title not in used_titles:
+                return title
+            index += 1
+
+    @staticmethod
+    def _sanitize_sheet_title(title: str) -> str:
+        invalid_chars = set('[]:*?/\\')
+        return "".join(ch for ch in title if ch not in invalid_chars).strip()

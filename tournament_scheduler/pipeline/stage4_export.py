@@ -7,6 +7,7 @@ and writes three output files:
 - ``<export_dir>/season_plan.ics``    — iCal feed via :class:`ICalExporter`
 - ``<export_dir>/season_plan.csv``    — flat game CSV + ``_overview.csv`` via :class:`CsvExporter`
 - ``<export_dir>/season_plan.html``   — interactive HTML overview via :class:`~tournament_scheduler.html.html_exporter.HtmlExporter`
+- ``<export_dir>/season_plan_spond_games.xlsx`` — printable tournament-by-tournament schedule attachment for Spond
 
 File paths are written to the Stage 4 checkpoint.
 """
@@ -100,12 +101,24 @@ def run(
 
     errors: list[str] = []
     output_files: dict[str, str] = {}
+    round_length_for_age_group: dict[str, int] = {}
+    try:
+        config_ckpt = state.read_stage(StageName.CONFIG)
+        if isinstance(config_ckpt, dict):
+            round_length_for_age_group = dict(config_ckpt.get("round_length_minutes", {}))
+    except Exception:
+        pass
 
     # --- Excel ---
     try:
         excel_path = str(primary_export_path / f"{basename}.xlsx")
         rules_report = plan_checkpoint.get("rules_report")
-        SeasonPlanExporter().export(plan, excel_path, rules_report=rules_report)
+        SeasonPlanExporter().export(
+            plan,
+            excel_path,
+            rules_report=rules_report,
+            round_length_for_age_group=round_length_for_age_group,
+        )
         output_files["excel"] = excel_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Excel-eksport feilet: {exc}")
@@ -113,7 +126,7 @@ def run(
     # --- iCal ---
     try:
         ical_path = str(primary_export_path / f"{basename}.ics")
-        ICalExporter().export(plan, ical_path)
+        ICalExporter(round_length_for_age_group=round_length_for_age_group).export(plan, ical_path)
         output_files["ical"] = ical_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"iCal-eksport feilet: {exc}")
@@ -170,20 +183,21 @@ def run(
 
     # --- Spond ---
     try:
-        round_length_for_age_group: dict[str, int] = {}
-        try:
-            config_ckpt = state.read_stage(StageName.CONFIG)
-            if isinstance(config_ckpt, dict):
-                round_length_for_age_group = dict(config_ckpt.get("round_length_minutes", {}))
-        except Exception:
-            pass
         spond_path = str(primary_export_path / f"{basename}_spond.xlsx")
-        SpondExporter().export(
+        schedule_path = str(primary_export_path / f"{basename}_spond_games.xlsx")
+        exporter = SpondExporter()
+        exporter.export(
             plan,
             spond_path,
             round_length_for_age_group=round_length_for_age_group,
         )
+        exporter.export_schedule_attachment(
+            plan,
+            schedule_path,
+            round_length_for_age_group=round_length_for_age_group,
+        )
         output_files["spond"] = spond_path
+        output_files["spond_games"] = schedule_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Spond-eksport feilet: {exc}")
 

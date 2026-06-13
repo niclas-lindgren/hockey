@@ -123,12 +123,19 @@ class SeasonCommand:
         if args.export_spond:
             from tournament_scheduler.spond.spond_exporter import SpondExporter
             round_length_for_age_group = federation_defaults.get('round_length_minutes', federation_defaults.get('roundLengthMinutes', {}))
-            spond_path = SpondExporter().export(
+            exporter = SpondExporter()
+            spond_path = exporter.export(
                 plan,
                 args.export_spond,
                 round_length_for_age_group=round_length_for_age_group,
             )
+            schedule_path = exporter.export_schedule_attachment(
+                plan,
+                str(Path(args.export_spond).with_name(f"{Path(args.export_spond).stem}_games.xlsx")),
+                round_length_for_age_group=round_length_for_age_group,
+            )
             TournamentOutput.print_success(f"Spond-eksport: {spond_path}")
+            TournamentOutput.print_success(f"Kampoppsett vedlegg: {schedule_path}")
 
     def _resolve_season_window(self, args, default_start_date, default_end_date):
         season_start = default_start_date

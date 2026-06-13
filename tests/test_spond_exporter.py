@@ -95,3 +95,26 @@ class TestSpondExporter:
         assert len(rows) == 2  # header + one Kongsberg-relevant tournament
         assert rows[1][6] == "Kongsberg"
         assert rows[1][7] == "Kongsberg, Skien, Holmen"
+    def test_export_schedule_attachment_writes_one_sheet_per_tournament(self, tmp_path):
+        plan = _sample_plan()
+        output_path = tmp_path / "spond_games.xlsx"
+
+        SpondExporter().export_schedule_attachment(
+            plan,
+            str(output_path),
+            round_length_for_age_group={"U10": 15},
+        )
+
+        workbook = openpyxl.load_workbook(str(output_path))
+        assert len(workbook.sheetnames) == 2
+
+        first_sheet = workbook[workbook.sheetnames[0]]
+        rows = list(first_sheet.iter_rows(values_only=True))
+        header_row = next(i for i, row in enumerate(rows, start=1) if row[0] == "Runde")
+
+        assert rows[0][0].startswith("10.10.2026")
+        assert rows[1][0] == "Vertsklubb: Kongsberg"
+        assert rows[2][0] == "Deltakende lag: Kongsberg U10A, Skien U10A, Holmen U10A"
+        assert rows[header_row - 1][0:4] == ("Runde", "Hjemmelag", "Bortelag", "Parallellbane")
+        assert rows[header_row][1] == "Kongsberg U10A"
+        assert rows[header_row][3] == 1

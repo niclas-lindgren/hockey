@@ -212,18 +212,50 @@ function getClubFromTeam(team) {
 })();
 
 function buildMatchHTML(matches, byes) {
-  let html = matches.map(([home, away, slot]) =>
-    '<div class="match-row"><span>' + home + '</span><span class="vs">vs</span><span>' + away +
-    '</span><span class="slot">' + slotLabel(slot) + '</span></div>'
-  ).join('');
+  const rounds = {};
+
+  matches.forEach(([home, away, slot, roundNumber]) => {
+    const roundKey = Number.isFinite(roundNumber) && roundNumber > 0 ? String(roundNumber) : '0';
+    if (!rounds[roundKey]) rounds[roundKey] = { matches: [], byes: [] };
+    rounds[roundKey].matches.push([home, away, slot]);
+  });
+
   if (byes && Object.keys(byes).length) {
     for (const [roundNum, labels] of Object.entries(byes)) {
+      const roundKey = String(parseInt(roundNum, 10) || 0);
+      if (!rounds[roundKey]) rounds[roundKey] = { matches: [], byes: [] };
       for (const label of labels) {
-        html += '<div class="match-row bye-row"><span class="bye-label">Pause</span><span class="vs">&middot;</span><span>' + label + '</span><span class="slot"></span></div>';
+        rounds[roundKey].byes.push(label);
       }
     }
   }
-  return html;
+
+  const roundKeys = Object.keys(rounds).sort((a, b) => Number(a) - Number(b));
+  if (!roundKeys.length) {
+    return '<div class="match-grid"><div class="match-row"><span class="bye-label">Ingen kamper</span></div></div>';
+  }
+
+  return roundKeys.map((roundKey) => {
+    const round = rounds[roundKey];
+    const roundLabel = roundKey === '0' ? 'Uten runde' : 'Runde ' + roundKey;
+    let html = '<section class="round-group">' +
+      '<div class="round-group-header"><span>' + roundLabel + '</span><span class="round-group-count">' + round.matches.length + ' kamper</span></div>' +
+      '<div class="match-grid">' +
+      round.matches.map(([home, away, slot]) =>
+        '<div class="match-row"><span>' + home + '</span><span class="vs">vs</span><span>' + away +
+        '</span><span class="slot">' + slotLabel(slot) + '</span></div>'
+      ).join('') +
+      '</div>';
+
+    if (round.byes.length) {
+      html += '<div class="round-byes">' + round.byes.map((label) =>
+        '<div class="match-row bye-row"><span class="bye-label">Pause</span><span class="vs">&middot;</span><span>' + label + '</span><span class="slot"></span></div>'
+      ).join('') + '</div>';
+    }
+
+    html += '</section>';
+    return html;
+  }).join('');
 }
 
 function render() {
@@ -274,8 +306,8 @@ function render() {
         '<div class="tournament-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>' +
       '</div>' +
       '<div class="matches"><div class="matches-inner">' +
-        '<div class="matches-header"><h4>Kamper</h4><span class="count">' + t.m.length + ' stk</span></div>' +
-        '<div class="match-grid">' + buildMatchHTML(t.m, t.b) + '</div>' +
+        '<div class="matches-header"><h4>Kamper per runde</h4><span class="count">' + t.m.length + ' stk</span></div>' +
+        buildMatchHTML(t.m, t.b) +
       '</div></div></div>';
   }
 

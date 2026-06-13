@@ -2,14 +2,16 @@
 
 from datetime import date
 from pathlib import Path
+import json
 import re
 
 import openpyxl
 import pytest
 
+from tournament_scheduler.html.html_exporter import HtmlExporter
 from tournament_scheduler.models import Game, Roster, SeasonPlan, Team, Tournament
 from tournament_scheduler.pipeline.stage4_export import Stage4Error, _dict_to_plan, run
-from tournament_scheduler.pipeline.state import PipelineState, StageName
+from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
 
 
 def _make_plan_dict():
@@ -26,6 +28,7 @@ def _make_plan_dict():
         "games": [
             {"home": "Kongsberg U10A", "away": "Skien U10A", "parallel_slot": 0, "round_number": 3},
         ],
+        "start_time": "09:00",
     }
     return {
         "plan": {
@@ -88,6 +91,7 @@ class TestDictToPlan:
         assert len(plan.tournaments) == 1
         t = plan.tournaments[0]
         assert t.arena == "Kongsberghallen"
+        assert t.start_time == "09:00"
         assert len(t.games) == 1
         assert t.games[0].home.label == "Kongsberg U10A"
         assert t.games[0].round_number == 3
@@ -103,6 +107,7 @@ class TestDictToPlan:
 class TestRunStage4:
     def test_produces_excel_file(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(StageName.CONFIG, {"round_length_minutes": {"U10": 15}}, status=StageStatus.DONE)
         result = run(
             _make_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
@@ -110,6 +115,11 @@ class TestRunStage4:
         files = result.get("output_files", {})
         assert "excel" in files
         assert Path(files["excel"]).exists()
+        workbook = openpyxl.load_workbook(files["excel"])
+        overview = workbook["Sesongoversikt"]
+        rows = list(overview.iter_rows(values_only=True))
+        assert rows[1][7] == "09:00"
+        assert rows[1][8] == "09:45"
 
     def test_generates_html_with_plan_driven_filters_and_ui_assets(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -133,8 +143,24 @@ class TestRunStage4:
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
 
+    def test_html_tournament_details_group_matches_by_round(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+        )
+        files = result.get("output_files", {})
+        html = Path(files["html"]).read_text(encoding="utf-8")
+
+        payload = json.loads(HtmlExporter._plan_to_json(_dict_to_plan(_make_plan_dict()["plan"])))
+        assert payload[0]["m"][0][3] == 3
+        assert 'Kamper per runde' in html
+        assert 'round-group-header' in html
+        assert 'Runde ' in html
+
     def test_produces_ical_file(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(StageName.CONFIG, {"round_length_minutes": {"U10": 15}}, status=StageStatus.DONE)
         result = run(
             _make_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
@@ -147,6 +173,8 @@ class TestRunStage4:
         content = ics_path.read_text()
         assert "BEGIN:VCALENDAR" in content
         assert "VEVENT" in content
+        assert "DTSTART:20251005T090000Z" in content
+        assert "DTEND:20251005T100000Z" in content
 
     def test_writes_timestamped_exports_and_flat_copies(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -157,7 +185,7 @@ class TestRunStage4:
         )
         files = result.get("output_files", {})
 
-        timestamped_paths = [Path(files[key]) for key in ("excel", "ical", "csv_games", "csv_overview", "html", "spond")]
+        timestamped_paths = [Path(files[key]) for key in ("excel", "ical", "csv_games", "csv_overview", "html", "spond", "spond_games")]
         timestamp_dirs = {path.parent for path in timestamped_paths}
         assert len(timestamp_dirs) == 1
         timestamp_dir = timestamp_dirs.pop()
@@ -168,13 +196,14 @@ class TestRunStage4:
             assert path.exists()
             assert path.parent == timestamp_dir
 
-        flat_paths = [Path(files[key]) for key in ("excel_flat", "ical_flat", "csv_games_flat", "csv_overview_flat", "html_flat", "spond_flat")]
+        flat_paths = [Path(files[key]) for key in ("excel_flat", "ical_flat", "csv_games_flat", "csv_overview_flat", "html_flat", "spond_flat", "spond_games_flat")]
         for path in flat_paths:
             assert path.exists()
             assert path.parent == tmp_path / "export"
 
     def test_stage4_spond_export_uses_tournament_rows(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(StageName.CONFIG, {"round_length_minutes": {"U10": 15}}, status=StageStatus.DONE)
         result = run(
             _make_spond_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
@@ -185,8 +214,17 @@ class TestRunStage4:
         rows = list(sheet.iter_rows(values_only=True))
 
         assert rows[0][0:5] == ("Dato", "Aktivitet", "Sted", "Start", "Slutt")
+        assert rows[1][3] == "09:00"
+        assert rows[1][4] == "09:45"
         assert rows[1][9] == "turnering"
         assert len(rows) == 2  # header + one tournament row, not one row per game
+
+        attachment = openpyxl.load_workbook(files["spond_games"])
+        assert len(attachment.sheetnames) == 1
+        attachment_rows = list(attachment[attachment.sheetnames[0]].iter_rows(values_only=True))
+        header_row = next(i for i, row in enumerate(attachment_rows) if row[:4] == ("Runde", "Hjemmelag", "Bortelag", "Parallellbane"))
+        assert attachment_rows[header_row][0:4] == ("Runde", "Hjemmelag", "Bortelag", "Parallellbane")
+        assert attachment_rows[header_row + 1][1] == "Kongsberg U10A"
 
     def test_produces_csv_files(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")

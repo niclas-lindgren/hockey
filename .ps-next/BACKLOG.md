@@ -1,12 +1,6 @@
 # Backlog
 
 ## Open
-
-
-- [67] [ ] Separate tournament event export from in-tournament game schedule export: keep Spond import rows as tournament events, and generate a clean per-tournament game/match XLSX sheet/table optimized for screenshots/printing and attachment to the Spond event.
-
-- [68] [ ] Fix Stage 4 deserialization/export loss for tournament start_time and round-length-derived end times: preserve start_time from Stage 3 checkpoints into Tournament objects, pass round_length_minutes into Excel/Spond/iCal exporters, and add regression tests proving exported Start/Slutt fields are populated.
-
 - [69] [ ] Implement a season fairness acceptance gate using real roster data: fail or warn clearly when per-team games, home/away hosting burden, travel distance, opponent diversity, month spread, and same-weekend multi-team club load exceed configured thresholds; expose the scores in Excel/HTML and tests.
 
 - [70] [ ] Add a manual organizer adjustment loop for the final season plan: let the organizer lock/ban dates, force or exclude host clubs, pin specific tournament events, then re-run planning while preserving locks and rechecking fairness/conflicts before export.
@@ -14,6 +8,12 @@
 - [71] [ ] Add club review/approval exports: generate per-club review packets showing only that club's proposed Spond events, home-hosting duties, travel, and game schedule attachments, with an accept/change-request workflow that can feed back into replanning.
 
 ## Done
+- [74] [x] Group matches by round in the HTML tournament details pane so each tournament shows its games organized under round headings instead of an ungrouped list. (2026-06-13)
+
+- [68] [x] Fix Stage 4 deserialization/export loss for tournament start_time and round-length-derived end times: preserve start_time from Stage 3 checkpoints into Tournament objects, pass round_length_minutes into Excel/Spond/iCal exporters, and add regression tests proving exported Start/Slutt fields are populated. (2026-06-13)
+
+- [67] [x] Separate tournament event export from in-tournament game schedule export: keep Spond import rows as tournament events, and generate a clean per-tournament game/match XLSX sheet/table optimized for screenshots/printing and attachment to the Spond event. (2026-06-13)
+
 - [66] [x] Change the Spond export to match the intended import workflow: export tournament-level events only (not one row per internal game) on one Excel sheet/table with autofilter enabled and explicit filter columns for participating clubs, teams, age group, host club, arena, date, start/end, and import scope. The organizer should be able to filter the single sheet to e.g. Kongsberg-relevant tournament events and import the filtered rows directly into Spond; optionally also generate per-club prefiltered Spond XLSX files for convenience. (2026-06-12)
 
 - [65] [x] Add report/export regression tests for generated outputs: verify season_plan.html age-group filters are data-driven, light/dark theme assets and export links exist, no emoji/debug-dashboard regression appears, and CSV/ICS/XLSX/Spond outputs are generated into the same timestamped export folder. (2026-06-12)

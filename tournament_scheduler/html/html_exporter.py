@@ -372,7 +372,7 @@ class HtmlExporter:
         data = []
         for t in plan.tournaments:
             games = [
-                [g.home.label, g.away.label, g.parallel_slot]
+                [g.home.label, g.away.label, g.parallel_slot, g.round_number]
                 for g in t.games
             ]
             bye_data = {
