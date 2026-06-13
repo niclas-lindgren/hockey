@@ -1,6 +1,10 @@
 # Backlog
 
 ## Open
+
+- [77] [ ] Align pi-next with the updated PS:next skill in /Users/niclasl/src/PS_claude-skills: decide whether pi-next should stay a thin proxy over shared PS:next behavior rather than reimplementing the same functionality, and document the intended boundary for future cleanup.
+- [76] [ ] Review and fix scraping cache reuse so the pipeline does not re-scrape sources on every run when cached data is still valid.
+
 - [69] [ ] Implement a season fairness acceptance gate using real roster data: fail or warn clearly when per-team games, home/away hosting burden, travel distance, opponent diversity, month spread, and same-weekend multi-team club load exceed configured thresholds; expose the scores in Excel/HTML and tests.
 
 - [70] [ ] Add a manual organizer adjustment loop for the final season plan: let the organizer lock/ban dates, force or exclude host clubs, pin specific tournament events, then re-run planning while preserving locks and rechecking fairness/conflicts before export.
@@ -8,6 +12,8 @@
 - [71] [ ] Add club review/approval exports: generate per-club review packets showing only that club's proposed Spond events, home-hosting duties, travel, and game schedule attachments, with an accept/change-request workflow that can feed back into replanning.
 
 ## Done
+- [75] [x] Consolidate the split input.json configuration into one common input config file so team settings and calendar sources live together. (2026-06-13)
+
 - [74] [x] Group matches by round in the HTML tournament details pane so each tournament shows its games organized under round headings instead of an ungrouped list. (2026-06-13)
 
 - [68] [x] Fix Stage 4 deserialization/export loss for tournament start_time and round-length-derived end times: preserve start_time from Stage 3 checkpoints into Tournament objects, pass round_length_minutes into Excel/Spond/iCal exporters, and add regression tests proving exported Start/Slutt fields are populated. (2026-06-13)
