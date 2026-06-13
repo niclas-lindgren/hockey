@@ -1,8 +1,8 @@
 # Verification Report
 
-STATUS: PASS
+STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| The pi-next skill file contains an explicit thin-proxy/boundary note that distinguishes shared PS:next behavior from local project-specific glue. | PASS | See `.agents/skills/pi-next/SKILL.md` boundary section. |
-| `pytest tests/test_pi_next_skill_boundary.py` passes. | PASS | `pytest -q tests/test_pi_next_backlog_scripts.py tests/test_pi_next_skill_boundary.py` → 5 passed. |
+| Stage 2 reports cached hits for valid blocked entries instead of re-scraping them. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| A fresh blocked cache entry with events does not invoke the browser/ical scraper during Stage 2. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |

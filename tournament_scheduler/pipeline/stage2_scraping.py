@@ -169,7 +169,6 @@ def run(
             not force_refresh
             and date_range_matches
             and entry
-            and not entry.get("blocked", False)
             and entry.get("events")
             and not cache.is_stale(name)
         ):

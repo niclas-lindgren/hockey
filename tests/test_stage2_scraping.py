@@ -383,6 +383,67 @@ class TestUnifiedCache:
         assert src["event_count"] == 1
         assert src["events"][0]["name"] == "Cached practice"
 
+    def test_blocked_fresh_cache_is_reused(self, tmp_path):
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        cached_events = _events_to_dicts([_make_event("Cached practice")])
+        self._seed_cache(
+            work_dir,
+            start_date=cfg["start_date"], end_date=cfg["end_date"],
+            source_name="Kongsberg", events=cached_events, blocked=True,
+        )
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+        ) as mock_scraper:
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_scraper.assert_not_called()
+        assert result["cached"] == ["Kongsberg"]
+        assert result["sources"][0]["from_cache"] is True
+        cache = ScrapedDataCache(work_dir=work_dir).read()
+        assert cache["sources"]["Kongsberg"]["blocked"] is True
+        assert cache["sources"]["Kongsberg"]["events"][0]["name"] == "Cached practice"
+
+    def test_blocked_scrape_refreshes_preserved_cache_timestamp(self, tmp_path):
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        cached_events = _events_to_dicts([_make_event("Cached practice")])
+        old_ts = (datetime.now() - timedelta(hours=12)).isoformat()
+        self._seed_cache(
+            work_dir,
+            start_date=cfg["start_date"], end_date=cfg["end_date"],
+            source_name="Kongsberg", events=cached_events,
+            scrape_timestamp=old_ts,
+            blocked=True,
+        )
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([], ""),
+        ):
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+                force_refresh=True,
+            )
+
+        cache = ScrapedDataCache(work_dir=work_dir).read()
+        refreshed_ts = cache["sources"]["Kongsberg"]["scrape_timestamp"]
+        assert datetime.fromisoformat(refreshed_ts) > datetime.fromisoformat(old_ts)
+        assert cache["sources"]["Kongsberg"]["events"][0]["name"] == "Cached practice"
+
     def test_fresh_z_suffixed_timestamp_skips_scraping(self, tmp_path):
         """Cache entries written with a 'Z'-suffixed (tz-aware) timestamp,
         as the extension's ScraperAgent does, must still be recognized as

@@ -125,13 +125,16 @@ class ScrapedDataCache:
                 "events": events,
             }
 
-            # Merge with any existing cached data (preserve previous scrape if current is empty)
+            # Merge with any existing cached data (preserve previous scrape if current is empty).
+            # If the latest scrape was blocked or returned 0 events, keep the prior
+            # events but refresh the timestamp so fresh cache data remains reusable
+            # on the next run instead of forcing another scrape immediately.
             if not events:
                 existing = cache.get("sources", {}).get(name, {})
                 if existing.get("events"):
                     entry["events"] = existing["events"]
                     entry["event_count"] = existing["event_count"]
-                    entry["scrape_timestamp"] = existing["scrape_timestamp"]
+                    entry["scrape_timestamp"] = now
                     entry["note"] = "bruker tidligere cache (ny skraping ga 0 hendelser)"
 
             sources_data[name] = entry
