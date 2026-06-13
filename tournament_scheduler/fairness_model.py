@@ -1,0 +1,94 @@
+"""Soft fairness target model for season planning.
+
+The planner currently uses this as a tunable diagnostic model: it turns the
+final per-team game counts into a club-size-aware target for each team in an
+age group. The model is intentionally tiny and isolated so organizers can tweak
+its weights without rewriting `SeasonPlanner`.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Dict, Mapping, Sequence
+
+from tournament_scheduler.models import Team
+
+
+@dataclass(frozen=True)
+class FairnessModelConfig:
+    """Configuration for the soft fairness target model.
+
+    `club_share_weight` controls how strongly larger clubs are nudged above
+    the age-group average (and smaller clubs slightly below it). `max_adjust`
+    keeps the target from drifting too far from the actual age-group average.
+    """
+
+    club_share_weight: float = 0.35
+    max_adjustment: float = 3.0
+
+
+class SeasonFairnessModel:
+    """Compute soft per-team target game counts from a finished season plan.
+
+    The model uses the actual age-group average as the baseline and then adds
+    a club-size adjustment:
+
+        target = average_games + club_effect
+
+    where `club_effect` grows with the club's share of teams in the age group.
+    Larger clubs are therefore allowed to sit slightly above the average per
+    team, while single-team clubs stay near the average. This is a diagnostic
+    target, not a hard constraint.
+    """
+
+    def __init__(self, config: FairnessModelConfig | None = None):
+        self.config = config or FairnessModelConfig()
+
+    def target_games_for_team(
+        self,
+        team: Team,
+        age_group_teams: Sequence[Team],
+        team_game_counts: Mapping[str, int],
+    ) -> float:
+        """Return the soft target game count for `team`.
+
+        If the age group has no teams or no recorded games, returns `0.0`.
+        """
+        if not age_group_teams:
+            return 0.0
+
+        counts = [team_game_counts.get(t.label, 0) for t in age_group_teams]
+        if not counts:
+            return 0.0
+
+        average_games = sum(counts) / len(counts)
+        club_team_count = sum(1 for t in age_group_teams if t.club == team.club)
+        club_share = club_team_count / len(age_group_teams)
+        average_share = 1 / len(age_group_teams)
+
+        # Larger clubs get nudged a bit above the age-group average, smaller
+        # clubs a bit below it. The clamp keeps the target easy to reason about
+        # and tune later.
+        club_effect = (
+            (club_share - average_share)
+            * average_games
+            * self.config.club_share_weight
+        )
+        target = average_games + club_effect
+
+        if self.config.max_adjustment is not None:
+            target = min(target, average_games + self.config.max_adjustment)
+            target = max(target, max(0.0, average_games - self.config.max_adjustment))
+
+        return round(target, 3)
+
+    def targets_for_age_group(
+        self,
+        age_group_teams: Sequence[Team],
+        team_game_counts: Mapping[str, int],
+    ) -> Dict[str, float]:
+        """Return soft target counts for every team in an age group."""
+        return {
+            team.label: self.target_games_for_team(team, age_group_teams, team_game_counts)
+            for team in age_group_teams
+        }

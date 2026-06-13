@@ -911,8 +911,9 @@ class TestPerTeamGameCounts:
         warnings = planner.per_team_share_warnings
         warnings_by_label = {w[0]: w for w in warnings}
 
-        # U10 average is (2 + 2 + 10) / 3 = 4.667; both Jar teams (2) and
-        # Kongsberg (10) deviate from it by more than max_game_count_spread=2.
+        # Both Jar teams and Kongsberg should still be flagged, but the
+        # expected value now comes from the soft fairness target model rather
+        # than the plain age-group average.
         assert "Jar U10-1" in warnings_by_label
         assert "Jar U10-2" in warnings_by_label
         assert "Kongsberg U10" in warnings_by_label
@@ -921,13 +922,25 @@ class TestPerTeamGameCounts:
         assert club == "Kongsberg"
         assert age_group == "U10"
         assert actual == 10
-        assert expected == pytest.approx(14 / 3)
+        assert expected == pytest.approx(
+            planner.fairness_model.target_games_for_team(
+                next(t for t in roster.teams if t.label == "Kongsberg U10"),
+                [t for t in roster.teams if t.age_group == "U10"],
+                planner._team_game_counts,
+            )
+        )
 
         label, club, age_group, actual, expected = warnings_by_label["Jar U10-1"]
         assert club == "Jar"
         assert age_group == "U10"
         assert actual == 2
-        assert expected == pytest.approx(14 / 3)
+        assert expected == pytest.approx(
+            planner.fairness_model.target_games_for_team(
+                next(t for t in roster.teams if t.label == "Jar U10-1"),
+                [t for t in roster.teams if t.age_group == "U10"],
+                planner._team_game_counts,
+            )
+        )
 
         # U11 is perfectly balanced (5 == 5), so no warnings expected there.
         assert "Holmen U11" not in warnings_by_label

@@ -27,6 +27,7 @@ from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from tournament_scheduler.club_distances import compute_team_travel_distances
+from tournament_scheduler.fairness_model import SeasonFairnessModel
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
     CalendarEvent,
@@ -87,6 +88,7 @@ class SeasonPlanner:
         max_month_deviation_ratio: float = 0.5,
         events_by_club: Optional[Dict[str, List[CalendarEvent]]] = None,
         fairness_thresholds: Optional[Dict[str, float]] = None,
+        fairness_model: Optional[SeasonFairnessModel] = None,
     ):
         """Initialize the planner.
 
@@ -134,6 +136,10 @@ class SeasonPlanner:
             fairness_thresholds: Optional mapping overriding the default
                 roster-based fairness gate thresholds (e.g. max game count
                 spread or minimum diversity score).
+            fairness_model: Optional soft target model used for per-team
+                fairness diagnostics. The default model nudges larger clubs
+                slightly above the age-group average and smaller clubs
+                slightly below it.
         """
         self.scheduler = scheduler
         self.roster = roster
@@ -238,6 +244,7 @@ class SeasonPlanner:
         self.fairness_thresholds = dict(DEFAULT_FAIRNESS_THRESHOLDS)
         if fairness_thresholds:
             self.fairness_thresholds.update(fairness_thresholds)
+        self.fairness_model = fairness_model or SeasonFairnessModel()
 
         # Fallback-host substitutions made during the most recent
         # `build_plan` run, for surfacing in the rules/decisions report.
@@ -470,8 +477,8 @@ class SeasonPlanner:
 
         Each entry is ``(team_label, club, age_group, actual_count,
         expected_count)`` for every team whose actual game count
-        (``team_game_counts``) deviates from the average game count for its
-        age group by more than ``max_game_count_spread``.
+        (``team_game_counts``) deviates from the soft fairness target for
+        its age group by more than ``max_game_count_spread``.
 
         This complements ``game_count_warnings`` (which only flags the
         global high/low extremes) by surfacing club- and age-group-level
@@ -743,10 +750,9 @@ class SeasonPlanner:
     def _scan_per_team_share_warnings(self) -> None:
         """Scan computed game counts for per-club/per-age-group skew.
 
-        For each age group, computes the average game count across all of
-        that age group's teams (using ``_team_game_counts``, treating teams
-        with no recorded games as 0), then flags every team whose actual
-        count deviates from that age-group average by more than
+        For each age group, computes a soft target game count for every
+        team using ``self.fairness_model`` and then flags every team whose
+        actual count deviates from that target by more than
         ``max_game_count_spread``. Appends
         ``(team_label, club, age_group, actual_count, expected_count)``
         tuples to ``_per_team_share_warnings``.
@@ -765,9 +771,13 @@ class SeasonPlanner:
         for age_group, teams in teams_by_age_group.items():
             if not teams:
                 continue
-            counts = [self._team_game_counts.get(team.label, 0) for team in teams]
-            expected = sum(counts) / len(counts)
-            for team, actual in zip(teams, counts):
+            expected_by_team = self.fairness_model.targets_for_age_group(
+                teams,
+                self._team_game_counts,
+            )
+            for team in teams:
+                actual = self._team_game_counts.get(team.label, 0)
+                expected = expected_by_team.get(team.label, 0.0)
                 if abs(actual - expected) > self.max_game_count_spread:
                     self._per_team_share_warnings.append(
                         (team.label, team.club, age_group, actual, expected)
