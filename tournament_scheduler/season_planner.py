@@ -38,17 +38,17 @@ from tournament_scheduler.models import (
     overlapping_age_groups,
 )
 from tournament_scheduler.scheduler import TournamentScheduler
+from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 
 
 # Default bounds on how many tournaments the season plan should propose.
 MIN_TOURNAMENTS = 10
 MAX_TOURNAMENTS = 15
 
-# A tournament round-robin works best with a modest number of teams; this is
-# the practical ceiling used as a fallback when no parallel-games config is
-# supplied for an age group (actual subset sizes are derived from available
-# timeslots × parallelGames where that information is available).
-DEFAULT_MAX_TEAMS_PER_TOURNAMENT = 6
+# Backwards-compatible fallback when no parallel-games value is configured.
+# The actual participant ceiling is derived from the parallel-games setting
+# via `_max_teams_for`.
+DEFAULT_MAX_TEAMS_PER_TOURNAMENT = DEFAULT_PARALLEL_GAMES * 2 + 1
 
 # Default start time assigned to generated tournaments when no per-arena/
 # per-age-group scheduling is available yet.
@@ -97,9 +97,9 @@ class SeasonPlanner:
             club_arenas: Mapping of club/host name -> home arena name (e.g.
                 from the club registry), used to assign tournament hosts.
             parallel_games_for_age_group: Optional mapping of age group ->
-                configured parallel-games count, used to derive a practical
-                round-robin subset size per age group. Falls back to
-                `DEFAULT_MAX_TEAMS_PER_TOURNAMENT` when not provided.
+                configured parallel-games count, used to derive the
+                tournament capacity for that age group. Falls back to the
+                default parallel-games setting when not provided.
             round_length_for_age_group: Optional mapping of age group ->
                 round length in minutes, used to set each generated
                 tournament's `start_time` and compute its duration/end time.
@@ -107,10 +107,10 @@ class SeasonPlanner:
                 tournaments to propose (default: spread between
                 `MIN_TOURNAMENTS` and `MAX_TOURNAMENTS` based on how many
                 free dates are available).
-            max_teams_per_tournament_for_age_group: Optional mapping of age
-                group -> maximum number of teams invited to a single
-                tournament. When set for an age group, takes precedence over
-                the parallel-games heuristic in `_max_teams_for`.
+            max_teams_per_tournament_for_age_group: Legacy compatibility
+                argument kept for older call sites. Tournament sizing is now
+                derived from parallel games, so this mapping no longer
+                affects selection.
             max_club_teams_per_tournament: Hard constraint on how many teams
                 from the same club can be invited to a single tournament.
                 Default 1 — at most one team per club per tournament,
@@ -295,7 +295,7 @@ class SeasonPlanner:
             participants = self._select_participants(age_group)
             self._record_grouping(participants)
 
-            parallel_games = self.parallel_games_for_age_group.get(age_group, DEFAULT_MAX_TEAMS_PER_TOURNAMENT)
+            parallel_games = self._parallel_games_for(age_group)
             games = self.generate_round_robin_games(participants, parallel_games)
             self._record_opponent_history(games)
 
@@ -899,12 +899,14 @@ class SeasonPlanner:
         # Federation-mandated parallel-games defaults.
         if self.parallel_games_for_age_group:
             for ag, pg in sorted(self.parallel_games_for_age_group.items()):
+                capacity = self._max_teams_for(ag)
                 report.append({
                     "regel": f"Parallelle kamper for {ag}: {pg}",
                     "forklaring": (
                         f"For aldersgruppen {ag} spilles det {pg} kamper samtidig "
-                        f"per runde. Dette følger forbundets anbefalinger og påvirker "
-                        f"hvor mange lag som inviteres til hver turnering."
+                        f"per runde. Det gir plass til opptil {capacity} lag per "
+                        f"turnering, og hvis lagetallet er oddetall får ett lag pause "
+                        "i hver runde."
                     ),
                     "kategori": "Hard krav",
                 })
@@ -913,24 +915,12 @@ class SeasonPlanner:
                 "regel": "Parallelle kamper: ingen spesifisert",
                 "forklaring": (
                     "Ingen aldersgrupper har spesifisert antall parallelle kamper. "
-                    f"Planleggeren bruker et standard tak på {DEFAULT_MAX_TEAMS_PER_TOURNAMENT} lag "
-                    f"per turnering."
+                    f"Planleggeren bruker et standard nivå på {DEFAULT_PARALLEL_GAMES} parallelle kamper "
+                    f"og kan dermed invitere opptil {DEFAULT_PARALLEL_GAMES * 2 + 1} lag per turnering."
                 ),
                 "kategori": "Hard krav",
             })
 
-        # Per-age-group max teams.
-        if self.max_teams_per_tournament_for_age_group:
-            for ag, mt in sorted(self.max_teams_per_tournament_for_age_group.items()):
-                report.append({
-                    "regel": f"Maks lag per turnering for {ag}: {mt}",
-                    "forklaring": (
-                        f"For {ag} inviteres maksimalt {mt} lag til hver turnering. "
-                        f"Dette bestemmes av konfigurasjonen og sikrer at alle lag får "
-                        f"spille mot hverandre innenfor tilgjengelig tid."
-                    ),
-                    "kategori": "Hard krav",
-                })
 
         # Skill-level divisions.
         report.append({
@@ -1339,11 +1329,14 @@ class SeasonPlanner:
 
         Enforces a per-club slot allowance (see `_max_club_teams_for`):
         each club may have up to a number of teams in a single tournament
-        proportional to how many teams it fields in this age group,
-        capped by the age group's `_max_teams_for` limit. Invites the whole
-        age-group roster when it is small enough for a sensible
-        round-robin and club diversity allows it; otherwise picks a
-        subset using a least-recently-grouped-together heuristic.
+        proportional to how many teams it fields in this age group.
+        Tournament size itself is derived from the configured parallel-games
+        count (roughly ``2 * parallel_games + 1``), so odd-sized participant
+        sets are allowed when they fit the available round capacity and the
+        round-robin generator can assign one team a bye/rest each round.
+        Invites the whole age-group roster when it fits that capacity and
+        club diversity allows it; otherwise picks a subset using a
+        least-recently-grouped-together heuristic.
 
         Root-cause note (club-size skew): previously, with a flat
         ``max_club_teams_per_tournament=1``, each club got at most one
@@ -1364,7 +1357,7 @@ class SeasonPlanner:
         if not candidates:
             return []
 
-        max_teams = self._max_teams_for(age_group)
+        max_teams = self._participant_limit_for(age_group, len(candidates))
         if len(candidates) <= max_teams:
             # Enforce per-club slot allowance even on the small-roster
             # fast path, but deficit-aware: a candidate over its club's
@@ -1420,20 +1413,33 @@ class SeasonPlanner:
 
         return result
 
-    def _max_teams_for(self, age_group: str) -> int:
-        """Return the maximum number of teams to invite to a single tournament.
+    def _parallel_games_for(self, age_group: str) -> int:
+        """Return the configured parallel-games count for `age_group`."""
+        parallel_games = self.parallel_games_for_age_group.get(age_group, DEFAULT_PARALLEL_GAMES)
+        return max(1, parallel_games)
 
-        Explicit per-age-group config (from ``maxTeamsPerTournament`` in
-        input.json) takes precedence.  Falls back to a heuristic derived from
-        the parallel-games count, then to ``DEFAULT_MAX_TEAMS_PER_TOURNAMENT``.
+    def _base_team_capacity(self, age_group: str) -> int:
+        """Return the even team-count capacity implied by parallel games."""
+        return self._parallel_games_for(age_group) * 2
+
+    def _participant_limit_for(self, age_group: str, team_count: int) -> int:
+        """Return the max teams that fit a tournament for `team_count` rosters.
+
+        Even-sized rosters are limited to the base even capacity. Odd-sized
+        rosters can take one extra team, which the round-robin generator turns
+        into a bye/rest round.
         """
-        explicit = self.max_teams_per_tournament_for_age_group.get(age_group)
-        if explicit is not None and explicit > 0:
-            return explicit
-        parallel_games = self.parallel_games_for_age_group.get(age_group)
-        if parallel_games and parallel_games > 0:
-            return max(4, min(DEFAULT_MAX_TEAMS_PER_TOURNAMENT + parallel_games, parallel_games * 3))
-        return DEFAULT_MAX_TEAMS_PER_TOURNAMENT
+        base_capacity = self._base_team_capacity(age_group)
+        return base_capacity + (team_count % 2)
+
+    def _max_teams_for(self, age_group: str) -> int:
+        """Return the largest odd-capacity tournament size for `age_group`.
+
+        This is the upper bound the planner can ever use for the age group:
+        the even base capacity plus one extra team to allow a bye/rest round
+        when the roster size is odd.
+        """
+        return self._base_team_capacity(age_group) + 1
 
     def _max_club_teams_for(self, age_group: str, club: str) -> int:
         """Return how many teams from `club` may play in one `age_group` tournament.

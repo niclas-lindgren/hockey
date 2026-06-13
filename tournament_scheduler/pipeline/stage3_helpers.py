@@ -144,7 +144,11 @@ def _make_planner(
     events_by_club: dict[str, list[CalendarEvent]] | None = None,
     fairness_thresholds: dict[str, float] | None = None,
 ) -> SeasonPlanner:
-    """Construct a :class:`SeasonPlanner`."""
+    """Construct a :class:`SeasonPlanner` with derived tournament sizing.
+
+    The planner now sizes tournaments from the parallel-games config and no
+    longer relies on a separate max-teams cap.
+    """
     from ..scheduler import TournamentScheduler
     from ..conflict_checkers.holiday_checker import HolidayConflictChecker
     from ..utils.date_parser import DateParser

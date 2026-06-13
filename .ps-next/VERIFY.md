@@ -4,6 +4,10 @@ STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| Stage 4 writes a per-club review packet for each club with only that club's proposed events, hosting duties, travel summary, and schedule attachment. | PASS | `pytest -q tests/test_review_packets.py::test_stage4_writes_club_review_packets` passed; the test asserts club folders, manifests, response templates, filtered Spond rows, and schedule attachments. |
-| A club response marked as a change request can update the season plan inputs and rerun the adjustment/export flow without manual file surgery. | PASS | `pytest -q tests/test_review_packets.py::test_review_command_applies_change_request_and_reexports` passed; the CLI test updates `response_template.json`, runs `rvv-miniputt review`, and asserts the Stage 3 plan and re-exported files change. |
-| Run regression tests that verify the packet contents and the response-to-replan path. | PASS | `pytest -q tests/test_review_packets.py tests/test_stage4_export.py tests/test_spond_exporter.py` passed, and `python3 -m compileall tournament_scheduler tests` passed. |
+| run: pytest -q tests/test_season_planner.py -k 'parallel_games_define_tournament_capacity_and_bye_rounds' | PASS | exit 0; output: ============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0
+rootdir: /Users/nic |
+| run: bash -lc '! rg -n "max_teams_per_tournament_for_age_group\\.get\\(\|return explicit" tournament_scheduler/season_planner.py tournament_scheduler/cli/season_command.py tournament_scheduler/pipeline/stage3_helpers.py' | PASS | exit 0 |
+| run: pytest -q tests/test_season_planner.py | PASS | exit 0; output: ============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0
+rootdir: /Users/nic |

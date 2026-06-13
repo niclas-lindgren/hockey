@@ -3,6 +3,8 @@
 ## Open
 
 ## Done
+- [78] [x] Remove the separate maximum participating teams limit and derive capacity from the number of parallel matches; Handle odd team counts below the calculated expected teams by assigning one team to rest (2026-06-13)
+
 - [71] [x] Add club review/approval exports: generate per-club review packets showing only that club's proposed Spond events, home-hosting duties, travel, and game schedule attachments, with an accept/change-request workflow that can feed back into replanning. (2026-06-13)
 
 - [70] [x] Add a manual organizer adjustment loop for the final season plan: let the organizer lock/ban dates, force or exclude host clubs, pin specific tournament events, then re-run planning while preserving locks and rechecking fairness/conflicts before export. (2026-06-13)
@@ -164,3 +166,4 @@
 - [7] [x] Even time-distribution validator — a check/report that flags months or periods within the proposed season plan that are over- or under-loaded with tournaments relative to the Oct-Apr target spread, surfaced as Rich warnings before the plan is finalized. (2026-06-10)
 
 - [8] [x] Spond season-plan export — export the generated season plan (tournaments, dates, arenas, participating teams, and per-tournament round-robin game schedules) to Spond's Excel-import format for season planning. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use. (2026-06-10)
+g. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use. (2026-06-10)
