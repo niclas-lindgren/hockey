@@ -181,7 +181,9 @@ class TestRunStage4:
         )
         files = result.get("output_files", {})
         html_path = Path(files["html"])
+        report_path = Path(files["html_report"])
         html = html_path.read_text(encoding="utf-8")
+        report_html = report_path.read_text(encoding="utf-8")
 
         assert '<option value="U10">U10</option>' in html
         assert '<option value="JU11">JU11</option>' in html
@@ -193,12 +195,15 @@ class TestRunStage4:
         assert 'href="season_plan.csv"' in html
         assert 'href="season_plan.ics"' in html
         assert 'href="season_plan.csv" class="export-link-btn"' in html or 'href="season_plan.csv"' in html
-        assert 'Rettferdighetsgate' in html
-        assert 'Fairness-justeringer' in html
-        assert 'score-item--gate' in html
-        assert 'fairness-adjustment-table' in html
+        assert 'Rettferdighetsgate' not in html
+        assert 'Fairness-justeringer' not in html
+        assert 'id="timeline"' in html
+        assert 'Rettferdighetsgate' in report_html
+        assert 'Fairness-justeringer' in report_html
+        assert 'id="timeline"' not in report_html
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
+        assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)
 
     def test_html_filters_fall_back_to_plan_age_groups_when_input_omits_them(self, tmp_path):
         input_path = tmp_path / "input.json"
@@ -274,7 +279,7 @@ class TestRunStage4:
         )
         files = result.get("output_files", {})
 
-        timestamped_paths = [Path(files[key]) for key in ("excel", "ical", "csv_games", "csv_overview", "html", "spond", "spond_games")]
+        timestamped_paths = [Path(files[key]) for key in ("excel", "ical", "csv_games", "csv_overview", "html", "html_report", "spond", "spond_games")]
         timestamp_dirs = {path.parent for path in timestamped_paths}
         assert len(timestamp_dirs) == 1
         timestamp_dir = timestamp_dirs.pop()

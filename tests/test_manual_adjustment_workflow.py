@@ -144,3 +144,4 @@ def test_adjust_cli_runs_end_to_end(tmp_path):
     assert code == 0
     assert (export_dir / "season_plan.xlsx").exists()
     assert (export_dir / "season_plan.html").exists()
+    assert (export_dir / "season_plan_report.html").exists()

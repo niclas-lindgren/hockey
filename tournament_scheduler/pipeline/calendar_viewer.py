@@ -63,6 +63,7 @@ _ICON_REFRESH = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" str
 _ICON_SEARCH = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10" y1="10" x2="14.5" y2="14.5"/></svg>'
 _ICON_CLOCK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="8 4 8 8 11 10"/></svg>'
 _ICON_TERMINAL = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 6.5 8.5 4 11"/><line x1="8" y1="11" x2="12" y2="11"/><rect x="1" y="2" width="14" height="12" rx="2"/></svg>'
+_ICON_BAR_CHART = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="14" x2="2" y2="6"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="4"/><line x1="14" y1="14" x2="14" y2="8"/></svg>'
 
 def _cache_status(entry: dict[str, Any], ttl_hours: float = 6.0) -> str:
     """Return a freshness badge label for a cache entry.
@@ -570,6 +571,7 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
   <span class="brand">RVV Miniputt</span>
   <a href="calendars.html" class="active"><span class="nav-icon">{_ICON_CALENDAR}</span> Skrapede kalendere</a>
   <a href="season_plan.html" class="{'active' if not has_season_plan else ''}"><span class="nav-icon">{_ICON_CLIPBOARD}</span> Sesongplan</a>
+  <a href="season_plan_report.html" class=""><span class="nav-icon">{_ICON_BAR_CHART}</span> Rapport</a>
   <a href="#" onclick="document.querySelector('.main').scrollTo(0,0);return false" style="margin-left:auto;color:var(--text-muted)"><span class="nav-icon">{_ICON_ARROW_UP}</span></a>
   <button id="themeToggle" class="theme-toggle" aria-label="Bytt tema" title="Bytt tema">
     <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>

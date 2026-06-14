@@ -7,6 +7,7 @@ and writes three output files:
 - ``<export_dir>/season_plan.ics``    — iCal feed via :class:`ICalExporter`
 - ``<export_dir>/season_plan.csv``    — flat game CSV + ``_overview.csv`` via :class:`CsvExporter`
 - ``<export_dir>/season_plan.html``   — interactive HTML overview via :class:`~tournament_scheduler.html.html_exporter.HtmlExporter`
+- ``<export_dir>/season_plan_report.html``   — companion diagnostics report with fairness / travel / hosting summaries
 - ``<export_dir>/season_plan_spond_games.xlsx`` — printable tournament-by-tournament schedule attachment for Spond
 - ``<export_dir>/review_packets/`` — per-club approval folders with review workbook, Spond import, schedule attachment, and response template
 
@@ -193,6 +194,7 @@ def run(
             age_groups=configured_age_groups,
         )
         output_files["html"] = html_path
+        output_files["html_report"] = str(Path(html_path).with_name(f"{Path(html_path).stem}_report{Path(html_path).suffix}"))
     except Exception as exc:  # noqa: BLE001
         errors.append(f"HTML-eksport feilet: {exc}")
 

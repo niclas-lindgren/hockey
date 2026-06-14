@@ -287,93 +287,116 @@ class HtmlExporter:
             links_parts.append('</div>')
             export_links_html = "".join(links_parts)
 
-        # --- Assemble page from fragments ---
-        parts = {
-            "$STYLES$": STYLES_CSS,
-            "$NAVBAR$": NAVBAR,
-            "$HEADER$": HEADER,
-            "$SCORES$": SCORES,
-            "$METRICS$": METRICS,
-            "$FAIRNESS_ADJUSTMENTS$": fairness_adjustments_html,
-            "$EXPORT_LINKS$": export_links_html,
-            "$CLUB_DASHBOARD$": CLUB_DASHBOARD,
-            "$TEAM_STATS$": TEAM_STATS,
-            "$TRAVEL_STATS$": TRAVEL_STATS,
-            "$HEATMAP$": HEATMAP,
-            "$FILTERS$": FILTERS,
-            "$COUNT_BAR$": COUNT_BAR,
-            "$SCRIPT$": JAVASCRIPT,
-        }
-
-        # Calendar href --- use the sibling filename
+        # --- Assemble pages from fragments ---
         calendars_href = "calendars.html"
         season_plan_href = "season_plan.html"
-        # If calendars.html is in export/, use relative; otherwise default
-        calendars_out = Path(path).parent / "calendars.html"
+        report_href = "season_plan_report.html"
 
-        replacements = {
-            "$ICON_CALENDAR$": _ICON_CALENDAR,
-            "$ICON_CLIPBOARD$": _ICON_CLIPBOARD,
-            "$ICON_USERS$": _ICON_USERS,
-            "$ICON_TARGET$": _ICON_TARGET,
-            "$ICON_TRAVEL$": _ICON_TRAVEL,
-            "$ICON_WARNING$": _ICON_WARNING,
-            "$CALENDARS_HREF$": calendars_href,
-            "$SEASON_PLAN_HREF$": season_plan_href,
-            "$SEASON_LABEL$": season_label,
-            "$SCRAPE_META$": scrape_meta,
-            "$AGE_GROUPS$": " + ".join(display_age_groups),
-            "$TOURNAMENT_COUNT$": str(len(plan.tournaments)),
-            "$GAME_COUNT$": str(sum(len(t.games) for t in plan.tournaments)),
-            "$UNIQUE_TEAMS$": str(len(all_teams)),
-            "$TEAM_COUNT$": str(len(team_game_counts)),
-            "$GAME_COUNT_SPREAD$": (
-                f"{max(team_game_counts.values()) - min(team_game_counts.values())} spread"
-                if team_game_counts else "-"
-            ),
-            "$SOURCE_COUNT$": str(source_count),
-            "$EVENT_COUNT$": str(event_count),
-            "$BLOCKED_COUNT$": str(blocked_count),
-            "$BLOCKED_NAMES$": blocked_names,
-            "$DATE_RANGE$": date_range,
-            "$TOTAL_TRAVEL_KM$": str(total_travel_km),
-            "$SCRAPE_AGE_HTML$": scrape_age_html,
-            "$TEAM_GAME_COUNTS_JSON$": team_game_counts_json,
-            "$TEAM_TRAVEL_JSON$": team_travel_json,
-            "$MOST_TRAVEL_TEAM$": most_travel_team,
-            "$MOST_TRAVEL_KM$": most_travel_km,
-            "$TRAVEL_COUNT_ESTIMATE_HTML$": travel_count_estimate_html,
-            "$HEATMAP_JSON$": heatmap_json,
-            "$HEATMAP_WEEKS_JSON$": heatmap_weeks_json,
-            "$HEATMAP_CLUBS_JSON$": heatmap_clubs_json,
-            "$HEATMAP_CLUB_COLORS_JSON$": heatmap_club_colors_json,
-            "$HEATMAP_CLUBS_COUNT$": str(len(heatmap_clubs)),
-            "$HEATMAP_WEEKS_COUNT$": str(len(heatmap_weeks)),
-            "$CLUB_STATS_JSON$": club_stats_json,
-            "$ALL_CLUBS_JSON$": all_clubs_json,
-            "$DIVERSITY_SCORE$": str(int((plan.diversity_score or 0) * 100)),
-            "$MONTH_BALANCE_SCORE$": str(int((plan.month_balance_score or 0) * 100)),
-            "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),
-            "$FAIRNESS_GATE_SCORE$": str(int((plan.fairness_gate.get("score", 0) if isinstance(plan.fairness_gate, dict) else 0))),
-            "$FAIRNESS_GATE_STATUS$": str((plan.fairness_gate.get("status", "pass") if isinstance(plan.fairness_gate, dict) else "pass")),
-            "$FAIRNESS_GATE_STATUS_LABEL$": str({"pass": "PASS", "warn": "VARSEL", "fail": "FEIL"}.get(plan.fairness_gate.get("status", "pass") if isinstance(plan.fairness_gate, dict) else "pass", "PASS")),
-            "$FAIRNESS_GATE_HTML$": fairness_gate_html,
-            "$AGE_GROUP_OPTIONS$": age_group_options,
-            "$TOURNAMENTS_JSON$": tournaments_json,
-            "$EXPORT_LINKS_HTML$": export_links_html,
-        }
+        def _render_page(*, page_title: str, page_subtitle: str, include_diagnostics: bool, include_timeline: bool, active_page: str) -> str:
+            parts = {
+                "$STYLES$": STYLES_CSS,
+                "$NAVBAR$": NAVBAR,
+                "$HEADER$": HEADER,
+                "$SCORES$": SCORES if include_diagnostics else "",
+                "$METRICS$": METRICS if include_diagnostics else "",
+                "$FAIRNESS_ADJUSTMENTS$": fairness_adjustments_html if include_diagnostics else "",
+                "$EXPORT_LINKS$": export_links_html,
+                "$CLUB_DASHBOARD$": CLUB_DASHBOARD if include_diagnostics else "",
+                "$TEAM_STATS$": TEAM_STATS if include_diagnostics else "",
+                "$TRAVEL_STATS$": TRAVEL_STATS if include_diagnostics else "",
+                "$HEATMAP$": HEATMAP if include_diagnostics else "",
+                "$FILTERS$": FILTERS,
+                "$COUNT_BAR$": COUNT_BAR,
+                "$TIMELINE$": '<div class="timeline" id="timeline"></div>' if include_timeline else "",
+                "$SCRIPT$": JAVASCRIPT,
+            }
 
-        html = PAGE_TEMPLATE
-        # First, expand sub-templates
-        for part_key, part_value in parts.items():
-            html = html.replace(part_key, part_value)
-        # Then, do global replacements
-        for marker, value in replacements.items():
-            html = html.replace(marker, value)
+            replacements = {
+                "$ICON_CALENDAR$": _ICON_CALENDAR,
+                "$ICON_CLIPBOARD$": _ICON_CLIPBOARD,
+                "$ICON_USERS$": _ICON_USERS,
+                "$ICON_TARGET$": _ICON_TARGET,
+                "$ICON_TRAVEL$": _ICON_TRAVEL,
+                "$ICON_WARNING$": _ICON_WARNING,
+                "$ICON_BAR_CHART$": _ICON_BAR_CHART,
+                "$CALENDARS_HREF$": calendars_href,
+                "$SEASON_PLAN_HREF$": season_plan_href,
+                "$REPORT_HREF$": report_href,
+                "$CALENDARS_ACTIVE$": "active" if active_page == "calendars" else "",
+                "$SEASON_PLAN_ACTIVE$": "active" if active_page == "season" else "",
+                "$REPORT_ACTIVE$": "active" if active_page == "report" else "",
+                "$PAGE_TITLE$": page_title,
+                "$PAGE_SUBTITLE$": page_subtitle,
+                "$SEASON_LABEL$": season_label,
+                "$SCRAPE_META$": scrape_meta,
+                "$AGE_GROUPS$": " + ".join(display_age_groups),
+                "$TOURNAMENT_COUNT$": str(len(plan.tournaments)),
+                "$GAME_COUNT$": str(sum(len(t.games) for t in plan.tournaments)),
+                "$UNIQUE_TEAMS$": str(len(all_teams)),
+                "$TEAM_COUNT$": str(len(team_game_counts)),
+                "$GAME_COUNT_SPREAD$": (
+                    f"{max(team_game_counts.values()) - min(team_game_counts.values())} spread"
+                    if team_game_counts else "-"
+                ),
+                "$SOURCE_COUNT$": str(source_count),
+                "$EVENT_COUNT$": str(event_count),
+                "$BLOCKED_COUNT$": str(blocked_count),
+                "$BLOCKED_NAMES$": blocked_names,
+                "$DATE_RANGE$": date_range,
+                "$TOTAL_TRAVEL_KM$": str(total_travel_km),
+                "$SCRAPE_AGE_HTML$": scrape_age_html,
+                "$TEAM_GAME_COUNTS_JSON$": team_game_counts_json,
+                "$TEAM_TRAVEL_JSON$": team_travel_json,
+                "$MOST_TRAVEL_TEAM$": most_travel_team,
+                "$MOST_TRAVEL_KM$": most_travel_km,
+                "$TRAVEL_COUNT_ESTIMATE_HTML$": travel_count_estimate_html,
+                "$HEATMAP_JSON$": heatmap_json,
+                "$HEATMAP_WEEKS_JSON$": heatmap_weeks_json,
+                "$HEATMAP_CLUBS_JSON$": heatmap_clubs_json,
+                "$HEATMAP_CLUB_COLORS_JSON$": heatmap_club_colors_json,
+                "$HEATMAP_CLUBS_COUNT$": str(len(heatmap_clubs)),
+                "$HEATMAP_WEEKS_COUNT$": str(len(heatmap_weeks)),
+                "$CLUB_STATS_JSON$": club_stats_json,
+                "$ALL_CLUBS_JSON$": all_clubs_json,
+                "$DIVERSITY_SCORE$": str(int((plan.diversity_score or 0) * 100)),
+                "$MONTH_BALANCE_SCORE$": str(int((plan.month_balance_score or 0) * 100)),
+                "$PAIRWISE_SCORE$": str(int((plan.pairwise_matchup_score or 0) * 100)),
+                "$FAIRNESS_GATE_SCORE$": str(int((plan.fairness_gate.get("score", 0) if isinstance(plan.fairness_gate, dict) else 0))),
+                "$FAIRNESS_GATE_STATUS$": str((plan.fairness_gate.get("status", "pass") if isinstance(plan.fairness_gate, dict) else "pass")),
+                "$FAIRNESS_GATE_STATUS_LABEL$": str({"pass": "PASS", "warn": "VARSEL", "fail": "FEIL"}.get(plan.fairness_gate.get("status", "pass") if isinstance(plan.fairness_gate, dict) else "pass", "PASS")),
+                "$FAIRNESS_GATE_HTML$": fairness_gate_html,
+                "$AGE_GROUP_OPTIONS$": age_group_options,
+                "$TOURNAMENTS_JSON$": tournaments_json,
+                "$EXPORT_LINKS_HTML$": export_links_html,
+            }
+
+            html = PAGE_TEMPLATE
+            for part_key, part_value in parts.items():
+                html = html.replace(part_key, part_value)
+            for marker, value in replacements.items():
+                html = html.replace(marker, value)
+            return html
+
+        schedule_html = _render_page(
+            page_title="Sesongplan",
+            page_subtitle=f"RVV Hockey &mdash; {' + '.join(display_age_groups)}",
+            include_diagnostics=False,
+            include_timeline=True,
+            active_page="season",
+        )
+        report_html = _render_page(
+            page_title="Sesongrapport",
+            page_subtitle=f"RVV Hockey &mdash; {' + '.join(display_age_groups)} &middot; diagnostikk",
+            include_diagnostics=True,
+            include_timeline=False,
+            active_page="report",
+        )
 
         dest = Path(path)
         dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(html, encoding="utf-8")
+        dest.write_text(schedule_html, encoding="utf-8")
+        report_dest = dest.with_name(f"{dest.stem}_report{dest.suffix}")
+        report_dest.write_text(report_html, encoding="utf-8")
         return str(dest)
 
     @staticmethod

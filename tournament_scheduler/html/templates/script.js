@@ -47,15 +47,17 @@ function getClubFromTeam(team) {
 
 // Populate filter selects
 (function() {
+  const arenaSel = document.getElementById('filterArena');
+  const clubSel = document.getElementById('filterClub');
+  if (!arenaSel || !clubSel) return;
+
   const arenas = [...new Set(TOURNAMENTS.map(t => t.a))].sort();
   const clubs = new Set();
   TOURNAMENTS.forEach(t => {
     clubs.add(t.h);
     t.m.forEach(([h, a]) => { clubs.add(getClubFromTeam(h)); clubs.add(getClubFromTeam(a)); });
   });
-  const arenaSel = document.getElementById('filterArena');
   arenas.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; arenaSel.appendChild(o); });
-  const clubSel = document.getElementById('filterClub');
   [...clubs].sort().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; clubSel.appendChild(o); });
 })();
 
@@ -259,11 +261,20 @@ function buildMatchHTML(matches, byes) {
 }
 
 function render() {
-  var age = document.getElementById('filterAge').value;
-  var arena = document.getElementById('filterArena').value;
-  var club = document.getElementById('filterClub').value;
-  var search = document.getElementById('filterSearch').value.toLowerCase().trim();
+  var ageSel = document.getElementById('filterAge');
+  var arenaSel = document.getElementById('filterArena');
+  var clubSel = document.getElementById('filterClub');
+  var searchSel = document.getElementById('filterSearch');
   var timeline = document.getElementById('timeline');
+  var totalTournaments = document.getElementById('totalTournaments');
+  var visibleCount = document.getElementById('visibleCount');
+  var totalCount = document.getElementById('totalCount');
+  var monthRange = document.getElementById('monthRange');
+
+  var age = ageSel ? ageSel.value : '';
+  var arena = arenaSel ? arenaSel.value : '';
+  var club = clubSel ? clubSel.value : '';
+  var search = searchSel ? searchSel.value.toLowerCase().trim() : '';
 
   var html = '';
   var visible = 0;
@@ -282,6 +293,8 @@ function render() {
     }
 
     visible++;
+    if (!timeline) continue;
+
     var di = formatDateInfo(t.d);
     var timeRangeHtml = '';
     if (t.ts) {
@@ -311,26 +324,34 @@ function render() {
       '</div></div></div>';
   }
 
-  document.getElementById('totalTournaments').textContent = TOURNAMENTS.length;
-  document.getElementById('visibleCount').textContent = visible;
-  document.getElementById('totalCount').textContent = TOURNAMENTS.length;
+  if (totalTournaments) totalTournaments.textContent = TOURNAMENTS.length;
+  if (visibleCount) visibleCount.textContent = visible;
+  if (totalCount) totalCount.textContent = TOURNAMENTS.length;
 
-  if (TOURNAMENTS.length) {
+  if (TOURNAMENTS.length && monthRange) {
     var first = parseDate(TOURNAMENTS[0].d);
     var last = parseDate(TOURNAMENTS[TOURNAMENTS.length - 1].d);
-    document.getElementById('monthRange').textContent = MONTHS[first.getMonth()] + ' ' + first.getFullYear() + ' \u2013 ' + MONTHS[last.getMonth()] + ' ' + last.getFullYear();
+    monthRange.textContent = MONTHS[first.getMonth()] + ' ' + first.getFullYear() + ' \u2013 ' + MONTHS[last.getMonth()] + ' ' + last.getFullYear();
   }
 
+  if (!timeline) return;
   timeline.innerHTML = html ||
     '<div class="no-results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>Ingen turneringer matcher filteret</p></div>';
 }
 
-document.getElementById('filterAge').addEventListener('change', render);
-document.getElementById('filterArena').addEventListener('change', render);
-document.getElementById('filterClub').addEventListener('change', function() {
+var ageFilter = document.getElementById('filterAge');
+var arenaFilter = document.getElementById('filterArena');
+var clubFilter = document.getElementById('filterClub');
+var searchFilter = document.getElementById('filterSearch');
+var clearFilter = document.getElementById('filterClear');
+var clubDashboard = document.getElementById('clubDashboard');
+
+if (ageFilter) ageFilter.addEventListener('change', render);
+if (arenaFilter) arenaFilter.addEventListener('change', render);
+if (clubFilter) clubFilter.addEventListener('change', function() {
   var club = this.value;
-  var dashboard = document.getElementById('clubDashboard');
-  if (club && CLUB_STATS[club]) {
+  var dashboard = clubDashboard;
+  if (club && dashboard && CLUB_STATS[club]) {
     var s = CLUB_STATS[club];
     document.getElementById('clubDashName').textContent = club;
     document.getElementById('clubDashHosted').textContent = s.hosted;
@@ -338,18 +359,18 @@ document.getElementById('filterClub').addEventListener('change', function() {
     document.getElementById('clubDashTravel').textContent = (s.travel_km || 0).toLocaleString();
     document.getElementById('clubDashTeams').textContent = s.teams;
     dashboard.style.display = 'block';
-  } else {
+  } else if (dashboard) {
     dashboard.style.display = 'none';
   }
   render();
 });
-document.getElementById('filterSearch').addEventListener('input', render);
-document.getElementById('filterClear').addEventListener('click', function() {
-  document.getElementById('filterAge').value = '';
-  document.getElementById('filterArena').value = '';
-  document.getElementById('filterClub').value = '';
-  document.getElementById('filterSearch').value = '';
-  document.getElementById('clubDashboard').style.display = 'none';
+if (searchFilter) searchFilter.addEventListener('input', render);
+if (clearFilter) clearFilter.addEventListener('click', function() {
+  if (ageFilter) ageFilter.value = '';
+  if (arenaFilter) arenaFilter.value = '';
+  if (clubFilter) clubFilter.value = '';
+  if (searchFilter) searchFilter.value = '';
+  if (clubDashboard) clubDashboard.style.display = 'none';
   render();
 });
 
