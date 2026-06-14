@@ -14,8 +14,7 @@ Extended format (recommended) — includes federation defaults alongside clubs::
 
     {
       "federationDefaults": {
-        "parallelGames": {"U10": 3, "U11": 2, ...},
-        "maxTeamsPerTournament": {"U10": 6, "U11": 6, ...}
+        "parallelGames": {"U10": 3, "U11": 2, ...}
       },
       "clubs": {
         "Jar": {"U10": ["Jar 1", "Jar 2"], "U11": ["Jar 1"]},
@@ -294,8 +293,8 @@ class RosterLoader:
         """Load a roster config file and return ``(Roster, federation_defaults)``.
 
         ``federation_defaults`` is the dict under the ``federationDefaults`` key
-        in the extended input format (contains ``parallelGames`` and
-        ``maxTeamsPerTournament`` sub-dicts), or an empty dict for flat files.
+        in the extended input format (contains ``parallelGames``), or an empty
+        dict for flat files.
         """
         if not os.path.isfile(path):
             raise RosterConfigError(f"Fant ikke spillerlistefilen (rosterfilen): {path}")

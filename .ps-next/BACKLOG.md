@@ -1,10 +1,11 @@
 # Backlog
 
 ## Open
-- [81] [ ] Rydd opp i `input.json`-kildene: bruk kun rotens `input.json` som canonical konfigurasjon, oppdater/avvikle `documentation/input.json`, og fjern den hvis den er redundant.
-
-- [80] [ ] Fjern alle referanser til `maxTeamsPerTournament`; beregn `maxTeamsPerTournament` fra `parallel_games` og bruk `input.json` som eneste kilde for filtrering/visning av aldersgrupper.
 ## Done
+- [80] [x] Fjern alle referanser til `maxTeamsPerTournament`; beregn `maxTeamsPerTournament` fra `parallel_games` og bruk `input.json` som eneste kilde for filtrering/visning av aldersgrupper. (2026-06-14)
+
+- [81] [x] Rydd opp i `input.json`-kildene: bruk kun rotens `input.json` som canonical konfigurasjon, oppdater/avvikle `documentation/input.json`, og fjern den hvis den er redundant. (2026-06-14)
+
 - [79] [x] Remove the planner’s same-club matchup filter so same-club games can be scheduled when needed. (2026-06-13)
 
 - [78] [x] Remove the separate maximum participating teams limit and derive capacity from the number of parallel matches; Handle odd team counts below the calculated expected teams by assigning one team to rest (2026-06-13)
@@ -171,3 +172,4 @@
 
 - [8] [x] Spond season-plan export — export the generated season plan (tournaments, dates, arenas, participating teams, and per-tournament round-robin game schedules) to Spond's Excel-import format for season planning. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use. (2026-06-10)
 g. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use. (2026-06-10)
+

@@ -74,6 +74,19 @@ def _build_roster(clubs, age_groups, teams_per_club_per_age_group=1):
     return Roster(teams=teams)
 
 
+def _load_real_roster_from_input_json():
+    import json
+    import os
+
+    input_path = os.path.join(os.path.dirname(__file__), "..", "input.json")
+    with open(input_path, encoding="utf-8") as fh:
+        data = json.load(fh)
+
+    roster = Roster(teams=[Team(**team) for team in data["teams"]])
+    parallel_games = data.get("parallel_games", {})
+    return roster, parallel_games
+
+
 @pytest.fixture
 def season_window():
     return datetime(2026, 10, 1), datetime(2027, 4, 30)
@@ -624,7 +637,6 @@ class TestPerTeamGameCounts:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 2},
-            max_teams_per_tournament_for_age_group={"U10": 3},
             max_game_count_spread=0,  # any spread triggers a warning
         )
         planner.build_plan(start, end)
@@ -687,7 +699,6 @@ class TestPerTeamGameCounts:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 2},
-            max_teams_per_tournament_for_age_group={"U10": 3},
             max_early_finish_gap_days=0,  # any gap triggers a warning
         )
         planner.build_plan(start, end)
@@ -749,7 +760,6 @@ class TestPerTeamGameCounts:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 2},
-            max_teams_per_tournament_for_age_group={"U10": 1},
         )
 
         assert planner._max_teams_for("U10") == 5
@@ -795,7 +805,7 @@ class TestPerTeamGameCounts:
         assert set().union(*bye_rounds.values()) == {team.label for team in tournament.teams}
 
     def test_jar_vs_kongsberg_team_counts_skew_is_bounded(self):
-        """Reproduces the club-size-skew scenario from documentation/input.json:
+        """Reproduces the club-size-skew scenario from the canonical input.json:
         Jar fields 7 U10 teams and 6 U11 teams, while Kongsberg fields only 1
         team in each age group. With `max_club_teams_per_tournament=1`,
         every tournament invites at most one team per club, so Kongsberg's
@@ -964,7 +974,7 @@ class TestPerTeamGameCounts:
         assert "Skien U11" not in warnings_by_label
 
     def test_real_roster_end_to_end_jar_vs_kongsberg(self):
-        """End-to-end check against the real `documentation/input.json`
+        """End-to-end check against the real `input.json`
         roster (Jar: 7 U10 teams, Kongsberg: 1 U10 team, plus the other RVV
         clubs), over the 2026-09-01 to 2027-04-30 season window.
 
@@ -979,18 +989,7 @@ class TestPerTeamGameCounts:
         game-count-spread checking") surfaces the real-roster imbalance
         described in the original backlog item.
         """
-        import os
-        from tournament_scheduler.roster_loader import RosterLoader
-
-        input_path = os.path.join(
-            os.path.dirname(__file__), "..", "documentation", "input.json"
-        )
-        if not os.path.isfile(input_path):
-            pytest.skip(f"documentation/input.json not found at {input_path}")
-
-        roster, federation_defaults = RosterLoader.load_with_defaults(input_path)
-        parallel_games = federation_defaults.get("parallelGames") or None
-        max_teams = federation_defaults.get("maxTeamsPerTournament") or None
+        roster, parallel_games = _load_real_roster_from_input_json()
 
         start, end = datetime(2026, 9, 1), datetime(2027, 4, 30)
         free_dates = _all_weekend_dates(start, end)
@@ -1001,7 +1000,6 @@ class TestPerTeamGameCounts:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group=parallel_games,
-            max_teams_per_tournament_for_age_group=max_teams,
         )
         plan = planner.build_plan(start, end)
 
@@ -1044,7 +1042,7 @@ class TestPerTeamGameCounts:
     def test_real_roster_jar_vs_kongsberg_spread_reduced_by_deficit_aware_selection(self):
         """Regression test for backlog item 58 (deficit-aware selection).
 
-        Before this change, the real `documentation/input.json` roster
+        Before this change, the real `input.json` roster
         produced a documented Jar-vs-Kongsberg U10 spread of 17 (Jar's 7
         U10 teams at ~13-18 games each vs Kongsberg's sole U10 team at ~25,
         against a configured `max_game_count_spread` of 2).
@@ -1062,18 +1060,7 @@ class TestPerTeamGameCounts:
         of tournaments (same-club pairings beyond `_max_club_teams_for`
         remain the exception).
         """
-        import os
-        from tournament_scheduler.roster_loader import RosterLoader
-
-        input_path = os.path.join(
-            os.path.dirname(__file__), "..", "documentation", "input.json"
-        )
-        if not os.path.isfile(input_path):
-            pytest.skip(f"documentation/input.json not found at {input_path}")
-
-        roster, federation_defaults = RosterLoader.load_with_defaults(input_path)
-        parallel_games = federation_defaults.get("parallelGames") or None
-        max_teams = federation_defaults.get("maxTeamsPerTournament") or None
+        roster, parallel_games = _load_real_roster_from_input_json()
 
         start, end = datetime(2026, 9, 1), datetime(2027, 4, 30)
         free_dates = _all_weekend_dates(start, end)
@@ -1084,7 +1071,6 @@ class TestPerTeamGameCounts:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group=parallel_games,
-            max_teams_per_tournament_for_age_group=max_teams,
         )
         plan = planner.build_plan(start, end)
 
@@ -1182,7 +1168,6 @@ class TestSkillLevelDivisions:
             roster=skill_roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 2},
-            max_teams_per_tournament_for_age_group={"U10": 4},
             division_skill_band=2,
         )
 
@@ -1203,7 +1188,6 @@ class TestSkillLevelDivisions:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 2},
-            max_teams_per_tournament_for_age_group={"U10": 4},
             division_skill_band=2,
         )
         plan = planner.build_plan(datetime(2026, 10, 1), datetime(2027, 4, 30))
@@ -1253,13 +1237,12 @@ class TestSkillLevelDivisions:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 2},
-            max_teams_per_tournament_for_age_group={"U10": 4},
             division_skill_band=2,
         )
         plan = planner.build_plan(start, end)
         assert len(plan.tournaments) >= 1
-        # With only 1 low-skill team and 4 high-skill, max_teams=4 means the
-        # first tournament must include the low-skill team (soft constraint doesn't exclude)
+        # With only 1 low-skill team and 4 high-skill, the first tournament must
+        # include the low-skill team (soft constraint doesn't exclude).
         first_teams = plan.tournaments[0].teams
         levels = [t.skill_level for t in first_teams if t.skill_level is not None]
         assert 1 in levels, (
@@ -1282,7 +1265,6 @@ class TestSkillLevelDivisions:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 2},
-            max_teams_per_tournament_for_age_group={"U10": 4},
             division_skill_band=2,
         )
         plan = planner.build_plan(start, end)

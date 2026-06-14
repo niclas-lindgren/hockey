@@ -440,8 +440,8 @@ def collect_roster_entries():
 
     Returns ``(Roster, federation_defaults)`` where ``federation_defaults`` is
     the dict under the ``federationDefaults`` key in an extended input file
-    (contains ``parallelGames`` and ``maxTeamsPerTournament`` sub-dicts), or an
-    empty dict when roster is entered manually or a flat file is used.
+    (contains ``parallelGames``), or an empty dict when roster is entered
+    manually or a flat file is used.
     """
     from tournament_scheduler.models import Team, Roster
     from tournament_scheduler.club_registry import CLUB_REGISTRY
@@ -564,7 +564,6 @@ def run_season_plan(params):
 
     federation_defaults = params.get('federation_defaults') or {}
     parallel_games_for_age_group = federation_defaults.get('parallelGames', {})
-    max_teams_per_tournament_for_age_group = federation_defaults.get('maxTeamsPerTournament', {})
     max_club_teams = federation_defaults.get('maxClubTeamsPerTournament', 2)
 
     sources = []
@@ -602,7 +601,6 @@ def run_season_plan(params):
         roster=roster,
         club_arenas=club_arenas,
         parallel_games_for_age_group=parallel_games_for_age_group,
-        max_teams_per_tournament_for_age_group=max_teams_per_tournament_for_age_group,
         max_club_teams_per_tournament=max_club_teams,
     )
 

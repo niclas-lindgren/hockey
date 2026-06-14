@@ -8,6 +8,7 @@ import pytest
 
 from tournament_scheduler.pipeline.stage1_config import (
     Stage1Error,
+    load_effective_config,
     run,
     validate_config,
 )
@@ -109,6 +110,21 @@ class TestRunStage1:
         assert state.is_done(StageName.CONFIG)
         assert "teams" in result
         assert len(result["teams"]) == 2
+        assert all(not key.startswith("derived_") for key in result)
+
+    def test_run_does_not_inject_fallback_age_groups_when_input_omits_them(self, tmp_path):
+        raw = _make_valid_raw()
+        raw.pop("age_groups", None)
+        input_file = tmp_path / "input.json"
+        input_file.write_text(json.dumps(raw))
+
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(input_file, state)
+
+        assert all(not key.startswith("derived_") for key in result)
+        effective = load_effective_config(state, input_path=input_file)
+        assert effective.get("age_groups") == []
+        assert effective.get("age_groups_from_input") is False
 
     def test_run_raises_on_invalid_config(self, tmp_path):
         raw = {"start_date": "bad", "end_date": "also-bad", "teams": []}

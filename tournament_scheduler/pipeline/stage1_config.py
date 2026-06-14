@@ -90,22 +90,18 @@ def load_effective_config(
     merged["parallel_games"] = raw.get("parallel_games", {})
     merged["sources"] = raw.get("sources", [])
 
-    # Age groups: prefer input.json, fall back to derived from Stage 1
-    if "age_groups" in raw:
-        merged["age_groups"] = raw["age_groups"]
-    elif "derived_age_groups" in ckpt:
-        merged["age_groups"] = ckpt["derived_age_groups"]
-    else:
-        merged["age_groups"] = []
+    # Age groups: explicit input.json value only; downstream can fall back
+    # to the plan when the input file truly omits the field.
+    merged["age_groups"] = raw.get("age_groups", [])
+    merged["age_groups_from_input"] = "age_groups" in raw
 
     # From Stage 1 checkpoint (computed)
     merged["teams"] = ckpt.get("teams", [])
     merged["round_length_minutes"] = ckpt.get("round_length_minutes", {})
 
     # Preserve other computed/metadata fields from the checkpoint
-    for key in ("input_path", "derived_age_groups"):
-        if key in ckpt:
-            merged[key] = ckpt[key]
+    if "input_path" in ckpt:
+        merged["input_path"] = ckpt["input_path"]
 
     return merged
 

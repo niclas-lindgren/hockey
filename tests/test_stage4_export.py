@@ -200,6 +200,38 @@ class TestRunStage4:
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
 
+    def test_html_filters_fall_back_to_plan_age_groups_when_input_omits_them(self, tmp_path):
+        input_path = tmp_path / "input.json"
+        input_path.write_text(
+            json.dumps(
+                {
+                    "start_date": "2025-09-01",
+                    "end_date": "2025-12-01",
+                    "teams": [
+                        {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
+                    ],
+                    "parallel_games": {"U10": 2},
+                    "sources": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.CONFIG,
+            {"input_path": str(input_path), "round_length_minutes": {}},
+            status=StageStatus.DONE,
+        )
+        result = run(
+            _make_multi_age_group_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+        )
+        html = Path(result["output_files"]["html"]).read_text(encoding="utf-8")
+
+        assert '<option value="U10">U10</option>' in html
+        assert '<option value="JU11">JU11</option>' in html
+        assert 'Alle (JU11 + U10)' in html or 'Alle (U10 + JU11)' in html
+
     def test_html_tournament_details_group_matches_by_round(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         result = run(

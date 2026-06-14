@@ -227,12 +227,6 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     if "fairness_thresholds" in raw:
         result["fairness_thresholds"] = dict(raw["fairness_thresholds"])
 
-    # Derived age groups: only stored when input.json has no explicit list
-    if "age_groups" not in raw:
-        result["derived_age_groups"] = sorted(
-            {t["age_group"] for t in teams_data}
-        )
-
     return result
 
 

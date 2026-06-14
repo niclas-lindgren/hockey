@@ -46,11 +46,6 @@ from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 MIN_TOURNAMENTS = 10
 MAX_TOURNAMENTS = 15
 
-# Backwards-compatible fallback when no parallel-games value is configured.
-# The actual participant ceiling is derived from the parallel-games setting
-# via `_max_teams_for`.
-DEFAULT_MAX_TEAMS_PER_TOURNAMENT = DEFAULT_PARALLEL_GAMES * 2 + 1
-
 # Default start time assigned to generated tournaments when no per-arena/
 # per-age-group scheduling is available yet.
 DEFAULT_TOURNAMENT_START_TIME = "09:00"
@@ -79,7 +74,6 @@ class SeasonPlanner:
         parallel_games_for_age_group: Optional[Dict[str, int]] = None,
         round_length_for_age_group: Optional[Dict[str, int]] = None,
         target_tournament_count: Optional[int] = None,
-        max_teams_per_tournament_for_age_group: Optional[Dict[str, int]] = None,
         max_club_teams_per_tournament: int = 1,
         max_game_count_spread: int = 2,
         max_early_finish_gap_days: int = 60,
@@ -109,10 +103,6 @@ class SeasonPlanner:
                 tournaments to propose (default: spread between
                 `MIN_TOURNAMENTS` and `MAX_TOURNAMENTS` based on how many
                 free dates are available).
-            max_teams_per_tournament_for_age_group: Legacy compatibility
-                argument kept for older call sites. Tournament sizing is now
-                derived from parallel games, so this mapping no longer
-                affects selection.
             max_club_teams_per_tournament: Hard constraint on how many teams
                 from the same club can be invited to a single tournament.
                 Default 1 — at most one team per club per tournament unless
@@ -147,7 +137,6 @@ class SeasonPlanner:
         self.parallel_games_for_age_group = parallel_games_for_age_group or {}
         self.round_length_for_age_group = round_length_for_age_group or {}
         self.target_tournament_count = target_tournament_count
-        self.max_teams_per_tournament_for_age_group = max_teams_per_tournament_for_age_group or {}
         self.max_club_teams_per_tournament = max_club_teams_per_tournament
         self.max_game_count_spread = max_game_count_spread
         self.max_early_finish_gap_days = max_early_finish_gap_days
@@ -1459,7 +1448,7 @@ class SeasonPlanner:
         per-club allowance proportional to how many teams that club fields
         in this age group, relative to the age group's total team count:
 
-            ceil(club_team_count / total_team_count * max_teams_per_tournament)
+            ceil(club_team_count / total_team_count * tournament_capacity)
 
         capped at the age group's `_max_teams_for` tournament-size limit, and
         floored at `max_club_teams_per_tournament` (default 1) for any club

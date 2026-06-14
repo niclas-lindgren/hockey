@@ -110,12 +110,9 @@ def run(
     except Exception:
         effective_config = {}
     round_length_for_age_group: dict[str, int] = dict(effective_config.get("round_length_minutes", {}))
-    configured_age_groups = list(
-        dict.fromkeys(
-            effective_config.get("age_groups", [])
-            or sorted({t.age_group for t in plan.tournaments})
-        )
-    )
+    configured_age_groups = list(dict.fromkeys(effective_config.get("age_groups", [])))
+    if not configured_age_groups and not effective_config.get("age_groups_from_input", False):
+        configured_age_groups = sorted({t.age_group for t in plan.tournaments})
 
     # --- Excel ---
     try:
