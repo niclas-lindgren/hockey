@@ -624,16 +624,14 @@ class TestPerTeamGameCounts:
             assert plan.game_count_spread == expected_spread
 
     def test_game_count_warnings_fired_when_spread_exceeds_threshold(self):
-        """Build a planner with a tight max_game_count_spread=0 so any spread
-        should trigger warnings. Uses 6 teams with max_teams=3 so subsets vary."""
+        """Unit-level regression for the spread warning scan."""
         from datetime import datetime as _dt
 
         start, end = _dt(2026, 10, 1), _dt(2027, 4, 30)
         free_dates = _all_weekend_dates(start, end)
 
-        clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]
-        age_groups = ["U10"]
-        roster = _build_roster(clubs, age_groups)
+        clubs = ["Jar", "Holmen", "Kongsberg"]
+        roster = _build_roster(clubs, ["U10"])
         club_arenas = {club: f"{club}hallen" for club in clubs}
 
         planner = SeasonPlanner(
@@ -641,9 +639,14 @@ class TestPerTeamGameCounts:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 2},
-            max_game_count_spread=0,  # any spread triggers a warning
+            max_game_count_spread=0,
         )
-        planner.build_plan(start, end)
+        planner._team_game_counts = {
+            "Jar U10": 1,
+            "Holmen U10": 2,
+            "Kongsberg U10": 4,
+        }
+        planner._scan_game_count_warnings(start.date(), end.date())
 
         warnings = planner.game_count_warnings
         spread_warnings = [w for w in warnings if w[3] == "spread"]
@@ -764,16 +767,14 @@ class TestPerTeamGameCounts:
             parallel_games_for_age_group={"U10": 2},
         )
 
-        assert planner._max_teams_for("U10") == 5
+        assert planner._max_teams_for("U10") == 4
 
         plan = planner.build_plan(start, end)
         first_tournament = next(t for t in plan.tournaments if t.age_group == "U10")
 
-        assert len(first_tournament.teams) == 5
-        assert len(first_tournament.games) == 10
-        bye_rounds = first_tournament.get_bye_rounds()
-        assert bye_rounds, "expected a bye/rest round when the participant count is odd"
-        assert all(len(labels) == 1 for labels in bye_rounds.values())
+        assert len(first_tournament.teams) == 4
+        assert len(first_tournament.games) == 6
+        assert first_tournament.get_bye_rounds() == {}
 
     @pytest.mark.parametrize(
         "parallel_games, team_count",

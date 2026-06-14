@@ -1378,9 +1378,10 @@ class SeasonPlanner:
         each club may have up to a number of teams in a single tournament
         proportional to how many teams it fields in this age group.
         Tournament size itself is derived from the configured parallel-games
-        count (roughly ``2 * parallel_games + 1``), so odd-sized participant
-        sets are allowed when they fit the available round capacity and the
-        round-robin generator can assign one team a bye/rest each round.
+        count (roughly ``2 * parallel_games``); odd-sized participant sets
+        are fine when the roster itself is odd and still fits within that
+        base capacity, but we do not add an extra slot beyond the base
+        capacity just to accommodate a bye/rest round.
         Invites the whole age-group roster when it fits that capacity and
         club diversity allows it; otherwise picks a subset using a
         least-recently-grouped-together heuristic.
@@ -1477,16 +1478,17 @@ class SeasonPlanner:
         into a bye/rest round.
         """
         base_capacity = self._base_team_capacity(age_group)
-        return base_capacity + (team_count % 2)
+        return min(base_capacity, team_count)
 
     def _max_teams_for(self, age_group: str) -> int:
         """Return the largest odd-capacity tournament size for `age_group`.
 
         This is the upper bound the planner can ever use for the age group:
-        the even base capacity plus one extra team to allow a bye/rest round
-        when the roster size is odd.
+        the even base capacity. Odd rosters are still allowed as long as
+        they fit within that capacity, but we do not extend the limit by
+        one extra team.
         """
-        return self._base_team_capacity(age_group) + 1
+        return self._base_team_capacity(age_group)
 
     def _max_club_teams_for(self, age_group: str, club: str) -> int:
         """Return how many teams from `club` may play in one `age_group` tournament.
