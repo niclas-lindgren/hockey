@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "updated_at": "2026-06-14T21:49:33.563000",
+    "updated_at": "2026-06-14T22:08:05.400850",
     "ttl_hours": 6.0,
     "start_date": "2026-09-01",
     "end_date": "2027-04-30"
@@ -21533,7 +21533,7 @@
     "Sandefjord Penguins": {
       "name": "Sandefjord Penguins",
       "url": "",
-      "scrape_timestamp": "2026-06-14T21:49:33.563000",
+      "scrape_timestamp": "2026-06-14T22:08:05.400850",
       "ttl_hours": 6.0,
       "event_count": 19,
       "blocked": false,

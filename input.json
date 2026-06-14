@@ -317,12 +317,12 @@
   ],
   "sources": [
     {
-      "name": "Kongsberg ishall",
+      "name": "Kongsberg",
       "type": "outlook",
       "url": "https://kongsberghallen.no/webkalender/ishall/"
     },
     {
-      "name": "Skien ishall",
+      "name": "Skien",
       "type": "outlook",
       "url": "https://skienfritidspark.brp.exigo.no/ishallen"
     },
@@ -357,7 +357,7 @@
       "url": "https://www.bookup.no/utleie/Index/860"
     },
     {
-      "name": "Sandefjord Penguins",
+      "name": "Sandefjord",
       "type": "outlook",
       "url": ""
     }
