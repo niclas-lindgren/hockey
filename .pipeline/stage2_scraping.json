@@ -1,105 +1,9 @@
 {
   "stage": "scraping",
   "status": "done",
-  "updated_at": "2026-06-14T20:08:05.376544+00:00",
+  "updated_at": "2026-06-14T20:29:46.705454+00:00",
   "data": {
     "sources": [
-      {
-        "name": "Kongsberg ishall",
-        "url": "https://kongsberghallen.no/webkalender/ishall/",
-        "type": "outlook",
-        "events": [
-          {
-            "date": "03.08.2026",
-            "name": "HUSK påminnelse om kampoppsett for hockey",
-            "datetime": "2026-08-03T09:00:00",
-            "duration_hours": 3.0
-          },
-          {
-            "date": "03.08.2026",
-            "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
-            "datetime": "2026-08-03T10:00:00",
-            "duration_hours": 3.0
-          },
-          {
-            "date": "24.08.2026",
-            "name": "Kongsberg gruppen",
-            "datetime": "2026-08-24T00:00:00",
-            "duration_hours": 0.0
-          },
-          {
-            "date": "12.09.2026",
-            "name": "Buskerud Skøytekrets - Samling",
-            "datetime": "2026-09-12T09:00:00",
-            "duration_hours": 2.5
-          },
-          {
-            "date": "19.09.2026",
-            "name": "KIF skøyter",
-            "datetime": "2026-09-19T10:00:00",
-            "duration_hours": 1.833333333333334
-          },
-          {
-            "date": "28.09.2026",
-            "name": "Tivoli ***",
-            "datetime": "2026-09-28T00:00:00",
-            "duration_hours": 0.0
-          },
-          {
-            "date": "17.10.2026",
-            "name": "KIF skøyter",
-            "datetime": "2026-10-17T10:00:00",
-            "duration_hours": 1.833333333333334
-          },
-          {
-            "date": "30.10.2026",
-            "name": "HalloVenn",
-            "datetime": "2026-10-30T08:00:00",
-            "duration_hours": 14.0
-          },
-          {
-            "date": "31.10.2026",
-            "name": "HalloVenn",
-            "datetime": "2026-10-31T08:00:00",
-            "duration_hours": 14.0
-          },
-          {
-            "date": "01.11.2026",
-            "name": "HalloVenn",
-            "datetime": "2026-11-01T08:00:00",
-            "duration_hours": 14.0
-          },
-          {
-            "date": "07.11.2026",
-            "name": "KIF skøyter",
-            "datetime": "2026-11-07T10:00:00",
-            "duration_hours": 1.833333333333334
-          }
-        ],
-        "event_count": 11,
-        "blocked": false,
-        "block_reason": "",
-        "llm_fallback": false,
-        "from_cache": true
-      },
-      {
-        "name": "Skien ishall",
-        "url": "https://skienfritidspark.brp.exigo.no/ishallen",
-        "type": "outlook",
-        "events": [
-          {
-            "date": "01.09.2026",
-            "name": "Booking 08:00-22:30",
-            "datetime": "2026-09-01T08:00:00",
-            "duration_hours": 14.5
-          }
-        ],
-        "event_count": 1,
-        "blocked": false,
-        "block_reason": "",
-        "llm_fallback": false,
-        "from_cache": true
-      },
       {
         "name": "Ringerike",
         "url": "https://ics.teamup.com/feed/ksr8bg1tpn5s3npskw/0.ics",
@@ -21545,7 +21449,7 @@
         "from_cache": true
       },
       {
-        "name": "Sandefjord Penguins",
+        "name": "Sandefjord",
         "url": "",
         "type": "outlook",
         "events": [],
@@ -21555,85 +21459,103 @@
         "llm_fallback": false,
         "skipped": true,
         "skip_reason": "Tom URL — kilden er deaktivert i input.json."
+      },
+      {
+        "name": "Kongsberg",
+        "url": "https://kongsberghallen.no/webkalender/ishall/",
+        "type": "outlook",
+        "events": [
+          {
+            "date": "03.08.2026",
+            "name": "HUSK påminnelse om kampoppsett for hockey",
+            "datetime": "2026-08-03T09:00:00",
+            "duration_hours": 3.0
+          },
+          {
+            "date": "03.08.2026",
+            "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
+            "datetime": "2026-08-03T10:00:00",
+            "duration_hours": 3.0
+          },
+          {
+            "date": "24.08.2026",
+            "name": "Kongsberg gruppen",
+            "datetime": "2026-08-24T00:00:00",
+            "duration_hours": 0.0
+          },
+          {
+            "date": "12.09.2026",
+            "name": "Buskerud Skøytekrets - Samling",
+            "datetime": "2026-09-12T09:00:00",
+            "duration_hours": 2.5
+          },
+          {
+            "date": "19.09.2026",
+            "name": "KIF skøyter",
+            "datetime": "2026-09-19T10:00:00",
+            "duration_hours": 1.833333333333334
+          },
+          {
+            "date": "28.09.2026",
+            "name": "Tivoli ***",
+            "datetime": "2026-09-28T00:00:00",
+            "duration_hours": 0.0
+          },
+          {
+            "date": "17.10.2026",
+            "name": "KIF skøyter",
+            "datetime": "2026-10-17T10:00:00",
+            "duration_hours": 1.833333333333334
+          },
+          {
+            "date": "30.10.2026",
+            "name": "HalloVenn",
+            "datetime": "2026-10-30T08:00:00",
+            "duration_hours": 14.0
+          },
+          {
+            "date": "31.10.2026",
+            "name": "HalloVenn",
+            "datetime": "2026-10-31T08:00:00",
+            "duration_hours": 14.0
+          },
+          {
+            "date": "01.11.2026",
+            "name": "HalloVenn",
+            "datetime": "2026-11-01T08:00:00",
+            "duration_hours": 14.0
+          },
+          {
+            "date": "07.11.2026",
+            "name": "KIF skøyter",
+            "datetime": "2026-11-07T10:00:00",
+            "duration_hours": 1.833333333333334
+          }
+        ],
+        "event_count": 11,
+        "blocked": false,
+        "block_reason": "",
+        "llm_fallback": false
+      },
+      {
+        "name": "Skien",
+        "url": "https://skienfritidspark.brp.exigo.no/ishallen",
+        "type": "outlook",
+        "events": [
+          {
+            "date": "01.09.2026",
+            "name": "Booking 08:00-22:30",
+            "datetime": "2026-09-01T08:00:00",
+            "duration_hours": 14.5
+          }
+        ],
+        "event_count": 1,
+        "blocked": false,
+        "block_reason": "",
+        "llm_fallback": false
       }
     ],
     "events_by_club": {
-      "Kongsberg": [
-        {
-          "date": "03.08.2026",
-          "name": "HUSK påminnelse om kampoppsett for hockey",
-          "datetime": "2026-08-03T09:00:00",
-          "duration_hours": 3.0
-        },
-        {
-          "date": "03.08.2026",
-          "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
-          "datetime": "2026-08-03T10:00:00",
-          "duration_hours": 3.0
-        },
-        {
-          "date": "24.08.2026",
-          "name": "Kongsberg gruppen",
-          "datetime": "2026-08-24T00:00:00",
-          "duration_hours": 0.0
-        },
-        {
-          "date": "12.09.2026",
-          "name": "Buskerud Skøytekrets - Samling",
-          "datetime": "2026-09-12T09:00:00",
-          "duration_hours": 2.5
-        },
-        {
-          "date": "19.09.2026",
-          "name": "KIF skøyter",
-          "datetime": "2026-09-19T10:00:00",
-          "duration_hours": 1.833333333333334
-        },
-        {
-          "date": "28.09.2026",
-          "name": "Tivoli ***",
-          "datetime": "2026-09-28T00:00:00",
-          "duration_hours": 0.0
-        },
-        {
-          "date": "17.10.2026",
-          "name": "KIF skøyter",
-          "datetime": "2026-10-17T10:00:00",
-          "duration_hours": 1.833333333333334
-        },
-        {
-          "date": "30.10.2026",
-          "name": "HalloVenn",
-          "datetime": "2026-10-30T08:00:00",
-          "duration_hours": 14.0
-        },
-        {
-          "date": "31.10.2026",
-          "name": "HalloVenn",
-          "datetime": "2026-10-31T08:00:00",
-          "duration_hours": 14.0
-        },
-        {
-          "date": "01.11.2026",
-          "name": "HalloVenn",
-          "datetime": "2026-11-01T08:00:00",
-          "duration_hours": 14.0
-        },
-        {
-          "date": "07.11.2026",
-          "name": "KIF skøyter",
-          "datetime": "2026-11-07T10:00:00",
-          "duration_hours": 1.833333333333334
-        }
-      ],
-      "Skien": [
-        {
-          "date": "01.09.2026",
-          "name": "Booking 08:00-22:30",
-          "datetime": "2026-09-01T08:00:00",
-          "duration_hours": 14.5
-        }
-      ],
       "Ringerike": [
         {
           "date": "01.09.2026",
@@ -43017,12 +42939,86 @@
           "datetime": "2026-09-27T00:00:00",
           "duration_hours": 1.0
         }
+      ],
+      "Kongsberg": [
+        {
+          "date": "03.08.2026",
+          "name": "HUSK påminnelse om kampoppsett for hockey",
+          "datetime": "2026-08-03T09:00:00",
+          "duration_hours": 3.0
+        },
+        {
+          "date": "03.08.2026",
+          "name": "HUSK KIF Hockey - påminnelse om kampoppsett!!!",
+          "datetime": "2026-08-03T10:00:00",
+          "duration_hours": 3.0
+        },
+        {
+          "date": "24.08.2026",
+          "name": "Kongsberg gruppen",
+          "datetime": "2026-08-24T00:00:00",
+          "duration_hours": 0.0
+        },
+        {
+          "date": "12.09.2026",
+          "name": "Buskerud Skøytekrets - Samling",
+          "datetime": "2026-09-12T09:00:00",
+          "duration_hours": 2.5
+        },
+        {
+          "date": "19.09.2026",
+          "name": "KIF skøyter",
+          "datetime": "2026-09-19T10:00:00",
+          "duration_hours": 1.833333333333334
+        },
+        {
+          "date": "28.09.2026",
+          "name": "Tivoli ***",
+          "datetime": "2026-09-28T00:00:00",
+          "duration_hours": 0.0
+        },
+        {
+          "date": "17.10.2026",
+          "name": "KIF skøyter",
+          "datetime": "2026-10-17T10:00:00",
+          "duration_hours": 1.833333333333334
+        },
+        {
+          "date": "30.10.2026",
+          "name": "HalloVenn",
+          "datetime": "2026-10-30T08:00:00",
+          "duration_hours": 14.0
+        },
+        {
+          "date": "31.10.2026",
+          "name": "HalloVenn",
+          "datetime": "2026-10-31T08:00:00",
+          "duration_hours": 14.0
+        },
+        {
+          "date": "01.11.2026",
+          "name": "HalloVenn",
+          "datetime": "2026-11-01T08:00:00",
+          "duration_hours": 14.0
+        },
+        {
+          "date": "07.11.2026",
+          "name": "KIF skøyter",
+          "datetime": "2026-11-07T10:00:00",
+          "duration_hours": 1.833333333333334
+        }
+      ],
+      "Skien": [
+        {
+          "date": "01.09.2026",
+          "name": "Booking 08:00-22:30",
+          "datetime": "2026-09-01T08:00:00",
+          "duration_hours": 14.5
+        }
       ]
     },
     "blocked": [],
     "cached": [
-      "Kongsberg ishall",
-      "Skien ishall",
       "Ringerike",
       "Frisk Asker",
       "Jutul",

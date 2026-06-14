@@ -1,17 +1,18 @@
 {
   "stage": "export",
   "status": "done",
-  "updated_at": "2026-06-14T20:08:07.252335+00:00",
+  "updated_at": "2026-06-14T20:29:48.586113+00:00",
   "data": {
     "output_files": {
-      "excel": "/Users/niclasl/src/hockey/export/2026-06-14T2208/season_plan.xlsx",
-      "ical": "/Users/niclasl/src/hockey/export/2026-06-14T2208/season_plan.ics",
-      "csv_games": "/Users/niclasl/src/hockey/export/2026-06-14T2208/season_plan.csv",
-      "csv_overview": "/Users/niclasl/src/hockey/export/2026-06-14T2208/season_plan_overview.csv",
-      "html": "/Users/niclasl/src/hockey/export/2026-06-14T2208/season_plan.html",
-      "spond": "/Users/niclasl/src/hockey/export/2026-06-14T2208/season_plan_spond.xlsx",
-      "spond_games": "/Users/niclasl/src/hockey/export/2026-06-14T2208/season_plan_spond_games.xlsx",
-      "review_packets": "/Users/niclasl/src/hockey/export/2026-06-14T2208/review_packets"
+      "excel": "/Users/niclasl/src/hockey/export/2026-06-14T2229/season_plan.xlsx",
+      "ical": "/Users/niclasl/src/hockey/export/2026-06-14T2229/season_plan.ics",
+      "csv_games": "/Users/niclasl/src/hockey/export/2026-06-14T2229/season_plan.csv",
+      "csv_overview": "/Users/niclasl/src/hockey/export/2026-06-14T2229/season_plan_overview.csv",
+      "html": "/Users/niclasl/src/hockey/export/2026-06-14T2229/season_plan.html",
+      "html_report": "/Users/niclasl/src/hockey/export/2026-06-14T2229/season_plan_report.html",
+      "spond": "/Users/niclasl/src/hockey/export/2026-06-14T2229/season_plan_spond.xlsx",
+      "spond_games": "/Users/niclasl/src/hockey/export/2026-06-14T2229/season_plan_spond_games.xlsx",
+      "review_packets": "/Users/niclasl/src/hockey/export/2026-06-14T2229/review_packets"
     },
     "errors": []
   }
