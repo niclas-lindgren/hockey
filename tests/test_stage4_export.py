@@ -195,6 +195,8 @@ class TestRunStage4:
         assert 'href="season_plan.csv"' in html
         assert 'href="season_plan.ics"' in html
         assert 'href="season_plan.csv" class="export-link-btn"' in html or 'href="season_plan.csv"' in html
+        assert html.index('class="export-links"') < html.index('class="header-main"')
+        assert report_html.index('class="export-links"') < report_html.index('class="header-main"')
         assert html.index('class="export-links"') < html.index('class="stat-badge"')
         assert report_html.index('class="export-links"') < report_html.index('class="stat-badge"')
         assert 'Rettferdighetsgate' not in html
