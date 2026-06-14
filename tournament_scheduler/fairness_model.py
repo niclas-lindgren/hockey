@@ -1,9 +1,9 @@
 """Soft fairness target model for season planning.
 
-The planner currently uses this as a tunable diagnostic model: it turns the
-final per-team game counts into a club-size-aware target for each team in an
-age group. The model is intentionally tiny and isolated so organizers can tweak
-its weights without rewriting `SeasonPlanner`.
+The planner uses this as a tunable fairness model: it turns per-team game
+counts into a club-size-aware target for each team in an age group. The model
+is intentionally tiny and isolated so organizers can tweak its weights
+without rewriting `SeasonPlanner`.
 """
 
 from __future__ import annotations
@@ -30,30 +30,26 @@ class FairnessModelConfig:
 class SeasonFairnessModel:
     """Compute soft per-team target game counts from a finished season plan.
 
-    The model uses the actual age-group average as the baseline and then adds
-    a club-size adjustment:
+    The model uses the age-group average as the baseline and then adds a
+    club-size adjustment:
 
         target = average_games + club_effect
 
     where `club_effect` grows with the club's share of teams in the age group.
     Larger clubs are therefore allowed to sit slightly above the average per
-    team, while single-team clubs stay near the average. This is a diagnostic
-    target, not a hard constraint.
+    team, while single-team clubs stay near the average. This is a soft target,
+    not a hard constraint.
     """
 
     def __init__(self, config: FairnessModelConfig | None = None):
         self.config = config or FairnessModelConfig()
 
-    def target_games_for_team(
+    def _target_games_from_counts(
         self,
         team: Team,
         age_group_teams: Sequence[Team],
         team_game_counts: Mapping[str, int],
     ) -> float:
-        """Return the soft target game count for `team`.
-
-        If the age group has no teams or no recorded games, returns `0.0`.
-        """
         if not age_group_teams:
             return 0.0
 
@@ -81,6 +77,53 @@ class SeasonFairnessModel:
             target = max(target, max(0.0, average_games - self.config.max_adjustment))
 
         return round(target, 3)
+
+    def target_games_for_team(
+        self,
+        team: Team,
+        age_group_teams: Sequence[Team],
+        team_game_counts: Mapping[str, int],
+    ) -> float:
+        """Return the soft target game count for `team`.
+
+        This is the diagnostic / post-plan form: it uses the actual counts
+        recorded so far.
+        """
+        return self._target_games_from_counts(team, age_group_teams, team_game_counts)
+
+    def planning_target_games_for_team(
+        self,
+        team: Team,
+        age_group_teams: Sequence[Team],
+        team_game_counts: Mapping[str, int],
+    ) -> float:
+        """Return a planning-time soft target for `team`.
+
+        When an age group has no recorded games yet, the planner needs a
+        non-zero prior to break symmetry. In that case the model seeds each
+        team with one synthetic game before applying the club-size adjustment.
+        This keeps the model useful early in planning while still converging
+        to the real count-based target once games exist.
+        """
+        if not age_group_teams:
+            return 0.0
+
+        if any(team_game_counts.get(t.label, 0) for t in age_group_teams):
+            return self._target_games_from_counts(team, age_group_teams, team_game_counts)
+
+        seeded_counts = {t.label: 1 for t in age_group_teams}
+        return self._target_games_from_counts(team, age_group_teams, seeded_counts)
+
+    def planning_targets_for_age_group(
+        self,
+        age_group_teams: Sequence[Team],
+        team_game_counts: Mapping[str, int],
+    ) -> Dict[str, float]:
+        """Return planning-time soft targets for every team in an age group."""
+        return {
+            team.label: self.planning_target_games_for_team(team, age_group_teams, team_game_counts)
+            for team in age_group_teams
+        }
 
     def targets_for_age_group(
         self,

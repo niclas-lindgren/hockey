@@ -1499,18 +1499,24 @@ class SeasonPlanner:
         return sum(counts) / len(counts)
 
     def _deficit_score(self, team: Team, age_group: str) -> float:
-        """Return how far below `age_group`'s running average `team` is.
+        """Return how far below the fairness target `team` is.
 
         A positive value means `team` has played fewer games so far than
-        the age group's current average (i.e. it has a "deficit" and
-        should be prioritized for future invitations); a negative value
-        means it is already above average. Used by
-        `_pick_least_recently_grouped` and `_select_participants` to keep
-        the deficit metric consistent with `per_team_share_warnings`
-        (`_scan_per_team_share_warnings`), which performs the equivalent
-        computation after the season is fully built.
+        the soft target from `self.fairness_model` and should be
+        prioritized for future invitations; a negative value means it is
+        already above that target. Used by `_pick_least_recently_grouped`
+        and `_select_participants` to steer the season toward the same
+        soft fairness shape that post-plan warnings use.
         """
-        return self._expected_average_for(age_group) - self._running_game_counts.get(team.label, 0)
+        age_group_teams = self.roster.by_age_group(age_group)
+        if not age_group_teams:
+            return 0.0
+        target = self.fairness_model.planning_target_games_for_team(
+            team,
+            age_group_teams,
+            self._running_game_counts,
+        )
+        return target - self._running_game_counts.get(team.label, 0)
 
     def _normalized_invite_count(self, team: Team) -> float:
         """Return `team`'s invite count, normalized by club-size-in-age-group.

@@ -418,6 +418,23 @@ class TestOpponentHistoryTrackingAndScoring:
         assert team_c in selected
         assert team_b not in selected
 
+    def test_deficit_score_uses_soft_fairness_target(self):
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Jar", label="Jar 2", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"},
+            parallel_games_for_age_group={"U10": 2},
+        )
+
+        jar_team = roster.teams[0]
+        kongsberg_team = roster.teams[2]
+        assert planner._deficit_score(jar_team, "U10") > planner._deficit_score(kongsberg_team, "U10")
+
     def test_month_counts_stay_within_a_reasonable_spread(self, planner_and_plan, season_window):
         planner, plan, *_ = planner_and_plan
         start, end = season_window
