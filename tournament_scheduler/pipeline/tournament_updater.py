@@ -885,7 +885,7 @@ if __name__ == "__main__":  # pragma: no cover
         updater.write_updated_checkpoint(season_plan, log_entry=result)
         log_path = updater.log_update(result)
         print(result.summary_nb)
-        print(f"\nPlan oppdatert i {cli_args.work_dir}/stage3_plan.json")
+        print(f"\nPlan oppdatert i {cli_args.work_dir}/stage3_planning.json")
         print(f"Logget til {log_path}")
         sys.exit(0)
     else:

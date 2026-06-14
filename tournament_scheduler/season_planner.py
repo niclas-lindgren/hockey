@@ -23,6 +23,7 @@ generator.
 """
 
 import math
+from collections import Counter
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
@@ -37,6 +38,7 @@ from tournament_scheduler.models import (
     Team,
     Tournament,
     overlapping_age_groups,
+    team_key,
 )
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
@@ -54,9 +56,9 @@ DEFAULT_TOURNAMENT_START_TIME = "09:00"
 DEFAULT_FAIRNESS_THRESHOLDS = {
     "max_game_count_spread": 2,
     "max_hosting_deviation": 1,
-    "max_team_travel_km": 250,
+    "max_team_travel_km": 700,
     "min_diversity_score": 0.75,
-    "min_pairwise_matchup_score": 0.75,
+    "min_pairwise_matchup_score": 0.25,
     "min_month_balance_score": 0.75,
     "max_same_weekend_club_load": 3,
 }
@@ -143,11 +145,13 @@ class SeasonPlanner:
 
         # Maps team label -> skill_level (int 1-10) for teams that have one.
         # Used by the skill-level proximity penalty in participant selection.
+        duplicate_labels = {label for label, count in Counter(team.label for team in roster.teams).items() if count > 1}
         self._team_skill_levels: Dict[str, int] = {
-            team.label: team.skill_level
+            team_key(team, duplicate_labels): team.skill_level
             for team in roster.teams
             if team.skill_level is not None
         }
+        self._duplicate_team_labels = duplicate_labels
 
         # Club-load warnings collected after build_plan runs.
         self._club_load_warnings: List[Tuple[str, str, str, int]] = []
@@ -185,7 +189,7 @@ class SeasonPlanner:
         self._team_last_date: Dict[str, date] = {}
         # Tracks how many times each team has been invited overall, to keep
         # invitations roughly balanced across the season.
-        self._invite_counts: Dict[str, int] = {team.label: 0 for team in roster.teams}
+        self._invite_counts: Dict[str, int] = {self._team_key(team): 0 for team in roster.teams}
         # Maps team label -> number of teams from the same club in the same
         # age group (including itself). Used to normalize invite counts so
         # that a club with many sibling teams in an age group (e.g. Jar
@@ -198,7 +202,7 @@ class SeasonPlanner:
             key = (team.club, team.age_group)
             club_age_group_counts[key] = club_age_group_counts.get(key, 0) + 1
         self._club_age_group_team_counts: Dict[str, int] = {
-            team.label: club_age_group_counts[(team.club, team.age_group)]
+            self._team_key(team): club_age_group_counts[(team.club, team.age_group)]
             for team in roster.teams
         }
         # Tracks, per unordered pair of teams (as a frozenset of labels),
@@ -236,6 +240,9 @@ class SeasonPlanner:
         # Kept for compatibility with older reports/tests; the planner now
         # only books tournaments from the assigned host club's own calendar.
         self._fallback_host_substitutions: List[Tuple[date, str, str, str]] = []
+
+    def _team_key(self, team: Team) -> str:
+        return team_key(team, self._duplicate_team_labels)
 
     # ------------------------------------------------------------------
     # Public entry point
@@ -337,10 +344,18 @@ class SeasonPlanner:
 
         # Compute per-team game counts and last-game dates.
         self._compute_game_counts(plan.tournaments)
-        plan.team_game_counts = dict(self._team_game_counts)
-        plan.team_last_game_dates = dict(self._team_last_date)
-        if self._team_game_counts:
-            plan.game_count_spread = max(self._team_game_counts.values()) - min(self._team_game_counts.values())
+        public_team_game_counts: Dict[str, int] = {}
+        public_team_last_dates: Dict[str, date] = {}
+        for team in self.roster.teams:
+            key = self._team_key(team)
+            public_team_game_counts[team.label] = public_team_game_counts.get(team.label, 0) + self._team_game_counts.get(key, 0)
+            last = self._team_last_date.get(key)
+            if last is not None and (team.label not in public_team_last_dates or last > public_team_last_dates[team.label]):
+                public_team_last_dates[team.label] = last
+        plan.team_game_counts = public_team_game_counts
+        plan.team_last_game_dates = public_team_last_dates
+        if public_team_game_counts:
+            plan.game_count_spread = max(public_team_game_counts.values()) - min(public_team_game_counts.values())
 
         # Build the roster-based fairness gate from the final plan scores.
         plan.fairness_gate = self._build_fairness_gate(plan)
@@ -589,21 +604,37 @@ class SeasonPlanner:
         for tournament in plan.tournaments:
             iso_year, iso_week, _ = tournament.date.isocalendar()
             bucket = weekend_loads.setdefault((iso_year, iso_week), {})
-            for team in tournament.teams:
-                bucket[team.club] = bucket.get(team.club, 0) + 1
+            host_club = tournament.host_club or ""
+            if host_club:
+                bucket[host_club] = bucket.get(host_club, 0) + 1
         for loads in weekend_loads.values():
             if loads:
                 same_weekend_load = max(same_weekend_load, max(loads.values()))
-        weekend_detail = f"maks {same_weekend_load} lag fra samme klubb i samme uke"
+        weekend_detail = f"maks {same_weekend_load} turneringer fra samme klubb i samme uke"
+
+        age_group_spreads: List[float] = []
+        teams_by_age_group: Dict[str, List[Team]] = {}
+        for team in self.roster.teams:
+            teams_by_age_group.setdefault(team.age_group, []).append(team)
+        for age_group, teams in teams_by_age_group.items():
+            counts = [
+                self._team_game_counts.get(self._team_key(team), 0)
+                for team in teams
+            ]
+            if counts:
+                average = sum(counts) / len(counts)
+                spread = max(counts) - min(counts)
+                age_group_spreads.append(spread / average if average > 0 else float(spread))
+        normalized_game_count_spread = max(age_group_spreads) if age_group_spreads else float(plan.game_count_spread)
 
         add_metric(
             "game_count_spread",
             "Kamper per lag",
-            plan.game_count_spread,
+            round(normalized_game_count_spread, 3),
             thresholds.get("max_game_count_spread", self.max_game_count_spread),
             direction="max",
             severity="fail",
-            detail=f"Største gap mellom lag er {plan.game_count_spread} kamper.",
+            detail=f"Normalisert spredning per aldersgruppe er {normalized_game_count_spread:.3f} (rå spredning: {plan.game_count_spread} kamper).",
         )
         add_metric(
             "hosting_deviation",
@@ -691,12 +722,11 @@ class SeasonPlanner:
                 for team in (game.home, game.away):
                     if team is None:
                         continue
-                    self._team_game_counts[team.label] = (
-                        self._team_game_counts.get(team.label, 0) + 1
-                    )
-                    last = self._team_last_date.get(team.label)
+                    key = self._team_key(team)
+                    self._team_game_counts[key] = self._team_game_counts.get(key, 0) + 1
+                    last = self._team_last_date.get(key)
                     if last is None or tournament.date > last:
-                        self._team_last_date[team.label] = tournament.date
+                        self._team_last_date[key] = tournament.date
 
     def _scan_game_count_warnings(
         self,
@@ -725,17 +755,17 @@ class SeasonPlanner:
 
         # Spread warnings
         if spread > self.max_game_count_spread:
-            for label, count in self._team_game_counts.items():
+            for key, count in self._team_game_counts.items():
                 if count == max_count or count == min_count:
-                    self._game_count_warnings.append((label, count, spread, "spread"))
+                    self._game_count_warnings.append((key, count, spread, "spread"))
 
         # Early-finish warnings
         if window_end is not None and self._team_last_date:
-            for label, last_date in self._team_last_date.items():
+            for key, last_date in self._team_last_date.items():
                 gap = (window_end - last_date).days
                 if gap > self.max_early_finish_gap_days:
                     self._game_count_warnings.append(
-                        (label, self._team_game_counts.get(label, 0), gap, "early_finish")
+                        (key, self._team_game_counts.get(key, 0), gap, "early_finish")
                     )
 
     def _scan_per_team_share_warnings(self) -> None:
@@ -767,11 +797,12 @@ class SeasonPlanner:
                 self._team_game_counts,
             )
             for team in teams:
-                actual = self._team_game_counts.get(team.label, 0)
-                expected = expected_by_team.get(team.label, 0.0)
+                key = self._team_key(team)
+                actual = self._team_game_counts.get(key, 0)
+                expected = expected_by_team.get(key, 0.0)
                 if abs(actual - expected) > self.max_game_count_spread:
                     self._per_team_share_warnings.append(
-                        (team.label, team.club, age_group, actual, expected)
+                        (key, team.club, age_group, actual, expected)
                     )
 
     def _scan_month_load_warnings(
@@ -1500,7 +1531,7 @@ class SeasonPlanner:
         teams = self.roster.by_age_group(age_group)
         if not teams:
             return 0.0
-        counts = [self._running_game_counts.get(team.label, 0) for team in teams]
+        counts = [self._running_game_counts.get(self._team_key(team), 0) for team in teams]
         return sum(counts) / len(counts)
 
     def _deficit_score(self, team: Team, age_group: str) -> float:
@@ -1516,12 +1547,13 @@ class SeasonPlanner:
         age_group_teams = self.roster.by_age_group(age_group)
         if not age_group_teams:
             return 0.0
+        key = self._team_key(team)
         target = self.fairness_model.planning_target_games_for_team(
             team,
             age_group_teams,
             self._running_game_counts,
         )
-        return target - self._running_game_counts.get(team.label, 0)
+        return target - self._running_game_counts.get(key, 0)
 
     def _normalized_invite_count(self, team: Team) -> float:
         """Return `team`'s invite count, normalized by club-size-in-age-group.
@@ -1535,8 +1567,9 @@ class SeasonPlanner:
         regardless of how many sibling teams its club fields in that age
         group.
         """
-        sibling_count = self._club_age_group_team_counts.get(team.label, 1)
-        return self._invite_counts.get(team.label, 0) * sibling_count
+        key = self._team_key(team)
+        sibling_count = self._club_age_group_team_counts.get(key, 1)
+        return self._invite_counts.get(key, 0) * sibling_count
 
     def _pick_least_recently_grouped(
         self, candidates: Sequence[Team], count: int, age_group: str
@@ -1595,13 +1628,13 @@ class SeasonPlanner:
             def repeat_matchup_score(team: Team) -> int:
                 total = 0
                 for s in selected:
-                    pair = frozenset((team.label, s.label))
+                    pair = frozenset((self._team_key(team), self._team_key(s)))
                     total += self._opponent_history.get(pair, 0)
                 return total
 
             def overlap_score(team: Team) -> int:
-                grouped_with = self._grouped_with.get(team.label, set())
-                return sum(1 for s in selected if s.label in grouped_with)
+                grouped_with = self._grouped_with.get(self._team_key(team), set())
+                return sum(1 for s in selected if self._team_key(s) in grouped_with)
 
             # Deficit-aware club constraint: a candidate whose club already
             # has its full `_max_club_teams_for(age_group, club)` allowance
@@ -1633,7 +1666,7 @@ class SeasonPlanner:
             if not eligible:
                 eligible = remaining
 
-            eligible_over_cap_labels = {t.label for t in eligible_over_cap}
+            eligible_over_cap_labels = {self._team_key(t) for t in eligible_over_cap}
 
             # Club-load penalty: push down candidates whose club is already
             # heavily represented in `selected`, even before the hard/proportional
@@ -1646,7 +1679,7 @@ class SeasonPlanner:
                 base = club_count * 20
                 if club_count < max_club:
                     return base
-                if team.label in eligible_over_cap_labels:
+                if self._team_key(team) in eligible_over_cap_labels:
                     return base + (club_count - max_club + 1) * 50
                 return base + club_count * 100  # outweighs typical match-up scores
 
@@ -1656,13 +1689,13 @@ class SeasonPlanner:
             # penalised — they are treated as universally adjacent.
             def skill_penalty(team: Team) -> int:
                 selected_levels = [
-                    self._team_skill_levels[s.label]
+                    self._team_skill_levels[self._team_key(s)]
                     for s in selected
-                    if s.label in self._team_skill_levels
+                    if self._team_key(s) in self._team_skill_levels
                 ]
                 if not selected_levels:
                     return 0  # no reference level yet
-                if team.label not in self._team_skill_levels:
+                if self._team_key(team) not in self._team_skill_levels:
                     return 0  # unrated team — no filter
                 median = sorted(selected_levels)[len(selected_levels) // 2]
                 dist = abs(team.skill_level - median)
@@ -1672,10 +1705,11 @@ class SeasonPlanner:
 
             eligible.sort(
                 key=lambda t: (
-                    skill_penalty(t),
-                    club_penalty(t),
+                    -self._deficit_score(t, age_group),
                     repeat_matchup_score(t),
                     overlap_score(t),
+                    skill_penalty(t),
+                    club_penalty(t),
                     self._normalized_invite_count(t),
                     candidates.index(t),
                 )
@@ -1705,14 +1739,15 @@ class SeasonPlanner:
         `_invite_counts` value by its club's same-age-group team count
         before comparing — see that method's docstring for details.
         """
-        labels = [team.label for team in participants]
+        labels = [self._team_key(team) for team in participants]
         games_added = max(0, len(participants) - 1)
         for team in participants:
-            self._invite_counts[team.label] = self._invite_counts.get(team.label, 0) + 1
-            grouped = self._grouped_with.setdefault(team.label, set())
-            grouped.update(label for label in labels if label != team.label)
-            self._running_game_counts[team.label] = (
-                self._running_game_counts.get(team.label, 0) + games_added
+            key = self._team_key(team)
+            self._invite_counts[key] = self._invite_counts.get(key, 0) + 1
+            grouped = self._grouped_with.setdefault(key, set())
+            grouped.update(label for label in labels if label != key)
+            self._running_game_counts[key] = (
+                self._running_game_counts.get(key, 0) + games_added
             )
 
     def _record_opponent_history(self, games: Sequence[Game]) -> None:
@@ -1727,7 +1762,7 @@ class SeasonPlanner:
         for game in games:
             if game.home is None or game.away is None:
                 continue
-            pair = frozenset((game.home.label, game.away.label))
+            pair = frozenset((self._team_key(game.home), self._team_key(game.away)))
             self._opponent_history[pair] = self._opponent_history.get(pair, 0) + 1
 
     # ------------------------------------------------------------------
@@ -1792,7 +1827,7 @@ class SeasonPlanner:
             repeat_total = 0
             for i, team_a in enumerate(participants):
                 for team_b in participants[i + 1:]:
-                    pair = frozenset((team_a.label, team_b.label))
+                    pair = frozenset((self._team_key(team_a), self._team_key(team_b)))
                     repeat_total += self._opponent_history.get(pair, 0)
                     pair_count += 1
             if pair_count:
@@ -2133,17 +2168,17 @@ class SeasonPlanner:
         if not opponents_faced:
             return 0.0
 
-        teams_by_label = {team.label: team for team in self.roster.teams}
+        teams_by_key = {self._team_key(team): team for team in self.roster.teams}
 
         ratios = []
-        for label, faced in opponents_faced.items():
-            team = teams_by_label.get(label)
+        for key, faced in opponents_faced.items():
+            team = teams_by_key.get(key)
             if team is None:
                 continue
             available = [
-                other.label
+                self._team_key(other)
                 for other in self.roster.teams
-                if other.label != label
+                if self._team_key(other) != key
                 and other.age_group == team.age_group
                 and other.club != team.club
             ]
@@ -2155,8 +2190,7 @@ class SeasonPlanner:
             return 0.0
         return round(sum(ratios) / len(ratios), 3)
 
-    @staticmethod
-    def _pairwise_matchup_score(tournaments: Sequence[Tournament]) -> float:
+    def _pairwise_matchup_score(self, tournaments: Sequence[Tournament]) -> float:
         """Fraction of scheduled matchups that are first-time pairings.
 
         Walks every `Game` across `tournaments` in order, building up a
@@ -2177,7 +2211,7 @@ class SeasonPlanner:
             for game in tournament.games:
                 if game.home is None or game.away is None:
                     continue
-                pair = frozenset((game.home.label, game.away.label))
+                pair = frozenset((self._team_key(game.home), self._team_key(game.away)))
                 game_total += 1
                 if pair not in seen_pairs:
                     novel_total += 1

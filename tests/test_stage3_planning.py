@@ -29,6 +29,30 @@ def _make_config():
     }
 
 
+def _make_duplicate_label_config():
+    return {
+        "start_date": "2025-09-01",
+        "end_date": "2025-12-01",
+        "age_groups": ["U10", "U11"],
+        "parallel_games": {"U10": 2, "U11": 2},
+        "fairness_thresholds": {
+            "max_game_count_spread": 999,
+            "max_hosting_deviation": 999,
+            "max_team_travel_km": 9999,
+            "min_diversity_score": 0.0,
+            "min_pairwise_matchup_score": 0.0,
+            "min_month_balance_score": 0.0,
+            "max_same_weekend_club_load": 999,
+        },
+        "teams": [
+            {"club": "Jar", "label": "Jar 1 U10", "age_group": "U10"},
+            {"club": "Kongsberg", "label": "Kongsberg 1 U10", "age_group": "U10"},
+            {"club": "Jar", "label": "Jar 1 U11", "age_group": "U11"},
+            {"club": "Kongsberg", "label": "Kongsberg 1 U11", "age_group": "U11"},
+        ],
+    }
+
+
 class TestRunStage3:
     def test_accepts_plan_without_llm(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -104,6 +128,21 @@ class TestRunStage3:
 
         assert second["plan"]["manual_adjustments"]["locked_dates"] == ["2025-10-05"]
         assert second["plan"]["manual_adjustments"]["pinned_tournament_ids"] == ["abc12345"]
+
+    def test_duplicate_labels_are_disambiguated_in_counts(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_duplicate_label_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 1),
+        )
+        plan = result["plan"]
+
+        assert state.is_done(StageName.PLANNING)
+        assert len(plan["team_game_counts"]) == 4
+        assert any("U10" in key for key in plan["team_game_counts"])
+        assert any("U11" in key for key in plan["team_game_counts"])
+        assert plan["fairness_gate"]["status"] == "pass"
 
 
 class TestPlanToDict:

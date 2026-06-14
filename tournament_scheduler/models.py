@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from datetime import datetime, date, timedelta
-from typing import List, Dict, Set, Optional, Tuple
+from typing import Collection, List, Dict, Set, Optional, Tuple
 import uuid
 
 
@@ -80,6 +80,18 @@ class Team:
     def name(self) -> str:
         """Display name for the team (defaults to its label)."""
         return self.label
+
+
+def team_key(team: Team, duplicate_labels: Collection[str] | None = None) -> str:
+    """Return a stable display/storage key for *team*.
+
+    Most rosters use unique labels, so the plain label is returned. When a
+    label appears multiple times in the roster, the key is disambiguated
+    with club and age group so per-team metrics stay unique.
+    """
+    if duplicate_labels and team.label in duplicate_labels:
+        return f"{team.label} ({team.club}, {team.age_group})"
+    return team.label
 
 
 @dataclass

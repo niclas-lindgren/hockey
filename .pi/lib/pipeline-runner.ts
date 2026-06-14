@@ -280,7 +280,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       lines.push("Trinn 3: OK\n");
       onProgress?.({ stage: "planning", status: "ok", message: "Sesongplan bygget (OK)" });
 
-      const ckpt = readCheckpoint(workDir, "stage3_plan.json");
+      const ckpt = readCheckpoint(workDir, "stage3_planning.json");
       logger.stageEnd("planning", "ok", undefined, estimateDataVolume(ckpt));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);

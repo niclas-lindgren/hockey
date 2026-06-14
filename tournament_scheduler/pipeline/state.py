@@ -13,7 +13,7 @@ Stage          File
 =============  ==========================
 1 (config)     ``stage1_config.json``
 2 (scraping)   ``stage2_scraping.json``
-3 (planning)   ``stage3_plan.json``
+3 (planning)   ``stage3_planning.json``
 4 (export)     ``stage4_export.json``
 =============  ==========================
 

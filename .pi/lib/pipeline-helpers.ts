@@ -14,7 +14,7 @@ export const STAGE_ORDER = ["config", "scraping", "planning", "export"];
 export const STAGE_FILES: Array<{ label: string; filename: string }> = [
   { label: "Stage 1 (Config)",    filename: "stage1_config.json"   },
   { label: "Stage 2 (Scraping)",  filename: "stage2_scraping.json" },
-  { label: "Stage 3 (Planning)",  filename: "stage3_plan.json"     },
+  { label: "Stage 3 (Planning)",  filename: "stage3_planning.json" },
   { label: "Stage 4 (Export)",    filename: "stage4_export.json"   },
 ];
 
@@ -36,13 +36,19 @@ export async function runStage(
 
 /** Read a JSON checkpoint file; return null if it doesn't exist. */
 export function readCheckpoint(workDir: string, filename: string): Record<string, unknown> | null {
-  const p = join(workDir, filename);
-  if (!existsSync(p)) return null;
-  try {
-    return JSON.parse(readFileSync(p, "utf-8")) as Record<string, unknown>;
-  } catch {
-    return null;
+  const candidates = filename === "stage3_planning.json"
+    ? [filename, "stage3_plan.json"]
+    : [filename];
+  for (const candidate of candidates) {
+    const p = join(workDir, candidate);
+    if (!existsSync(p)) continue;
+    try {
+      return JSON.parse(readFileSync(p, "utf-8")) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
   }
+  return null;
 }
 
 export function buildStatusText(workDir: string): string {
@@ -54,7 +60,8 @@ export function buildStatusText(workDir: string): string {
     } else {
       const status = (ckpt.status as string) ?? "unknown";
       const updated = (ckpt.updated_at as string) ?? "";
-      lines.push(`  ${label}: ${status}${updated ? `  (${updated})` : ""}`);
+      const stale = ckpt.stale ? `  (stale from ${(ckpt.stale_from as string) ?? "?"})` : "";
+      lines.push(`  ${label}: ${status}${stale}${updated ? `  (${updated})` : ""}`);
       if (label.startsWith("Stage 2") && ckpt.data) {
         const data = ckpt.data as Record<string, unknown>;
         const blocked = (data.blocked as string[]) ?? [];

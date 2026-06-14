@@ -856,7 +856,7 @@ def run_tournament_update():
         if ask_yes_no("Vil du lagre endringene?", default=True):
             updater.write_updated_checkpoint(plan, log_entry=result)
             log_path = updater.log_update(result)
-            TournamentOutput.print_success(f"Endringene er lagret til {work_dir}/stage3_plan.json")
+            TournamentOutput.print_success(f"Endringene er lagret til {work_dir}/stage3_planning.json")
             if log_path:
                 TournamentOutput.print_info(f"Logget til: {log_path}")
         else:

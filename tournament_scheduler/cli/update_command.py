@@ -159,7 +159,7 @@ class UpdateCommand:
 
             TournamentOutput.print_success("Turnering oppdatert!")
             TournamentOutput.print_info(result.summary_nb)
-            TournamentOutput.print_info(f"Plan oppdatert: {work_path}/stage3_plan.json")
+            TournamentOutput.print_info(f"Plan oppdatert: {work_path}/stage3_planning.json")
             if log_path:
                 TournamentOutput.print_info(f"Logget til: {log_path}")
         else:
@@ -225,7 +225,7 @@ class AdjustmentCommand:
 
         TournamentOutput.print_success("Manuelle justeringer brukt!")
         TournamentOutput.print_info(result.summary_nb)
-        TournamentOutput.print_info(f"Plan oppdatert: {work_path}/stage3_plan.json")
+        TournamentOutput.print_info(f"Plan oppdatert: {work_path}/stage3_planning.json")
         if log_path:
             TournamentOutput.print_info(f"Logget til: {log_path}")
 
