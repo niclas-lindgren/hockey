@@ -201,9 +201,12 @@ class TestRunStage4:
         assert report_html.index('class="export-links"') < report_html.index('class="stat-badge"')
         assert 'Rettferdighetsgate' not in html
         assert 'Fairness-justeringer' not in html
+        assert 'Kvalitetsgjennomgang' not in html
         assert 'id="timeline"' in html
         assert 'Rettferdighetsgate' in report_html
         assert 'Fairness-justeringer' in report_html
+        assert 'Kvalitetsgjennomgang' in report_html
+        assert 'Manglende klubber' in report_html
         assert 'id="timeline"' not in report_html
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)

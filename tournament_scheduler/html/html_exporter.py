@@ -37,6 +37,18 @@ _ICON_FILE_SPREADSHEET = '<svg width="14" height="14" viewBox="0 0 16 16" fill="
 _ICON_CLOCK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="8 4 8 8 11 10"/></svg>'
 _ICON_BAR_CHART = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="14" x2="2" y2="6"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="4"/><line x1="14" y1="14" x2="14" y2="8"/></svg>'
 
+_RVV_CLUBS = (
+    "Ringerike",
+    "Tønsberg",
+    "Frisk Asker",
+    "Sandefjord Penguins",
+    "Jar",
+    "Holmen",
+    "Skien",
+    "Jutul",
+    "Kongsberg",
+)
+
 # ---------------------------------------------------------------------------
 # Load template fragments
 # ---------------------------------------------------------------------------
@@ -52,6 +64,7 @@ from .templates import (
     TRAVEL_STATS,
     HEATMAP,
     CLUB_DASHBOARD,
+    REVIEW_SUMMARY,
     PAGE_TEMPLATE,
     JAVASCRIPT,
     COUNT_BAR,
@@ -265,6 +278,7 @@ class HtmlExporter:
             scrape_age_html = f'<div class="metrics-group"><span class="metrics-group-label">Data-alder</span><span class="metrics-group-value">{scrape_age}</span></div>'
 
         fairness_gate_html = self._fairness_gate_html(plan.fairness_gate)
+        review_summary_html = self._review_summary_html(plan)
         fairness_adjustments_html = self._fairness_adjustments_html(plan)
 
         # --- Header export download links ---
@@ -300,6 +314,7 @@ class HtmlExporter:
                 "$SCORES$": SCORES if include_diagnostics else "",
                 "$METRICS$": METRICS if include_diagnostics else "",
                 "$FAIRNESS_ADJUSTMENTS$": fairness_adjustments_html if include_diagnostics else "",
+                "$REVIEW_SUMMARY$": review_summary_html if include_diagnostics else "",
                 "$EXPORT_LINKS$": export_links_html,
                 "$CLUB_DASHBOARD$": CLUB_DASHBOARD if include_diagnostics else "",
                 "$TEAM_STATS$": TEAM_STATS if include_diagnostics else "",
@@ -435,6 +450,121 @@ class HtmlExporter:
                 entry["cr"] = t.cancellation_reason or ""
             data.append(entry)
         return json.dumps(data, ensure_ascii=False)
+
+    @staticmethod
+    def _review_summary_html(plan: SeasonPlan) -> str:
+        """Render the advisory final review summary."""
+        sorted_tournaments = [t for t in plan.tournaments if not t.cancelled and t.date]
+        sorted_tournaments.sort(key=lambda t: (t.date, t.arena, t.age_group))
+
+        findings: list[tuple[str, str, str]] = []
+
+        # Clumping — weekends with more tournaments than the seasonal average.
+        week_counts: dict[tuple[int, int], int] = {}
+        for tournament in sorted_tournaments:
+            iso_year, iso_week, _ = tournament.date.isocalendar()
+            week_counts[(iso_year, iso_week)] = week_counts.get((iso_year, iso_week), 0) + 1
+        if week_counts:
+            busiest_week, busiest_count = max(week_counts.items(), key=lambda item: (item[1], item[0]))
+            avg_week = sum(week_counts.values()) / len(week_counts)
+            if busiest_count >= 2 and (busiest_count >= 3 or busiest_count > avg_week * 1.25):
+                findings.append(
+                    (
+                        "warn",
+                        "Klynge",
+                        f"Uke {busiest_week[0]}-W{busiest_week[1]:02d} har {busiest_count} turneringer, over snittet på {avg_week:.1f}.",
+                    )
+                )
+            else:
+                findings.append(("pass", "Klynge", "Ingen tydelig ukeklynge funnet."))
+        else:
+            findings.append(("pass", "Klynge", "Ingen turneringer å vurdere."))
+
+        # Missing clubs — RVV clubs without a hosted tournament.
+        host_counts: dict[str, int] = {}
+        host_sequence: list[str] = []
+        for tournament in sorted_tournaments:
+            host = tournament.host_club or ""
+            if not host:
+                continue
+            host_counts[host] = host_counts.get(host, 0) + 1
+            host_sequence.append(host)
+        missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
+        if missing_hosts:
+            findings.append(
+                (
+                    "warn",
+                    "Manglende klubber",
+                    f"Følgende RVV-klubber har ingen vertsturnering: {', '.join(missing_hosts)}.",
+                )
+            )
+        else:
+            findings.append(("pass", "Manglende klubber", "Alle 9 RVV-klubber har minst én vertsturnering."))
+
+        # Strange host patterns — concentration or long runs at the same host.
+        if host_counts:
+            top_host, top_count = max(host_counts.items(), key=lambda item: (item[1], item[0]))
+            total_hosted = sum(host_counts.values())
+            top_share = top_count / total_hosted if total_hosted else 0.0
+            longest_run = 1
+            current_host = ""
+            current_run = 0
+            for host in host_sequence:
+                if host == current_host:
+                    current_run += 1
+                else:
+                    current_host = host
+                    current_run = 1
+                longest_run = max(longest_run, current_run)
+            if longest_run >= 3 or (top_count >= 3 and top_share >= 0.4):
+                findings.append(
+                    (
+                        "warn",
+                        "Vertsmønster",
+                        f"{top_host} står for {top_count} av {total_hosted} vertsturneringer; vurder jevnere fordeling.",
+                    )
+                )
+            else:
+                findings.append(("pass", "Vertsmønster", "Vertsmønsteret ser jevnt ut."))
+        else:
+            findings.append(("pass", "Vertsmønster", "Ingen vertsklubber å vurdere."))
+
+        # Suspicious outliers — unusually high or low per-team game counts.
+        team_counts = plan.team_game_counts or {}
+        if team_counts:
+            max_team, max_games = max(team_counts.items(), key=lambda item: (item[1], item[0]))
+            min_team, min_games = min(team_counts.items(), key=lambda item: (item[1], item[0]))
+            avg_games = sum(team_counts.values()) / len(team_counts)
+            spread = max_games - min_games
+            if spread >= 5 or (avg_games and max_games > avg_games * 1.35):
+                findings.append(
+                    (
+                        "warn",
+                        "Avvik",
+                        f"{max_team} har {max_games} kamper, mens {min_team} har {min_games} (spredning {spread}).",
+                    )
+                )
+            else:
+                findings.append(("pass", "Avvik", "Ingen tydelige kampantallsavvik funnet."))
+        else:
+            findings.append(("pass", "Avvik", "Ingen per-lag kampdata å vurdere."))
+
+        status = "warn" if any(severity != "pass" for severity, _, _ in findings) else "pass"
+        status_label = {"pass": "PASS", "warn": "VARSEL"}.get(status, "PASS")
+        items_html = "".join(
+            (
+                f'<div class="review-summary-item review-summary-item--{severity}">'
+                f'<div class="review-summary-item-label">{_html.escape(label)}</div>'
+                f'<div class="review-summary-item-text">{_html.escape(text)}</div>'
+                "</div>"
+            )
+            for severity, label, text in findings
+        )
+        return (
+            REVIEW_SUMMARY.replace("$REVIEW_STATUS$", status)
+            .replace("$REVIEW_STATUS_LABEL$", status_label)
+            .replace("$REVIEW_ITEMS$", items_html)
+        )
 
     @staticmethod
     def _fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:

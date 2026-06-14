@@ -31,6 +31,7 @@ TEAM_STATS = _load("team_stats.html")
 TRAVEL_STATS = _load("travel_stats.html")
 HEATMAP = _load("heatmap.html")
 CLUB_DASHBOARD = _load("club_dashboard.html")
+REVIEW_SUMMARY = _load("review_summary.html")
 
 # Full page template (embeds all sections)
 PAGE_TEMPLATE = _load("page_template.html")
