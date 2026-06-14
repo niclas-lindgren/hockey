@@ -267,7 +267,7 @@ class HtmlExporter:
         fairness_gate_html = self._fairness_gate_html(plan.fairness_gate)
         fairness_adjustments_html = self._fairness_adjustments_html(plan)
 
-        # --- Export download links ---
+        # --- Header export download links ---
         export_links_html = ""
         if output_files:
             links_parts = ['<div class="export-links">']
@@ -367,7 +367,6 @@ class HtmlExporter:
                 "$FAIRNESS_GATE_HTML$": fairness_gate_html,
                 "$AGE_GROUP_OPTIONS$": age_group_options,
                 "$TOURNAMENTS_JSON$": tournaments_json,
-                "$EXPORT_LINKS_HTML$": export_links_html,
             }
 
             html = PAGE_TEMPLATE

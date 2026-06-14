@@ -1,6 +1,8 @@
 # Backlog
 
 ## Open
+
+- [88] [ ] Move export functionality to the top of season_plan.html so users can access export actions immediately from the page header.
 - [86] [ ] Add a final LLM review step after the deterministic planning/export scripts complete, so the generated season plan gets a short advisory quality check for qualitative issues (clumping, missing clubs, strange host patterns, suspicious outliers) and produces a human-readable summary without replacing deterministic pass/fail gates.
 - [85] [ ] Fix season-planner participant selection so large clubs like Jar are mixed more evenly across the season instead of clumping many Jar teams into one U10 tournament while later tournaments get none; the heuristic should spread same-age-group sibling teams across tournaments when the global roster has better mixes available.
 
