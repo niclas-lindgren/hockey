@@ -1,13 +1,13 @@
 {
   "stage": "planning",
   "status": "done",
-  "updated_at": "2026-06-13T16:42:51.846963+00:00",
+  "updated_at": "2026-06-13T18:11:10.620451+00:00",
   "data": {
     "plan": {
       "start_date": "2026-09-01",
       "end_date": "2027-04-30",
-      "diversity_score": 0.985,
-      "pairwise_matchup_score": 0.733,
+      "diversity_score": 1.188,
+      "pairwise_matchup_score": 0.747,
       "month_balance_score": 0.767,
       "arena_counts": {
         "Jarhallen": 4,
@@ -18,41 +18,41 @@
         "Tonsberghallen": 1
       },
       "team_game_counts": {
-        "Jar 1": 14,
-        "Sandefjord 1": 18,
-        "Jar 2": 16,
-        "Frisk Asker 2": 21,
-        "Jar 3": 13,
-        "Frisk Asker 1": 20,
-        "Frisk Asker 3": 16,
-        "Jutul 1": 23,
+        "Jar 1": 19,
+        "Sandefjord 1": 22,
+        "Jar 2": 23,
+        "Frisk Asker 2": 19,
+        "Jar 3": 19,
+        "Frisk Asker 1": 23,
+        "Jar 5": 24,
         "Holmen 1": 21,
-        "Jar 4": 15,
-        "Jar 5": 12,
-        "Jar 6": 17,
-        "Tønsberg 1": 19,
-        "Jar 7": 14,
-        "Kongsberg 1": 24,
-        "Skien 1": 22,
+        "Frisk Asker 3": 19,
+        "Jutul 1": 27,
+        "Jar 4": 20,
+        "Jar 6": 19,
+        "Tønsberg 1": 24,
+        "Jar 7": 20,
+        "Kongsberg 1": 23,
+        "Skien 1": 18,
         "Ringerike 1": 22,
-        "Ringerike 2": 23
+        "Ringerike 2": 18
       },
-      "game_count_spread": 12,
+      "game_count_spread": 9,
       "fairness_gate": {
         "status": "fail",
-        "score": 57,
+        "score": 60,
         "metrics": [
           {
             "key": "game_count_spread",
             "label": "Kamper per lag",
-            "value": 12,
+            "value": 9,
             "threshold": 2,
             "direction": "max",
             "severity": "fail",
             "status": "fail",
             "score": 0,
             "unit": "",
-            "detail": "Største gap mellom lag er 12 kamper."
+            "detail": "Største gap mellom lag er 9 kamper."
           },
           {
             "key": "hosting_deviation",
@@ -69,38 +69,38 @@
           {
             "key": "travel_distance",
             "label": "Reisebelastning",
-            "value": 546,
+            "value": 447,
             "threshold": 250,
             "direction": "max",
             "severity": "warn",
             "status": "warn",
-            "score": 0,
+            "score": 21,
             "unit": "km",
-            "detail": "Lengst reisende lag har 546 km total reise."
+            "detail": "Lengst reisende lag har 447 km total reise."
           },
           {
             "key": "opponent_diversity",
             "label": "Motstandervariasjon",
-            "value": 0.985,
+            "value": 1.188,
             "threshold": 0.75,
             "direction": "min",
             "severity": "warn",
             "status": "pass",
             "score": 100,
             "unit": "",
-            "detail": "Snittet av unik motstanderdekning er 0.985."
+            "detail": "Snittet av unik motstanderdekning er 1.188."
           },
           {
             "key": "pairwise_matchups",
             "label": "Nye matchups",
-            "value": 0.733,
+            "value": 0.747,
             "threshold": 0.75,
             "direction": "min",
             "severity": "warn",
             "status": "warn",
-            "score": 98,
+            "score": 100,
             "unit": "",
-            "detail": "Andel nye kampoppsett er 0.733."
+            "detail": "Andel nye kampoppsett er 0.747."
           },
           {
             "key": "month_balance",
@@ -138,28 +138,28 @@
         }
       },
       "team_last_game_dates": {
-        "Jar 1": "2027-04-10",
-        "Sandefjord 1": "2027-01-16",
-        "Jar 2": "2027-04-10",
-        "Frisk Asker 2": "2027-04-18",
-        "Jar 3": "2027-03-14",
+        "Jar 1": "2027-02-14",
+        "Sandefjord 1": "2027-03-06",
+        "Jar 2": "2027-04-18",
+        "Frisk Asker 2": "2027-03-14",
+        "Jar 3": "2027-04-10",
         "Frisk Asker 1": "2027-04-18",
-        "Frisk Asker 3": "2027-04-10",
+        "Jar 5": "2027-04-18",
+        "Holmen 1": "2027-04-10",
+        "Frisk Asker 3": "2027-03-14",
         "Jutul 1": "2027-04-18",
-        "Holmen 1": "2027-03-06",
-        "Jar 4": "2027-04-18",
-        "Jar 5": "2027-03-14",
-        "Jar 6": "2027-04-18",
-        "Tønsberg 1": "2027-01-31",
+        "Jar 4": "2027-04-10",
+        "Jar 6": "2027-03-14",
+        "Tønsberg 1": "2027-03-06",
         "Jar 7": "2027-04-18",
-        "Kongsberg 1": "2027-03-14",
-        "Skien 1": "2027-04-10",
+        "Kongsberg 1": "2027-04-18",
+        "Skien 1": "2027-01-31",
         "Ringerike 1": "2027-04-10",
-        "Ringerike 2": "2027-03-14"
+        "Ringerike 2": "2027-03-06"
       },
       "tournaments": [
         {
-          "id": "53b22768",
+          "id": "7458477b",
           "date": "2026-09-06",
           "arena": "Jarhallen",
           "age_group": "U10",
@@ -228,32 +228,50 @@
               "round_number": 2
             },
             {
+              "home": "Jar 3",
+              "away": "Jar 2",
+              "parallel_slot": 2,
+              "round_number": 2
+            },
+            {
               "home": "Jar 1",
               "away": "Frisk Asker 1",
               "parallel_slot": 0,
               "round_number": 3
             },
             {
-              "home": "Sandefjord 1",
-              "away": "Frisk Asker 2",
+              "home": "Frisk Asker 2",
+              "away": "Jar 3",
               "parallel_slot": 1,
               "round_number": 3
             },
             {
-              "home": "Frisk Asker 2",
-              "away": "Jar 3",
-              "parallel_slot": 0,
-              "round_number": 4
-            },
-            {
               "home": "Sandefjord 1",
               "away": "Jar 2",
-              "parallel_slot": 1,
+              "parallel_slot": 2,
+              "round_number": 3
+            },
+            {
+              "home": "Jar 3",
+              "away": "Jar 1",
+              "parallel_slot": 0,
               "round_number": 4
             },
             {
               "home": "Jar 2",
               "away": "Frisk Asker 1",
+              "parallel_slot": 1,
+              "round_number": 4
+            },
+            {
+              "home": "Sandefjord 1",
+              "away": "Frisk Asker 2",
+              "parallel_slot": 2,
+              "round_number": 4
+            },
+            {
+              "home": "Jar 1",
+              "away": "Jar 2",
               "parallel_slot": 0,
               "round_number": 5
             },
@@ -262,12 +280,18 @@
               "away": "Sandefjord 1",
               "parallel_slot": 1,
               "round_number": 5
+            },
+            {
+              "home": "Frisk Asker 1",
+              "away": "Frisk Asker 2",
+              "parallel_slot": 2,
+              "round_number": 5
             }
           ],
           "start_time": "08:00"
         },
         {
-          "id": "f41bb707",
+          "id": "27fde3b9",
           "date": "2026-09-26",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -301,64 +325,70 @@
           ],
           "games": [
             {
-              "home": "Frisk Asker 3",
-              "away": "Jutul 1",
+              "home": "Jar 5",
+              "away": "Holmen 1",
               "parallel_slot": 0,
               "round_number": 1
             },
             {
-              "home": "Holmen 1",
-              "away": "Jar 4",
+              "home": "Frisk Asker 3",
+              "away": "Jutul 1",
               "parallel_slot": 1,
               "round_number": 1
             },
             {
               "home": "Holmen 1",
-              "away": "Frisk Asker 3",
+              "away": "Jar 4",
               "parallel_slot": 0,
               "round_number": 2
+            },
+            {
+              "home": "Frisk Asker 3",
+              "away": "Jar 5",
+              "parallel_slot": 1,
+              "round_number": 2
+            },
+            {
+              "home": "Jar 4",
+              "away": "Jutul 1",
+              "parallel_slot": 0,
+              "round_number": 3
+            },
+            {
+              "home": "Holmen 1",
+              "away": "Frisk Asker 3",
+              "parallel_slot": 1,
+              "round_number": 3
+            },
+            {
+              "home": "Frisk Asker 3",
+              "away": "Jar 4",
+              "parallel_slot": 0,
+              "round_number": 4
             },
             {
               "home": "Jar 5",
               "away": "Jutul 1",
               "parallel_slot": 1,
-              "round_number": 2
+              "round_number": 4
             },
             {
-              "home": "Frisk Asker 3",
-              "away": "Jar 4",
+              "home": "Jar 4",
+              "away": "Jar 5",
               "parallel_slot": 0,
-              "round_number": 3
+              "round_number": 5
             },
             {
               "home": "Jutul 1",
               "away": "Holmen 1",
               "parallel_slot": 1,
-              "round_number": 3
-            },
-            {
-              "home": "Jar 5",
-              "away": "Holmen 1",
-              "parallel_slot": 0,
-              "round_number": 4
-            },
-            {
-              "home": "Jar 4",
-              "away": "Jutul 1",
-              "parallel_slot": 1,
-              "round_number": 4
-            },
-            {
-              "home": "Frisk Asker 3",
-              "away": "Jar 5",
-              "parallel_slot": 0,
               "round_number": 5
             }
           ],
           "start_time": "11:50"
         },
         {
-          "id": "21fe91e8",
+          "id": "212905dd",
           "date": "2026-10-11",
           "arena": "Ringerikshallen",
           "age_group": "U10",
@@ -469,22 +499,28 @@
               "round_number": 4
             },
             {
+              "home": "Jar 6",
+              "away": "Jar 7",
+              "parallel_slot": 0,
+              "round_number": 5
+            },
+            {
               "home": "Skien 1",
               "away": "Tønsberg 1",
-              "parallel_slot": 0,
+              "parallel_slot": 1,
               "round_number": 5
             },
             {
               "home": "Ringerike 1",
               "away": "Kongsberg 1",
-              "parallel_slot": 1,
+              "parallel_slot": 2,
               "round_number": 5
             }
           ],
           "start_time": "08:00"
         },
         {
-          "id": "27753389",
+          "id": "aa04b710",
           "date": "2026-10-25",
           "arena": "Sandefjord ishall",
           "age_group": "U11",
@@ -581,7 +617,7 @@
           "start_time": "08:00"
         },
         {
-          "id": "83a9f12f",
+          "id": "627b793c",
           "date": "2026-11-14",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -620,94 +656,100 @@
           ],
           "games": [
             {
-              "home": "Kongsberg 1",
-              "away": "Tønsberg 1",
-              "parallel_slot": 0,
-              "round_number": 1
-            },
-            {
-              "home": "Frisk Asker 3",
-              "away": "Jar 1",
-              "parallel_slot": 1,
-              "round_number": 1
-            },
-            {
-              "home": "Frisk Asker 1",
-              "away": "Ringerike 2",
-              "parallel_slot": 2,
-              "round_number": 1
-            },
-            {
               "home": "Ringerike 2",
               "away": "Jar 1",
               "parallel_slot": 0,
-              "round_number": 2
+              "round_number": 1
+            },
+            {
+              "home": "Kongsberg 1",
+              "away": "Tønsberg 1",
+              "parallel_slot": 1,
+              "round_number": 1
             },
             {
               "home": "Frisk Asker 1",
-              "away": "Kongsberg 1",
-              "parallel_slot": 1,
-              "round_number": 2
-            },
-            {
-              "home": "Frisk Asker 3",
-              "away": "Tønsberg 1",
+              "away": "Frisk Asker 3",
               "parallel_slot": 2,
-              "round_number": 2
+              "round_number": 1
             },
             {
               "home": "Tønsberg 1",
               "away": "Ringerike 2",
               "parallel_slot": 0,
-              "round_number": 3
+              "round_number": 2
             },
             {
-              "home": "Kongsberg 1",
-              "away": "Frisk Asker 3",
+              "home": "Frisk Asker 3",
+              "away": "Jar 1",
               "parallel_slot": 1,
-              "round_number": 3
+              "round_number": 2
             },
             {
               "home": "Frisk Asker 1",
-              "away": "Jar 1",
+              "away": "Kongsberg 1",
               "parallel_slot": 2,
-              "round_number": 3
+              "round_number": 2
             },
             {
               "home": "Ringerike 2",
               "away": "Frisk Asker 3",
               "parallel_slot": 0,
-              "round_number": 4
+              "round_number": 3
             },
             {
               "home": "Tønsberg 1",
               "away": "Frisk Asker 1",
               "parallel_slot": 1,
-              "round_number": 4
+              "round_number": 3
             },
             {
               "home": "Jar 1",
               "away": "Kongsberg 1",
               "parallel_slot": 2,
+              "round_number": 3
+            },
+            {
+              "home": "Frisk Asker 1",
+              "away": "Ringerike 2",
+              "parallel_slot": 0,
+              "round_number": 4
+            },
+            {
+              "home": "Kongsberg 1",
+              "away": "Frisk Asker 3",
+              "parallel_slot": 1,
               "round_number": 4
             },
             {
               "home": "Jar 1",
               "away": "Tønsberg 1",
-              "parallel_slot": 0,
-              "round_number": 5
+              "parallel_slot": 2,
+              "round_number": 4
             },
             {
               "home": "Ringerike 2",
               "away": "Kongsberg 1",
+              "parallel_slot": 0,
+              "round_number": 5
+            },
+            {
+              "home": "Frisk Asker 1",
+              "away": "Jar 1",
               "parallel_slot": 1,
+              "round_number": 5
+            },
+            {
+              "home": "Frisk Asker 3",
+              "away": "Tønsberg 1",
+              "parallel_slot": 2,
               "round_number": 5
             }
           ],
           "start_time": "11:50"
         },
         {
-          "id": "cd29ca9a",
+          "id": "ea0bb9f8",
           "date": "2026-11-28",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -729,99 +771,95 @@
               "age_group": "U11"
             },
             {
-              "club": "Jar",
-              "label": "Jar 5",
+              "club": "Kongsberg",
+              "label": "Kongsberg 1",
               "age_group": "U11"
             },
             {
-              "club": "Kongsberg",
-              "label": "Kongsberg 1",
+              "club": "Frisk Asker",
+              "label": "Frisk Asker 2",
               "age_group": "U11"
             }
           ],
           "games": [
             {
               "home": "Sandefjord 1",
-              "away": "Kongsberg 1",
+              "away": "Frisk Asker 2",
               "parallel_slot": 0,
               "round_number": 1
             },
             {
               "home": "Ringerike 1",
-              "away": "Jar 4",
+              "away": "Kongsberg 1",
               "parallel_slot": 1,
               "round_number": 1
+            },
+            {
+              "home": "Frisk Asker 2",
+              "away": "Jar 4",
+              "parallel_slot": 0,
+              "round_number": 2
             },
             {
               "home": "Ringerike 1",
               "away": "Sandefjord 1",
-              "parallel_slot": 0,
-              "round_number": 2
-            },
-            {
-              "home": "Jar 5",
-              "away": "Kongsberg 1",
               "parallel_slot": 1,
               "round_number": 2
             },
             {
-              "home": "Kongsberg 1",
-              "away": "Ringerike 1",
+              "home": "Jar 4",
+              "away": "Kongsberg 1",
               "parallel_slot": 0,
               "round_number": 3
             },
             {
-              "home": "Sandefjord 1",
-              "away": "Jar 5",
+              "home": "Frisk Asker 2",
+              "away": "Ringerike 1",
               "parallel_slot": 1,
               "round_number": 3
             },
             {
               "home": "Ringerike 1",
-              "away": "Jar 5",
+              "away": "Jar 4",
               "parallel_slot": 0,
+              "round_number": 4
+            },
+            {
+              "home": "Sandefjord 1",
+              "away": "Kongsberg 1",
+              "parallel_slot": 1,
               "round_number": 4
             },
             {
               "home": "Jar 4",
               "away": "Sandefjord 1",
-              "parallel_slot": 1,
-              "round_number": 4
+              "parallel_slot": 0,
+              "round_number": 5
             },
             {
               "home": "Kongsberg 1",
-              "away": "Jar 4",
-              "parallel_slot": 0,
+              "away": "Frisk Asker 2",
+              "parallel_slot": 1,
               "round_number": 5
             }
           ],
           "start_time": "11:50"
         },
         {
-          "id": "235b9abd",
+          "id": "53e4e517",
           "date": "2026-12-13",
           "arena": "Skien ishall",
           "age_group": "U10",
           "host_club": "Skien",
           "teams": [
             {
-              "club": "Frisk Asker",
-              "label": "Frisk Asker 2",
+              "club": "Jar",
+              "label": "Jar 5",
               "age_group": "U10"
             },
             {
-              "club": "Jutul",
-              "label": "Jutul 1",
-              "age_group": "U10"
-            },
-            {
-              "club": "Tønsberg",
-              "label": "Tønsberg 1",
-              "age_group": "U10"
-            },
-            {
-              "club": "Ringerike",
-              "label": "Ringerike 1",
+              "club": "Skien",
+              "label": "Skien 1",
               "age_group": "U10"
             },
             {
@@ -830,101 +868,117 @@
               "age_group": "U10"
             },
             {
+              "club": "Tønsberg",
+              "label": "Tønsberg 1",
+              "age_group": "U10"
+            },
+            {
               "club": "Jar",
               "label": "Jar 3",
+              "age_group": "U10"
+            },
+            {
+              "club": "Jutul",
+              "label": "Jutul 1",
               "age_group": "U10"
             }
           ],
           "games": [
             {
-              "home": "Frisk Asker 2",
-              "away": "Jar 3",
-              "parallel_slot": 0,
-              "round_number": 1
-            },
-            {
-              "home": "Jutul 1",
-              "away": "Jar 2",
-              "parallel_slot": 1,
-              "round_number": 1
-            },
-            {
-              "home": "Tønsberg 1",
-              "away": "Ringerike 1",
-              "parallel_slot": 2,
-              "round_number": 1
-            },
-            {
-              "home": "Jar 2",
-              "away": "Frisk Asker 2",
-              "parallel_slot": 0,
-              "round_number": 2
-            },
-            {
-              "home": "Ringerike 1",
-              "away": "Jar 3",
-              "parallel_slot": 1,
-              "round_number": 2
-            },
-            {
-              "home": "Tønsberg 1",
+              "home": "Jar 5",
               "away": "Jutul 1",
-              "parallel_slot": 2,
-              "round_number": 2
+              "parallel_slot": 0,
+              "round_number": 1
             },
             {
-              "home": "Frisk Asker 2",
-              "away": "Ringerike 1",
-              "parallel_slot": 0,
-              "round_number": 3
+              "home": "Skien 1",
+              "away": "Jar 3",
+              "parallel_slot": 1,
+              "round_number": 1
             },
             {
               "home": "Jar 2",
               "away": "Tønsberg 1",
+              "parallel_slot": 2,
+              "round_number": 1
+            },
+            {
+              "home": "Jar 3",
+              "away": "Jar 5",
+              "parallel_slot": 0,
+              "round_number": 2
+            },
+            {
+              "home": "Tønsberg 1",
+              "away": "Jutul 1",
               "parallel_slot": 1,
+              "round_number": 2
+            },
+            {
+              "home": "Jar 2",
+              "away": "Skien 1",
+              "parallel_slot": 2,
+              "round_number": 2
+            },
+            {
+              "home": "Jar 5",
+              "away": "Tønsberg 1",
+              "parallel_slot": 0,
               "round_number": 3
             },
             {
               "home": "Jar 3",
-              "away": "Jutul 1",
+              "away": "Jar 2",
+              "parallel_slot": 1,
+              "round_number": 3
+            },
+            {
+              "home": "Jutul 1",
+              "away": "Skien 1",
               "parallel_slot": 2,
               "round_number": 3
             },
             {
-              "home": "Frisk Asker 2",
-              "away": "Jutul 1",
+              "home": "Jar 2",
+              "away": "Jar 5",
               "parallel_slot": 0,
               "round_number": 4
             },
             {
-              "home": "Tønsberg 1",
-              "away": "Jar 3",
+              "home": "Skien 1",
+              "away": "Tønsberg 1",
               "parallel_slot": 1,
               "round_number": 4
             },
             {
-              "home": "Ringerike 1",
-              "away": "Jar 2",
+              "home": "Jutul 1",
+              "away": "Jar 3",
               "parallel_slot": 2,
               "round_number": 4
             },
             {
-              "home": "Tønsberg 1",
-              "away": "Frisk Asker 2",
+              "home": "Jar 5",
+              "away": "Skien 1",
               "parallel_slot": 0,
               "round_number": 5
             },
             {
-              "home": "Jutul 1",
-              "away": "Ringerike 1",
+              "home": "Jar 2",
+              "away": "Jutul 1",
               "parallel_slot": 1,
+              "round_number": 5
+            },
+            {
+              "home": "Tønsberg 1",
+              "away": "Jar 3",
+              "parallel_slot": 2,
               "round_number": 5
             }
           ],
           "start_time": "08:00"
         },
         {
-          "id": "1a756922",
+          "id": "5292a6ae",
           "date": "2027-01-09",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -952,70 +1006,76 @@
             },
             {
               "club": "Jar",
-              "label": "Jar 1",
+              "label": "Jar 2",
               "age_group": "U11"
             }
           ],
           "games": [
             {
-              "home": "Frisk Asker 1",
-              "away": "Ringerike 1",
+              "home": "Holmen 1",
+              "away": "Jar 2",
               "parallel_slot": 0,
               "round_number": 1
+            },
+            {
+              "home": "Frisk Asker 1",
+              "away": "Ringerike 1",
+              "parallel_slot": 1,
+              "round_number": 1
+            },
+            {
+              "home": "Jar 2",
+              "away": "Jar 6",
+              "parallel_slot": 0,
+              "round_number": 2
+            },
+            {
+              "home": "Frisk Asker 1",
+              "away": "Holmen 1",
+              "parallel_slot": 1,
+              "round_number": 2
             },
             {
               "home": "Jar 6",
-              "away": "Holmen 1",
-              "parallel_slot": 1,
-              "round_number": 1
-            },
-            {
-              "home": "Frisk Asker 1",
-              "away": "Holmen 1",
+              "away": "Ringerike 1",
               "parallel_slot": 0,
-              "round_number": 2
+              "round_number": 3
             },
             {
-              "home": "Ringerike 1",
-              "away": "Jar 1",
+              "home": "Jar 2",
+              "away": "Frisk Asker 1",
               "parallel_slot": 1,
-              "round_number": 2
+              "round_number": 3
             },
             {
               "home": "Frisk Asker 1",
               "away": "Jar 6",
               "parallel_slot": 0,
-              "round_number": 3
-            },
-            {
-              "home": "Holmen 1",
-              "away": "Ringerike 1",
-              "parallel_slot": 1,
-              "round_number": 3
-            },
-            {
-              "home": "Holmen 1",
-              "away": "Jar 1",
-              "parallel_slot": 0,
               "round_number": 4
             },
             {
-              "home": "Jar 6",
+              "home": "Holmen 1",
               "away": "Ringerike 1",
               "parallel_slot": 1,
               "round_number": 4
             },
             {
-              "home": "Jar 1",
-              "away": "Frisk Asker 1",
+              "home": "Jar 6",
+              "away": "Holmen 1",
               "parallel_slot": 0,
+              "round_number": 5
+            },
+            {
+              "home": "Ringerike 1",
+              "away": "Jar 2",
+              "parallel_slot": 1,
               "round_number": 5
             }
           ],
           "start_time": "11:50"
         },
         {
-          "id": "838696dd",
+          "id": "d4b863de",
           "date": "2027-01-16",
           "arena": "Varner Arena",
           "age_group": "U10",
@@ -1038,12 +1098,12 @@
             },
             {
               "club": "Jar",
-              "label": "Jar 6",
+              "label": "Jar 3",
               "age_group": "U10"
             },
             {
-              "club": "Frisk Asker",
-              "label": "Frisk Asker 2",
+              "club": "Jar",
+              "label": "Jar 6",
               "age_group": "U10"
             },
             {
@@ -1054,74 +1114,80 @@
           ],
           "games": [
             {
-              "home": "Frisk Asker 3",
-              "away": "Jar 6",
+              "home": "Jar 7",
+              "away": "Ringerike 2",
               "parallel_slot": 0,
               "round_number": 1
             },
             {
-              "home": "Frisk Asker 2",
-              "away": "Jar 7",
+              "home": "Sandefjord 1",
+              "away": "Jar 6",
               "parallel_slot": 1,
               "round_number": 1
+            },
+            {
+              "home": "Frisk Asker 3",
+              "away": "Jar 3",
+              "parallel_slot": 2,
+              "round_number": 1
+            },
+            {
+              "home": "Jar 6",
+              "away": "Jar 7",
+              "parallel_slot": 0,
+              "round_number": 2
+            },
+            {
+              "home": "Jar 3",
+              "away": "Ringerike 2",
+              "parallel_slot": 1,
+              "round_number": 2
+            },
+            {
+              "home": "Frisk Asker 3",
+              "away": "Sandefjord 1",
+              "parallel_slot": 2,
+              "round_number": 2
+            },
+            {
+              "home": "Jar 7",
+              "away": "Jar 3",
+              "parallel_slot": 0,
+              "round_number": 3
+            },
+            {
+              "home": "Jar 6",
+              "away": "Frisk Asker 3",
+              "parallel_slot": 1,
+              "round_number": 3
             },
             {
               "home": "Ringerike 2",
               "away": "Sandefjord 1",
               "parallel_slot": 2,
-              "round_number": 1
-            },
-            {
-              "home": "Jar 7",
-              "away": "Ringerike 2",
-              "parallel_slot": 0,
-              "round_number": 2
-            },
-            {
-              "home": "Frisk Asker 3",
-              "away": "Sandefjord 1",
-              "parallel_slot": 1,
-              "round_number": 2
-            },
-            {
-              "home": "Jar 6",
-              "away": "Frisk Asker 2",
-              "parallel_slot": 2,
-              "round_number": 2
-            },
-            {
-              "home": "Sandefjord 1",
-              "away": "Frisk Asker 2",
-              "parallel_slot": 0,
-              "round_number": 3
-            },
-            {
-              "home": "Jar 6",
-              "away": "Ringerike 2",
-              "parallel_slot": 1,
               "round_number": 3
             },
             {
               "home": "Frisk Asker 3",
               "away": "Jar 7",
-              "parallel_slot": 2,
-              "round_number": 3
+              "parallel_slot": 0,
+              "round_number": 4
+            },
+            {
+              "home": "Sandefjord 1",
+              "away": "Jar 3",
+              "parallel_slot": 1,
+              "round_number": 4
             },
             {
               "home": "Ringerike 2",
-              "away": "Frisk Asker 2",
-              "parallel_slot": 0,
+              "away": "Jar 6",
+              "parallel_slot": 2,
               "round_number": 4
             },
             {
               "home": "Jar 7",
               "away": "Sandefjord 1",
-              "parallel_slot": 1,
-              "round_number": 4
-            },
-            {
-              "home": "Sandefjord 1",
-              "away": "Jar 6",
               "parallel_slot": 0,
               "round_number": 5
             },
@@ -1129,13 +1195,19 @@
               "home": "Frisk Asker 3",
               "away": "Ringerike 2",
               "parallel_slot": 1,
+              "round_number": 5
+            },
+            {
+              "home": "Jar 3",
+              "away": "Jar 6",
+              "parallel_slot": 2,
               "round_number": 5
             }
           ],
           "start_time": "11:50"
         },
         {
-          "id": "a669044e",
+          "id": "2a56bec9",
           "date": "2027-01-31",
           "arena": "Jarhallen",
           "age_group": "U11",
@@ -1158,83 +1230,89 @@
             },
             {
               "club": "Jar",
-              "label": "Jar 5",
+              "label": "Jar 1",
               "age_group": "U11"
             },
             {
-              "club": "Tønsberg",
-              "label": "Tønsberg 1",
+              "club": "Jutul",
+              "label": "Jutul 1",
               "age_group": "U11"
             }
           ],
           "games": [
             {
               "home": "Skien 1",
-              "away": "Tønsberg 1",
+              "away": "Jutul 1",
               "parallel_slot": 0,
               "round_number": 1
             },
             {
               "home": "Frisk Asker 1",
-              "away": "Jar 4",
+              "away": "Jar 1",
               "parallel_slot": 1,
               "round_number": 1
+            },
+            {
+              "home": "Jutul 1",
+              "away": "Jar 4",
+              "parallel_slot": 0,
+              "round_number": 2
             },
             {
               "home": "Frisk Asker 1",
               "away": "Skien 1",
-              "parallel_slot": 0,
-              "round_number": 2
-            },
-            {
-              "home": "Jar 5",
-              "away": "Tønsberg 1",
               "parallel_slot": 1,
               "round_number": 2
             },
             {
-              "home": "Tønsberg 1",
-              "away": "Frisk Asker 1",
+              "home": "Jar 4",
+              "away": "Jar 1",
               "parallel_slot": 0,
               "round_number": 3
             },
             {
-              "home": "Skien 1",
-              "away": "Jar 5",
+              "home": "Jutul 1",
+              "away": "Frisk Asker 1",
               "parallel_slot": 1,
               "round_number": 3
             },
             {
               "home": "Frisk Asker 1",
-              "away": "Jar 5",
+              "away": "Jar 4",
               "parallel_slot": 0,
+              "round_number": 4
+            },
+            {
+              "home": "Skien 1",
+              "away": "Jar 1",
+              "parallel_slot": 1,
               "round_number": 4
             },
             {
               "home": "Jar 4",
               "away": "Skien 1",
-              "parallel_slot": 1,
-              "round_number": 4
+              "parallel_slot": 0,
+              "round_number": 5
             },
             {
-              "home": "Tønsberg 1",
-              "away": "Jar 4",
-              "parallel_slot": 0,
+              "home": "Jar 1",
+              "away": "Jutul 1",
+              "parallel_slot": 1,
               "round_number": 5
             }
           ],
           "start_time": "08:00"
         },
         {
-          "id": "bc3f44ef",
+          "id": "4a432551",
           "date": "2027-02-14",
           "arena": "Jarhallen",
           "age_group": "U10",
           "host_club": "Jar",
           "teams": [
             {
-              "club": "Jar",
-              "label": "Jar 2",
+              "club": "Frisk Asker",
+              "label": "Frisk Asker 2",
               "age_group": "U10"
             },
             {
@@ -1243,13 +1321,8 @@
               "age_group": "U10"
             },
             {
-              "club": "Kongsberg",
-              "label": "Kongsberg 1",
-              "age_group": "U10"
-            },
-            {
-              "club": "Jar",
-              "label": "Jar 3",
+              "club": "Tønsberg",
+              "label": "Tønsberg 1",
               "age_group": "U10"
             },
             {
@@ -1258,89 +1331,112 @@
               "age_group": "U10"
             },
             {
-              "club": "Skien",
-              "label": "Skien 1",
+              "club": "Jar",
+              "label": "Jar 5",
+              "age_group": "U10"
+            },
+            {
+              "club": "Jar",
+              "label": "Jar 1",
               "age_group": "U10"
             }
           ],
           "games": [
             {
-              "home": "Holmen 1",
-              "away": "Jar 7",
+              "home": "Frisk Asker 2",
+              "away": "Jar 1",
               "parallel_slot": 0,
               "round_number": 1
             },
             {
-              "home": "Jar 3",
-              "away": "Skien 1",
+              "home": "Holmen 1",
+              "away": "Jar 5",
               "parallel_slot": 1,
               "round_number": 1
             },
             {
-              "home": "Kongsberg 1",
-              "away": "Jar 2",
+              "home": "Tønsberg 1",
+              "away": "Jar 7",
               "parallel_slot": 2,
               "round_number": 1
             },
             {
-              "home": "Jar 2",
-              "away": "Skien 1",
+              "home": "Jar 5",
+              "away": "Frisk Asker 2",
               "parallel_slot": 0,
               "round_number": 2
             },
             {
               "home": "Jar 7",
-              "away": "Kongsberg 1",
+              "away": "Jar 1",
               "parallel_slot": 1,
               "round_number": 2
             },
             {
-              "home": "Holmen 1",
-              "away": "Jar 3",
+              "home": "Tønsberg 1",
+              "away": "Holmen 1",
               "parallel_slot": 2,
               "round_number": 2
             },
             {
-              "home": "Kongsberg 1",
-              "away": "Holmen 1",
+              "home": "Frisk Asker 2",
+              "away": "Jar 7",
               "parallel_slot": 0,
               "round_number": 3
             },
             {
-              "home": "Skien 1",
+              "home": "Jar 5",
+              "away": "Tønsberg 1",
+              "parallel_slot": 1,
+              "round_number": 3
+            },
+            {
+              "home": "Jar 1",
+              "away": "Holmen 1",
+              "parallel_slot": 2,
+              "round_number": 3
+            },
+            {
+              "home": "Tønsberg 1",
+              "away": "Frisk Asker 2",
+              "parallel_slot": 0,
+              "round_number": 4
+            },
+            {
+              "home": "Holmen 1",
               "away": "Jar 7",
               "parallel_slot": 1,
-              "round_number": 3
-            },
-            {
-              "home": "Kongsberg 1",
-              "away": "Jar 3",
-              "parallel_slot": 0,
               "round_number": 4
             },
             {
-              "home": "Skien 1",
-              "away": "Holmen 1",
-              "parallel_slot": 1,
+              "home": "Jar 1",
+              "away": "Jar 5",
+              "parallel_slot": 2,
               "round_number": 4
             },
             {
-              "home": "Jar 2",
+              "home": "Frisk Asker 2",
               "away": "Holmen 1",
               "parallel_slot": 0,
               "round_number": 5
             },
             {
-              "home": "Kongsberg 1",
-              "away": "Skien 1",
+              "home": "Tønsberg 1",
+              "away": "Jar 1",
               "parallel_slot": 1,
+              "round_number": 5
+            },
+            {
+              "home": "Jar 7",
+              "away": "Jar 5",
+              "parallel_slot": 2,
               "round_number": 5
             }
           ],
           "start_time": "08:00"
         },
         {
-          "id": "992d903c",
+          "id": "bd98c7f8",
           "date": "2027-03-06",
           "arena": "Varner Arena",
           "age_group": "U11",
@@ -1352,8 +1448,13 @@
               "age_group": "U11"
             },
             {
-              "club": "Ringerike",
-              "label": "Ringerike 2",
+              "club": "Tønsberg",
+              "label": "Tønsberg 1",
+              "age_group": "U11"
+            },
+            {
+              "club": "Sandefjord",
+              "label": "Sandefjord 1",
               "age_group": "U11"
             },
             {
@@ -1362,99 +1463,85 @@
               "age_group": "U11"
             },
             {
-              "club": "Frisk Asker",
-              "label": "Frisk Asker 2",
-              "age_group": "U11"
-            },
-            {
-              "club": "Holmen",
-              "label": "Holmen 1",
+              "club": "Ringerike",
+              "label": "Ringerike 2",
               "age_group": "U11"
             }
           ],
           "games": [
             {
-              "home": "Ringerike 2",
-              "away": "Holmen 1",
+              "home": "Tønsberg 1",
+              "away": "Ringerike 2",
               "parallel_slot": 0,
               "round_number": 1
             },
             {
-              "home": "Jar 4",
-              "away": "Frisk Asker 2",
-              "parallel_slot": 1,
-              "round_number": 1
-            },
-            {
-              "home": "Holmen 1",
+              "home": "Sandefjord 1",
               "away": "Jar 2",
-              "parallel_slot": 0,
-              "round_number": 2
+              "parallel_slot": 1,
+              "round_number": 1
             },
             {
               "home": "Ringerike 2",
-              "away": "Frisk Asker 2",
-              "parallel_slot": 1,
-              "round_number": 2
-            },
-            {
-              "home": "Jar 2",
-              "away": "Ringerike 2",
-              "parallel_slot": 0,
-              "round_number": 3
-            },
-            {
-              "home": "Frisk Asker 2",
-              "away": "Holmen 1",
-              "parallel_slot": 1,
-              "round_number": 3
-            },
-            {
-              "home": "Jar 2",
-              "away": "Frisk Asker 2",
-              "parallel_slot": 0,
-              "round_number": 4
-            },
-            {
-              "home": "Jar 4",
-              "away": "Ringerike 2",
-              "parallel_slot": 1,
-              "round_number": 4
-            },
-            {
-              "home": "Holmen 1",
               "away": "Jar 4",
               "parallel_slot": 0,
+              "round_number": 2
+            },
+            {
+              "home": "Sandefjord 1",
+              "away": "Tønsberg 1",
+              "parallel_slot": 1,
+              "round_number": 2
+            },
+            {
+              "home": "Jar 4",
+              "away": "Jar 2",
+              "parallel_slot": 0,
+              "round_number": 3
+            },
+            {
+              "home": "Ringerike 2",
+              "away": "Sandefjord 1",
+              "parallel_slot": 1,
+              "round_number": 3
+            },
+            {
+              "home": "Sandefjord 1",
+              "away": "Jar 4",
+              "parallel_slot": 0,
+              "round_number": 4
+            },
+            {
+              "home": "Tønsberg 1",
+              "away": "Jar 2",
+              "parallel_slot": 1,
+              "round_number": 4
+            },
+            {
+              "home": "Jar 4",
+              "away": "Tønsberg 1",
+              "parallel_slot": 0,
+              "round_number": 5
+            },
+            {
+              "home": "Jar 2",
+              "away": "Ringerike 2",
+              "parallel_slot": 1,
               "round_number": 5
             }
           ],
           "start_time": "11:50"
         },
         {
-          "id": "9dfe40b9",
+          "id": "7cddf2db",
           "date": "2027-03-14",
           "arena": "Jarhallen",
           "age_group": "U10",
           "host_club": "Jar",
           "teams": [
             {
-              "club": "Jar",
-              "label": "Jar 5",
-              "age_group": "U10"
-            },
-            {
               "club": "Ringerike",
-              "label": "Ringerike 2",
-              "age_group": "U10"
-            },
-            {
-              "club": "Jar",
-              "label": "Jar 3",
-              "age_group": "U10"
-            },
-            {
-              "club": "Jar",
-              "label": "Jar 6",
+              "label": "Ringerike 1",
               "age_group": "U10"
             },
             {
@@ -1463,180 +1550,219 @@
               "age_group": "U10"
             },
             {
-              "club": "Kongsberg",
-              "label": "Kongsberg 1",
+              "club": "Frisk Asker",
+              "label": "Frisk Asker 2",
+              "age_group": "U10"
+            },
+            {
+              "club": "Frisk Asker",
+              "label": "Frisk Asker 3",
+              "age_group": "U10"
+            },
+            {
+              "club": "Jar",
+              "label": "Jar 6",
+              "age_group": "U10"
+            },
+            {
+              "club": "Jar",
+              "label": "Jar 5",
               "age_group": "U10"
             }
           ],
           "games": [
             {
-              "home": "Jar 5",
-              "away": "Kongsberg 1",
-              "parallel_slot": 0,
-              "round_number": 1
-            },
-            {
-              "home": "Jutul 1",
-              "away": "Jar 3",
-              "parallel_slot": 1,
-              "round_number": 1
-            },
-            {
-              "home": "Ringerike 2",
-              "away": "Jar 6",
-              "parallel_slot": 2,
-              "round_number": 1
-            },
-            {
-              "home": "Jutul 1",
+              "home": "Ringerike 1",
               "away": "Jar 5",
               "parallel_slot": 0,
-              "round_number": 2
+              "round_number": 1
+            },
+            {
+              "home": "Jutul 1",
+              "away": "Jar 6",
+              "parallel_slot": 1,
+              "round_number": 1
+            },
+            {
+              "home": "Frisk Asker 2",
+              "away": "Frisk Asker 3",
+              "parallel_slot": 2,
+              "round_number": 1
             },
             {
               "home": "Jar 6",
-              "away": "Kongsberg 1",
+              "away": "Ringerike 1",
+              "parallel_slot": 0,
+              "round_number": 2
+            },
+            {
+              "home": "Frisk Asker 3",
+              "away": "Jar 5",
               "parallel_slot": 1,
               "round_number": 2
             },
             {
-              "home": "Jar 3",
-              "away": "Ringerike 2",
+              "home": "Frisk Asker 2",
+              "away": "Jutul 1",
               "parallel_slot": 2,
               "round_number": 2
             },
             {
-              "home": "Ringerike 2",
-              "away": "Jutul 1",
+              "home": "Ringerike 1",
+              "away": "Frisk Asker 3",
               "parallel_slot": 0,
               "round_number": 3
-            },
-            {
-              "home": "Jar 3",
-              "away": "Kongsberg 1",
-              "parallel_slot": 1,
-              "round_number": 3
-            },
-            {
-              "home": "Kongsberg 1",
-              "away": "Ringerike 2",
-              "parallel_slot": 0,
-              "round_number": 4
             },
             {
               "home": "Jar 6",
+              "away": "Frisk Asker 2",
+              "parallel_slot": 1,
+              "round_number": 3
+            },
+            {
+              "home": "Jar 5",
               "away": "Jutul 1",
+              "parallel_slot": 2,
+              "round_number": 3
+            },
+            {
+              "home": "Frisk Asker 2",
+              "away": "Ringerike 1",
+              "parallel_slot": 0,
+              "round_number": 4
+            },
+            {
+              "home": "Jutul 1",
+              "away": "Frisk Asker 3",
               "parallel_slot": 1,
               "round_number": 4
             },
             {
-              "home": "Kongsberg 1",
+              "home": "Jar 5",
+              "away": "Jar 6",
+              "parallel_slot": 2,
+              "round_number": 4
+            },
+            {
+              "home": "Ringerike 1",
               "away": "Jutul 1",
               "parallel_slot": 0,
               "round_number": 5
             },
             {
-              "home": "Jar 5",
-              "away": "Ringerike 2",
+              "home": "Frisk Asker 2",
+              "away": "Jar 5",
               "parallel_slot": 1,
+              "round_number": 5
+            },
+            {
+              "home": "Frisk Asker 3",
+              "away": "Jar 6",
+              "parallel_slot": 2,
               "round_number": 5
             }
           ],
           "start_time": "08:00"
         },
         {
-          "id": "7164d91e",
+          "id": "10cce99e",
           "date": "2027-04-10",
           "arena": "Varner Arena",
           "age_group": "U11",
           "host_club": "Frisk Asker",
           "teams": [
             {
-              "club": "Frisk Asker",
-              "label": "Frisk Asker 3",
+              "club": "Kongsberg",
+              "label": "Kongsberg 1",
               "age_group": "U11"
             },
             {
-              "club": "Skien",
-              "label": "Skien 1",
+              "club": "Holmen",
+              "label": "Holmen 1",
+              "age_group": "U11"
+            },
+            {
+              "club": "Jar",
+              "label": "Jar 3",
+              "age_group": "U11"
+            },
+            {
+              "club": "Jar",
+              "label": "Jar 4",
               "age_group": "U11"
             },
             {
               "club": "Ringerike",
               "label": "Ringerike 1",
               "age_group": "U11"
-            },
-            {
-              "club": "Jar",
-              "label": "Jar 1",
-              "age_group": "U11"
-            },
-            {
-              "club": "Jar",
-              "label": "Jar 2",
-              "age_group": "U11"
             }
           ],
           "games": [
             {
-              "home": "Ringerike 1",
-              "away": "Skien 1",
-              "parallel_slot": 0,
-              "round_number": 1
-            },
-            {
-              "home": "Frisk Asker 3",
-              "away": "Jar 1",
-              "parallel_slot": 1,
-              "round_number": 1
-            },
-            {
-              "home": "Ringerike 1",
-              "away": "Frisk Asker 3",
-              "parallel_slot": 0,
-              "round_number": 2
-            },
-            {
-              "home": "Skien 1",
-              "away": "Jar 1",
-              "parallel_slot": 1,
-              "round_number": 2
-            },
-            {
-              "home": "Jar 2",
+              "home": "Holmen 1",
               "away": "Ringerike 1",
               "parallel_slot": 0,
-              "round_number": 3
+              "round_number": 1
             },
             {
-              "home": "Frisk Asker 3",
-              "away": "Skien 1",
+              "home": "Jar 3",
+              "away": "Jar 4",
               "parallel_slot": 1,
+              "round_number": 1
+            },
+            {
+              "home": "Ringerike 1",
+              "away": "Kongsberg 1",
+              "parallel_slot": 0,
+              "round_number": 2
+            },
+            {
+              "home": "Jar 3",
+              "away": "Holmen 1",
+              "parallel_slot": 1,
+              "round_number": 2
+            },
+            {
+              "home": "Kongsberg 1",
+              "away": "Jar 4",
+              "parallel_slot": 0,
               "round_number": 3
             },
             {
               "home": "Ringerike 1",
-              "away": "Jar 1",
+              "away": "Jar 3",
+              "parallel_slot": 1,
+              "round_number": 3
+            },
+            {
+              "home": "Jar 3",
+              "away": "Kongsberg 1",
               "parallel_slot": 0,
               "round_number": 4
             },
             {
-              "home": "Jar 2",
-              "away": "Frisk Asker 3",
+              "home": "Holmen 1",
+              "away": "Jar 4",
               "parallel_slot": 1,
               "round_number": 4
             },
             {
-              "home": "Skien 1",
-              "away": "Jar 2",
+              "home": "Kongsberg 1",
+              "away": "Holmen 1",
               "parallel_slot": 0,
+              "round_number": 5
+            },
+            {
+              "home": "Jar 4",
+              "away": "Ringerike 1",
+              "parallel_slot": 1,
               "round_number": 5
             }
           ],
           "start_time": "10:50"
         },
         {
-          "id": "aa866c2d",
+          "id": "b9f7f922",
           "date": "2027-04-18",
           "arena": "Tonsberghallen",
           "age_group": "U10",
@@ -1653,91 +1779,115 @@
               "age_group": "U10"
             },
             {
+              "club": "Kongsberg",
+              "label": "Kongsberg 1",
+              "age_group": "U10"
+            },
+            {
+              "club": "Jar",
+              "label": "Jar 2",
+              "age_group": "U10"
+            },
+            {
               "club": "Frisk Asker",
               "label": "Frisk Asker 1",
               "age_group": "U10"
             },
             {
               "club": "Jar",
-              "label": "Jar 4",
-              "age_group": "U10"
-            },
-            {
-              "club": "Jar",
-              "label": "Jar 6",
-              "age_group": "U10"
-            },
-            {
-              "club": "Frisk Asker",
-              "label": "Frisk Asker 2",
+              "label": "Jar 5",
               "age_group": "U10"
             }
           ],
           "games": [
             {
               "home": "Jar 7",
-              "away": "Frisk Asker 2",
+              "away": "Jar 5",
               "parallel_slot": 0,
               "round_number": 1
             },
             {
               "home": "Jutul 1",
-              "away": "Jar 6",
+              "away": "Frisk Asker 1",
               "parallel_slot": 1,
               "round_number": 1
             },
             {
-              "home": "Frisk Asker 1",
-              "away": "Jar 4",
+              "home": "Kongsberg 1",
+              "away": "Jar 2",
               "parallel_slot": 2,
               "round_number": 1
             },
             {
-              "home": "Jar 4",
-              "away": "Frisk Asker 2",
+              "home": "Frisk Asker 1",
+              "away": "Jar 7",
               "parallel_slot": 0,
               "round_number": 2
             },
             {
-              "home": "Frisk Asker 1",
-              "away": "Jutul 1",
+              "home": "Jar 2",
+              "away": "Jar 5",
               "parallel_slot": 1,
               "round_number": 2
             },
             {
-              "home": "Jar 6",
-              "away": "Frisk Asker 1",
+              "home": "Kongsberg 1",
+              "away": "Jutul 1",
+              "parallel_slot": 2,
+              "round_number": 2
+            },
+            {
+              "home": "Jar 7",
+              "away": "Jar 2",
               "parallel_slot": 0,
               "round_number": 3
             },
             {
-              "home": "Frisk Asker 2",
-              "away": "Jutul 1",
+              "home": "Frisk Asker 1",
+              "away": "Kongsberg 1",
               "parallel_slot": 1,
               "round_number": 3
             },
             {
-              "home": "Frisk Asker 1",
+              "home": "Jar 5",
+              "away": "Jutul 1",
+              "parallel_slot": 2,
+              "round_number": 3
+            },
+            {
+              "home": "Kongsberg 1",
               "away": "Jar 7",
               "parallel_slot": 0,
               "round_number": 4
             },
             {
               "home": "Jutul 1",
-              "away": "Jar 4",
+              "away": "Jar 2",
               "parallel_slot": 1,
               "round_number": 4
             },
             {
-              "home": "Frisk Asker 2",
-              "away": "Jar 6",
-              "parallel_slot": 0,
-              "round_number": 5
+              "home": "Jar 5",
+              "away": "Frisk Asker 1",
+              "parallel_slot": 2,
+              "round_number": 4
             },
             {
               "home": "Jar 7",
               "away": "Jutul 1",
+              "parallel_slot": 0,
+              "round_number": 5
+            },
+            {
+              "home": "Kongsberg 1",
+              "away": "Jar 5",
               "parallel_slot": 1,
+              "round_number": 5
+            },
+            {
+              "home": "Jar 2",
+              "away": "Frisk Asker 1",
+              "parallel_slot": 2,
               "round_number": 5
             }
           ],
@@ -1793,137 +1943,102 @@
       },
       {
         "regel": "Skjev kampfordeling: Jar 1",
-        "forklaring": "Jar 1 (Jar, U10) spiller 14 kamper, mens snittet for U10 er 18.3 — 4.3 færre enn snittet.",
-        "kategori": "Anbefaling"
-      },
-      {
-        "regel": "Skjev kampfordeling: Jar 2",
-        "forklaring": "Jar 2 (Jar, U10) spiller 16 kamper, mens snittet for U10 er 18.3 — 2.3 færre enn snittet.",
+        "forklaring": "Jar 1 (Jar, U10) spiller 19 kamper, mens snittet for U10 er 21.1 — 2.1 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Jar 3",
-        "forklaring": "Jar 3 (Jar, U10) spiller 13 kamper, mens snittet for U10 er 18.3 — 5.3 færre enn snittet.",
-        "kategori": "Anbefaling"
-      },
-      {
-        "regel": "Skjev kampfordeling: Jar 4",
-        "forklaring": "Jar 4 (Jar, U10) spiller 15 kamper, mens snittet for U10 er 18.3 — 3.3 færre enn snittet.",
+        "forklaring": "Jar 3 (Jar, U10) spiller 19 kamper, mens snittet for U10 er 21.1 — 2.1 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Jar 5",
-        "forklaring": "Jar 5 (Jar, U10) spiller 12 kamper, mens snittet for U10 er 18.3 — 6.3 færre enn snittet.",
+        "forklaring": "Jar 5 (Jar, U10) spiller 24 kamper, mens snittet for U10 er 21.1 — 2.9 flere enn snittet.",
         "kategori": "Anbefaling"
       },
       {
-        "regel": "Skjev kampfordeling: Jar 7",
-        "forklaring": "Jar 7 (Jar, U10) spiller 14 kamper, mens snittet for U10 er 18.3 — 4.3 færre enn snittet.",
+        "regel": "Skjev kampfordeling: Jar 6",
+        "forklaring": "Jar 6 (Jar, U10) spiller 19 kamper, mens snittet for U10 er 21.1 — 2.1 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Frisk Asker 2",
-        "forklaring": "Frisk Asker 2 (Frisk Asker, U10) spiller 21 kamper, mens snittet for U10 er 18.3 — 2.7 flere enn snittet.",
+        "forklaring": "Frisk Asker 2 (Frisk Asker, U10) spiller 19 kamper, mens snittet for U10 er 21.1 — 2.1 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Frisk Asker 3",
-        "forklaring": "Frisk Asker 3 (Frisk Asker, U10) spiller 16 kamper, mens snittet for U10 er 18.3 — 2.3 færre enn snittet.",
+        "forklaring": "Frisk Asker 3 (Frisk Asker, U10) spiller 19 kamper, mens snittet for U10 er 21.1 — 2.1 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Jutul 1",
-        "forklaring": "Jutul 1 (Jutul, U10) spiller 23 kamper, mens snittet for U10 er 18.3 — 4.7 flere enn snittet.",
-        "kategori": "Anbefaling"
-      },
-      {
-        "regel": "Skjev kampfordeling: Holmen 1",
-        "forklaring": "Holmen 1 (Holmen, U10) spiller 21 kamper, mens snittet for U10 er 18.3 — 2.7 flere enn snittet.",
+        "forklaring": "Jutul 1 (Jutul, U10) spiller 27 kamper, mens snittet for U10 er 21.1 — 5.9 flere enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Skien 1",
-        "forklaring": "Skien 1 (Skien, U10) spiller 22 kamper, mens snittet for U10 er 18.3 — 3.7 flere enn snittet.",
-        "kategori": "Anbefaling"
-      },
-      {
-        "regel": "Skjev kampfordeling: Ringerike 1",
-        "forklaring": "Ringerike 1 (Ringerike, U10) spiller 22 kamper, mens snittet for U10 er 18.3 — 3.7 flere enn snittet.",
+        "forklaring": "Skien 1 (Skien, U10) spiller 18 kamper, mens snittet for U10 er 21.1 — 3.1 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Ringerike 2",
-        "forklaring": "Ringerike 2 (Ringerike, U10) spiller 23 kamper, mens snittet for U10 er 18.3 — 4.7 flere enn snittet.",
+        "forklaring": "Ringerike 2 (Ringerike, U10) spiller 18 kamper, mens snittet for U10 er 21.1 — 3.1 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
-        "regel": "Skjev kampfordeling: Kongsberg 1",
-        "forklaring": "Kongsberg 1 (Kongsberg, U10) spiller 24 kamper, mens snittet for U10 er 18.3 — 5.7 flere enn snittet.",
+        "regel": "Skjev kampfordeling: Tønsberg 1",
+        "forklaring": "Tønsberg 1 (Tønsberg, U10) spiller 24 kamper, mens snittet for U10 er 21.1 — 2.9 flere enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Jar 1",
-        "forklaring": "Jar 1 (Jar, U11) spiller 14 kamper, mens snittet for U11 er 18.6 — 4.6 færre enn snittet.",
-        "kategori": "Anbefaling"
-      },
-      {
-        "regel": "Skjev kampfordeling: Jar 2",
-        "forklaring": "Jar 2 (Jar, U11) spiller 16 kamper, mens snittet for U11 er 18.6 — 2.6 færre enn snittet.",
+        "forklaring": "Jar 1 (Jar, U11) spiller 19 kamper, mens snittet for U11 er 21.2 — 2.2 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Jar 3",
-        "forklaring": "Jar 3 (Jar, U11) spiller 13 kamper, mens snittet for U11 er 18.6 — 5.6 færre enn snittet.",
-        "kategori": "Anbefaling"
-      },
-      {
-        "regel": "Skjev kampfordeling: Jar 4",
-        "forklaring": "Jar 4 (Jar, U11) spiller 15 kamper, mens snittet for U11 er 18.6 — 3.6 færre enn snittet.",
+        "forklaring": "Jar 3 (Jar, U11) spiller 19 kamper, mens snittet for U11 er 21.2 — 2.2 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Jar 5",
-        "forklaring": "Jar 5 (Jar, U11) spiller 12 kamper, mens snittet for U11 er 18.6 — 6.6 færre enn snittet.",
+        "forklaring": "Jar 5 (Jar, U11) spiller 24 kamper, mens snittet for U11 er 21.2 — 2.8 flere enn snittet.",
+        "kategori": "Anbefaling"
+      },
+      {
+        "regel": "Skjev kampfordeling: Jar 6",
+        "forklaring": "Jar 6 (Jar, U11) spiller 19 kamper, mens snittet for U11 er 21.2 — 2.2 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Frisk Asker 2",
-        "forklaring": "Frisk Asker 2 (Frisk Asker, U11) spiller 21 kamper, mens snittet for U11 er 18.6 — 2.4 flere enn snittet.",
+        "forklaring": "Frisk Asker 2 (Frisk Asker, U11) spiller 19 kamper, mens snittet for U11 er 21.2 — 2.2 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Frisk Asker 3",
-        "forklaring": "Frisk Asker 3 (Frisk Asker, U11) spiller 16 kamper, mens snittet for U11 er 18.6 — 2.6 færre enn snittet.",
+        "forklaring": "Frisk Asker 3 (Frisk Asker, U11) spiller 19 kamper, mens snittet for U11 er 21.2 — 2.2 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Jutul 1",
-        "forklaring": "Jutul 1 (Jutul, U11) spiller 23 kamper, mens snittet for U11 er 18.6 — 4.4 flere enn snittet.",
-        "kategori": "Anbefaling"
-      },
-      {
-        "regel": "Skjev kampfordeling: Holmen 1",
-        "forklaring": "Holmen 1 (Holmen, U11) spiller 21 kamper, mens snittet for U11 er 18.6 — 2.4 flere enn snittet.",
+        "forklaring": "Jutul 1 (Jutul, U11) spiller 27 kamper, mens snittet for U11 er 21.2 — 5.8 flere enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Skien 1",
-        "forklaring": "Skien 1 (Skien, U11) spiller 22 kamper, mens snittet for U11 er 18.6 — 3.4 flere enn snittet.",
-        "kategori": "Anbefaling"
-      },
-      {
-        "regel": "Skjev kampfordeling: Ringerike 1",
-        "forklaring": "Ringerike 1 (Ringerike, U11) spiller 22 kamper, mens snittet for U11 er 18.6 — 3.4 flere enn snittet.",
+        "forklaring": "Skien 1 (Skien, U11) spiller 18 kamper, mens snittet for U11 er 21.2 — 3.2 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
         "regel": "Skjev kampfordeling: Ringerike 2",
-        "forklaring": "Ringerike 2 (Ringerike, U11) spiller 23 kamper, mens snittet for U11 er 18.6 — 4.4 flere enn snittet.",
+        "forklaring": "Ringerike 2 (Ringerike, U11) spiller 18 kamper, mens snittet for U11 er 21.2 — 3.2 færre enn snittet.",
         "kategori": "Anbefaling"
       },
       {
-        "regel": "Skjev kampfordeling: Kongsberg 1",
-        "forklaring": "Kongsberg 1 (Kongsberg, U11) spiller 24 kamper, mens snittet for U11 er 18.6 — 5.4 flere enn snittet.",
+        "regel": "Skjev kampfordeling: Tønsberg 1",
+        "forklaring": "Tønsberg 1 (Tønsberg, U11) spiller 24 kamper, mens snittet for U11 er 21.2 — 2.8 flere enn snittet.",
         "kategori": "Anbefaling"
       },
       {
