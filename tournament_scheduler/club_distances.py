@@ -108,6 +108,24 @@ _ARENA_TO_CLUB: Dict[str, str] = {
     "Sandefjord ishall": "Sandefjord Penguins",
 }
 
+# ---------------------------------------------------------------------------
+# Club aliases
+#
+# Some inputs and exports use shortened or legacy club names. Normalize them
+# before comparing or looking up coordinates so travel metrics stay correct.
+# ---------------------------------------------------------------------------
+
+_CLUB_ALIASES: Dict[str, str] = {
+    "Sandefjord": "Sandefjord Penguins",
+    "Tonsberg": "Tønsberg",
+}
+
+
+def _normalize_club_name(club: Optional[str]) -> Optional[str]:
+    if club is None:
+        return None
+    return _CLUB_ALIASES.get(club, club)
+
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -125,6 +143,9 @@ def distance(club_a: str, club_b: str) -> int:
     clubs' arena coordinates (haversine formula), scaled by
     ``_ROAD_DISTANCE_FACTOR`` to approximate real driving distance.
     """
+    club_a = _normalize_club_name(club_a) or club_a
+    club_b = _normalize_club_name(club_b) or club_b
+
     if club_a == club_b:
         return 0
 
@@ -139,7 +160,7 @@ def distance(club_a: str, club_b: str) -> int:
 
 def arena_to_club(arena: str) -> Optional[str]:
     """Return the club name that owns *arena*, or ``None`` if unknown."""
-    return _ARENA_TO_CLUB.get(arena)
+    return _normalize_club_name(_ARENA_TO_CLUB.get(arena))
 
 
 def furthest_traveling_team(
@@ -162,17 +183,18 @@ def furthest_traveling_team(
         # If we can't map the arena to a known club, try using host_club
         # directly (some tournaments set host_club instead).
         host_club_name = tournament.host_club
+    host_club_name = _normalize_club_name(host_club_name)
     if host_club_name is None:
         return None
 
     best: Optional[Tuple[Team, int]] = None
 
     for team in tournament.teams:
-        team_club = team.club
+        team_club = _normalize_club_name(team.club)
         if team_club == host_club_name:
             # Local team — distance 0, skip unless all are local.
             continue
-        km = distance(team_club, host_club_name)
+        km = distance(team_club or team.club, host_club_name)
         if km > 0 and (best is None or km > best[1]):
             best = (team, km)
 
@@ -194,9 +216,9 @@ def compute_team_travel_distances(plan: SeasonPlan) -> dict[str, int]:
             continue
 
         # Resolve host club — same pattern as furthest_traveling_team
-        host_club = arena_to_club(tournament.arena)
+        host_club = _normalize_club_name(arena_to_club(tournament.arena))
         if host_club is None:
-            host_club = tournament.host_club
+            host_club = _normalize_club_name(tournament.host_club)
 
         for team in tournament.teams:
             # Ensure every team appears in the dict at least once
@@ -207,12 +229,12 @@ def compute_team_travel_distances(plan: SeasonPlan) -> dict[str, int]:
                 # Unknown host — can't compute travel, but team is registered
                 continue
 
-            team_club = team.club
+            team_club = _normalize_club_name(team.club)
             if team_club == host_club:
                 # Local tournament — no travel distance added
                 continue
 
-            km = distance(team_club, host_club)
+            km = distance(team_club or team.club, host_club)
             totals[team.label] += km
 
     return totals

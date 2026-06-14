@@ -1,7 +1,10 @@
 # Backlog
 
 ## Open
+
 ## Done
+- [84] [x] Review and fix travel-time calculation in exports, especially Sandefjord showing travel time 0 in the latest generated export. (2026-06-14)
+
 - [82] [x] Fix RVV season-planning output so stage 3 produces a balanced, valid plan (fairness gate passes, host load and game count spread stay within thresholds) and the stage status/checkpoint view matches the actual pipeline state. (2026-06-14)
 
 - [83] [x] Verify and enforce that each team/club can only book tournaments from its own calendar; for example, Kongsberg may only host from the Kongsberg calendar, and the planner must find slots in that club's own hall rather than borrowing capacity from other clubs. (2026-06-14)
@@ -176,4 +179,6 @@
 
 - [8] [x] Spond season-plan export — export the generated season plan (tournaments, dates, arenas, participating teams, and per-tournament round-robin game schedules) to Spond's Excel-import format for season planning. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use. (2026-06-10)
 g. Explicitly lower priority — build only after the season-overview, per-tournament round-robin schedules, and existing Excel export are working and in use. (2026-06-10)
+
+ing Excel export are working and in use. (2026-06-10)
 
