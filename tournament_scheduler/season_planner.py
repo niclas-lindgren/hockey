@@ -118,9 +118,9 @@ class SeasonPlanner:
                 (e.g. Stage 2's `events_by_club` checkpoint output), used for
                 time-of-day-aware arena slot finding. When provided together
                 with `round_length_for_age_group`, each tournament's
-                `start_time` (and possibly its host arena, via fallback) is
-                derived from `TournamentScheduler.find_arena_slot_for_date`
-                instead of always using `DEFAULT_TOURNAMENT_START_TIME`.
+                `start_time` is derived from
+                `TournamentScheduler.find_arena_slot_for_date` instead of
+                always using `DEFAULT_TOURNAMENT_START_TIME`.
             fairness_thresholds: Optional mapping overriding the default
                 roster-based fairness gate thresholds (e.g. max game count
                 spread or minimum diversity score).
@@ -233,9 +233,8 @@ class SeasonPlanner:
             self.fairness_thresholds.update(fairness_thresholds)
         self.fairness_model = fairness_model or SeasonFairnessModel()
 
-        # Fallback-host substitutions made during the most recent
-        # `build_plan` run, for surfacing in the rules/decisions report.
-        # Each entry is `(date, age_group, original_host_club, fallback_host_club)`.
+        # Kept for compatibility with older reports/tests; the planner now
+        # only books tournaments from the assigned host club's own calendar.
         self._fallback_host_substitutions: List[Tuple[date, str, str, str]] = []
 
     # ------------------------------------------------------------------
@@ -313,14 +312,8 @@ class SeasonPlanner:
                 tournament_date, host_club, age_group, games
             )
             if slot is not None:
-                slot_host_club, slot_start, _slot_end = slot
+                _slot_host_club, slot_start, _slot_end = slot
                 start_time = slot_start
-                if slot_host_club != host_club:
-                    actual_host_club = slot_host_club
-                    actual_arena = self.club_arenas.get(slot_host_club, slot_host_club)
-                    self._fallback_host_substitutions.append(
-                        (tournament_date, age_group, host_club, slot_host_club)
-                    )
 
             tournament = Tournament(
                 date=tournament_date,
@@ -402,7 +395,7 @@ class SeasonPlanner:
         age_group: str,
         games: List[Game],
     ) -> Optional[Tuple[str, str, str]]:
-        """Find a time-of-day slot for a tournament, if calendar data allows.
+        """Find a time-of-day slot in the host club's own calendar.
 
         Computes the required duration from `round_length_for_age_group` and
         the number of rounds in *games* (mirroring
@@ -412,8 +405,8 @@ class SeasonPlanner:
         Returns `None` (leaving the caller to use
         `DEFAULT_TOURNAMENT_START_TIME` and the originally-assigned host)
         when no calendar data is available, no round length is configured
-        for *age_group*, there are no games yet, or no candidate arena has a
-        fitting slot.
+        for *age_group*, there are no games yet, or the host club has no
+        fitting slot in its own hall.
         """
         if not self.events_by_club:
             return None
@@ -1085,31 +1078,20 @@ class SeasonPlanner:
         # default start time and this rule has no effect.
         if self.events_by_club:
             report.append({
-                "regel": "Tidspunkt på dagen velges ut fra ledig hallkapasitet",
+                "regel": "Tidspunkt på dagen velges ut fra vertsklubbens egen hallkalender",
                 "forklaring": (
                     "For hver turnering beregnes hvor lang tid hele turneringen "
                     "tar (rundelengde × antall runder), og planleggeren ser "
                     "etter en sammenhengende ledig luke av denne lengden i "
-                    "vertsklubbens hallkalender. Tidspunkt nærmest 11:00 "
+                    "vertsklubbens egen hallkalender. Tidspunkt nærmest 11:00 "
                     "foretrekkes, for å unngå svært tidlige eller sene "
-                    "starttider. Hvis vertsklubbens hall ikke har en passende "
-                    "ledig luke den dagen, sjekkes andre klubbers haller for "
-                    "samme dato, og turneringen flyttes dit i stedet."
+                    "starttider. Hvis vertsklubbens egen hall ikke har en "
+                    "passende ledig luke den dagen, beholdes den opprinnelige "
+                    "vertsklubben og standard starttid i stedet for å låne "
+                    "kapasitet fra andre klubber."
                 ),
                 "kategori": "Automatisk avgjørelse",
             })
-
-            for tournament_date, age_group, original_host, fallback_host in self._fallback_host_substitutions:
-                report.append({
-                    "regel": f"Vertsbytte {tournament_date.isoformat()} ({age_group})",
-                    "forklaring": (
-                        f"{original_host} var opprinnelig satt opp som vert "
-                        f"{tournament_date.isoformat()}, men hadde ingen ledig "
-                        f"hallkapasitet av nødvendig lengde denne datoen. "
-                        f"Turneringen ble derfor flyttet til {fallback_host} i stedet."
-                    ),
-                    "kategori": "Automatisk avgjørelse",
-                })
 
         return report
 

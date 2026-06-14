@@ -1,22 +1,18 @@
 {
   "stage": "export",
-  "status": "failed",
-  "updated_at": "2026-06-14T16:55:00.188021+00:00",
+  "status": "done",
+  "updated_at": "2026-06-14T16:57:48.055628+00:00",
   "data": {
     "output_files": {
-      "excel": "/Users/niclasl/src/hockey/export/2026-06-13T2011/season_plan.xlsx",
-      "ical": "/Users/niclasl/src/hockey/export/2026-06-13T2011/season_plan.ics",
-      "csv_games": "/Users/niclasl/src/hockey/export/2026-06-13T2011/season_plan.csv",
-      "csv_overview": "/Users/niclasl/src/hockey/export/2026-06-13T2011/season_plan_overview.csv",
-      "html": "/Users/niclasl/src/hockey/export/2026-06-13T2011/season_plan.html",
-      "spond": "/Users/niclasl/src/hockey/export/2026-06-13T2011/season_plan_spond.xlsx",
-      "spond_games": "/Users/niclasl/src/hockey/export/2026-06-13T2011/season_plan_spond_games.xlsx",
-      "review_packets": "/Users/niclasl/src/hockey/export/2026-06-13T2011/review_packets"
+      "excel": "/Users/niclasl/src/hockey/export/2026-06-14T1854/season_plan.xlsx",
+      "ical": "/Users/niclasl/src/hockey/export/2026-06-14T1854/season_plan.ics",
+      "csv_games": "/Users/niclasl/src/hockey/export/2026-06-14T1854/season_plan.csv",
+      "csv_overview": "/Users/niclasl/src/hockey/export/2026-06-14T1854/season_plan_overview.csv",
+      "html": "/Users/niclasl/src/hockey/export/2026-06-14T1854/season_plan.html",
+      "spond": "/Users/niclasl/src/hockey/export/2026-06-14T1854/season_plan_spond.xlsx",
+      "spond_games": "/Users/niclasl/src/hockey/export/2026-06-14T1854/season_plan_spond_games.xlsx",
+      "review_packets": "/Users/niclasl/src/hockey/export/2026-06-14T1854/review_packets"
     },
     "errors": []
-  },
-  "stale": true,
-  "stale_from": "config",
-  "stale_reason": "Upstream stage config changed",
-  "error": "Stale etter endring i config: Upstream stage config changed"
+  }
 }

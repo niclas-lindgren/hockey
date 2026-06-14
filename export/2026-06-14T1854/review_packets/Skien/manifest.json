@@ -1,0 +1,28 @@
+{
+  "club": "Skien",
+  "packet_dir": "/Users/niclasl/src/hockey/export/2026-06-14T1854/review_packets/Skien",
+  "summary_workbook": "club_review.xlsx",
+  "spond_import_workbook": "club_review_spond.xlsx",
+  "schedule_attachment": "club_review_spond_games.xlsx",
+  "response_template": "response_template.json",
+  "tournament_count": 20,
+  "hosted_count": 0,
+  "club_names": [
+    "Frisk Asker",
+    "Holmen",
+    "Jar",
+    "Jutul",
+    "Kongsberg",
+    "Ringerike",
+    "Sandefjord",
+    "Skien"
+  ],
+  "age_groups": [
+    "U10",
+    "U11"
+  ],
+  "decisions": {
+    "accept": "Godkjenn pakken som den er.",
+    "change_request": "Fyll ut ønskede endringer i response_template.json."
+  }
+}

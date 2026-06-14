@@ -9,7 +9,7 @@ from tournament_scheduler.models import (
     TournamentInfo,
     CalendarEvent
 )
-from tournament_scheduler.club_registry import arenas_for_date_search
+from tournament_scheduler.club_registry import get_club
 from tournament_scheduler.utils.date_parser import DateParser
 from tournament_scheduler.utils.slot_finder import find_available_slots, parse_time
 from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
@@ -122,67 +122,46 @@ class TournamentScheduler:
         required_minutes: int,
         events_by_club: Dict[str, List[CalendarEvent]],
     ) -> Optional[Tuple[str, str, str]]:
-        """Find the best-scoring arena/time slot for a tournament on a date.
+        """Find a time slot in the host club's own arena on a date.
 
-        Tries *host_club*'s own arena first via :func:`find_available_slots`.
-        If no slot of *required_minutes* fits there, iterates
-        :func:`tournament_scheduler.club_registry.arenas_for_date_search`
-        fallback candidates (other known clubs) for the same date.
-
-        Among all arenas with a fitting slot, scores each candidate's
-        earliest slot start time against an "optimal window" (closest to
-        :data:`_OPTIMAL_SLOT_START`, e.g. 11:00) and returns the
-        best-scoring slot. Ties are broken in favor of *host_club*.
+        The planner only books from the assigned host club's own calendar.
+        If the host club has no known calendar source, no matching slot, or
+        no free gap of sufficient length, this returns ``None`` so the caller
+        can keep the original host/arena and fall back to the default start
+        time.
 
         Args:
             check_date: The candidate tournament date.
-            host_club: The originally-assigned host club (preferred arena).
+            host_club: The assigned host club.
             required_minutes: Total tournament duration required, in minutes.
             events_by_club: Calendar events keyed by club name (e.g. from
                 Stage 2's ``events_by_club`` checkpoint output).
 
         Returns:
-            ``(host_club_used, start_HH:MM, end_HH:MM)`` for the
-            best-scoring fitting slot, or ``None`` if no candidate arena has
-            a slot of sufficient length on *check_date*.
+            ``(host_club_used, start_HH:MM, end_HH:MM)`` for the best slot in
+            the host club's own hall, or ``None`` if no sufficient slot exists.
         """
-        candidates = arenas_for_date_search(host_club)
-        if not candidates:
+        host_entry = get_club(host_club)
+        if not host_entry.is_known:
+            return None
+
+        club_events = events_by_club.get(host_entry.club, [])
+        slots = find_available_slots(
+            club_events,
+            check_date,
+            required_minutes,
+            earliest_start=_SLOT_SEARCH_EARLIEST,
+            latest_start=_SLOT_SEARCH_LATEST,
+        )
+        if not slots:
             return None
 
         optimal_minutes = _time_to_minutes(parse_time(_OPTIMAL_SLOT_START))
-
-        best: Optional[Tuple[str, str, str]] = None
-        best_score: Optional[int] = None
-
-        for entry in candidates:
-            club_name = entry.club
-            club_events = events_by_club.get(club_name, [])
-            slots = find_available_slots(
-                club_events,
-                check_date,
-                required_minutes,
-                earliest_start=_SLOT_SEARCH_EARLIEST,
-                latest_start=_SLOT_SEARCH_LATEST,
-            )
-            if not slots:
-                continue
-
-            # Use the earliest fitting slot for this arena.
-            start_str, end_str = slots[0]
-            slot_minutes = _time_to_minutes(parse_time(start_str))
-            score = abs(slot_minutes - optimal_minutes)
-
-            if best_score is None or score < best_score:
-                best = (club_name, start_str, end_str)
-                best_score = score
-                continue
-
-            # Tie -- prefer the original host if it scores equally well.
-            if score == best_score and club_name == host_club and best[0] != host_club:
-                best = (club_name, start_str, end_str)
-
-        return best
+        start_str, end_str = min(
+            slots,
+            key=lambda slot: abs(_time_to_minutes(parse_time(slot[0])) - optimal_minutes),
+        )
+        return host_entry.club, start_str, end_str
 
     def reschedule_tournament(
         self,

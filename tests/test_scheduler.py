@@ -54,7 +54,7 @@ class TestFindArenaSlotForDate:
         assert host_used == "Frisk Asker"
         assert start and end
 
-    def test_host_fully_booked_falls_back_to_another_arena(self):
+    def test_host_fully_booked_does_not_use_another_arena(self):
         scheduler = _make_scheduler()
         events_by_club = {
             "Frisk Asker": _busy_all_day(),
@@ -65,11 +65,7 @@ class TestFindArenaSlotForDate:
             CHECK_DATE, "Frisk Asker", 150, events_by_club
         )
 
-        assert result is not None
-        host_used, start, end = result
-        assert host_used != "Frisk Asker"
-        assert host_used == "Ringerike"
-        assert start and end
+        assert result is None
 
     def test_no_arena_has_a_fitting_slot_returns_none(self):
         scheduler = _make_scheduler()

@@ -1641,17 +1641,20 @@ class TestSlotAwareScheduling:
         for t in non_default:
             assert t.start_time >= "10:00"
 
-    def test_fallback_host_substitution_recorded_when_host_fully_booked(self):
+    def test_host_fully_booked_keeps_original_host_without_cross_club_fallback(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
         free_dates = _all_weekend_dates(start, end)
 
         probe_planner = self._basic_planner(free_dates, events_by_club=None)
         probe_plan = probe_planner.build_plan(start, end)
-        tournament_dates = [t.date for t in probe_plan.tournaments]
+        original_hosts_by_tournament = {
+            (t.date, t.age_group): t.host_club for t in probe_plan.tournaments
+        }
 
-        # Every known club's arena is fully booked all day on every
-        # tournament date except Holmen, which is completely free -- so any
-        # tournament originally hosted elsewhere must fall back to Holmen.
+        # Every known club except Holmen is fully booked all day on every
+        # tournament date. The planner must still keep each tournament on
+        # its originally assigned host club rather than borrowing Holmen's
+        # calendar capacity.
         from tournament_scheduler.club_registry import CLUB_REGISTRY
 
         events_by_club = {}
@@ -1662,7 +1665,7 @@ class TestSlotAwareScheduling:
                 events_by_club[club] = []
                 continue
             events = []
-            for d in tournament_dates:
+            for d, _age_group in original_hosts_by_tournament:
                 events.append(CalendarEvent(
                     date=d.strftime("%d.%m.%Y"),
                     name="Booket hele dagen",
@@ -1674,26 +1677,13 @@ class TestSlotAwareScheduling:
         planner = self._basic_planner(free_dates, events_by_club=events_by_club)
         plan = planner.build_plan(start, end)
 
-        # Any tournament originally hosted by Frisk Asker or Ringerike must
-        # have been substituted to Holmen, with a recorded substitution.
-        substitutions = planner.fallback_host_substitutions
-        assert substitutions, "expected at least one fallback-host substitution"
-        for tournament_date, age_group, original_host, fallback_host in substitutions:
-            assert original_host in ("Frisk Asker", "Ringerike")
-            assert fallback_host == "Holmen"
+        assert planner.fallback_host_substitutions == []
+        assert plan.tournaments
 
-        # The rules report should describe these substitutions.
-        report = planner.rules_report()
-        substitution_rules = [r for r in report if "Vertsbytte" in r["regel"]]
-        assert len(substitution_rules) == len(substitutions)
-        for rule in substitution_rules:
-            assert rule["kategori"] == "Automatisk avgjørelse"
-
-        # Tournaments hosted by Holmen as a fallback should reflect
-        # Holmen's arena.
-        for t in plan.tournaments:
-            if t.host_club == "Holmen" and t.date in {s[0] for s in substitutions}:
-                assert t.arena == "Holmenkollen ishall"
+        for tournament in plan.tournaments:
+            assert tournament.host_club == original_hosts_by_tournament[(tournament.date, tournament.age_group)]
+            if tournament.host_club != "Holmen":
+                assert tournament.start_time == DEFAULT_TOURNAMENT_START_TIME
 
     def test_no_arena_available_keeps_original_host_and_default_time(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
