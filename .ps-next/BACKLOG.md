@@ -1,12 +1,12 @@
 # Backlog
 
 ## Open
-- [87] [ ] Move season-plan metrics, quality checks, warnings, and explanatory summaries out of the main season_plan.html into a separate report page (similar to scraped_calendar.html), so the primary plan view stays focused on the schedule while a companion diagnostics page holds fairness, hosting, travel, and other review details.
-
 - [86] [ ] Add a final LLM review step after the deterministic planning/export scripts complete, so the generated season plan gets a short advisory quality check for qualitative issues (clumping, missing clubs, strange host patterns, suspicious outliers) and produces a human-readable summary without replacing deterministic pass/fail gates.
 - [85] [ ] Fix season-planner participant selection so large clubs like Jar are mixed more evenly across the season instead of clumping many Jar teams into one U10 tournament while later tournaments get none; the heuristic should spread same-age-group sibling teams across tournaments when the global roster has better mixes available.
 
 ## Done
+- [87] [x] Move season-plan metrics, quality checks, warnings, and explanatory summaries out of the main season_plan.html into a separate report page (similar to scraped_calendar.html), so the primary plan view stays focused on the schedule while a companion diagnostics page holds fairness, hosting, travel, and other review details. (2026-06-14)
+
 - [84] [x] Review and fix travel-time calculation in exports, especially Sandefjord showing travel time 0 in the latest generated export. (2026-06-14)
 
 - [82] [x] Fix RVV season-planning output so stage 3 produces a balanced, valid plan (fairness gate passes, host load and game count spread stay within thresholds) and the stage status/checkpoint view matches the actual pipeline state. (2026-06-14)
