@@ -1,6 +1,9 @@
 # Backlog
 
 ## Open
+- [81] [ ] Rydd opp i `input.json`-kildene: bruk kun rotens `input.json` som canonical konfigurasjon, oppdater/avvikle `documentation/input.json`, og fjern den hvis den er redundant.
+
+- [80] [ ] Fjern alle referanser til `maxTeamsPerTournament`; beregn `maxTeamsPerTournament` fra `parallel_games` og bruk `input.json` som eneste kilde for filtrering/visning av aldersgrupper.
 ## Done
 - [79] [x] Remove the planner’s same-club matchup filter so same-club games can be scheduled when needed. (2026-06-13)
 
