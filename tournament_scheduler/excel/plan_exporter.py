@@ -23,6 +23,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 from rich.console import Console
 
 from tournament_scheduler.club_distances import furthest_traveling_team
+from tournament_scheduler.fairness_model import SeasonFairnessModel
 from tournament_scheduler.models import SeasonPlan, Tournament
 
 console = Console()
@@ -39,6 +40,7 @@ _GAMES_HEADERS = ["Runde", "Hjemmelag", "Bortelag", "Parallellbane"]
 _CLUB_SUMMARY_HEADERS = ["Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena"]
 _RULES_HEADERS = ["Regel", "Forklaring", "Kategori"]
 _FAIRNESS_HEADERS = ["Metrikk", "Verdi", "Terskel", "Score", "Status", "Detalj"]
+_FAIRNESS_ADJUSTMENT_HEADERS = ["Lag", "Klubb", "Aldersgruppe", "Faktisk", "Mål", "Justering", "Status", "Kommentar"]
 
 # Club worksheet titles are prefixed to distinguish them from tournament
 # sheets and to keep them grouped together when sorted alphabetically.
@@ -92,6 +94,10 @@ class SeasonPlanExporter:
             fairness_sheet = self.workbook.create_sheet(title="Rettferdighet")
             used_titles.add(fairness_sheet.title)
             self._write_fairness_sheet(fairness_sheet, plan.fairness_gate)
+
+        fairness_adjustments_sheet = self.workbook.create_sheet(title="Fairnessjusteringer")
+        used_titles.add(fairness_adjustments_sheet.title)
+        self._write_fairness_adjustments_sheet(fairness_adjustments_sheet, plan)
 
         for index, tournament in enumerate(plan.tournaments, start=1):
             sheet = self.workbook.create_sheet(title=self._unique_sheet_title(tournament, index, used_titles))
@@ -204,6 +210,46 @@ class SeasonPlanExporter:
             ])
             status = str(metric.get("status", "")).lower()
             fill = _status_fills.get(status)
+            if fill:
+                for cell in sheet[sheet.max_row]:
+                    cell.fill = fill
+
+        self._autosize_columns(sheet)
+
+    def _write_fairness_adjustments_sheet(self, sheet: Worksheet, plan: SeasonPlan) -> None:
+        model = SeasonFairnessModel()
+        rows = model.adjustment_rows_for_plan(plan)
+
+        sheet.append(["Fairnessjusteringer per lag"])
+        sheet.append(["Positiv justering betyr at laget ligger under fairness-målet og kan få flere kamper."])
+        sheet.append([])
+        sheet.append(_FAIRNESS_ADJUSTMENT_HEADERS)
+        header_row_index = sheet.max_row
+        for cell in sheet[header_row_index]:
+            cell.font = cell.font.copy(bold=True)
+
+        fills = {
+            "under": PatternFill(start_color="FEF3C7", end_color="FEF3C7", fill_type="solid"),
+            "over": PatternFill(start_color="FEE2E2", end_color="FEE2E2", fill_type="solid"),
+            "on_target": PatternFill(start_color="D1FAE5", end_color="D1FAE5", fill_type="solid"),
+        }
+        for row in rows:
+            adjustment = float(row.get("adjustment", 0.0))
+            comment = (
+                f"Mangler {adjustment:.1f} kamper til mål" if adjustment > 0.5 else
+                (f"{abs(adjustment):.1f} kamper over mål" if adjustment < -0.5 else "På mål")
+            )
+            sheet.append([
+                row.get("label", ""),
+                row.get("club", ""),
+                row.get("age_group", ""),
+                row.get("actual", 0),
+                round(float(row.get("target", 0.0)), 3),
+                round(adjustment, 3),
+                str(row.get("status", "")).replace("on_target", "på mål").upper(),
+                comment,
+            ])
+            fill = fills.get(str(row.get("status", "")))
             if fill:
                 for cell in sheet[sheet.max_row]:
                     cell.fill = fill

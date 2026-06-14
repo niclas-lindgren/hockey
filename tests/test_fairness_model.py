@@ -1,5 +1,7 @@
+from datetime import date
+
 from tournament_scheduler.fairness_model import FairnessModelConfig, SeasonFairnessModel
-from tournament_scheduler.models import Roster, Team
+from tournament_scheduler.models import Game, Roster, SeasonPlan, Team, Tournament
 
 
 class TestSeasonFairnessModel:
@@ -44,3 +46,28 @@ class TestSeasonFairnessModel:
         assert jar_target > kongsberg_target
         assert jar_target > 0
         assert kongsberg_target > 0
+
+    def test_adjustment_rows_are_sorted_by_largest_gap_first(self):
+        teams = [
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Jar", label="Jar 2", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+        ]
+        tournament = Tournament(
+            date=date(2026, 10, 10),
+            arena="Jarhallen",
+            age_group="U10",
+            teams=teams,
+            games=[Game(home=teams[0], away=teams[2]), Game(home=teams[1], away=teams[2])],
+            host_club="Jar",
+        )
+        plan = SeasonPlan(
+            tournaments=[tournament],
+            team_game_counts={"Jar 1": 1, "Jar 2": 1, "Kongsberg 1": 2},
+        )
+
+        model = SeasonFairnessModel(FairnessModelConfig(club_share_weight=0.5, max_adjustment=10))
+        rows = model.adjustment_rows_for_plan(plan)
+
+        assert {row["label"] for row in rows} == {"Jar 1", "Jar 2", "Kongsberg 1"}
+        assert abs(float(rows[0]["adjustment"])) >= abs(float(rows[1]["adjustment"])) >= abs(float(rows[2]["adjustment"]))

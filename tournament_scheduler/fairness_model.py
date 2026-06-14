@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Mapping, Sequence
 
-from tournament_scheduler.models import Team
+from tournament_scheduler.models import SeasonPlan, Team
 
 
 @dataclass(frozen=True)
@@ -124,6 +124,50 @@ class SeasonFairnessModel:
             team.label: self.planning_target_games_for_team(team, age_group_teams, team_game_counts)
             for team in age_group_teams
         }
+
+    def adjustment_rows_for_plan(self, plan: SeasonPlan) -> list[dict[str, object]]:
+        """Return a sorted fairness-adjustment overview for a finished plan.
+
+        Each row contains the team label, club, age group, actual game count,
+        soft target, and the adjustment needed to hit that target.
+        """
+        teams_by_age_group: dict[str, list[Team]] = {}
+        seen_labels: set[str] = set()
+        for tournament in plan.tournaments:
+            for team in tournament.teams:
+                if team.label in seen_labels:
+                    continue
+                seen_labels.add(team.label)
+                teams_by_age_group.setdefault(team.age_group, []).append(team)
+
+        rows: list[dict[str, object]] = []
+        for age_group, teams in teams_by_age_group.items():
+            if not teams:
+                continue
+            targets = self.targets_for_age_group(teams, plan.team_game_counts)
+            for team in teams:
+                actual = int(plan.team_game_counts.get(team.label, 0))
+                target = float(targets.get(team.label, 0.0))
+                delta = round(target - actual, 3)
+                rows.append({
+                    "label": team.label,
+                    "club": team.club,
+                    "age_group": age_group,
+                    "actual": actual,
+                    "target": target,
+                    "adjustment": delta,
+                    "status": "under" if delta > 0.5 else ("over" if delta < -0.5 else "on_target"),
+                })
+
+        rows.sort(
+            key=lambda row: (
+                -abs(float(row["adjustment"])),
+                str(row["age_group"]),
+                str(row["club"]),
+                str(row["label"]),
+            )
+        )
+        return rows
 
     def targets_for_age_group(
         self,

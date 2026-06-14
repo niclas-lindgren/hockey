@@ -19,6 +19,7 @@ from tournament_scheduler.club_distances import (
     compute_team_travel_distances,
     furthest_traveling_team,
 )
+from tournament_scheduler.fairness_model import SeasonFairnessModel
 from ..models import SeasonPlan
 
 # ---------------------------------------------------------------------------
@@ -264,6 +265,7 @@ class HtmlExporter:
             scrape_age_html = f'<div class="metrics-group"><span class="metrics-group-label">Data-alder</span><span class="metrics-group-value">{scrape_age}</span></div>'
 
         fairness_gate_html = self._fairness_gate_html(plan.fairness_gate)
+        fairness_adjustments_html = self._fairness_adjustments_html(plan)
 
         # --- Export download links ---
         export_links_html = ""
@@ -292,6 +294,7 @@ class HtmlExporter:
             "$HEADER$": HEADER,
             "$SCORES$": SCORES,
             "$METRICS$": METRICS,
+            "$FAIRNESS_ADJUSTMENTS$": fairness_adjustments_html,
             "$EXPORT_LINKS$": export_links_html,
             "$CLUB_DASHBOARD$": CLUB_DASHBOARD,
             "$TEAM_STATS$": TEAM_STATS,
@@ -460,6 +463,68 @@ class HtmlExporter:
             '</div>'
             f'<div class="fairness-gate-grid">{"".join(metric_cards)}</div>'
             '</div>'
+        )
+
+    @staticmethod
+    def _fairness_adjustments_html(plan: SeasonPlan) -> str:
+        """Render the fairness adjustment overview table."""
+        rows = SeasonFairnessModel().adjustment_rows_for_plan(plan)
+        if not rows:
+            return ""
+
+        total_abs = sum(abs(float(row.get("adjustment", 0.0))) for row in rows)
+        avg_abs = total_abs / len(rows)
+        max_row = rows[0]
+        under_count = sum(1 for row in rows if str(row.get("status", "")) == "under")
+        over_count = sum(1 for row in rows if str(row.get("status", "")) == "over")
+
+        def fmt(value: float) -> str:
+            return f"{value:+.1f}".replace(".", ",")
+
+        summary = (
+            '<div class="fairness-adjustment-summary">'
+            f'<div class="metrics-group"><span class="metrics-group-label">Lag med positiv justering</span><span class="metrics-group-value"><strong>{under_count}</strong></span></div>'
+            f'<div class="metrics-group"><span class="metrics-group-label">Lag over mål</span><span class="metrics-group-value"><strong>{over_count}</strong></span></div>'
+            f'<div class="metrics-group"><span class="metrics-group-label">Snitt absolutt avvik</span><span class="metrics-group-value"><strong>{fmt(avg_abs)}</strong></span></div>'
+            f'<div class="metrics-group"><span class="metrics-group-label">Største avvik</span><span class="metrics-group-value"><strong>{_html.escape(str(max_row["label"]))}</strong> {fmt(abs(float(max_row["adjustment"])))}</span></div>'
+            '</div>'
+        )
+
+        status_labels = {"under": "UNDER MÅL", "over": "OVER MÅL", "on_target": "PÅ MÅL"}
+        table_rows = []
+        for row in rows:
+            status = str(row.get("status", ""))
+            adj = float(row.get("adjustment", 0.0))
+            table_rows.append(
+                '<tr class="fairness-adjustment-row fairness-adjustment-row--' + _html.escape(status) + '">' 
+                f'<td>{_html.escape(str(row.get("label", "")))}</td>'
+                f'<td>{_html.escape(str(row.get("club", "")))}</td>'
+                f'<td>{_html.escape(str(row.get("age_group", "")))}</td>'
+                f'<td style="text-align:right">{int(row.get("actual", 0))}</td>'
+                f'<td style="text-align:right">{fmt(float(row.get("target", 0.0)))}</td>'
+                f'<td class="fairness-adjustment-adjustment fairness-adjustment-adjustment--{_html.escape(status)}" style="text-align:right">{fmt(adj)}</td>'
+                f'<td>{status_labels.get(status, status.upper())}</td>'
+                f'<td>{"Mangler flere kamper" if adj > 0.5 else ("For mange kamper" if adj < -0.5 else "På mål")}</td>'
+                '</tr>'
+            )
+
+        return (
+            '<section class="fairness-adjustment-panel">'
+            '<div class="fairness-adjustment-head">'
+            '<div>'
+            '<div class="metrics-group-label">Fairness-justeringer</div>'
+            '<div class="metrics-group-value">Forskjell mellom faktisk kampantall og fairness-mål</div>'
+            '</div>'
+            f'<span class="fairness-gate-status fairness-gate-status--warn">{len(rows)} lag</span>'
+            '</div>'
+            f'{summary}'
+            '<table class="fairness-adjustment-table">'
+            '<thead><tr>'
+            '<th>Lag</th><th>Klubb</th><th>Aldersgruppe</th><th>Faktisk</th><th>Mål</th><th>Justering</th><th>Status</th><th>Kommentar</th>'
+            '</tr></thead><tbody>'
+            f'{"".join(table_rows)}'
+            '</tbody></table>'
+            '</section>'
         )
 
 

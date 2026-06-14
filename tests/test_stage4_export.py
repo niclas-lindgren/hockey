@@ -143,11 +143,16 @@ class TestRunStage4:
         files = result.get("output_files", {})
         workbook = openpyxl.load_workbook(files["excel"])
         assert "Rettferdighet" in workbook.sheetnames
+        assert "Fairnessjusteringer" in workbook.sheetnames
         sheet = workbook["Rettferdighet"]
         rows = list(sheet.iter_rows(values_only=True))
         assert rows[0][0] == "Overordnet status"
         assert rows[2][0] == "Metrikk"
         assert rows[3][0] == "Kamper per lag"
+        adj = workbook["Fairnessjusteringer"]
+        adj_rows = list(adj.iter_rows(values_only=True))
+        assert adj_rows[0][0] == "Fairnessjusteringer per lag"
+        assert adj_rows[3][0] == "Lag"
 
     def test_generates_html_with_configured_age_group_filters(self, tmp_path):
         input_path = tmp_path / "input.json"
@@ -189,7 +194,9 @@ class TestRunStage4:
         assert 'href="season_plan.ics"' in html
         assert 'href="season_plan.csv" class="export-link-btn"' in html or 'href="season_plan.csv"' in html
         assert 'Rettferdighetsgate' in html
+        assert 'Fairness-justeringer' in html
         assert 'score-item--gate' in html
+        assert 'fairness-adjustment-table' in html
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
 

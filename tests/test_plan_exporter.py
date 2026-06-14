@@ -56,16 +56,22 @@ class TestSeasonPlanExporter:
 
         workbook = openpyxl.load_workbook(str(output_path))
         assert "Sesongoversikt" in workbook.sheetnames
-        # One sheet per tournament, plus the overview sheet, plus one summary
-        # sheet per distinct club appearing in the plan's rosters.
+        assert "Fairnessjusteringer" in workbook.sheetnames
+        # One sheet per tournament, plus the overview sheet, plus the
+        # fairness overview, plus one summary sheet per distinct club.
         distinct_clubs = {team.club for tournament in sample_plan.tournaments for team in tournament.teams}
-        assert len(workbook.sheetnames) == 1 + len(sample_plan.tournaments) + len(distinct_clubs)
+        assert len(workbook.sheetnames) == 2 + len(sample_plan.tournaments) + len(distinct_clubs)
 
     def test_overview_rows_match_plan_tournaments(self, sample_plan, tmp_path):
         output_path = tmp_path / "season_plan.xlsx"
         SeasonPlanExporter().export(sample_plan, str(output_path))
 
         workbook = openpyxl.load_workbook(str(output_path))
+        assert "Fairnessjusteringer" in workbook.sheetnames
+        fairness = workbook["Fairnessjusteringer"]
+        fairness_rows = list(fairness.iter_rows(values_only=True))
+        assert fairness_rows[0][0] == "Fairnessjusteringer per lag"
+        assert fairness_rows[3][0] == "Lag"
         overview = workbook["Sesongoversikt"]
         rows = list(overview.iter_rows(values_only=True))
 
