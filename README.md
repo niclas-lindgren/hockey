@@ -48,7 +48,9 @@ A successful run writes exports under `export/` by default:
 - `season_plan_spond.xlsx`
 - `calendars.html`
 
-With `--timestamped-export`, exports are also written to a timestamped subfolder for diffable runs.
+With `--timestamped-export`, exports are written to a timestamped subfolder for diffable runs.
+
+Set `target_tournament_count` in `input.json` to tune the soft per-team tournament-participation target (default: 6).
 
 ## More documentation
 

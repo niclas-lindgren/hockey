@@ -89,7 +89,7 @@ A normal run can produce:
 - `season_plan_spond.xlsx`
 - `calendars.html`
 
-With `--timestamped-export`, the same files are written into a timestamped subdirectory under `export/`, and flat copies are kept in the top-level export folder too.
+With `--timestamped-export`, the same files are written into a timestamped subdirectory under `export/`.
 
 ## Operator flows
 
@@ -103,7 +103,8 @@ Useful flags:
 
 - `--non-strict` — continue past some stage failures
 - `--allow-missing-sources` — keep partial Stage 2 results and continue
-- `--timestamped-export` — write diffable exports into a timestamped folder
+- `--timestamped-export` — write diffable exports into a timestamped folder only
+- `target_tournament_count` — soft per-team tournament-participation target in `input.json` (default: 6)
 
 ### Rebuild calendar HTML
 

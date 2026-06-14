@@ -350,21 +350,8 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir, "--export-dir", timestampedExportDir], { cwd: cwdPath });
   } catch {}
 
-  // Copy key files from timestamped folder to flat export/ for convenience
-  try {
-    const { copyFileSync } = await import("node:fs");
-    const flatFiles = [
-      "season_plan.xlsx", "season_plan.ics", "season_plan.csv",
-      "season_plan_overview.csv", "season_plan.html",
-      "season_plan_spond.xlsx", "calendars.html", "input.json",
-    ];
-    for (const file of flatFiles) {
-      const src = resolve(timestampedExportDir, file);
-      const dst = resolve(exportDir, file);
-      if (existsSync(src)) copyFileSync(src, dst);
-    }
-    lines.push(`Flate kopier lagt i ${exportDir}\n`);
-  } catch {}
+  // Keep exports only in the timestamped folder.
+  lines.push(`Eksporter lagret i ${timestampedExportDir}\n`);
 
   // Finalize
   logger.finalize(overallStatus);

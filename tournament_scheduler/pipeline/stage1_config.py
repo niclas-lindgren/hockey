@@ -88,6 +88,7 @@ def load_effective_config(
     merged["start_date"] = raw.get("start_date")
     merged["end_date"] = raw.get("end_date")
     merged["parallel_games"] = raw.get("parallel_games", {})
+    merged["target_tournament_count"] = raw.get("target_tournament_count")
     merged["sources"] = raw.get("sources", [])
 
     # Age groups: explicit input.json value only; downstream can fall back

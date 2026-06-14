@@ -42,9 +42,8 @@ from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 
 
-# Default bounds on how many tournaments the season plan should propose.
-MIN_TOURNAMENTS = 10
-MAX_TOURNAMENTS = 15
+# Default target for how many tournaments each age group should receive.
+DEFAULT_TARGET_TOURNAMENT_COUNT = 6
 
 # Default start time assigned to generated tournaments when no per-arena/
 # per-age-group scheduling is available yet.
@@ -99,10 +98,9 @@ class SeasonPlanner:
             round_length_for_age_group: Optional mapping of age group ->
                 round length in minutes, used to set each generated
                 tournament's `start_time` and compute its duration/end time.
-            target_tournament_count: Optional override for how many
-                tournaments to propose (default: spread between
-                `MIN_TOURNAMENTS` and `MAX_TOURNAMENTS` based on how many
-                free dates are available).
+            target_tournament_count: Optional override for the desired
+                number of tournament participations per team (default:
+                `DEFAULT_TARGET_TOURNAMENT_COUNT`).
             max_club_teams_per_tournament: Hard constraint on how many teams
                 from the same club can be invited to a single tournament.
                 Default 1 — at most one team per club per tournament unless
@@ -259,26 +257,37 @@ class SeasonPlanner:
         if not age_groups:
             return plan
 
-        chosen_dates = self._pick_spread_dates(
-            free_dates, start_date.date(), end_date.date(), age_groups
-        )
+        scheduled: List[Tuple[date, str]] = []
+        planned_age_groups_by_date: Dict[date, List[str]] = {}
+        for age_group in age_groups:
+            target_count = self._target_tournaments_for_age_group(age_group)
+            chosen_dates = self._pick_spread_dates(
+                free_dates,
+                start_date.date(),
+                end_date.date(),
+                [age_group],
+                planned_age_groups_by_date,
+                target_count=target_count,
+            )
+            for tournament_date in chosen_dates:
+                scheduled.append((tournament_date, age_group))
+                planned_age_groups_by_date.setdefault(tournament_date, []).append(age_group)
+                self._record_month(tournament_date)
 
-        host_assignments = self._assign_hosts(chosen_dates)
+        # Reset month counters so the actual plan build repopulates them from
+        # the finalized tournament list (the counters above were only used for
+        # spread scoring while selecting dates for later age groups).
+        self._month_counts = {}
+
+        scheduled.sort(key=lambda item: (item[0], item[1]))
+        host_assignments = self._assign_hosts([tournament_date for tournament_date, _ in scheduled])
         collisions: List[Tuple[date, str, str]] = []
         self._fallback_host_substitutions = []
 
-        # Round-robin over age groups so the season covers a varied mix
-        # rather than e.g. always scheduling U10 first.
-        ag_index = 0
         scheduled_age_groups_by_date: Dict[date, List[str]] = {}
 
-        for tournament_date, host_club in zip(chosen_dates, host_assignments):
+        for (tournament_date, age_group), host_club in zip(scheduled, host_assignments):
             self._record_month(tournament_date)
-
-            age_group = self._next_age_group(
-                age_groups, ag_index, tournament_date, scheduled_age_groups_by_date
-            )
-            ag_index = (age_groups.index(age_group) + 1) % len(age_groups)
 
             collision = self._check_overlap_collision(
                 tournament_date, age_group, scheduled_age_groups_by_date
@@ -325,7 +334,7 @@ class SeasonPlanner:
             plan.tournaments.append(tournament)
 
         expected_per_month = self._expected_monthly_load(
-            start_date.date(), end_date.date(), len(chosen_dates)
+            start_date.date(), end_date.date(), len(scheduled)
         )
 
         plan.arena_counts = self._arena_counts(plan.tournaments)
@@ -1062,12 +1071,11 @@ class SeasonPlanner:
         })
 
         report.append({
-            "regel": f"Minst {MIN_TOURNAMENTS} og maks {MAX_TOURNAMENTS} turneringer per sesong",
+            "regel": f"Mål: cirka {DEFAULT_TARGET_TOURNAMENT_COUNT} turneringsdeltakelser per lag",
             "forklaring": (
-                f"Sesongplanen skal inneholde mellom {MIN_TOURNAMENTS} og "
-                f"{MAX_TOURNAMENTS} turneringer, avhengig av hvor mange ledige "
-                f"helger som finnes i sesongvinduet. Antallet bestemmes automatisk "
-                f"basert på en andel av tilgjengelige helger."
+                f"Hver aldersgruppe planlegges mot et mykt mål på rundt "
+                f"{DEFAULT_TARGET_TOURNAMENT_COUNT} turneringsdeltakelser per lag, "
+                f"justert etter antall ledige helger, kapasitet og klubbspredning."
             ),
             "kategori": "Automatisk avgjørelse",
         })
@@ -1115,8 +1123,10 @@ class SeasonPlanner:
         window_start: date,
         window_end: date,
         age_groups: Sequence[str] = (),
+        scheduled_age_groups_by_date: Optional[Dict[date, List[str]]] = None,
+        target_count: Optional[int] = None,
     ) -> List[date]:
-        """Pick 10-15 free dates, spread evenly across the season window.
+        """Pick 10-15 free dates for one age group, spread evenly across the season window.
 
         Buckets the date range into N roughly-equal slices. Within each
         bucket, candidates are ranked by a combined score: closeness to the
@@ -1136,7 +1146,9 @@ class SeasonPlanner:
         if not free_dates:
             return []
 
-        target_count = self.target_tournament_count or self._default_target_count(len(free_dates))
+        scheduled_age_groups_by_date = scheduled_age_groups_by_date or {}
+
+        target_count = target_count or self._default_target_count(len(free_dates))
         target_count = max(1, min(target_count, len(free_dates)))
 
         total_days = (window_end - window_start).days
@@ -1179,7 +1191,14 @@ class SeasonPlanner:
                     diversity_penalty = self._score_candidate_date(
                         d, predicted_age_group, predicted_participants, expected_per_month
                     )
-                    return spread_penalty + diversity_penalty
+                    overlap_penalty = 0.0
+                    for existing in scheduled_age_groups_by_date.get(d, []):
+                        if (
+                            predicted_age_group in overlapping_age_groups(existing)
+                            or existing in overlapping_age_groups(predicted_age_group)
+                        ):
+                            overlap_penalty += 100.0
+                    return spread_penalty + diversity_penalty + overlap_penalty
 
                 best = min(candidates, key=combined_score)
 
@@ -1193,10 +1212,25 @@ class SeasonPlanner:
 
         return sorted(chosen)
 
+    def _target_tournaments_for_age_group(self, age_group: str) -> int:
+        """Return the number of tournaments to aim for in `age_group`.
+
+        `target_tournament_count` is interpreted as the desired number of
+        tournament participations per team. The scheduler converts that into a
+        per-age-group tournament count by dividing by the age group's
+        practical capacity (capped by the roster size).
+        """
+        teams = self.roster.by_age_group(age_group)
+        if not teams:
+            return 0
+        per_team_target = self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
+        capacity = min(len(teams), self._max_teams_for(age_group))
+        return max(1, math.ceil(len(teams) * per_team_target / capacity))
+
     @staticmethod
     def _default_target_count(num_free_dates: int) -> int:
-        """Pick a sensible target tournament count within [MIN, MAX] bounds."""
-        return max(MIN_TOURNAMENTS, min(MAX_TOURNAMENTS, num_free_dates))
+        """Fallback when no age-group-specific target is available."""
+        return max(1, min(DEFAULT_TARGET_TOURNAMENT_COUNT, num_free_dates))
 
     # ------------------------------------------------------------------
     # Step 2: assign host arenas/clubs
@@ -1619,22 +1653,20 @@ class SeasonPlanner:
 
             eligible_over_cap_labels = {t.label for t in eligible_over_cap}
 
-            # Club-load penalty: push down candidates whose club already has
-            # its full per-club allowance in `selected`. Over-cap candidates
-            # that survived the deficit-aware filter above are scaled by how
-            # far their club is over `_max_club_teams_for`, so they are only
-            # chosen over an under-cap, lower-deficit candidate when their
-            # own deficit is large enough to outweigh the penalty. Any other
-            # over-cap candidate (only reachable via the `eligible = remaining`
-            # fallback above) gets the larger flat penalty as before.
+            # Club-load penalty: push down candidates whose club is already
+            # heavily represented in `selected`, even before the hard/proportional
+            # cap is hit. This nudges the picker toward cross-club mixing so one
+            # club doesn't monopolize a tournament when alternative opponents
+            # are available.
             def club_penalty(team: Team) -> int:
                 club_count = sum(1 for s in selected if s.club == team.club)
                 max_club = self._max_club_teams_for(age_group, team.club)
+                base = club_count * 20
                 if club_count < max_club:
-                    return 0
+                    return base
                 if team.label in eligible_over_cap_labels:
-                    return (club_count - max_club + 1) * 50
-                return club_count * 100  # outweighs typical match-up scores
+                    return base + (club_count - max_club + 1) * 50
+                return base + club_count * 100  # outweighs typical match-up scores
 
             # Skill-level proximity penalty: prefer candidates whose skill
             # level is within `division_skill_band` of the selected set's

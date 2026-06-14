@@ -143,6 +143,7 @@ def _make_planner(
     round_length_config: dict[str, int] | None = None,
     events_by_club: dict[str, list[CalendarEvent]] | None = None,
     fairness_thresholds: dict[str, float] | None = None,
+    target_tournament_count: int | None = None,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner` with derived tournament sizing.
 
@@ -164,6 +165,7 @@ def _make_planner(
         club_arenas=club_arenas,
         parallel_games_for_age_group=pg_config or None,
         round_length_for_age_group=round_length_config or None,
+        target_tournament_count=target_tournament_count,
         division_skill_band=division_skill_band,
         max_hosting_deviation=max_hosting_deviation,
         events_by_club=events_by_club or None,

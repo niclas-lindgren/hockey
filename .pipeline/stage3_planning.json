@@ -1,7 +1,7 @@
 {
   "stage": "planning",
-  "status": "done",
-  "updated_at": "2026-06-13T18:11:10.620451+00:00",
+  "status": "failed",
+  "updated_at": "2026-06-14T16:55:00.186159+00:00",
   "data": {
     "plan": {
       "start_date": "2026-09-01",
@@ -2107,5 +2107,9 @@
         "kategori": "Automatisk avgjørelse"
       }
     ]
-  }
+  },
+  "stale": true,
+  "stale_from": "config",
+  "stale_reason": "Upstream stage config changed",
+  "error": "Stale etter endring i config: Upstream stage config changed"
 }

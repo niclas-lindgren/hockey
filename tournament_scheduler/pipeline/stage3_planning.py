@@ -92,6 +92,7 @@ def run(
     max_hosting_deviation = config.get("maxHostingDeviation", 1)
     events_by_club = _build_events_by_club(scraping_result)
     fairness_thresholds = config.get("fairness_thresholds", {})
+    target_tournament_count = config.get("target_tournament_count")
 
     planner = _make_planner(
         roster,
@@ -102,6 +103,7 @@ def run(
         round_length_config,
         events_by_club,
         fairness_thresholds,
+        target_tournament_count,
     )
     plan = planner.build_plan(start_date, end_date)
 

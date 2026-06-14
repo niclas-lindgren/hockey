@@ -1,13 +1,98 @@
 {
   "stage": "config",
   "status": "done",
-  "updated_at": "2026-06-13T18:11:09.799683+00:00",
+  "updated_at": "2026-06-14T16:55:00.165502+00:00",
   "data": {
     "input_path": "/Users/niclasl/src/hockey/input.json",
     "teams": [
       {
         "club": "Jar",
         "label": "Jar 1",
+        "age_group": "U7"
+      },
+      {
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 1",
+        "age_group": "U7"
+      },
+      {
+        "club": "Jutul",
+        "label": "Jutul 1",
+        "age_group": "U7"
+      },
+      {
+        "club": "Kongsberg",
+        "label": "Kongsberg 1",
+        "age_group": "U7"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 1",
+        "age_group": "U8"
+      },
+      {
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 1",
+        "age_group": "U8"
+      },
+      {
+        "club": "Jutul",
+        "label": "Jutul 1",
+        "age_group": "U8"
+      },
+      {
+        "club": "Holmen",
+        "label": "Holmen 1",
+        "age_group": "U8"
+      },
+      {
+        "club": "Kongsberg",
+        "label": "Kongsberg 1",
+        "age_group": "U8"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 1",
+        "age_group": "U9"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 2",
+        "age_group": "U9"
+      },
+      {
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 1",
+        "age_group": "U9"
+      },
+      {
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 2",
+        "age_group": "U9"
+      },
+      {
+        "club": "Jutul",
+        "label": "Jutul 1",
+        "age_group": "U9"
+      },
+      {
+        "club": "Holmen",
+        "label": "Holmen 1",
+        "age_group": "U9"
+      },
+      {
+        "club": "Ringerike",
+        "label": "Ringerike 1",
+        "age_group": "U9"
+      },
+      {
+        "club": "Kongsberg",
+        "label": "Kongsberg 1",
+        "age_group": "U9"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 1",
         "age_group": "U10"
       },
       {
@@ -26,18 +111,48 @@
         "age_group": "U10"
       },
       {
-        "club": "Jar",
-        "label": "Jar 5",
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 1",
         "age_group": "U10"
       },
       {
-        "club": "Jar",
-        "label": "Jar 6",
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 2",
         "age_group": "U10"
       },
       {
-        "club": "Jar",
-        "label": "Jar 7",
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 3",
+        "age_group": "U10"
+      },
+      {
+        "club": "Sandefjord",
+        "label": "Sandefjord 1",
+        "age_group": "U10"
+      },
+      {
+        "club": "Jutul",
+        "label": "Jutul 1",
+        "age_group": "U10"
+      },
+      {
+        "club": "Holmen",
+        "label": "Holmen 1",
+        "age_group": "U10"
+      },
+      {
+        "club": "Skien",
+        "label": "Skien 1",
+        "age_group": "U10"
+      },
+      {
+        "club": "Ringerike",
+        "label": "Ringerike 1",
+        "age_group": "U10"
+      },
+      {
+        "club": "Kongsberg",
+        "label": "Kongsberg 1",
         "age_group": "U10"
       },
       {
@@ -61,31 +176,6 @@
         "age_group": "U11"
       },
       {
-        "club": "Jar",
-        "label": "Jar 5",
-        "age_group": "U11"
-      },
-      {
-        "club": "Jar",
-        "label": "Jar 6",
-        "age_group": "U11"
-      },
-      {
-        "club": "Frisk Asker",
-        "label": "Frisk Asker 1",
-        "age_group": "U10"
-      },
-      {
-        "club": "Frisk Asker",
-        "label": "Frisk Asker 2",
-        "age_group": "U10"
-      },
-      {
-        "club": "Frisk Asker",
-        "label": "Frisk Asker 3",
-        "age_group": "U10"
-      },
-      {
         "club": "Frisk Asker",
         "label": "Frisk Asker 1",
         "age_group": "U11"
@@ -96,89 +186,114 @@
         "age_group": "U11"
       },
       {
+        "club": "Sandefjord",
+        "label": "Sandefjord 1",
+        "age_group": "U11"
+      },
+      {
+        "club": "Jutul",
+        "label": "Jutul 1",
+        "age_group": "U11"
+      },
+      {
+        "club": "Holmen",
+        "label": "Holmen 1",
+        "age_group": "U11"
+      },
+      {
+        "club": "Skien",
+        "label": "Skien 1",
+        "age_group": "U11"
+      },
+      {
+        "club": "Ringerike",
+        "label": "Ringerike 1",
+        "age_group": "U11"
+      },
+      {
+        "club": "Kongsberg",
+        "label": "Kongsberg 1",
+        "age_group": "U11"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 1",
+        "age_group": "U12"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 2",
+        "age_group": "U12"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 3",
+        "age_group": "U12"
+      },
+      {
         "club": "Frisk Asker",
-        "label": "Frisk Asker 3",
-        "age_group": "U11"
-      },
-      {
-        "club": "Sandefjord",
-        "label": "Sandefjord 1",
-        "age_group": "U10"
-      },
-      {
-        "club": "Sandefjord",
-        "label": "Sandefjord 1",
-        "age_group": "U11"
+        "label": "Frisk Asker 1",
+        "age_group": "U12"
       },
       {
         "club": "Jutul",
         "label": "Jutul 1",
-        "age_group": "U10"
+        "age_group": "U12"
+      },
+      {
+        "club": "Holmen",
+        "label": "Holmen 1",
+        "age_group": "U12"
+      },
+      {
+        "club": "Kongsberg",
+        "label": "Kongsberg 1",
+        "age_group": "U12"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 1",
+        "age_group": "JU10"
+      },
+      {
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 1",
+        "age_group": "JU10"
       },
       {
         "club": "Jutul",
         "label": "Jutul 1",
-        "age_group": "U11"
-      },
-      {
-        "club": "Holmen",
-        "label": "Holmen 1",
-        "age_group": "U10"
-      },
-      {
-        "club": "Holmen",
-        "label": "Holmen 1",
-        "age_group": "U11"
-      },
-      {
-        "club": "Skien",
-        "label": "Skien 1",
-        "age_group": "U10"
-      },
-      {
-        "club": "Skien",
-        "label": "Skien 1",
-        "age_group": "U11"
-      },
-      {
-        "club": "Ringerike",
-        "label": "Ringerike 1",
-        "age_group": "U10"
-      },
-      {
-        "club": "Ringerike",
-        "label": "Ringerike 2",
-        "age_group": "U10"
-      },
-      {
-        "club": "Ringerike",
-        "label": "Ringerike 1",
-        "age_group": "U11"
-      },
-      {
-        "club": "Ringerike",
-        "label": "Ringerike 2",
-        "age_group": "U11"
+        "age_group": "JU10"
       },
       {
         "club": "Kongsberg",
         "label": "Kongsberg 1",
-        "age_group": "U10"
+        "age_group": "JU10"
+      },
+      {
+        "club": "Jar",
+        "label": "Jar 1",
+        "age_group": "JU11"
+      },
+      {
+        "club": "Frisk Asker",
+        "label": "Frisk Asker 1",
+        "age_group": "JU11"
       },
       {
         "club": "Kongsberg",
         "label": "Kongsberg 1",
-        "age_group": "U11"
+        "age_group": "JU11"
       },
       {
-        "club": "Tønsberg",
-        "label": "Tønsberg 1",
-        "age_group": "U10"
+        "club": "Jar",
+        "label": "Jar 1",
+        "age_group": "JU12"
       },
       {
-        "club": "Tønsberg",
-        "label": "Tønsberg 1",
-        "age_group": "U11"
+        "club": "Kongsberg",
+        "label": "Kongsberg 1",
+        "age_group": "JU12"
       }
     ],
     "round_length_minutes": {
@@ -192,6 +307,7 @@
       "JU11": 10,
       "JU12": 12,
       "JU13": 12
-    }
+    },
+    "target_tournament_count": 6
   }
 }

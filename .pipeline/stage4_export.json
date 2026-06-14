@@ -1,7 +1,7 @@
 {
   "stage": "export",
-  "status": "done",
-  "updated_at": "2026-06-13T18:11:11.163533+00:00",
+  "status": "failed",
+  "updated_at": "2026-06-14T16:55:00.188021+00:00",
   "data": {
     "output_files": {
       "excel": "/Users/niclasl/src/hockey/export/2026-06-13T2011/season_plan.xlsx",
@@ -14,5 +14,9 @@
       "review_packets": "/Users/niclasl/src/hockey/export/2026-06-13T2011/review_packets"
     },
     "errors": []
-  }
+  },
+  "stale": true,
+  "stale_from": "config",
+  "stale_reason": "Upstream stage config changed",
+  "error": "Stale etter endring i config: Upstream stage config changed"
 }

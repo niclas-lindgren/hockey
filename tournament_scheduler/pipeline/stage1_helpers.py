@@ -113,6 +113,14 @@ def validate_config(raw: dict[str, Any]) -> list[str]:
                         f"'round_length_minutes[\"{ag}\"]' må være et positivt heltall, fikk: {minutes!r}."
                     )
 
+    # --- Target tournament count ---
+    if "target_tournament_count" in raw:
+        target = raw["target_tournament_count"]
+        if not isinstance(target, int) or target < 1:
+            errors.append(
+                "'target_tournament_count' må være et positivt heltall (f.eks. 6)."
+            )
+
     # --- Teams / roster ---
     if "teams" not in raw:
         errors.append(
@@ -197,7 +205,7 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     """Build the Stage 1 checkpoint dict with only **computed** fields.
 
     Human-editable fields (start_date, end_date, age_groups, parallel_games,
-    sources) are intentionally excluded — they live only in ``input.json``.
+    target_tournament_count, sources) are intentionally excluded — they live only in ``input.json``.
     """
 
     # Round length (minutes) — explicit values override federation defaults
@@ -226,6 +234,8 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
 
     if "fairness_thresholds" in raw:
         result["fairness_thresholds"] = dict(raw["fairness_thresholds"])
+    if "target_tournament_count" in raw:
+        result["target_tournament_count"] = int(raw["target_tournament_count"])
 
     return result
 
