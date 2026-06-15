@@ -73,13 +73,13 @@ def _build_roster(clubs, age_groups, teams_per_club_per_age_group=1):
     return Roster(teams=teams)
 
 
-def _load_real_roster_from_input_json():
-    import json
+def _load_real_roster_from_input_workbook():
     import os
 
-    input_path = os.path.join(os.path.dirname(__file__), "..", "input.json")
-    with open(input_path, encoding="utf-8") as fh:
-        data = json.load(fh)
+    from tournament_scheduler.pipeline.input_workbook import load_workbook_config
+
+    input_path = os.path.join(os.path.dirname(__file__), "..", "input.xlsx")
+    data = load_workbook_config(input_path)
 
     roster = Roster(teams=[Team(**team) for team in data["teams"]])
     parallel_games = data.get("parallel_games", {})
@@ -808,7 +808,7 @@ class TestPerTeamGameCounts:
         assert set().union(*bye_rounds.values()) == {team.label for team in tournament.teams}
 
     def test_jar_vs_kongsberg_team_counts_skew_is_bounded(self):
-        """Reproduces the club-size-skew scenario from the canonical input.json:
+        """Reproduces the club-size-skew scenario from the canonical input.xlsx:
         Jar fields 7 U10 teams and 6 U11 teams, while Kongsberg fields only 1
         team in each age group. With `max_club_teams_per_tournament=1`,
         every tournament invites at most one team per club, so Kongsberg's
@@ -972,7 +972,7 @@ class TestPerTeamGameCounts:
         assert "Skien U11" not in warnings_by_label
 
     def test_real_roster_end_to_end_jar_vs_kongsberg(self):
-        """End-to-end check against the real `input.json`
+        """End-to-end check against the real `input.xlsx`
         roster (Jar: 7 U10 teams, Kongsberg: 1 U10 team, plus the other RVV
         clubs), over the 2026-09-01 to 2027-04-30 season window.
 
@@ -987,7 +987,7 @@ class TestPerTeamGameCounts:
         game-count-spread checking") surfaces the real-roster imbalance
         described in the original backlog item.
         """
-        roster, parallel_games = _load_real_roster_from_input_json()
+        roster, parallel_games = _load_real_roster_from_input_workbook()
 
         start, end = datetime(2026, 9, 1), datetime(2027, 4, 30)
         free_dates = _all_weekend_dates(start, end)
@@ -1044,7 +1044,7 @@ class TestPerTeamGameCounts:
         Kongsberg U10 team should get non-zero games, and the fairness
         diagnostics should still surface the residual skew.
         """
-        roster, parallel_games = _load_real_roster_from_input_json()
+        roster, parallel_games = _load_real_roster_from_input_workbook()
 
         start, end = datetime(2026, 9, 1), datetime(2027, 4, 30)
         free_dates = _all_weekend_dates(start, end)

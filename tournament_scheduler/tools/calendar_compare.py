@@ -18,7 +18,7 @@ fidelity entries and a console summary.
 Usage::
 
   python3 -m tournament_scheduler.tools.calendar_compare \\
-      --week 2026-10-05 [--work-dir .pipeline] [--input input.json]
+      --week 2026-10-05 [--work-dir .pipeline] [--input input.xlsx]
 """
 
 from __future__ import annotations
@@ -155,13 +155,15 @@ def _source_fidelity(
 
 
 def _load_sources(input_path: str, work_dir: str) -> list[dict[str, Any]]:
-    """Load calendar sources from input.json (canonical source)."""
+    """Load calendar sources from the standard input workbook."""
     input_file = Path(input_path)
     if not input_file.exists():
         print(f"Fant ikke {input_path}", file=sys.stderr)
         return []
 
-    cfg = json.loads(input_file.read_text(encoding="utf-8"))
+    from tournament_scheduler.pipeline.input_workbook import load_workbook_config
+
+    cfg = load_workbook_config(input_file)
     return cfg.get("sources", [])
 
 
@@ -294,7 +296,7 @@ def _print_summary(report: dict[str, Any]) -> None:
 def run_compare(
     *,
     week_start: str,
-    input_path: str = "input.json",
+    input_path: str = "input.xlsx",
     work_dir: str = ".pipeline",
 ) -> dict[str, Any]:
     """Run fidelity comparison for all configured sources for a target week.
@@ -304,7 +306,7 @@ def run_compare(
     week_start:
         ISO date string (YYYY-MM-DD) for the Monday of the target week.
     input_path:
-        Path to input.json with source configuration.
+        Path to input.xlsx with source configuration.
     work_dir:
         Pipeline work directory for output.
     """
@@ -372,8 +374,8 @@ if __name__ == "__main__":  # pragma: no cover
         help="ISO-dato for mål-ukens mandag (standard: 2026-10-05)"
     )
     parser.add_argument(
-        "--input", type=str, default="input.json",
-        help="Plassering av input.json (standard: input.json)"
+        "--input", type=str, default="input.xlsx",
+        help="Plassering av input.xlsx (standard: input.xlsx)"
     )
     parser.add_argument(
         "--work-dir", type=str, default=".pipeline",

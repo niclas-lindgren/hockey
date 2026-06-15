@@ -1,11 +1,10 @@
 """Stage 1 — config parsing and Norwegian-language validation.
 
-Loads ``input.json`` (the canonical pipeline input format) or an Excel workbook
-that maps into the same raw config shape, validates it, and writes the parsed,
-validated configuration to the Stage 1 checkpoint via
+Loads ``input.xlsx`` (the canonical pipeline input workbook), validates it, and
+writes the parsed, validated configuration to the Stage 1 checkpoint via
 :class:`~tournament_scheduler.pipeline.state.PipelineState`.
 
-Input JSON format (all fields required unless marked optional)::
+Workbook input format (all fields required unless marked optional)::
 
     {
         "start_date": "YYYY-MM-DD",
@@ -19,8 +18,8 @@ Input JSON format (all fields required unless marked optional)::
         ]
     }
 
-The ``teams`` section can also be an external file path (string) that points to
-a roster JSON/YAML file loadable by :class:`~tournament_scheduler.roster_loader.RosterLoader`.
+The workbook ``Lag`` sheet is the standard team roster input. The internal config
+shape still supports an external roster path for compatibility with lower-level helpers.
 
 Norwegian error messages are emitted via :func:`validate_config` as a list of
 human-readable strings so callers can surface them directly to users.
@@ -65,9 +64,9 @@ def load_effective_config(
     *,
     input_path: str | os.PathLike[str] | None = None,
 ) -> dict[str, Any]:
-    """Load the effective (merged) config from ``input.json`` + Stage 1 checkpoint.
+    """Load the effective (merged) config from ``input.xlsx`` + Stage 1 checkpoint.
 
-    Reads the canonical ``input.json`` for human-editable fields
+    Reads the canonical ``input.xlsx`` workbook for human-editable fields
     (``start_date``, ``end_date``, ``age_groups``, ``parallel_games``,
     ``sources``) and merges in the computed fields (``teams``,
     ``round_length_minutes``) from the Stage 1 checkpoint.
@@ -80,19 +79,19 @@ def load_effective_config(
         return {}
 
     # Resolve input path: checkpoint > parameter > default
-    ip = input_path or ckpt.get("input_path", "input.json")
+    ip = input_path or ckpt.get("input_path", "input.xlsx")
     raw = _load_json(ip)
 
     merged: dict[str, Any] = {}
 
-    # From input.json (canonical source)
+    # From input.xlsx (canonical source)
     merged["start_date"] = raw.get("start_date")
     merged["end_date"] = raw.get("end_date")
     merged["parallel_games"] = raw.get("parallel_games", {})
     merged["target_tournament_count"] = raw.get("target_tournament_count")
     merged["sources"] = raw.get("sources", [])
 
-    # Age groups: explicit input.json value only; downstream can fall back
+    # Age groups: explicit input workbook value only; downstream can fall back
     # to the plan when the input file truly omits the field.
     merged["age_groups"] = raw.get("age_groups", [])
     merged["age_groups_from_input"] = "age_groups" in raw
@@ -119,13 +118,13 @@ def run(
     The checkpoint stores only **computed** fields (``teams`` expanded from a
     file reference, ``round_length_minutes`` with federation defaults applied).
     Human-editable fields (``start_date``, ``end_date``, ``age_groups``,
-    ``parallel_games``, ``sources``) live exclusively in ``input.json``.
+    ``parallel_games``, ``sources``) live exclusively in ``input.xlsx``.
     Use :func:`load_effective_config` to merge both sources transparently.
 
     Parameters
     ----------
     input_path:
-        Path to ``input.json`` (canonical pipeline input).
+        Path to ``input.xlsx`` (canonical pipeline input workbook).
     state:
         :class:`PipelineState` instance managing the work directory.
     strict:
@@ -177,7 +176,7 @@ if __name__ == "__main__":  # pragma: no cover
     import sys
 
     parser = argparse.ArgumentParser(description="Stage 1: config parsing and validation")
-    parser.add_argument("--input", default="input.json", help="Path to input.json or an .xlsx workbook")
+    parser.add_argument("--input", default="input.xlsx", help="Path to input.xlsx workbook")
     parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
     cli_args = parser.parse_args()
 

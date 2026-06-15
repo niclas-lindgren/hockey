@@ -4,77 +4,71 @@
 
 The season-planning workflow is checkpointed in `.pipeline/` and runs in four stages:
 
-1. **Stage 1 — Config**: validate `input.json` or a workbook input and expand the roster
+1. **Stage 1 — Config**: validate the standard `input.xlsx` workbook and expand the roster
 2. **Stage 2 — Scraping**: fetch calendar events from all configured sources
 3. **Stage 3 — Planning**: build the season plan
 4. **Stage 4 — Export**: write Excel, CSV, iCal, HTML, and Spond outputs
 
 The pipeline is designed so you can fix a blocked source, rerun the command, and keep working from the same work directory.
 
-## Input file
+## Input workbook
 
-`input.json` is the canonical pipeline input and interchange format. For organizer editing, `--input` can also point to an `.xlsx` workbook that Stage 1 imports into the same JSON-shaped schema before validation.
-
-Required fields:
-
-- `start_date` — `YYYY-MM-DD`
-- `end_date` — `YYYY-MM-DD`
-- `teams` — either an inline list of teams or a path to a roster file
-
-Optional fields:
-
-- `age_groups`
-- `parallel_games`
-- `round_length_minutes`
-- `sources`
-
-Example:
-
-```json
-{
-  "start_date": "2025-09-01",
-  "end_date": "2025-12-15",
-  "age_groups": ["U10", "U12"],
-  "parallel_games": {"U10": 3, "U12": 2},
-  "round_length_minutes": {"U10": 10, "U12": 12},
-  "teams": [
-    {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
-    {"club": "Skien", "label": "Skien U10A", "age_group": "U10"}
-  ],
-  "sources": [
-    {
-      "name": "Kongsberg ishall",
-      "type": "outlook",
-      "url": "https://kongsberghallen.no/webkalender/ishall/"
-    }
-  ]
-}
-```
-
-### Excel workbook input
-
-A workbook input uses these sheets:
-
-- `Innstillinger` — columns `felt` and `verdi` for `start_date`, `end_date`, and `target_tournament_count`.
-- `Aldersgrupper` — columns `age_group`, `parallel_games`, and optional `round_length_minutes`.
-- `Lag` — columns `club`, `label`, and `age_group`.
-- `Kilder` — columns `name`, `type`, and `url`.
-
-Run it the same way as JSON:
+`input.xlsx` is the standard pipeline input. `rvv-miniputt run` uses it by default:
 
 ```bash
 rvv-miniputt run --input input.xlsx --export-dir export
 ```
 
-See `docs/rvv-miniputt-input-formats.md` for why Excel is supported as an editor-friendly supplement while JSON remains canonical.
+Stage 1 imports the workbook sheets into the internal config dict and then runs the normal Norwegian-language validation.
 
-### Roster files
+### Required workbook sheets
 
-If `teams` is a string in JSON, it should point to a JSON/YAML roster file. Each team entry needs:
+- `Innstillinger` — scalar settings with columns `felt`, `verdi`
+- `Lag` — team roster with columns `club`, `label`, `age_group`
+
+### Optional workbook sheets
+
+- `Aldersgrupper` — columns `age_group`, `parallel_games`, `round_length_minutes`
+- `Kilder` — columns `name`, `type`, `url`
+
+### `Innstillinger` rows
+
+Required rows:
+
+- `start_date` — `YYYY-MM-DD`
+- `end_date` — `YYYY-MM-DD`
+
+Optional rows:
+
+- `target_tournament_count` — soft per-team tournament-participation target, default 6
+
+### `Aldersgrupper` rows
+
+Each row configures one age group:
+
+- `age_group` — for example `U10` or `JU12`
+- `parallel_games` — federation-limited number of simultaneous games
+- `round_length_minutes` — optional override of default round length
+
+### `Lag` rows
+
+Each row configures one team:
 
 - `club`
 - `label`
 - `age_group`
+- `region` (optional)
+- `skill_level` (optional)
+
+### `Kilder` rows
+
+Each row configures one calendar source:
+
+- `name`
+- `type` — for example `outlook` or `ical`
+- `url`
+
+Empty rows are ignored.
 
 ## Calendar sources
 
@@ -113,7 +107,7 @@ With `--timestamped-export`, the same files are written into a timestamped subdi
 ### Full run
 
 ```bash
-rvv-miniputt run --input input.json --export-dir export
+rvv-miniputt run --input input.xlsx --export-dir export
 ```
 
 Useful flags:
@@ -121,7 +115,6 @@ Useful flags:
 - `--non-strict` — continue past some stage failures
 - `--allow-missing-sources` — keep partial Stage 2 results and continue
 - `--timestamped-export` — write diffable exports into a timestamped folder only
-- `target_tournament_count` — soft per-team tournament-participation target in `input.json` or workbook settings (default: 6)
 
 ### Rebuild calendar HTML
 
@@ -143,7 +136,7 @@ The pipeline also stores per-run logs in `.pipeline/logs/`.
 
 Typical recovery loop:
 
-1. fix `input.json`, workbook input, or source credentials
+1. fix `input.xlsx` or source credentials
 2. rerun `rvv-miniputt run`
 3. if a JS source is still blocked, try `rvv-miniputt scrape-llm --club NAME`
 4. rebuild calendars with `rvv-miniputt calendars`

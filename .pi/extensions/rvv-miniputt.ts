@@ -98,7 +98,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
     description:
       "Kjør den firetrinns sesongplanleggingspipelinen for RVV-hockeyklubber. " +
       "Støtter gjenopptak fra et bestemt trinn.\n" +
-      "Valgfrie flagg: --input <sti> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
+      "Valgfrie flagg: --input <input.xlsx> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
       "--log-level <info|verbose> --force-refresh\n" +
       "Trinn 2 gjenbruker kalenderdata fra cache (under 6 timer gammel) med mindre --force-refresh er satt.\n" +
       "Hver kjøring logges strukturelt til .pipeline/logs/run-<dato>.jsonl for selvforbedringsanalyse.",

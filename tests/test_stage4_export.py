@@ -14,6 +14,34 @@ from tournament_scheduler.pipeline.stage4_export import Stage4Error, _dict_to_pl
 from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
 
 
+def _write_input_workbook(path: Path, raw: dict) -> None:
+    wb = openpyxl.Workbook()
+    settings = wb.active
+    settings.title = "Innstillinger"
+    settings.append(["felt", "verdi"])
+    for key in ("start_date", "end_date", "target_tournament_count"):
+        if key in raw:
+            settings.append([key, raw[key]])
+
+    if "age_groups" in raw:
+        age_groups = wb.create_sheet("Aldersgrupper")
+        age_groups.append(["age_group", "parallel_games", "round_length_minutes"])
+        for age_group in raw["age_groups"]:
+            age_groups.append([age_group, raw.get("parallel_games", {}).get(age_group), None])
+
+    teams = wb.create_sheet("Lag")
+    teams.append(["club", "label", "age_group"])
+    for team in raw.get("teams", []):
+        teams.append([team.get("club"), team.get("label"), team.get("age_group")])
+
+    sources = wb.create_sheet("Kilder")
+    sources.append(["name", "type", "url"])
+    for source in raw.get("sources", []):
+        sources.append([source.get("name"), source.get("type"), source.get("url")])
+
+    wb.save(path)
+
+
 def _make_plan_dict():
     """Build a minimal but valid plan checkpoint dict."""
     t1 = {
@@ -160,19 +188,17 @@ class TestRunStage4:
         assert adj_rows[3][0] == "Lag"
 
     def test_generates_html_with_configured_age_group_filters(self, tmp_path):
-        input_path = tmp_path / "input.json"
-        input_path.write_text(
-            json.dumps(
-                {
-                    "start_date": "2025-09-01",
-                    "end_date": "2025-12-01",
-                    "age_groups": ["U10", "U11", "U12", "JU11"],
-                    "parallel_games": {"U10": 2, "U11": 2, "U12": 2, "JU11": 2},
-                    "teams": [],
-                    "sources": [],
-                }
-            ),
-            encoding="utf-8",
+        input_path = tmp_path / "input.xlsx"
+        _write_input_workbook(
+            input_path,
+            {
+                "start_date": "2025-09-01",
+                "end_date": "2025-12-01",
+                "age_groups": ["U10", "U11", "U12", "JU11"],
+                "parallel_games": {"U10": 2, "U11": 2, "U12": 2, "JU11": 2},
+                "teams": [],
+                "sources": [],
+            },
         )
         state = PipelineState(tmp_path / "pipeline")
         state.write_stage(
@@ -305,20 +331,18 @@ class TestRunStage4:
         assert "Følgende RVV-klubber har ingen vertsturnering" not in report_html
 
     def test_html_filters_fall_back_to_plan_age_groups_when_input_omits_them(self, tmp_path):
-        input_path = tmp_path / "input.json"
-        input_path.write_text(
-            json.dumps(
-                {
-                    "start_date": "2025-09-01",
-                    "end_date": "2025-12-01",
-                    "teams": [
-                        {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
-                    ],
-                    "parallel_games": {"U10": 2},
-                    "sources": [],
-                }
-            ),
-            encoding="utf-8",
+        input_path = tmp_path / "input.xlsx"
+        _write_input_workbook(
+            input_path,
+            {
+                "start_date": "2025-09-01",
+                "end_date": "2025-12-01",
+                "teams": [
+                    {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
+                ],
+                "parallel_games": {"U10": 2},
+                "sources": [],
+            },
         )
         state = PipelineState(tmp_path / "pipeline")
         state.write_stage(

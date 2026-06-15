@@ -1,8 +1,8 @@
 """Excel workbook input adapter for the RVV Miniputt pipeline.
 
-The pipeline keeps the JSON-shaped config dict as its canonical internal input.
-This module lets organizers edit a simple workbook and converts it to that same
-raw dict before Stage 1 validation runs.
+The pipeline standard is now a human-editable Excel workbook. This module
+converts the workbook sheets into the same raw config dict that Stage 1
+validation and downstream stages already understand.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ REQUIRED_SHEETS = ("Innstillinger", "Lag")
 
 
 def load_workbook_config(path: str | Path) -> dict[str, Any]:
-    """Load an ``.xlsx`` pipeline input workbook as a JSON-shaped dict.
+    """Load the standard ``.xlsx`` pipeline input workbook as a config dict.
 
     Expected sheets:
     - ``Innstillinger``: columns ``felt`` and ``verdi`` for scalar settings.

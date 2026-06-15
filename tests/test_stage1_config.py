@@ -1,7 +1,5 @@
 """Tests for tournament_scheduler.pipeline.stage1_config."""
 
-import json
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -27,27 +25,37 @@ def _make_valid_raw():
     }
 
 
-def _write_input_workbook(path: Path) -> None:
+def _write_input_workbook(path: Path, raw: dict | None = None) -> None:
+    raw = raw or _make_valid_raw()
     wb = openpyxl.Workbook()
     settings = wb.active
     settings.title = "Innstillinger"
     settings.append(["felt", "verdi"])
-    settings.append(["start_date", "2025-09-01"])
-    settings.append(["end_date", "2025-12-01"])
-    settings.append(["target_tournament_count", 4])
+    for key in ("start_date", "end_date", "target_tournament_count"):
+        if key in raw:
+            settings.append([key, raw[key]])
 
-    age_groups = wb.create_sheet("Aldersgrupper")
-    age_groups.append(["age_group", "parallel_games", "round_length_minutes"])
-    age_groups.append(["U10", 3, 10])
+    if "age_groups" in raw:
+        age_groups = wb.create_sheet("Aldersgrupper")
+        age_groups.append(["age_group", "parallel_games", "round_length_minutes"])
+        for age_group in raw["age_groups"]:
+            age_groups.append([
+                age_group,
+                raw.get("parallel_games", {}).get(age_group, 3),
+                raw.get("round_length_minutes", {}).get(age_group, 10),
+            ])
 
     teams = wb.create_sheet("Lag")
     teams.append(["club", "label", "age_group"])
-    teams.append(["Kongsberg", "Kongsberg U10A", "U10"])
-    teams.append(["Skien", "Skien U10A", "U10"])
+    for team in raw.get("teams", []):
+        teams.append([team.get("club"), team.get("label"), team.get("age_group")])
 
     sources = wb.create_sheet("Kilder")
     sources.append(["name", "type", "url"])
-    sources.append(["Kongsberg", "outlook", "https://example.test/calendar"])
+    for source in raw.get("sources", [
+        {"name": "Kongsberg", "type": "outlook", "url": "https://example.test/calendar"}
+    ]):
+        sources.append([source.get("name"), source.get("type"), source.get("url")])
 
     wb.save(path)
 
@@ -126,9 +134,8 @@ class TestValidateConfig:
 
 class TestRunStage1:
     def test_run_writes_checkpoint_on_success(self, tmp_path):
-        raw = _make_valid_raw()
-        input_file = tmp_path / "input.json"
-        input_file.write_text(json.dumps(raw))
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file)
 
         state = PipelineState(tmp_path / "pipeline")
         result = run(input_file, state)
@@ -140,7 +147,11 @@ class TestRunStage1:
 
     def test_run_accepts_excel_workbook_input(self, tmp_path):
         input_file = tmp_path / "input.xlsx"
-        _write_input_workbook(input_file)
+        raw = _make_valid_raw()
+        raw["age_groups"] = ["U10"]
+        raw["parallel_games"] = {"U10": 3}
+        raw["round_length_minutes"] = {"U10": 10}
+        _write_input_workbook(input_file, raw)
 
         state = PipelineState(tmp_path / "pipeline")
         result = run(input_file, state)
@@ -172,12 +183,20 @@ class TestRunStage1:
 
         assert "Lag" in str(exc_info.value)
 
+    def test_run_rejects_json_input(self, tmp_path):
+        input_file = tmp_path / "legacy.json"
+        input_file.write_text("{}", encoding="utf-8")
+
+        state = PipelineState(tmp_path / "pipeline")
+        with pytest.raises(ValueError) as exc_info:
+            run(input_file, state)
+
+        assert "Excel" in str(exc_info.value)
+
     def test_run_does_not_inject_fallback_age_groups_when_input_omits_them(self, tmp_path):
         raw = _make_valid_raw()
-        raw.pop("age_groups", None)
-        input_file = tmp_path / "input.json"
-        input_file.write_text(json.dumps(raw))
-
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file, raw)
         state = PipelineState(tmp_path / "pipeline")
         result = run(input_file, state)
 
@@ -188,8 +207,8 @@ class TestRunStage1:
 
     def test_run_raises_on_invalid_config(self, tmp_path):
         raw = {"start_date": "bad", "end_date": "also-bad", "teams": []}
-        input_file = tmp_path / "input.json"
-        input_file.write_text(json.dumps(raw))
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file, raw)
 
         state = PipelineState(tmp_path / "pipeline")
         with pytest.raises(Stage1Error) as exc_info:
@@ -199,8 +218,8 @@ class TestRunStage1:
     def test_run_raises_on_missing_field_no_checkpoint(self, tmp_path):
         raw = _make_valid_raw()
         del raw["start_date"]
-        input_file = tmp_path / "input.json"
-        input_file.write_text(json.dumps(raw))
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file, raw)
 
         state = PipelineState(tmp_path / "pipeline")
         with pytest.raises(Stage1Error):
@@ -210,12 +229,12 @@ class TestRunStage1:
     def test_run_raises_on_missing_file(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         with pytest.raises(FileNotFoundError):
-            run(tmp_path / "nonexistent.json", state)
+            run(tmp_path / "nonexistent.xlsx", state)
 
     def test_run_strict_false_does_not_raise(self, tmp_path):
         raw = {}  # invalid but strict=False
-        input_file = tmp_path / "input.json"
-        input_file.write_text(json.dumps(raw))
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file, raw)
 
         state = PipelineState(tmp_path / "pipeline")
         # Should not raise

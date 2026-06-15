@@ -44,25 +44,24 @@ def _make_plan() -> SeasonPlan:
 
 def _write_state(tmp_path):
     state = PipelineState(tmp_path / "pipeline")
-    input_file = tmp_path / "input.json"
-    input_file.write_text(
-        json.dumps(
-            {
-                "start_date": "2025-09-01",
-                "end_date": "2025-12-01",
-                "age_groups": ["U10", "JU11"],
-                "parallel_games": {"U10": 1, "JU11": 1},
-                "round_length_minutes": {"U10": 15, "JU11": 12},
-                "teams": [
-                    {"club": "Jar", "label": "Jar U10A", "age_group": "U10"},
-                    {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
-                    {"club": "Skien", "label": "Skien JU11A", "age_group": "JU11"},
-                    {"club": "Holmen", "label": "Holmen JU11A", "age_group": "JU11"},
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
+    input_file = tmp_path / "input.xlsx"
+    wb = openpyxl.Workbook()
+    settings = wb.active
+    settings.title = "Innstillinger"
+    settings.append(["felt", "verdi"])
+    settings.append(["start_date", "2025-09-01"])
+    settings.append(["end_date", "2025-12-01"])
+    ages = wb.create_sheet("Aldersgrupper")
+    ages.append(["age_group", "parallel_games", "round_length_minutes"])
+    ages.append(["U10", 1, 15])
+    ages.append(["JU11", 1, 12])
+    teams_sheet = wb.create_sheet("Lag")
+    teams_sheet.append(["club", "label", "age_group"])
+    teams_sheet.append(["Jar", "Jar U10A", "U10"])
+    teams_sheet.append(["Kongsberg", "Kongsberg U10A", "U10"])
+    teams_sheet.append(["Skien", "Skien JU11A", "JU11"])
+    teams_sheet.append(["Holmen", "Holmen JU11A", "JU11"])
+    wb.save(input_file)
     state.write_stage(
         StageName.CONFIG,
         {

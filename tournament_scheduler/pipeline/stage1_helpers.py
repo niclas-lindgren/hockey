@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 from datetime import date, datetime
 from pathlib import Path
@@ -29,7 +28,7 @@ def validate_config(raw: dict[str, Any]) -> list[str]:
     Parameters
     ----------
     raw:
-        Parsed JSON dict from ``input.json``.
+        Parsed workbook config dict from ``input.xlsx``.
     """
     errors: list[str] = []
 
@@ -156,16 +155,21 @@ def validate_config(raw: dict[str, Any]) -> list[str]:
 
 
 def _load_json(path: str | os.PathLike[str]) -> dict[str, Any]:
-    """Load JSON or Excel pipeline input as the canonical raw config dict."""
+    """Load the standard Excel workbook input as the canonical raw config dict.
+
+    The function name is kept for compatibility with existing imports.
+    """
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(
             f"Finner ikke konfigurasjonsfilen '{p}'. Sjekk at stien er riktig."
         )
-    if p.suffix.lower() in {".xlsx", ".xlsm"}:
-        return load_workbook_config(p)
-    with p.open(encoding="utf-8") as fh:
-        return json.load(fh)
+    if p.suffix.lower() not in {".xlsx", ".xlsm"}:
+        raise ValueError(
+            f"Konfigurasjonsfilen '{p}' må være en Excel-arbeidsbok (.xlsx). "
+            "JSON input er ikke lenger støttet som pipeline-standard."
+        )
+    return load_workbook_config(p)
 
 
 def _parse_date(value: Any, field: str, errors: list[str]) -> date | None:
@@ -210,7 +214,7 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     """Build the Stage 1 checkpoint dict with only **computed** fields.
 
     Human-editable fields (start_date, end_date, age_groups, parallel_games,
-    target_tournament_count, sources) are intentionally excluded — they live only in ``input.json``.
+    target_tournament_count, sources) are intentionally excluded — they live only in ``input.xlsx``.
     """
 
     # Round length (minutes) — explicit values override federation defaults

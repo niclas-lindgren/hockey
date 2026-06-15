@@ -178,7 +178,7 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
 def club_for_source_name(source_name: str) -> Optional[str]:
     """Map a Stage 1 calendar-source ``name`` to its RVV club name.
 
-    Source names in ``input.json`` are usually the club name itself
+    Source names in ``input.xlsx`` are usually the club name itself
     (e.g. ``"Jutul"``, ``"Frisk Asker"``), but some legacy entries append the
     arena/hall (e.g. ``"Kongsberg ishall"``, ``"Skien ishall"``). This looks
     up ``CLUB_REGISTRY`` for an exact match first, then falls back to a

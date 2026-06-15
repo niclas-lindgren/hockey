@@ -1,5 +1,6 @@
 from datetime import date
-import json
+
+import openpyxl
 
 from tournament_scheduler.models import SeasonPlan, Team, Tournament
 from tournament_scheduler.cli.rvv_cli import main as rvv_main
@@ -56,24 +57,22 @@ def _write_state(tmp_path):
     work_dir = tmp_path / "pipeline"
     state = PipelineState(work_dir)
 
-    input_file = tmp_path / "input.json"
-    input_file.write_text(
-        json.dumps(
-            {
-                "start_date": "2027-01-01",
-                "end_date": "2027-03-31",
-                "age_groups": ["U10"],
-                "parallel_games": {"U10": 1},
-                "round_length_minutes": {"U10": 10},
-                "teams": [
-                    {"club": "Jar", "label": "Jar 1", "age_group": "U10"},
-                    {"club": "Skien", "label": "Skien 1", "age_group": "U10"},
-                    {"club": "Kongsberg", "label": "Kongsberg 1", "age_group": "U10"},
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
+    input_file = tmp_path / "input.xlsx"
+    wb = openpyxl.Workbook()
+    settings = wb.active
+    settings.title = "Innstillinger"
+    settings.append(["felt", "verdi"])
+    settings.append(["start_date", "2027-01-01"])
+    settings.append(["end_date", "2027-03-31"])
+    ages = wb.create_sheet("Aldersgrupper")
+    ages.append(["age_group", "parallel_games", "round_length_minutes"])
+    ages.append(["U10", 1, 10])
+    teams_sheet = wb.create_sheet("Lag")
+    teams_sheet.append(["club", "label", "age_group"])
+    teams_sheet.append(["Jar", "Jar 1", "U10"])
+    teams_sheet.append(["Skien", "Skien 1", "U10"])
+    teams_sheet.append(["Kongsberg", "Kongsberg 1", "U10"])
+    wb.save(input_file)
     state.write_stage(
         StageName.CONFIG,
         {

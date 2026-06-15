@@ -120,7 +120,7 @@ def run(
 
     if not sources:
         reason = (
-            "Ingen kalenderkilder er konfigurert. Legg til en 'sources'-seksjon i input.json "
+            "Ingen kalenderkilder er konfigurert. Legg til kilder i input.xlsx-arket 'Kilder' "
             "for a hente kalenderdata (f.eks. Kongsberg ishall, Skien o.l.). Uten kalenderdata "
             "kan ikke pipelinen planlegge rundt faktiske bookinger og vil foresla fantasidatoer."
         )
@@ -161,7 +161,7 @@ def run(
                 "block_reason": "",
                 "llm_fallback": False,
                 "skipped": True,
-                "skip_reason": "Tom URL — kilden er deaktivert i input.json.",
+                "skip_reason": "Tom URL — kilden er deaktivert i input.xlsx.",
             })
             continue
         entry = cache_sources.get(name)
