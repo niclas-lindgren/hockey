@@ -1,6 +1,8 @@
 # Backlog
 
 ## Open
+
+- [96] [ ] Review whether the canonical `input.json` configuration should be replaced or supplemented with a human-editable Excel workbook input format, favoring Excel if the schema complexity is manageable; compare Excel vs CSV vs JSON for organizer editability, validation, nested team/source settings, round-trip safety, and pipeline compatibility, then recommend and/or prototype the best approach.
 ## Done
 - [91] [x] Make the report page's club summary behavior consistent after removing schedule filters: either remove the unreachable hidden club dashboard from `season_plan_report.html`, add a dedicated report-page club selector, or replace it with a static all-club summary table. (2026-06-15)
 

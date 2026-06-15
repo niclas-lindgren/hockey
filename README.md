@@ -34,8 +34,8 @@ If you use the Pi extension, the matching slash commands are:
 
 ## Inputs
 
-Pipeline runs start from `input.json`.
-See `docs/rvv-miniputt-pipeline.md` for the full schema, source formats, and examples.
+Pipeline runs start from `input.json` (canonical JSON) or an Excel workbook that maps into the same schema.
+See `docs/rvv-miniputt-pipeline.md` for the full schema, source formats, and examples. See `docs/rvv-miniputt-input-formats.md` for the JSON vs CSV vs Excel recommendation.
 
 ## Outputs
 
