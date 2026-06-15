@@ -325,6 +325,11 @@ class SeasonPlanner:
             arena = self.club_arenas.get(host_club, host_club)
             participants = self._select_participants(age_group)
             if len(participants) < MIN_TEAMS_PER_TOURNAMENT:
+                plan.skipped_age_groups.append({
+                    "age_group": age_group,
+                    "team_count": len(participants),
+                    "reason": f"Kun {len(participants)} lag konfigurert; minimum er {MIN_TEAMS_PER_TOURNAMENT}",
+                })
                 continue
             self._record_grouping(participants)
 
@@ -365,9 +370,17 @@ class SeasonPlanner:
 
         # Compute per-team game counts and last-game dates.
         self._compute_game_counts(plan.tournaments)
+        # Build set of teams whose age group was skipped (fewer than
+        # MIN_TEAMS_PER_TOURNAMENT teams) so they are excluded from
+        # fairness metrics and game-count spread calculations.
+        skipped_age_groups_set = {
+            entry["age_group"] for entry in plan.skipped_age_groups
+        }
         public_team_game_counts: Dict[str, int] = {}
         public_team_last_dates: Dict[str, date] = {}
         for team in self.roster.teams:
+            if team.age_group in skipped_age_groups_set:
+                continue
             key = self._team_key(team)
             public_team_game_counts[team.label] = public_team_game_counts.get(team.label, 0) + self._team_game_counts.get(key, 0)
             last = self._team_last_date.get(key)

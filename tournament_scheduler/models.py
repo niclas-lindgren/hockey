@@ -237,6 +237,10 @@ class SeasonPlan:
     # Maps team label -> date of their last round-robin game in the season.
     # Used for early-finish detection (teams that finish weeks before others).
     team_last_game_dates: Dict[str, date] = field(default_factory=dict)
+    # Age groups intentionally skipped because they have fewer than
+    # MIN_TEAMS_PER_TOURNAMENT configured teams. Each entry is a dict:
+    # {"age_group": str, "team_count": int, "reason": str}.
+    skipped_age_groups: List[Dict[str, object]] = field(default_factory=list)
     # Manual operator adjustments preserved across checkpoint round-trips.
     # Keys are small string lists such as locked_dates, banned_dates,
     # forced_host_clubs, excluded_host_clubs, and pinned_tournament_ids.
