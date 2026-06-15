@@ -29,6 +29,13 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 from tournament_scheduler.club_distances import compute_team_travel_distances
 from tournament_scheduler.fairness_model import SeasonFairnessModel
+from tournament_scheduler.host_assignment import (
+    assign_hosts as _assign_hosts,
+    default_target_count as _default_target_count,
+    find_slot_for_tournament as _find_slot_for_tournament,
+    hosting_targets_for_age_group as _hosting_targets_for_age_group,
+    proportional_integer_targets as _proportional_integer_targets,
+)
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
     CalendarEvent,
@@ -39,6 +46,21 @@ from tournament_scheduler.models import (
     Tournament,
     overlapping_age_groups,
     team_key,
+)
+from tournament_scheduler.participant_selection import (
+    age_group_deficit_spread as _age_group_deficit_spread,
+    cap_per_club_deficit_aware as _cap_per_club_deficit_aware,
+    deficit_score as _deficit_score,
+    expected_average_for as _expected_average_for,
+    max_club_teams_for as _max_club_teams_for,
+    max_teams_for as _max_teams_for,
+    normalized_invite_count as _normalized_invite_count,
+    next_age_group as _next_age_group,
+    participant_limit_for as _participant_limit_for,
+    pick_least_recently_grouped as _pick_least_recently_grouped,
+    pick_spread_dates as _pick_spread_dates,
+    select_participants as _select_participants,
+    target_tournaments_for_age_group as _target_tournaments_for_age_group,
 )
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
@@ -2528,3 +2550,24 @@ class SeasonPlanner:
 
         avg_deviation = deviation_total / len(self._month_counts)
         return round(max(0.0, 1.0 - avg_deviation), 3)
+
+
+# Delegate the participant-selection / host-assignment helpers to focused modules.
+SeasonPlanner._pick_spread_dates = _pick_spread_dates
+SeasonPlanner._target_tournaments_for_age_group = _target_tournaments_for_age_group
+SeasonPlanner._assign_hosts = _assign_hosts
+SeasonPlanner._find_slot_for_tournament = _find_slot_for_tournament
+SeasonPlanner._next_age_group = _next_age_group
+SeasonPlanner._select_participants = _select_participants
+SeasonPlanner._cap_per_club_deficit_aware = _cap_per_club_deficit_aware
+SeasonPlanner._participant_limit_for = _participant_limit_for
+SeasonPlanner._max_teams_for = _max_teams_for
+SeasonPlanner._max_club_teams_for = _max_club_teams_for
+SeasonPlanner._age_group_deficit_spread = _age_group_deficit_spread
+SeasonPlanner._expected_average_for = _expected_average_for
+SeasonPlanner._deficit_score = _deficit_score
+SeasonPlanner._normalized_invite_count = _normalized_invite_count
+SeasonPlanner._pick_least_recently_grouped = _pick_least_recently_grouped
+SeasonPlanner._hosting_targets_for_age_group = _hosting_targets_for_age_group
+SeasonPlanner._proportional_integer_targets = staticmethod(_proportional_integer_targets)
+SeasonPlanner._default_target_count = staticmethod(_default_target_count)
