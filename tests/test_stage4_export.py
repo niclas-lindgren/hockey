@@ -226,6 +226,13 @@ class TestRunStage4:
         assert 'Klassetrinn' not in report_html
         assert 'Nullstill filter' not in report_html
         assert 'Viser 80 av 80 turneringer' not in report_html
+        schedule_script = re.search(r"<script>\n(.*?)\n</script>", html, re.S).group(1)
+        report_script = re.search(r"<script>\n(.*?)\n</script>", report_html, re.S).group(1)
+        for schedule_identifier in ('filterAge', 'timeline', 'buildMatchHTML', 'function render()'):
+            assert schedule_identifier in schedule_script
+            assert schedule_identifier not in report_script
+        assert 'rvv-theme' in report_script
+        assert 'HEATMAP' in report_script
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
         assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)

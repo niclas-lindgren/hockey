@@ -67,7 +67,8 @@ from .templates import (
     CLUB_DASHBOARD,
     REVIEW_SUMMARY,
     PAGE_TEMPLATE,
-    JAVASCRIPT,
+    SHARED_JAVASCRIPT,
+    SCHEDULE_JAVASCRIPT,
     COUNT_BAR,
 )
 
@@ -324,7 +325,9 @@ class HtmlExporter:
                 "$FILTERS$": FILTERS if include_timeline else "",
                 "$COUNT_BAR$": COUNT_BAR if include_timeline else "",
                 "$TIMELINE$": '<div class="timeline" id="timeline"></div>' if include_timeline else "",
-                "$SCRIPT$": JAVASCRIPT,
+                "$SCRIPT$": (
+                    SHARED_JAVASCRIPT + ("\n" + SCHEDULE_JAVASCRIPT if include_timeline else "")
+                ),
             }
 
             replacements = {

@@ -38,3 +38,5 @@ PAGE_TEMPLATE = _load("page_template.html")
 
 # JavaScript for interactivity
 JAVASCRIPT = _load("script.js")
+SHARED_JAVASCRIPT = _load("script_shared.js")
+SCHEDULE_JAVASCRIPT = _load("script_schedule.js")
