@@ -50,6 +50,19 @@ _RVV_CLUBS = (
     "Kongsberg",
 )
 
+_CLUB_ALIASES = {
+    "sandefjord": "Sandefjord Penguins",
+    "sandefjord penguins": "Sandefjord Penguins",
+    "tonsberg": "Tønsberg",
+    "tønsberg": "Tønsberg",
+}
+
+
+def _canonical_rvv_club_name(club_name: str) -> str:
+    """Return the canonical RVV display name for a known club alias."""
+    normalized = " ".join(club_name.strip().casefold().split())
+    return _CLUB_ALIASES.get(normalized, club_name.strip())
+
 # ---------------------------------------------------------------------------
 # Load template fragments
 # ---------------------------------------------------------------------------
@@ -500,8 +513,9 @@ class HtmlExporter:
             host = tournament.host_club or ""
             if not host:
                 continue
-            host_counts[host] = host_counts.get(host, 0) + 1
-            host_sequence.append(host)
+            canonical_host = _canonical_rvv_club_name(host)
+            host_counts[canonical_host] = host_counts.get(canonical_host, 0) + 1
+            host_sequence.append(canonical_host)
         missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
         if missing_hosts:
             findings.append(
