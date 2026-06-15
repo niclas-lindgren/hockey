@@ -2,9 +2,9 @@
 
 ## Open
 
-- [85] [ ] Fix season-planner participant selection so large clubs like Jar are mixed more evenly across the season instead of clumping many Jar teams into one U10 tournament while later tournaments get none; the heuristic should spread same-age-group sibling teams across tournaments when the global roster has better mixes available.
-
 ## Done
+- [85] [x] Fix season-planner participant selection so large clubs like Jar are mixed more evenly across the season instead of clumping many Jar teams into one U10 tournament while later tournaments get none; the heuristic should spread same-age-group sibling teams across tournaments when the global roster has better mixes available. (2026-06-15)
+
 - [89] [x] Cleanup the report HTML page by removing leftover season_planning UI remnants (for example the tournaments filter) that should not appear on the report page. (2026-06-15)
 
 - [90] [x] Make names readable in the calendar scrape HTML by widening or otherwise adjusting the calendar name field so the names are not truncated and remain visible. (2026-06-15)

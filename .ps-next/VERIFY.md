@@ -4,4 +4,4 @@ STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `season_plan_report.html` does not contain the filter controls or count bar, while `season_plan.html` still does. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| A Jar-heavy roster with enough other clubs yields tournaments that include at most one Jar team until other clubs are represented, instead of bundling many Jar teams into the same tournament. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |

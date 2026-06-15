@@ -1668,6 +1668,11 @@ class SeasonPlanner:
             if not eligible:
                 eligible = remaining
 
+            selected_clubs = {s.club for s in selected}
+            preferred_club_mix = [t for t in eligible if t.club not in selected_clubs]
+            if preferred_club_mix:
+                eligible = preferred_club_mix
+
             eligible_over_cap_labels = {self._team_key(t) for t in eligible_over_cap}
 
             # Club-load penalty: push down candidates whose club is already
