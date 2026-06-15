@@ -39,5 +39,5 @@
 **Rationale:** This separates the orchestration facade from the heuristic-heavy selection logic without changing the public `SeasonPlanner` API.
 **Findings:** The refactor is behavior-preserving; the existing season-planner test suite still passes after the delegation swap.
 **Files:** tournament_scheduler/participant_selection.py (+1 new), tournament_scheduler/host_assignment.py (+1 new), tournament_scheduler/season_planner.py (imports + delegation bindings)
-**Commit:** not committed
+**Commit:** 0ad51d9
 <!-- pi-next appends entries here after each task -->
