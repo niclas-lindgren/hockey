@@ -16,7 +16,7 @@
   - Files: tournament_scheduler/rules_report.py, tournament_scheduler/season_planner.py
   - Approach: Move `rules_report()` and any report-specific helpers into a standalone module, then remove duplicated logic from `SeasonPlanner` so the class mainly orchestrates the pipeline and exposes compatibility wrappers.
 
-- [ ] Run regression checks and document the refactor
+- [x] Run regression checks and document the refactor
   - Files: tests/test_season_planner.py, .ps-next/PLAN.md
   - Approach: Run the season-planner test suite and verify the refactor does not change behavior. If tests pass, record the results in the PLAN log and keep the public imports working without caller changes.
 
@@ -36,6 +36,13 @@
 
 
 
+
+### 2026-06-15 — Run regression checks and document the refactor
+**Done:** Verified the refactor with the season-planner test suite and recorded the result in the plan log.
+**Rationale:** This closes the refactor loop by documenting the successful regression run without changing runtime behavior.
+**Findings:** `pytest tests/test_season_planner.py -q` passed after the helper-module split, and the public `SeasonPlanner` import still works.
+**Files:** tests/test_season_planner.py (executed), .ps-next/PLAN.md (log update)
+**Commit:** not committed
 ### 2026-06-15 — Extract the rules report into its own module and trim `SeasonPlanner`
 **Done:** Moved the rules-report entry point into `tournament_scheduler/rules_report.py` and preserved the original implementation on `SeasonPlanner` behind a compatibility binding.
 **Rationale:** This gives the report its own module boundary while keeping the existing API and behavior intact for callers and tests.
