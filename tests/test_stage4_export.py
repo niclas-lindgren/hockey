@@ -212,6 +212,9 @@ class TestRunStage4:
         assert 'id="timeline"' not in report_html
         assert 'class="filters"' not in report_html
         assert 'class="count-bar"' not in report_html
+        assert 'Klassetrinn' not in report_html
+        assert 'Nullstill filter' not in report_html
+        assert 'Viser 80 av 80 turneringer' not in report_html
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
         assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)

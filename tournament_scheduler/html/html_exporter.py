@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any
+import re
 
 from tournament_scheduler.club_distances import (
     compute_team_travel_distances,
@@ -405,6 +406,7 @@ class HtmlExporter:
             include_timeline=False,
             active_page="report",
         )
+        report_html = self._strip_schedule_controls(report_html)
 
         dest = Path(path)
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -412,6 +414,14 @@ class HtmlExporter:
         report_dest = dest.with_name(f"{dest.stem}_report{dest.suffix}")
         report_dest.write_text(report_html, encoding="utf-8")
         return str(dest)
+
+    @staticmethod
+    def _strip_schedule_controls(html: str) -> str:
+        """Remove schedule-only filter and count-bar fragments from report pages."""
+        html = re.sub(r"\n?\s*<!-- Filters -->\s*<div class=\"filters\">.*?</div>\s*", "\n", html, flags=re.S)
+        html = re.sub(r"\n?\s*<!-- Count bar -->\s*<div class=\"count-bar\">.*?</div>\s*", "\n", html, flags=re.S)
+        html = re.sub(r"\n{3,}", "\n\n", html)
+        return html
 
     @staticmethod
     def _plan_to_json(plan: SeasonPlan, round_length_for_age_group: dict[str, int] | None = None) -> str:
