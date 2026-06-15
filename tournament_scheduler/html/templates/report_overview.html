@@ -1,0 +1,70 @@
+<!-- Report overview -->
+<section class="report-overview" id="reportOverview">
+  <div class="report-hero report-hero--$REPORT_STATUS$">
+    <div>
+      <p class="eyebrow">Kort svar</p>
+      <h2>Kan planen brukes?</h2>
+      <p class="report-hero-answer">$REPORT_ANSWER$</p>
+      <p class="report-hero-note">$REPORT_NOTE$</p>
+    </div>
+    <span class="report-status-pill report-status-pill--$REPORT_STATUS$">$REPORT_STATUS_LABEL$</span>
+  </div>
+
+  <div class="report-card-grid">
+    $REPORT_STATUS_CARDS$
+  </div>
+
+  <section class="report-section report-section--priority" id="priorityActions">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Viktigst først</p>
+        <h2>Hva må sjekkes eller endres?</h2>
+      </div>
+      <p class="section-note">Varsler og handlinger vises her før detaljerte måltall.</p>
+    </div>
+    $REPORT_ACTIONS$
+  </section>
+
+  <section class="report-section" id="ageGroupSummary">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Aldersgrupper</p>
+        <h2>Hva skjer per aldersgruppe?</h2>
+      </div>
+      <p class="section-note">Bruk denne til å se om belastning og arrangøransvar virker rimelig per gruppe.</p>
+    </div>
+    $REPORT_AGE_SUMMARY$
+  </section>
+
+  <section class="report-section" id="clubReviewSummary">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Klubber</p>
+        <h2>Hva må hver klubb vurdere?</h2>
+      </div>
+      <p class="section-note">Oppsummerer vertskap, deltakelse og reise før klubbene får detaljpakker.</p>
+    </div>
+    $REPORT_CLUB_SUMMARY$
+  </section>
+
+  <section class="report-section" id="tournamentReviewTable">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">Detaljert plan</p>
+        <h2>Turneringer som skal gjennomgås</h2>
+      </div>
+      <p class="section-note">Kondensert tabell; åpne sesongplanen for kampoppsett per turnering.</p>
+    </div>
+    $REPORT_TOURNAMENT_TABLE$
+  </section>
+</section>
+
+<section class="report-section report-section--diagnostics" id="detailedDiagnosticsIntro">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">Diagnostikk</p>
+      <h2>Detaljerte måltall og kontroller</h2>
+    </div>
+    <p class="section-note">Tekniske rettferdighets- og kvalitetsmålinger ligger under hovedoppsummeringen.</p>
+  </div>
+</section>

@@ -242,6 +242,17 @@ class TestRunStage4:
         assert 'class="count-bar"' in html
         assert 'Rettferdighetskontroll' in report_html
         assert 'Rettferdighetsjusteringer' in report_html
+        assert 'id="reportOverview"' in report_html
+        assert 'Kan planen brukes?' in report_html
+        assert 'Hva må sjekkes eller endres?' in report_html
+        assert 'Hva skjer per aldersgruppe?' in report_html
+        assert 'Hva må hver klubb vurdere?' in report_html
+        assert 'Turneringer som skal gjennomgås' in report_html
+        assert 'Detaljerte måltall og kontroller' in report_html
+        assert 'Klubben bør sjekke' in report_html
+        assert report_html.index('id="reportOverview"') < report_html.index('Rettferdighetskontroll')
+        assert report_html.index('Hva må sjekkes eller endres?') < report_html.index('Spredning (motstandervariasjon)')
+        assert report_html.index('Detaljerte måltall og kontroller') < report_html.index('Rettferdighetskontroll')
         assert old_gate_label not in report_html
         assert old_adjustment_label not in report_html
         assert 'Kvalitetsgjennomgang' in report_html
