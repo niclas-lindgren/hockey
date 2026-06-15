@@ -47,8 +47,10 @@ def _make_duplicate_label_config():
         "teams": [
             {"club": "Jar", "label": "Jar 1 U10", "age_group": "U10"},
             {"club": "Kongsberg", "label": "Kongsberg 1 U10", "age_group": "U10"},
+            {"club": "Ringerike", "label": "Ringerike 1 U10", "age_group": "U10"},
             {"club": "Jar", "label": "Jar 1 U11", "age_group": "U11"},
             {"club": "Kongsberg", "label": "Kongsberg 1 U11", "age_group": "U11"},
+            {"club": "Ringerike", "label": "Ringerike 1 U11", "age_group": "U11"},
         ],
     }
 
@@ -139,7 +141,7 @@ class TestRunStage3:
         plan = result["plan"]
 
         assert state.is_done(StageName.PLANNING)
-        assert len(plan["team_game_counts"]) == 4
+        assert len(plan["team_game_counts"]) == 6
         assert any("U10" in key for key in plan["team_game_counts"])
         assert any("U11" in key for key in plan["team_game_counts"])
         assert plan["fairness_gate"]["status"] == "pass"
