@@ -228,12 +228,44 @@ class TournamentOutput:
             console.print()
 
     @staticmethod
+    @staticmethod
+    def print_skipped_age_groups(plan: "SeasonPlan") -> None:
+        """Print a list of age groups that were intentionally skipped.
+
+        Args:
+            plan: The proposed SeasonPlan with ``skipped_age_groups`` populated.
+        """
+        if not plan.skipped_age_groups:
+            return
+
+        title = f"⏭ Hoppet over ({len(plan.skipped_age_groups)} aldersgruppe{'r' if len(plan.skipped_age_groups) > 1 else ''})"
+        table = Table(
+            title=title,
+            box=box.ROUNDED,
+            show_header=True,
+            header_style="bold yellow",
+        )
+        table.add_column("Aldersgruppe", style="yellow", no_wrap=True)
+        table.add_column("Lag", style="cyan", justify="right")
+        table.add_column("Årsak", style="white")
+
+        for entry in plan.skipped_age_groups:
+            table.add_row(
+                str(entry.get("age_group", "?")),
+                str(entry.get("team_count", 0)),
+                str(entry.get("reason", "")),
+            )
+
+        console.print(table)
+
     def print_season_overview(plan: "SeasonPlan") -> None:
         """Print a season overview table — one row per proposed tournament.
 
         Args:
             plan: The proposed SeasonPlan
         """
+        TournamentOutput.print_skipped_age_groups(plan)
+
         if not plan.tournaments:
             console.print(Panel(
                 "[bold red]Ingen turneringer foreslått[/bold red]",

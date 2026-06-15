@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/season_planner.py, tournament_scheduler/fairness_model.py
   - Approach: In `_scan_per_team_share_warnings()`, skip teams whose age_group is in the skipped set. In `adjustment_rows_for_plan()` (fairness_model.py), filter out skipped age groups. In `_build_fairness_gate()` and `_scan_game_count_warnings()`, exclude skipped teams from spread/fairness calculations. Also exclude them when building `plan.team_game_counts` and `plan.game_count_spread` in `build_plan()`.
 
-- [ ] Surface skipped age groups in Rich console output
+- [x] Surface skipped age groups in Rich console output
   - Files: tournament_scheduler/utils/rich_output.py
   - Approach: Add a `print_skipped_age_groups()` static method showing skip reasons. Call it from the `print_plan_summary()` or the `TournamentOutput` flow. Use a mild warning style (yellow) to indicate intentional skips.
 
@@ -44,6 +44,13 @@
 ## Log
 
 
+
+### 2026-06-15 — Surface skipped age groups in Rich console output
+**Done:** Added `print_skipped_age_groups()` static method to `TournamentOutput` that shows skipped age groups with team count and reason in a Rich table with yellow warning styling. Called from `print_season_overview()` so it displays before the main season overview table.
+**Rationale:** Yellow styling for mild warning indicates intentional skips (not errors). Table format matches existing Rich output conventions.
+**Findings:** `print_season_overview` already handles empty plans gracefully (shows "Ingen turneringer foreslått" panel). The skipped groups call is placed before that check so it shows the skipped info even when no tournaments exist.
+**Files:** tournament_scheduler/utils/rich_output.py (+30/-1)
+**Commit:** not committed
 ### 2026-06-15 — Exclude skipped age groups from game-count fairness metrics and warnings
 **Done:** Excluded skipped age groups from fairness gate (age_group_spreads computation), per-team share warnings (skipped teams excluded via parameter), and team_game_counts/game_count_spread (already done in Task 1). Fairness gate in `_build_fairness_gate` now skips age groups in `plan.skipped_age_groups`. `_scan_per_team_share_warnings` now accepts an optional skipped_age_groups parameter and excludes those teams.
 **Rationale:** The skipped set is derived from `plan.skipped_age_groups` (populated in Task 1) and passed to methods that need it. The fairness gate skip is the most important change — without it, age_group_spreads would still include 0-count skipped groups (normalized to 0, so harmless, but semantically wrong).
