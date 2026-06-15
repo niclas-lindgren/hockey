@@ -63,6 +63,26 @@ from tournament_scheduler.participant_selection import (
     target_tournaments_for_age_group as _target_tournaments_for_age_group,
 )
 from tournament_scheduler.scheduler import TournamentScheduler
+from tournament_scheduler.fairness_scoring import build_fairness_gate as _build_fairness_gate
+from tournament_scheduler.game_generation import (
+    arena_counts as _arena_counts,
+    best_round_subset as _best_round_subset,
+    diversity_score as _diversity_score,
+    generate_round_robin_games as _generate_round_robin_games,
+    month_balance_score as _month_balance_score,
+    pairwise_matchup_score as _pairwise_matchup_score,
+    rebalance_rounds as _rebalance_rounds,
+)
+from tournament_scheduler.warnings import (
+    compute_game_counts as _compute_game_counts,
+    hosting_fairness_breakdown as _hosting_fairness_breakdown,
+    scan_club_load_warnings as _scan_club_load_warnings,
+    scan_feasibility_warnings as _scan_feasibility_warnings,
+    scan_game_count_warnings as _scan_game_count_warnings,
+    scan_hosting_warnings as _scan_hosting_warnings,
+    scan_month_load_warnings as _scan_month_load_warnings,
+    scan_per_team_share_warnings as _scan_per_team_share_warnings,
+)
 from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 
 
@@ -2571,3 +2591,22 @@ SeasonPlanner._pick_least_recently_grouped = _pick_least_recently_grouped
 SeasonPlanner._hosting_targets_for_age_group = _hosting_targets_for_age_group
 SeasonPlanner._proportional_integer_targets = staticmethod(_proportional_integer_targets)
 SeasonPlanner._default_target_count = staticmethod(_default_target_count)
+
+
+# Delegate the helper-heavy planning logic to focused modules.
+SeasonPlanner._build_fairness_gate = _build_fairness_gate
+SeasonPlanner._compute_game_counts = _compute_game_counts
+SeasonPlanner._scan_game_count_warnings = _scan_game_count_warnings
+SeasonPlanner._scan_per_team_share_warnings = _scan_per_team_share_warnings
+SeasonPlanner._scan_feasibility_warnings = _scan_feasibility_warnings
+SeasonPlanner._scan_month_load_warnings = _scan_month_load_warnings
+SeasonPlanner._scan_club_load_warnings = _scan_club_load_warnings
+SeasonPlanner._hosting_fairness_breakdown = _hosting_fairness_breakdown
+SeasonPlanner._scan_hosting_warnings = _scan_hosting_warnings
+SeasonPlanner.generate_round_robin_games = staticmethod(_generate_round_robin_games)
+SeasonPlanner._rebalance_rounds = staticmethod(_rebalance_rounds)
+SeasonPlanner._best_round_subset = staticmethod(_best_round_subset)
+SeasonPlanner._arena_counts = staticmethod(_arena_counts)
+SeasonPlanner._diversity_score = _diversity_score
+SeasonPlanner._pairwise_matchup_score = _pairwise_matchup_score
+SeasonPlanner._month_balance_score = _month_balance_score
