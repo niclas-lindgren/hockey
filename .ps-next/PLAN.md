@@ -8,7 +8,7 @@
 - [x] Add canonical club alias normalization for HTML report diagnostics
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Introduce a small canonical-name helper/map near `_RVV_CLUBS`, use it in `_review_summary_html` when accumulating host counts and host sequence, and preserve display names in advisory text.
-- [ ] Add regression coverage for Sandefjord alias handling
+- [x] Add regression coverage for Sandefjord alias handling
   - Files: tests/test_stage4_export.py
   - Approach: Add a focused test that builds a plan whose host is `Sandefjord`, exports the report, and asserts the missing-host warning does not list `Sandefjord Penguins` while other existing report diagnostics still render.
 
@@ -24,6 +24,13 @@
 
 ## Log
 
+
+### 2026-06-15 — Add regression coverage for Sandefjord alias handling
+**Done:** Added a Stage 4 HTML export regression where all RVV clubs host and Sandefjord appears via the short alias; the report now passes missing-host diagnostics.
+**Rationale:** The test locks down the user-visible report behavior that caused false missing-host warnings.
+**Findings:** `pytest tests/test_stage4_export.py -q` passed (14 tests); quick quality gate passed full pytest suite (381 passed, 1 skipped).
+**Files:** tests/test_stage4_export.py (+60/-1)
+**Commit:** not committed
 ### 2026-06-15 — Add canonical club alias normalization for HTML report diagnostics
 **Done:** Added explicit RVV club alias canonicalization for report diagnostics and applied it when collecting advisory host counts/sequence.
 **Rationale:** The missing-host check should compare canonical RVV club identities rather than raw host strings, while leaving exported schedule data unchanged.

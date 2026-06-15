@@ -1,6 +1,6 @@
 """Tests for tournament_scheduler.pipeline.stage4_export."""
 
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 import json
 import re
@@ -236,6 +236,65 @@ class TestRunStage4:
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
         assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)
+
+    def test_report_missing_hosts_uses_canonical_club_aliases(self, tmp_path):
+        """Short RVV club aliases should not trigger false missing-host warnings."""
+        rvv_hosts = [
+            "Ringerike",
+            "Tønsberg",
+            "Frisk Asker",
+            "Sandefjord",  # Alias for canonical Sandefjord Penguins.
+            "Jar",
+            "Holmen",
+            "Skien",
+            "Jutul",
+            "Kongsberg",
+        ]
+        start = date(2025, 10, 5)
+        tournaments = []
+        for index, host in enumerate(rvv_hosts):
+            opponent = "Skien" if host != "Skien" else "Kongsberg"
+            tournaments.append(
+                {
+                    "date": (start + timedelta(days=index * 7)).isoformat(),
+                    "arena": f"{host} arena",
+                    "age_group": "U10",
+                    "host_club": host,
+                    "teams": [
+                        {"club": host, "label": f"{host} U10A", "age_group": "U10"},
+                        {"club": opponent, "label": f"{opponent} U10A", "age_group": "U10"},
+                    ],
+                    "games": [
+                        {
+                            "home": f"{host} U10A",
+                            "away": f"{opponent} U10A",
+                            "parallel_slot": 0,
+                            "round_number": 1,
+                        },
+                    ],
+                }
+            )
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            {
+                "plan": {
+                    "start_date": "2025-10-01",
+                    "end_date": "2025-12-31",
+                    "diversity_score": 1.0,
+                    "pairwise_matchup_score": 1.0,
+                    "month_balance_score": 1.0,
+                    "arena_counts": {},
+                    "tournaments": tournaments,
+                }
+            },
+            state,
+            export_dir=str(tmp_path / "export"),
+        )
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+
+        assert "Kvalitetsgjennomgang" in report_html
+        assert "Alle 9 RVV-klubber har minst én vertsturnering." in report_html
+        assert "Følgende RVV-klubber har ingen vertsturnering" not in report_html
 
     def test_html_filters_fall_back_to_plan_age_groups_when_input_omits_them(self, tmp_path):
         input_path = tmp_path / "input.json"
