@@ -1,0 +1,151 @@
+"""Excel workbook input adapter for the RVV Miniputt pipeline.
+
+The pipeline keeps the JSON-shaped config dict as its canonical internal input.
+This module lets organizers edit a simple workbook and converts it to that same
+raw dict before Stage 1 validation runs.
+"""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+from pathlib import Path
+from typing import Any, Iterable
+
+import openpyxl
+from openpyxl.worksheet.worksheet import Worksheet
+
+
+class WorkbookInputError(ValueError):
+    """Raised when a workbook cannot be mapped to the pipeline input schema."""
+
+
+REQUIRED_SHEETS = ("Innstillinger", "Lag")
+
+
+def load_workbook_config(path: str | Path) -> dict[str, Any]:
+    """Load an ``.xlsx`` pipeline input workbook as a JSON-shaped dict.
+
+    Expected sheets:
+    - ``Innstillinger``: columns ``felt`` and ``verdi`` for scalar settings.
+    - ``Aldersgrupper``: columns ``age_group``, ``parallel_games``, optional
+      ``round_length_minutes``.
+    - ``Lag``: columns ``club``, ``label``, ``age_group``.
+    - ``Kilder``: columns ``name``, ``type``, ``url``.
+    """
+    workbook_path = Path(path)
+    try:
+        wb = openpyxl.load_workbook(workbook_path, data_only=True)
+    except Exception as exc:  # pragma: no cover - openpyxl gives varied exceptions
+        raise WorkbookInputError(f"Kunne ikke lese Excel-filen '{workbook_path}': {exc}") from exc
+
+    missing = [sheet for sheet in REQUIRED_SHEETS if sheet not in wb.sheetnames]
+    if missing:
+        raise WorkbookInputError(
+            f"Excel-filen mangler påkrevde ark: {', '.join(missing)}."
+        )
+
+    raw: dict[str, Any] = {}
+    raw.update(_read_settings(wb["Innstillinger"]))
+
+    if "Aldersgrupper" in wb.sheetnames:
+        age_groups, parallel_games, round_lengths = _read_age_groups(wb["Aldersgrupper"])
+        if age_groups:
+            raw["age_groups"] = age_groups
+        if parallel_games:
+            raw["parallel_games"] = parallel_games
+        if round_lengths:
+            raw["round_length_minutes"] = round_lengths
+
+    raw["teams"] = _read_table(
+        wb["Lag"],
+        required_columns=("club", "label", "age_group"),
+        optional_columns=("region", "skill_level"),
+    )
+
+    if "Kilder" in wb.sheetnames:
+        sources = _read_table(
+            wb["Kilder"],
+            required_columns=("name", "type", "url"),
+        )
+        if sources:
+            raw["sources"] = sources
+
+    return raw
+
+
+def _read_settings(ws: Worksheet) -> dict[str, Any]:
+    rows = _rows_as_dicts(ws)
+    result: dict[str, Any] = {}
+    for row in rows:
+        key = str(row.get("felt") or "").strip()
+        if not key:
+            continue
+        value = row.get("verdi")
+        if value is None or value == "":
+            continue
+        result[key] = _normalize_value(value)
+    return result
+
+
+def _read_age_groups(ws: Worksheet) -> tuple[list[str], dict[str, int], dict[str, int]]:
+    age_groups: list[str] = []
+    parallel_games: dict[str, int] = {}
+    round_lengths: dict[str, int] = {}
+    for row in _rows_as_dicts(ws):
+        age_group = str(row.get("age_group") or "").strip()
+        if not age_group:
+            continue
+        age_groups.append(age_group)
+        if row.get("parallel_games") not in (None, ""):
+            parallel_games[age_group] = int(row["parallel_games"])
+        if row.get("round_length_minutes") not in (None, ""):
+            round_lengths[age_group] = int(row["round_length_minutes"])
+    return age_groups, parallel_games, round_lengths
+
+
+def _read_table(
+    ws: Worksheet,
+    *,
+    required_columns: Iterable[str],
+    optional_columns: Iterable[str] = (),
+) -> list[dict[str, Any]]:
+    allowed = set(required_columns) | set(optional_columns)
+    records: list[dict[str, Any]] = []
+    for row in _rows_as_dicts(ws):
+        if not any(value not in (None, "") for value in row.values()):
+            continue
+        record: dict[str, Any] = {}
+        for column in allowed:
+            value = row.get(column)
+            if value not in (None, ""):
+                record[column] = _normalize_value(value)
+        records.append(record)
+    return records
+
+
+def _rows_as_dicts(ws: Worksheet) -> list[dict[str, Any]]:
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return []
+    headers = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
+    if not any(headers):
+        return []
+    result: list[dict[str, Any]] = []
+    for values in rows[1:]:
+        row = {
+            header: value
+            for header, value in zip(headers, values, strict=False)
+            if header
+        }
+        result.append(row)
+    return result
+
+
+def _normalize_value(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value

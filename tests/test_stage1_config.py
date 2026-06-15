@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import openpyxl
 
 from tournament_scheduler.pipeline.stage1_config import (
     Stage1Error,
@@ -24,6 +25,31 @@ def _make_valid_raw():
             {"club": "Skien",     "label": "Skien U10A",     "age_group": "U10"},
         ],
     }
+
+
+def _write_input_workbook(path: Path) -> None:
+    wb = openpyxl.Workbook()
+    settings = wb.active
+    settings.title = "Innstillinger"
+    settings.append(["felt", "verdi"])
+    settings.append(["start_date", "2025-09-01"])
+    settings.append(["end_date", "2025-12-01"])
+    settings.append(["target_tournament_count", 4])
+
+    age_groups = wb.create_sheet("Aldersgrupper")
+    age_groups.append(["age_group", "parallel_games", "round_length_minutes"])
+    age_groups.append(["U10", 3, 10])
+
+    teams = wb.create_sheet("Lag")
+    teams.append(["club", "label", "age_group"])
+    teams.append(["Kongsberg", "Kongsberg U10A", "U10"])
+    teams.append(["Skien", "Skien U10A", "U10"])
+
+    sources = wb.create_sheet("Kilder")
+    sources.append(["name", "type", "url"])
+    sources.append(["Kongsberg", "outlook", "https://example.test/calendar"])
+
+    wb.save(path)
 
 
 class TestValidateConfig:
@@ -111,6 +137,37 @@ class TestRunStage1:
         assert "teams" in result
         assert len(result["teams"]) == 2
         assert all(not key.startswith("derived_") for key in result)
+
+    def test_run_accepts_excel_workbook_input(self, tmp_path):
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file)
+
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(input_file, state)
+        effective = load_effective_config(state, input_path=input_file)
+
+        assert state.is_done(StageName.CONFIG)
+        assert len(result["teams"]) == 2
+        assert result["input_path"] == str(input_file.resolve())
+        assert effective["start_date"] == "2025-09-01"
+        assert effective["end_date"] == "2025-12-01"
+        assert effective["age_groups"] == ["U10"]
+        assert effective["parallel_games"] == {"U10": 3}
+        assert effective["sources"] == [
+            {"name": "Kongsberg", "type": "outlook", "url": "https://example.test/calendar"}
+        ]
+
+    def test_run_reports_missing_required_workbook_sheet(self, tmp_path):
+        input_file = tmp_path / "input.xlsx"
+        wb = openpyxl.Workbook()
+        wb.active.title = "Innstillinger"
+        wb.save(input_file)
+
+        state = PipelineState(tmp_path / "pipeline")
+        with pytest.raises(ValueError) as exc_info:
+            run(input_file, state)
+
+        assert "Lag" in str(exc_info.value)
 
     def test_run_does_not_inject_fallback_age_groups_when_input_omits_them(self, tmp_path):
         raw = _make_valid_raw()

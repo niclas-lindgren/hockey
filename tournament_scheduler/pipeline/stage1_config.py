@@ -1,7 +1,8 @@
 """Stage 1 — config parsing and Norwegian-language validation.
 
-Loads ``input.json`` (the canonical pipeline input format), validates it, and
-writes the parsed, validated configuration to the Stage 1 checkpoint via
+Loads ``input.json`` (the canonical pipeline input format) or an Excel workbook
+that maps into the same raw config shape, validates it, and writes the parsed,
+validated configuration to the Stage 1 checkpoint via
 :class:`~tournament_scheduler.pipeline.state.PipelineState`.
 
 Input JSON format (all fields required unless marked optional)::
@@ -176,7 +177,7 @@ if __name__ == "__main__":  # pragma: no cover
     import sys
 
     parser = argparse.ArgumentParser(description="Stage 1: config parsing and validation")
-    parser.add_argument("--input", default="input.json", help="Path to input.json")
+    parser.add_argument("--input", default="input.json", help="Path to input.json or an .xlsx workbook")
     parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
     cli_args = parser.parse_args()
 

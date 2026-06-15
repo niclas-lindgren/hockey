@@ -8,7 +8,7 @@
 - [x] Document the input-format recommendation
   - Files: docs/rvv-miniputt-input-formats.md, README.md
   - Approach: Compare JSON, CSV, and Excel against organizer editability, validation, nested team/source settings, round-trip safety, and pipeline compatibility; recommend Excel as an import/export supplement backed by the canonical JSON schema, not an immediate replacement.
-- [ ] Add an Excel workbook reader for pipeline input
+- [x] Add an Excel workbook reader for pipeline input
   - Files: tournament_scheduler/pipeline/input_workbook.py, tournament_scheduler/pipeline/stage1_helpers.py, tournament_scheduler/pipeline/stage1_config.py, tests/test_stage1_config.py
   - Approach: Implement an openpyxl-based `.xlsx` reader that maps simple sheets (`Innstillinger`, `Aldersgrupper`, `Lag`, `Kilder`) into the existing raw config dict before existing validation; keep `input.json` behavior unchanged and cover success/error cases with pytest.
 - [ ] Surface workbook input support in CLI/docs
@@ -28,6 +28,13 @@
 
 ## Log
 
+
+### 2026-06-15 — Add an Excel workbook reader for pipeline input
+**Done:** Added an openpyxl workbook adapter for `Innstillinger`, `Aldersgrupper`, `Lag`, and `Kilder` sheets, wired Stage 1 loading to accept `.xlsx`/`.xlsm`, and covered workbook success/missing-sheet behavior.
+**Rationale:** Mapping Excel into the existing raw config dict reuses current validation and keeps the JSON-shaped schema canonical for downstream stages.
+**Findings:** `load_effective_config()` also benefits from the adapter because it uses the same loader when the Stage 1 input path is a workbook.
+**Files:** tournament_scheduler/pipeline/input_workbook.py, tournament_scheduler/pipeline/stage1_helpers.py, tournament_scheduler/pipeline/stage1_config.py, tests/test_stage1_config.py, .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-06-15 — Document the input-format recommendation
 **Done:** Added a dedicated input-format comparison document and linked it from the README inputs section.
 **Rationale:** Excel is recommended as an organizer-friendly supplement while JSON remains the canonical schema for compatibility and reproducible pipeline runs.

@@ -8,6 +8,8 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from .input_workbook import load_workbook_config
+
 from ..models import Roster, Team
 from ..roster_loader import RosterConfigError, RosterLoader
 from ..season_config import (
@@ -154,11 +156,14 @@ def validate_config(raw: dict[str, Any]) -> list[str]:
 
 
 def _load_json(path: str | os.PathLike[str]) -> dict[str, Any]:
+    """Load JSON or Excel pipeline input as the canonical raw config dict."""
     p = Path(path)
     if not p.exists():
         raise FileNotFoundError(
             f"Finner ikke konfigurasjonsfilen '{p}'. Sjekk at stien er riktig."
         )
+    if p.suffix.lower() in {".xlsx", ".xlsm"}:
+        return load_workbook_config(p)
     with p.open(encoding="utf-8") as fh:
         return json.load(fh)
 
