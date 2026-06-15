@@ -75,6 +75,20 @@ def _make_plan_dict():
                 "score": 100,
                 "metrics": [
                     {"label": "Kamper per lag", "value": 0, "threshold": 2, "status": "pass", "score": 100, "unit": "", "detail": "Lik kampfordeling."},
+                    {
+                        "key": "hosting_deviation",
+                        "label": "Hjemmebanebelastning",
+                        "value": 0.0,
+                        "threshold": 1,
+                        "status": "pass",
+                        "score": 100,
+                        "unit": "",
+                        "detail": "Aldersgruppevis vertskapsfordeling: U10 Kongsberg 1 vs ~1.0.",
+                        "age_group_breakdown": [
+                            {"age_group": "U10", "club": "Kongsberg", "actual": 1, "expected": 1.0},
+                            {"age_group": "U10", "club": "Skien", "actual": 0, "expected": 0.0},
+                        ],
+                    },
                     {"label": "Månedsbalanse", "value": 1.0, "threshold": 0.75, "status": "pass", "score": 100, "unit": "", "detail": "Jevn sesongbelastning."},
                 ],
             },
@@ -242,6 +256,8 @@ class TestRunStage4:
         assert 'class="count-bar"' in html
         assert 'Rettferdighetskontroll' in report_html
         assert 'Rettferdighetsjusteringer' in report_html
+        assert 'Per aldersgruppe: faktisk vs forventet vertskap' in report_html
+        assert 'Aldersgruppevis vertskapsfordeling: U10 Kongsberg 1 vs ~1.0.' in report_html
         assert 'id="reportOverview"' in report_html
         assert 'Kan planen brukes?' in report_html
         assert 'Hva må sjekkes eller endres?' in report_html

@@ -290,7 +290,7 @@ class SeasonPlanner:
         self._month_counts = {}
 
         scheduled.sort(key=lambda item: (item[0], item[1]))
-        host_assignments = self._assign_hosts([tournament_date for tournament_date, _ in scheduled])
+        host_assignments = self._assign_hosts(scheduled)
         collisions: List[Tuple[date, str, str]] = []
         self._fallback_host_substitutions = []
 
@@ -584,26 +584,9 @@ class SeasonPlanner:
         team_travel = compute_team_travel_distances(plan)
         max_team_travel = max(team_travel.values()) if team_travel else 0
 
-        club_team_counts: Dict[str, int] = {}
-        for team in self.roster.teams:
-            club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
-        total_teams = sum(club_team_counts.values()) or 1
-        num_tournaments = len(plan.tournaments) or 1
-        hosting_deviation = 0.0
-        hosting_detail = ""
-        actual_hosting: Dict[str, int] = {}
-        for tournament in plan.tournaments:
-            host = tournament.host_club
-            if host:
-                actual_hosting[host] = actual_hosting.get(host, 0) + 1
-        for club in self.roster.clubs():
-            team_count = club_team_counts.get(club, 0)
-            expected = team_count / total_teams * num_tournaments
-            actual = actual_hosting.get(club, 0)
-            deviation = abs(actual - expected)
-            if deviation >= hosting_deviation:
-                hosting_deviation = deviation
-                hosting_detail = f"{club}: {actual} avviker fra forventet ~{expected:.1f}"
+        hosting_breakdown = self._hosting_fairness_breakdown(plan)
+        hosting_deviation = float(hosting_breakdown.get("max_deviation", 0.0))
+        hosting_detail = str(hosting_breakdown.get("detail", ""))
 
         same_weekend_load = 0
         weekend_loads: Dict[tuple[int, int], Dict[str, int]] = {}
@@ -649,8 +632,10 @@ class SeasonPlanner:
             thresholds.get("max_hosting_deviation", self.max_hosting_deviation),
             direction="max",
             severity="fail",
-            detail=hosting_detail or "Proporsjonal vertskapsfordeling ligger innenfor terskelen.",
+            detail=hosting_detail or "Aldersgruppevis vertskapsfordeling ligger innenfor terskelen.",
         )
+        if metrics and metrics[-1].get("key") == "hosting_deviation":
+            metrics[-1]["age_group_breakdown"] = hosting_breakdown.get("age_group_breakdown", [])
         add_metric(
             "travel_distance",
             "Reisebelastning",
@@ -868,41 +853,80 @@ class SeasonPlanner:
                         (club, t.age_group, t.date.isoformat(), count)
                     )
 
-    def _scan_hosting_warnings(self, plan: SeasonPlan) -> None:
-        """Scan completed tournament hosting for proportional-imbalance violations.
+    def _hosting_fairness_breakdown(self, plan: SeasonPlan) -> Dict[str, object]:
+        """Return age-group-aware expected vs actual hosting diagnostics."""
+        rows: List[Dict[str, object]] = []
+        max_deviation = 0.0
+        max_detail = ""
+        tournaments_by_age: Dict[str, List[Tournament]] = {}
+        for tournament in plan.tournaments:
+            tournaments_by_age.setdefault(tournament.age_group, []).append(tournament)
 
-        Compares each club's actual hosting count to its proportional
-        target (derived from team-count share of the roster) and appends
-        a human-readable warning for every club whose deviation exceeds
-        ``max_hosting_deviation``.
-        """
-        clubs = self.roster.clubs()
-        if not clubs or not plan.tournaments:
+        for age_group in sorted(tournaments_by_age):
+            tournaments = tournaments_by_age[age_group]
+            age_teams = self.roster.by_age_group(age_group)
+            club_team_counts: Dict[str, int] = {}
+            for team in age_teams:
+                club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
+            total_age_teams = sum(club_team_counts.values()) or 1
+            actual_hosting: Dict[str, int] = {}
+            for tournament in tournaments:
+                host = tournament.host_club
+                if host:
+                    actual_hosting[host] = actual_hosting.get(host, 0) + 1
+
+            for club in sorted(set(club_team_counts) | set(actual_hosting)):
+                team_count = club_team_counts.get(club, 0)
+                expected = team_count / total_age_teams * len(tournaments) if team_count else 0.0
+                actual = actual_hosting.get(club, 0)
+                deviation = abs(actual - expected)
+                row = {
+                    "age_group": age_group,
+                    "club": club,
+                    "teams": team_count,
+                    "actual": actual,
+                    "expected": round(expected, 2),
+                    "deviation": round(deviation, 2),
+                    "tournaments": len(tournaments),
+                }
+                rows.append(row)
+                if deviation >= max_deviation:
+                    max_deviation = deviation
+                    max_detail = (
+                        f"{age_group}: {club} har {actual} hjemmeturnering(er), "
+                        f"forventet ~{expected:.1f} basert på {team_count} lag i aldersgruppen."
+                    )
+
+        if rows:
+            examples = "; ".join(
+                f"{row['age_group']} {row['club']}: {row['actual']} vs ~{float(row['expected']):.1f}"
+                for row in sorted(rows, key=lambda row: float(row["deviation"]), reverse=True)[:4]
+            )
+            detail = f"Aldersgruppevis vertskapsfordeling: {examples}. Størst avvik: {max_detail}"
+        else:
+            detail = "Ingen vertskapsdata å vurdere."
+        return {
+            "max_deviation": max_deviation,
+            "detail": detail,
+            "age_group_breakdown": rows,
+        }
+
+    def _scan_hosting_warnings(self, plan: SeasonPlan) -> None:
+        """Scan hosting for age-group-aware proportional-imbalance violations."""
+        if not plan.tournaments:
             return
 
-        # Count teams per club from the roster.
-        club_team_counts: Dict[str, int] = {}
-        for team in self.roster.teams:
-            club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
-        total_teams = sum(club_team_counts.values()) or 1
-
-        num_tournaments = len(plan.tournaments)
-        actual_hosting: Dict[str, int] = {}
-        for tournament in plan.tournaments:
-            host = tournament.host_club
-            if host:
-                actual_hosting[host] = actual_hosting.get(host, 0) + 1
-
-        for club in clubs:
-            team_count = club_team_counts.get(club, 0)
-            expected = team_count / total_teams * num_tournaments
-            actual = actual_hosting.get(club, 0)
-            deviation = abs(actual - expected)
+        breakdown = self._hosting_fairness_breakdown(plan)
+        for row in breakdown.get("age_group_breakdown", []):
+            if not isinstance(row, dict):
+                continue
+            deviation = float(row.get("deviation", 0.0) or 0.0)
             if deviation > self.max_hosting_deviation:
                 self._hosting_warnings.append(
-                    f"{club} har {actual} hjemmeturnering(er) av {num_tournaments} "
-                    f"(forventet ~{expected:.1f} basert på {team_count} lag, "
-                    f"avvik {deviation:.1f} > {self.max_hosting_deviation})"
+                    f"{row.get('club')} har {row.get('actual')} hjemmeturnering(er) i {row.get('age_group')} "
+                    f"(forventet ~{float(row.get('expected', 0.0)):.1f} basert på "
+                    f"{row.get('teams')} lag i aldersgruppen, avvik {deviation:.1f} > "
+                    f"{self.max_hosting_deviation})"
                 )
 
     # ------------------------------------------------------------------
@@ -1255,83 +1279,96 @@ class SeasonPlanner:
     # Step 2: assign host arenas/clubs
     # ------------------------------------------------------------------
 
-    def _assign_hosts(self, chosen_dates: Sequence[date]) -> List[str]:
-        """Assign a host club to each chosen date.
+    def _assign_hosts(self, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
+        """Assign a host club to each scheduled ``(date, age_group)``.
 
-        Every club hosts at least one tournament before any club hosts a
-        second time.  After that initial round, hosting is assigned in
-        proportion to each club's team count -- clubs with more teams
-        host proportionally more tournaments.  This prevents a club like
-        Jar (7 teams) from hosting zero home tournaments while a
-        single-team club hosts one.
+        Hosting targets are computed independently per age group from the
+        clubs that actually field teams in that age group. A club with many
+        teams elsewhere in the roster therefore does not receive extra host
+        responsibility for an unrelated age group.
         """
-        clubs = self.roster.clubs()
-        if not clubs:
-            return ["" for _ in chosen_dates]
+        if not scheduled:
+            return []
 
-        # Count teams per club from the roster.
+        age_totals: Dict[str, int] = {}
+        for _, age_group in scheduled:
+            age_totals[age_group] = age_totals.get(age_group, 0) + 1
+
+        targets_by_age = {
+            age_group: self._hosting_targets_for_age_group(age_group, count)
+            for age_group, count in age_totals.items()
+        }
+        actual_by_age: Dict[str, Dict[str, int]] = {
+            age_group: {club: 0 for club in targets}
+            for age_group, targets in targets_by_age.items()
+        }
+        last_hosted_by_age: Dict[str, Dict[str, int]] = {
+            age_group: {club: -1 for club in targets}
+            for age_group, targets in targets_by_age.items()
+        }
+
+        assignments: List[str] = []
+        all_clubs = self.roster.clubs()
+        for i, (_, age_group) in enumerate(scheduled):
+            targets = targets_by_age.get(age_group, {})
+            if not targets:
+                assignments.append(all_clubs[i % len(all_clubs)] if all_clubs else "")
+                continue
+
+            actual_counts = actual_by_age[age_group]
+            last_hosted_index = last_hosted_by_age[age_group]
+            deficit_clubs = [
+                club for club in targets
+                if actual_counts.get(club, 0) < targets.get(club, 0)
+            ]
+            if deficit_clubs:
+                host = max(
+                    deficit_clubs,
+                    key=lambda club: (
+                        targets.get(club, 0) - actual_counts.get(club, 0),
+                        -last_hosted_index.get(club, -1),
+                        targets.get(club, 0),
+                    ),
+                )
+            else:
+                host = min(targets, key=lambda club: last_hosted_index.get(club, -1))
+
+            assignments.append(host)
+            actual_counts[host] = actual_counts.get(host, 0) + 1
+            last_hosted_index[host] = i
+
+        return assignments
+
+    def _hosting_targets_for_age_group(self, age_group: str, tournament_count: int) -> Dict[str, int]:
+        """Return integer host targets for one age group."""
+        teams = self.roster.by_age_group(age_group)
         club_team_counts: Dict[str, int] = {}
-        for team in self.roster.teams:
+        for team in teams:
             club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
-        total_teams = sum(club_team_counts.values()) or 1
+        return self._proportional_integer_targets(club_team_counts, tournament_count)
 
-        num_dates = len(chosen_dates)
-
-        # Compute proportional targets using largest-remainder (Hare quota)
-        # so the rounded integers sum exactly to num_dates.
-        raw_targets: Dict[str, float] = {}
-        for club in clubs:
-            raw_targets[club] = club_team_counts.get(club, 0) / total_teams * num_dates
-
+    @staticmethod
+    def _proportional_integer_targets(weights: Dict[str, int], total: int) -> Dict[str, int]:
+        """Round weighted quotas to integers that sum to ``total``."""
+        if total <= 0 or not weights:
+            return {club: 0 for club in weights}
+        weight_sum = sum(max(0, weight) for weight in weights.values()) or 1
+        raw_targets = {
+            club: max(0, weight) / weight_sum * total
+            for club, weight in weights.items()
+        }
         targets: Dict[str, int] = {}
         remainders: List[Tuple[float, str]] = []
         assigned = 0
-        for club in clubs:
-            t = raw_targets[club]
-            rounded = int(t)
+        for club, raw in raw_targets.items():
+            rounded = int(raw)
             targets[club] = rounded
             assigned += rounded
-            remainders.append((t - rounded, club))
-
-        remainders.sort(key=lambda x: -x[0])
-        for _ in range(num_dates - assigned):
-            if remainders:
-                club = remainders.pop(0)[1]
-                targets[club] += 1
-
-        actual_counts: Dict[str, int] = {club: 0 for club in clubs}
-        last_hosted_index: Dict[str, int] = {club: -1 for club in clubs}
-        assignments: List[str] = []
-
-        for i, _ in enumerate(chosen_dates):
-            ng_hosted = [club for club in clubs if last_hosted_index[club] == -1]
-            if ng_hosted:
-                # Phase 1: every club hosts at least once before any
-                # repeats.  Among never-hosted clubs, prefer those with
-                # the highest proportional target (more teams -> host
-                # earlier).
-                host = max(ng_hosted, key=lambda c: targets.get(c, 0))
-            else:
-                # Phase 2: pick the club furthest below its proportional
-                # target.  If all clubs are at or above target, fall back
-                # to least-recently-hosted.
-                deficit_clubs = [
-                    c for c in clubs
-                    if actual_counts[c] < targets.get(c, 0)
-                ]
-                if deficit_clubs:
-                    host = max(
-                        deficit_clubs,
-                        key=lambda c: targets.get(c, 0) - actual_counts[c],
-                    )
-                else:
-                    host = min(clubs, key=lambda c: last_hosted_index[c])
-
-            assignments.append(host)
-            last_hosted_index[host] = i
-            actual_counts[host] = actual_counts.get(host, 0) + 1
-
-        return assignments
+            remainders.append((raw - rounded, club))
+        remainders.sort(key=lambda item: (-item[0], item[1]))
+        for _, club in remainders[: max(0, total - assigned)]:
+            targets[club] += 1
+        return targets
 
     # ------------------------------------------------------------------
     # Step 3: select participating teams

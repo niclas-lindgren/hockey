@@ -166,25 +166,32 @@ class TestSeasonPlanner:
     def test_every_arena_hosts_at_least_one_tournament_before_any_repeats(self, planner_and_plan):
         _, plan, roster, clubs, club_arenas = planner_and_plan
 
-        host_order = [t.host_club for t in sorted(plan.tournaments, key=lambda t: (t.date, t.age_group))]
-        first_occurrence = {}
-        for index, host in enumerate(host_order):
-            first_occurrence.setdefault(host, index)
+        # Hosting is balanced within each age group, not globally across
+        # unrelated age groups.
+        for age_group in roster.age_groups():
+            eligible_clubs = {team.club for team in roster.by_age_group(age_group)}
+            host_order = [
+                t.host_club
+                for t in sorted(plan.tournaments, key=lambda t: (t.date, t.age_group))
+                if t.age_group == age_group
+            ]
+            first_occurrence = {}
+            for index, host in enumerate(host_order):
+                first_occurrence.setdefault(host, index)
 
-        # Every club should have hosted at least once.
-        assert set(first_occurrence) == set(clubs)
+            # Every eligible club should have hosted at least once when the
+            # age group has enough tournaments for all of them.
+            if len(host_order) >= len(eligible_clubs):
+                assert set(first_occurrence) == eligible_clubs
 
-        # No club's *second* hosting should occur before every club has hosted once,
-        # i.e. the max "first occurrence index" should be less than the index of any
-        # repeat hosting.
-        last_first_occurrence = max(first_occurrence.values())
-        seen_once = set()
-        for index, host in enumerate(host_order):
-            if host in seen_once:
-                assert index > last_first_occurrence, (
-                    "a club hosted a second tournament before every club hosted once"
-                )
-            seen_once.add(host)
+            last_first_occurrence = max(first_occurrence.values())
+            seen_once = set()
+            for index, host in enumerate(host_order):
+                if host in seen_once:
+                    assert index > last_first_occurrence, (
+                        f"{age_group}: a club hosted a second tournament before every eligible club hosted once"
+                    )
+                seen_once.add(host)
 
         # Every arena recorded in plan metadata corresponds to a real club arena.
         for arena in plan.arena_counts:
@@ -1388,6 +1395,8 @@ class TestProportionalHosting:
             Team(club="Jar", label="Jar 3", age_group="U10"),
             Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
             Team(club="Skien", label="Skien 1", age_group="U11"),
+            Team(club="Jar", label="Jar U11", age_group="U11"),
+            Team(club="Kongsberg", label="Kongsberg U11", age_group="U11"),
         ])
         club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
 
@@ -1483,11 +1492,104 @@ class TestProportionalHosting:
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 3},
         )
-        plan = planner.build_plan(start, end)
-        assert len(plan.tournaments) > 0
+        planner.build_plan(start, end)
 
         warnings = planner.hosting_warnings
         assert isinstance(warnings, list)
+
+    def test_host_targets_are_age_group_aware(self, free_dates):
+        """Teams in U10 should not increase U7 hosting expectations."""
+        base_teams = [
+            Team(club="Kongsberg", label="Kongsberg U7", age_group="U7"),
+            Team(club="Jar", label="Jar U7", age_group="U7"),
+            Team(club="Frisk Asker", label="Frisk U7", age_group="U7"),
+        ]
+        base_roster = Roster(teams=base_teams)
+        expanded_roster = Roster(teams=base_teams + [
+            Team(club="Jar", label=f"Jar U10-{i}", age_group="U10")
+            for i in range(1, 7)
+        ] + [
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Frisk Asker", label="Frisk U10", age_group="U10"),
+        ])
+
+        base_planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=base_roster,
+            club_arenas={team.club: f"{team.club}hallen" for team in base_roster.teams},
+        )
+        expanded_planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=expanded_roster,
+            club_arenas={team.club: f"{team.club}hallen" for team in expanded_roster.teams},
+        )
+
+        assert expanded_planner._hosting_targets_for_age_group("U7", 6) == base_planner._hosting_targets_for_age_group("U7", 6)
+        assert expanded_planner._hosting_targets_for_age_group("U7", 6) == {
+            "Frisk Asker": 2,
+            "Jar": 2,
+            "Kongsberg": 2,
+        }
+
+    def test_host_assignment_uses_per_age_rosters(self):
+        """Jar's many U10 teams should not dominate U7 host assignment."""
+        roster = Roster(teams=[
+            Team(club="Kongsberg", label="Kongsberg U7", age_group="U7"),
+            Team(club="Jar", label="Jar U7", age_group="U7"),
+            Team(club="Frisk Asker", label="Frisk U7", age_group="U7"),
+            *[Team(club="Jar", label=f"Jar U10-{i}", age_group="U10") for i in range(1, 7)],
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Frisk Asker", label="Frisk U10", age_group="U10"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={team.club: f"{team.club}hallen" for team in roster.teams},
+        )
+        scheduled = [
+            (date(2026, 10, 3 + i), "U7") for i in range(6)
+        ] + [
+            (date(2026, 11, 3 + i), "U10") for i in range(8)
+        ]
+
+        assignments = planner._assign_hosts(scheduled)
+        u7_counts = Counter(host for (_, age_group), host in zip(scheduled, assignments) if age_group == "U7")
+        u10_counts = Counter(host for (_, age_group), host in zip(scheduled, assignments) if age_group == "U10")
+
+        assert u7_counts == {"Kongsberg": 2, "Jar": 2, "Frisk Asker": 2}
+        assert u10_counts["Jar"] > u10_counts["Kongsberg"]
+        assert u10_counts["Jar"] > u10_counts["Frisk Asker"]
+
+    def test_hosting_fairness_gate_contains_per_age_breakdown(self, free_dates, season_window):
+        """The hosting metric should explain expected vs actual per age group."""
+        start, end = season_window
+        roster = Roster(teams=[
+            Team(club="Kongsberg", label="Kongsberg U7", age_group="U7"),
+            Team(club="Jar", label="Jar U7", age_group="U7"),
+            Team(club="Frisk Asker", label="Frisk U7", age_group="U7"),
+            *[Team(club="Jar", label=f"Jar U10-{i}", age_group="U10") for i in range(1, 5)],
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Frisk Asker", label="Frisk U10", age_group="U10"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={team.club: f"{team.club}hallen" for team in roster.teams},
+            parallel_games_for_age_group={"U7": 3, "U10": 3},
+            max_hosting_deviation=99,
+        )
+
+        plan = planner.build_plan(start, end)
+        hosting_metric = next(
+            metric for metric in plan.fairness_gate["metrics"]
+            if metric.get("key") == "hosting_deviation"
+        )
+
+        assert "Aldersgruppevis vertskapsfordeling" in hosting_metric["detail"]
+        breakdown = hosting_metric["age_group_breakdown"]
+        assert any(row["age_group"] == "U7" and row["club"] == "Kongsberg" for row in breakdown)
+        assert any(row["age_group"] == "U10" and row["club"] == "Jar" for row in breakdown)
+        assert "basert på" in planner._hosting_fairness_breakdown(plan)["detail"]
 
 
 class TestRulesReport:

@@ -811,6 +811,25 @@ class HtmlExporter:
                 value = f"{value} {unit}"
             if unit and threshold != "":
                 threshold = f"{threshold} {unit}"
+            breakdown_rows = metric.get("age_group_breakdown", [])
+            breakdown_html = ""
+            if isinstance(breakdown_rows, list) and breakdown_rows:
+                row_html = "".join(
+                    "<tr>"
+                    f"<td>{_html.escape(str(row.get('age_group', '')))}</td>"
+                    f"<td>{_html.escape(str(row.get('club', '')))}</td>"
+                    f"<td class=\"numeric-cell\">{_html.escape(str(row.get('actual', '')))}</td>"
+                    f"<td class=\"numeric-cell\">{float(row.get('expected', 0.0)):.1f}</td>"
+                    "</tr>"
+                    for row in breakdown_rows[:12]
+                    if isinstance(row, dict)
+                )
+                breakdown_html = (
+                    '<div class="fairness-breakdown-label">Per aldersgruppe: faktisk vs forventet vertskap</div>'
+                    '<table class="fairness-breakdown-table"><thead><tr>'
+                    '<th>Aldersgruppe</th><th>Klubb</th><th>Faktisk</th><th>Forventet</th>'
+                    f'</tr></thead><tbody>{row_html}</tbody></table>'
+                )
             metric_cards.append(
                 f"<div class=\"fairness-metric fairness-metric--{metric_status}\">"
                 "<div class=\"fairness-metric-head\">"
@@ -820,6 +839,7 @@ class HtmlExporter:
                 f"<div class=\"fairness-metric-value\"><strong>{_html.escape(str(value))}</strong> · terskel {_html.escape(str(threshold))}</div>"
                 f"<div class=\"fairness-metric-score\">Score {int(metric.get('score', 0) or 0)}%</div>"
                 f"<div class=\"fairness-metric-detail\">{_html.escape(str(metric.get('detail', '')))}</div>"
+                f"{breakdown_html}"
                 "</div>"
             )
 
