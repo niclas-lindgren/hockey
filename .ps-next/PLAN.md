@@ -40,7 +40,7 @@
 **Rationale:** This isolates the remaining heuristic-heavy planning logic into focused modules while preserving the existing public API and private helper names.
 **Findings:** `pytest tests/test_season_planner.py -q` still passes after the delegation swap, and the new helper modules import cleanly without circular references.
 **Files:** tournament_scheduler/game_generation.py (+1 new), tournament_scheduler/fairness_scoring.py (+1 new), tournament_scheduler/warnings.py (+1 new), tournament_scheduler/season_planner.py (delegation bindings)
-**Commit:** not committed
+**Commit:** 9f384ef
 ### 2026-06-15 — Extract participant-selection and host-assignment helpers into dedicated modules
 **Done:** Moved the date/host/participant selection logic into `tournament_scheduler/participant_selection.py` and `tournament_scheduler/host_assignment.py`, then made `SeasonPlanner` delegate to those helper modules via thin compatibility bindings.
 **Rationale:** This separates the orchestration facade from the heuristic-heavy selection logic without changing the public `SeasonPlanner` API.
