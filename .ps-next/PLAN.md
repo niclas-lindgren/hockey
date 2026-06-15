@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/models.py, tournament_scheduler/season_planner.py
   - Approach: Add `skipped_age_groups: List[Dict]` dataclass field to `SeasonPlan` (each entry: age_group, team_count, reason). In `build_plan()`, when `len(participants) < MIN_TEAMS_PER_TOURNAMENT`, append a skip entry instead of silently continuing. Preserve the skip in checkpoint round-trips via stage3_helpers.py and stage4_helpers.py.
 
-- [ ] Exclude skipped age groups from game-count fairness metrics and warnings
+- [x] Exclude skipped age groups from game-count fairness metrics and warnings
   - Files: tournament_scheduler/season_planner.py, tournament_scheduler/fairness_model.py
   - Approach: In `_scan_per_team_share_warnings()`, skip teams whose age_group is in the skipped set. In `adjustment_rows_for_plan()` (fairness_model.py), filter out skipped age groups. In `_build_fairness_gate()` and `_scan_game_count_warnings()`, exclude skipped teams from spread/fairness calculations. Also exclude them when building `plan.team_game_counts` and `plan.game_count_spread` in `build_plan()`.
 
@@ -43,6 +43,13 @@
 
 ## Log
 
+
+### 2026-06-15 — Exclude skipped age groups from game-count fairness metrics and warnings
+**Done:** Excluded skipped age groups from fairness gate (age_group_spreads computation), per-team share warnings (skipped teams excluded via parameter), and team_game_counts/game_count_spread (already done in Task 1). Fairness gate in `_build_fairness_gate` now skips age groups in `plan.skipped_age_groups`. `_scan_per_team_share_warnings` now accepts an optional skipped_age_groups parameter and excludes those teams.
+**Rationale:** The skipped set is derived from `plan.skipped_age_groups` (populated in Task 1) and passed to methods that need it. The fairness gate skip is the most important change — without it, age_group_spreads would still include 0-count skipped groups (normalized to 0, so harmless, but semantically wrong).
+**Findings:** `adjustment_rows_for_plan()` in fairness_model.py already excludes skipped age groups implicitly since they have no tournaments (teams_by_age_group is built from tournament teams only). `_scan_game_count_warnings` uses `self._team_game_counts` which also has no entries for skipped teams (no games generated), so it's already safe.
+**Files:** tournament_scheduler/season_planner.py (+18/-3)
+**Commit:** not committed
 ### 2026-06-15 — Add `skipped_age_groups` field to `SeasonPlan` model and populate it in `SeasonPlanner.build_plan()` when teams < MIN_TEAMS_PER_TOURNAMENT
 **Done:** Added `skipped_age_groups: List[Dict]` field to `SeasonPlan` model; populated it in `build_plan()` when len(participants) < MIN_TEAMS_PER_TOURNAMENT; excluded skipped age group teams from `team_game_counts`/`game_count_spread`; added checkpoint serialization/deserialization in stage3_helpers.py and stage4_helpers.py.
 **Rationale:** Followed the planned approach: added the dataclass field, recorded skip entries instead of silent continue, excluded skipped teams from fairness-relevant counts, and preserved through checkpoint round-trips.

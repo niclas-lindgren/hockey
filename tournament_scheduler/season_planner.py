@@ -401,7 +401,7 @@ class SeasonPlanner:
         # Scan for game-count spread violations and early-finish issues.
         self._scan_game_count_warnings(plan.start_date, plan.end_date)
         # Scan for per-club/per-age-group game-count share skew.
-        self._scan_per_team_share_warnings()
+        self._scan_per_team_share_warnings(skipped_age_groups=plan.skipped_age_groups)
         # Scan for month-load imbalance warnings.
         self._scan_month_load_warnings(expected_per_month, plan.start_date)
         # Scan for feasibility warnings: age groups whose participation
@@ -642,10 +642,15 @@ class SeasonPlanner:
         weekend_detail = f"maks {same_weekend_load} turneringer fra samme klubb i samme uke"
 
         age_group_spreads: List[float] = []
+        skipped_age_groups_set = {
+            entry["age_group"] for entry in plan.skipped_age_groups
+        }
         teams_by_age_group: Dict[str, List[Team]] = {}
         for team in self.roster.teams:
             teams_by_age_group.setdefault(team.age_group, []).append(team)
         for age_group, teams in teams_by_age_group.items():
+            if age_group in skipped_age_groups_set:
+                continue
             counts = [
                 self._team_game_counts.get(self._team_key(team), 0)
                 for team in teams
@@ -806,7 +811,7 @@ class SeasonPlanner:
                         (key, self._team_game_counts.get(key, 0), gap, "early_finish")
                     )
 
-    def _scan_per_team_share_warnings(self) -> None:
+    def _scan_per_team_share_warnings(self, skipped_age_groups: Optional[List[Dict[str, object]]] = None) -> None:
         """Scan computed game counts for per-club/per-age-group skew.
 
         For each age group, computes a soft target game count for every
@@ -820,11 +825,22 @@ class SeasonPlanner:
         high/low extremes only) can miss — e.g. a club fielding many sibling
         teams in one age group being systematically under-invited relative
         to other teams in the same age group.
+
+        Args:
+            skipped_age_groups: Optional list of skipped-age-group entries
+                (each with an ``age_group`` key). Teams in these age groups
+                are excluded from share warnings.
         """
         self._per_team_share_warnings = []
 
+        skipped_set: Set[str] = set()
+        if skipped_age_groups:
+            skipped_set = {entry["age_group"] for entry in skipped_age_groups}
+
         teams_by_age_group: Dict[str, List[Team]] = {}
         for team in self.roster.teams:
+            if team.age_group in skipped_set:
+                continue
             teams_by_age_group.setdefault(team.age_group, []).append(team)
 
         for age_group, teams in teams_by_age_group.items():
