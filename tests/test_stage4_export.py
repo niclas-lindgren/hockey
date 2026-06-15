@@ -142,16 +142,21 @@ class TestRunStage4:
         )
         files = result.get("output_files", {})
         workbook = openpyxl.load_workbook(files["excel"])
-        assert "Rettferdighet" in workbook.sheetnames
-        assert "Fairnessjusteringer" in workbook.sheetnames
-        sheet = workbook["Rettferdighet"]
+        assert "Rettferdighetskontroll" in workbook.sheetnames
+        assert "Rettferdighetsjusteringer" in workbook.sheetnames
+        old_gate_label = "Rettferdighets" + "gate"
+        old_adjustment_sheet = "Fairness" + "justeringer"
+        assert old_gate_label not in workbook.sheetnames
+        assert old_adjustment_sheet not in workbook.sheetnames
+        sheet = workbook["Rettferdighetskontroll"]
         rows = list(sheet.iter_rows(values_only=True))
         assert rows[0][0] == "Overordnet status"
         assert rows[2][0] == "Metrikk"
         assert rows[3][0] == "Kamper per lag"
-        adj = workbook["Fairnessjusteringer"]
+        adj = workbook["Rettferdighetsjusteringer"]
         adj_rows = list(adj.iter_rows(values_only=True))
-        assert adj_rows[0][0] == "Fairnessjusteringer per lag"
+        assert adj_rows[0][0] == "Rettferdighetsjusteringer per lag"
+        assert "fairness" not in str(adj_rows[1][0]).lower()
         assert adj_rows[3][0] == "Lag"
 
     def test_generates_html_with_configured_age_group_filters(self, tmp_path):
@@ -199,14 +204,20 @@ class TestRunStage4:
         assert report_html.index('class="export-links"') < report_html.index('class="header-main"')
         assert html.index('class="export-links"') < html.index('class="stat-badge"')
         assert report_html.index('class="export-links"') < report_html.index('class="stat-badge"')
-        assert 'Rettferdighetsgate' not in html
-        assert 'Fairness-justeringer' not in html
+        old_gate_label = 'Rettferdighets' + 'gate'
+        old_adjustment_label = 'Fairness' + '-justeringer'
+        assert old_gate_label not in html
+        assert old_adjustment_label not in html
+        assert 'Rettferdighetskontroll' not in html
+        assert 'Rettferdighetsjusteringer' not in html
         assert 'Kvalitetsgjennomgang' not in html
         assert 'id="timeline"' in html
         assert 'class="filters"' in html
         assert 'class="count-bar"' in html
-        assert 'Rettferdighetsgate' in report_html
-        assert 'Fairness-justeringer' in report_html
+        assert 'Rettferdighetskontroll' in report_html
+        assert 'Rettferdighetsjusteringer' in report_html
+        assert old_gate_label not in report_html
+        assert old_adjustment_label not in report_html
         assert 'Kvalitetsgjennomgang' in report_html
         assert 'Manglende klubber' in report_html
         assert 'id="timeline"' not in report_html

@@ -618,7 +618,7 @@ class HtmlExporter:
             '<div class="fairness-gate-panel">'
             '<div class="fairness-gate-head">'
             '<div>'
-            '<div class="metrics-group-label">Rettferdighetsgate</div>'
+            '<div class="metrics-group-label">Rettferdighetskontroll</div>'
             f'<div class="metrics-group-value"><strong>{score}%</strong> · {status_label}</div>'
             '</div>'
             f'<span class="fairness-gate-status fairness-gate-status--{status}">{status_label}</span>'
@@ -645,7 +645,7 @@ class HtmlExporter:
 
         summary = (
             '<div class="fairness-adjustment-summary">'
-            f'<div class="metrics-group"><span class="metrics-group-label">Lag med positiv justering</span><span class="metrics-group-value"><strong>{under_count}</strong></span></div>'
+            f'<div class="metrics-group"><span class="metrics-group-label">Lag med positiv rettferdighetsjustering</span><span class="metrics-group-value"><strong>{under_count}</strong></span></div>'
             f'<div class="metrics-group"><span class="metrics-group-label">Lag over mål</span><span class="metrics-group-value"><strong>{over_count}</strong></span></div>'
             f'<div class="metrics-group"><span class="metrics-group-label">Snitt absolutt avvik</span><span class="metrics-group-value"><strong>{fmt(avg_abs)}</strong></span></div>'
             f'<div class="metrics-group"><span class="metrics-group-label">Største avvik</span><span class="metrics-group-value"><strong>{_html.escape(str(max_row["label"]))}</strong> {fmt(abs(float(max_row["adjustment"])))}</span></div>'
@@ -674,8 +674,8 @@ class HtmlExporter:
             '<section class="fairness-adjustment-panel">'
             '<div class="fairness-adjustment-head">'
             '<div>'
-            '<div class="metrics-group-label">Fairness-justeringer</div>'
-            '<div class="metrics-group-value">Forskjell mellom faktisk kampantall og fairness-mål</div>'
+            '<div class="metrics-group-label">Rettferdighetsjusteringer</div>'
+            '<div class="metrics-group-value">Forskjell mellom faktisk kampantall og rettferdighetsmål</div>'
             '</div>'
             f'<span class="fairness-gate-status fairness-gate-status--warn">{len(rows)} lag</span>'
             '</div>'

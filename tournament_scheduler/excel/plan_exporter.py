@@ -91,11 +91,11 @@ class SeasonPlanExporter:
             self._write_rules_sheet(rules_sheet, rules_report)
 
         if plan.fairness_gate:
-            fairness_sheet = self.workbook.create_sheet(title="Rettferdighet")
+            fairness_sheet = self.workbook.create_sheet(title="Rettferdighetskontroll")
             used_titles.add(fairness_sheet.title)
             self._write_fairness_sheet(fairness_sheet, plan.fairness_gate)
 
-        fairness_adjustments_sheet = self.workbook.create_sheet(title="Fairnessjusteringer")
+        fairness_adjustments_sheet = self.workbook.create_sheet(title="Rettferdighetsjusteringer")
         used_titles.add(fairness_adjustments_sheet.title)
         self._write_fairness_adjustments_sheet(fairness_adjustments_sheet, plan)
 
@@ -220,8 +220,8 @@ class SeasonPlanExporter:
         model = SeasonFairnessModel()
         rows = model.adjustment_rows_for_plan(plan)
 
-        sheet.append(["Fairnessjusteringer per lag"])
-        sheet.append(["Positiv justering betyr at laget ligger under fairness-målet og kan få flere kamper."])
+        sheet.append(["Rettferdighetsjusteringer per lag"])
+        sheet.append(["Positiv rettferdighetsjustering betyr at laget ligger under rettferdighetsmålet og kan få flere kamper."])
         sheet.append([])
         sheet.append(_FAIRNESS_ADJUSTMENT_HEADERS)
         header_row_index = sheet.max_row
