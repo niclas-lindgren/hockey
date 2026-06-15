@@ -73,6 +73,7 @@ from tournament_scheduler.game_generation import (
     pairwise_matchup_score as _pairwise_matchup_score,
     rebalance_rounds as _rebalance_rounds,
 )
+from tournament_scheduler.rules_report import rules_report as _rules_report
 from tournament_scheduler.warnings import (
     compute_game_counts as _compute_game_counts,
     hosting_fairness_breakdown as _hosting_fairness_breakdown,
@@ -2610,3 +2611,7 @@ SeasonPlanner._arena_counts = staticmethod(_arena_counts)
 SeasonPlanner._diversity_score = _diversity_score
 SeasonPlanner._pairwise_matchup_score = _pairwise_matchup_score
 SeasonPlanner._month_balance_score = _month_balance_score
+
+
+SeasonPlanner._rules_report_impl = SeasonPlanner.rules_report
+SeasonPlanner.rules_report = _rules_report

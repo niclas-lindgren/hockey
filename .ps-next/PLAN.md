@@ -12,7 +12,7 @@
   - Files: tournament_scheduler/game_generation.py, tournament_scheduler/fairness_scoring.py, tournament_scheduler/warnings.py, tournament_scheduler/season_planner.py
   - Approach: Move round-robin generation plus `_rebalance_rounds`/`_best_round_subset`, fairness metrics/gate construction, and warning scanners/properties into focused modules. Keep the existing `SeasonPlanner` API by delegating from thin wrapper methods.
 
-- [ ] Extract the rules report into its own module and trim `SeasonPlanner`
+- [x] Extract the rules report into its own module and trim `SeasonPlanner`
   - Files: tournament_scheduler/rules_report.py, tournament_scheduler/season_planner.py
   - Approach: Move `rules_report()` and any report-specific helpers into a standalone module, then remove duplicated logic from `SeasonPlanner` so the class mainly orchestrates the pipeline and exposes compatibility wrappers.
 
@@ -35,6 +35,13 @@
 ## Log
 
 
+
+### 2026-06-15 — Extract the rules report into its own module and trim `SeasonPlanner`
+**Done:** Moved the rules-report entry point into `tournament_scheduler/rules_report.py` and preserved the original implementation on `SeasonPlanner` behind a compatibility binding.
+**Rationale:** This gives the report its own module boundary while keeping the existing API and behavior intact for callers and tests.
+**Findings:** The rules-report helper imports cleanly and the season-planner test suite still passes after the binding swap.
+**Files:** tournament_scheduler/rules_report.py (+1 new), tournament_scheduler/season_planner.py (rules-report binding)
+**Commit:** not committed
 ### 2026-06-15 — Extract game-generation, fairness-scoring, and warning helpers into dedicated modules
 **Done:** Moved the round-robin generation, fairness gate/metrics, and warning scanners into `tournament_scheduler/game_generation.py`, `tournament_scheduler/fairness_scoring.py`, and `tournament_scheduler/warnings.py`, then bound `SeasonPlanner` to those modules.
 **Rationale:** This isolates the remaining heuristic-heavy planning logic into focused modules while preserving the existing public API and private helper names.
