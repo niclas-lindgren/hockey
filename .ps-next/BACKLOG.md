@@ -1,9 +1,9 @@
 # Backlog
 
 ## Open
-- [91] [ ] Make the report page's club summary behavior consistent after removing schedule filters: either remove the unreachable hidden club dashboard from `season_plan_report.html`, add a dedicated report-page club selector, or replace it with a static all-club summary table.
-
 ## Done
+- [91] [x] Make the report page's club summary behavior consistent after removing schedule filters: either remove the unreachable hidden club dashboard from `season_plan_report.html`, add a dedicated report-page club selector, or replace it with a static all-club summary table. (2026-06-15)
+
 - [92] [x] Regenerate or refresh exported HTML artifacts after report-page UI fixes so `season_plan_report.html` no longer contains stale schedule filters/count bar in the latest export folder. (2026-06-15)
 
 - [93] [x] Normalize club-name aliases in season-plan report diagnostics so clubs like `Sandefjord` and `Sandefjord Penguins` are treated as the same RVV club and do not produce false missing-host warnings. (2026-06-15)
