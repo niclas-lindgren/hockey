@@ -23,7 +23,7 @@
 ## Acceptance Criteria
 - [ ] `docs/rvv-miniputt-input-formats.md` contains a clear Excel vs CSV vs JSON recommendation.
 - [ ] `pytest tests/test_stage1_config.py` passes.
-- [ ] `python -m tournament_scheduler.pipeline.stage1_config --input input.json --work-dir /tmp/rvv-stage1-check` passes.
+- [ ] `python3 -m tournament_scheduler.pipeline.stage1_config --input input.json --work-dir /tmp/rvv-stage1-check` passes.
 - [ ] Stage 1 accepts a `.xlsx` workbook with settings, age groups, teams, and sources and produces the same validated config shape as JSON.
 
 ## Log
