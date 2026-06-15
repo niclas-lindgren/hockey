@@ -720,6 +720,14 @@ class HtmlExporter:
         else:
             findings.append(("pass", "Manglende klubber", "Alle 9 RVV-klubber har minst én vertsturnering."))
 
+        # Skipped age groups — <3-team age groups that were not planned.
+        if plan.skipped_age_groups:
+            items = "; ".join(
+                f"{entry['age_group']} ({entry['team_count']} lag: {entry['reason']})"
+                for entry in plan.skipped_age_groups
+            )
+            findings.append(("info", "Hoppet over", items))
+
         # Strange host patterns — concentration or long runs at the same host.
         if host_counts:
             top_host, top_count = max(host_counts.items(), key=lambda item: (item[1], item[0]))
@@ -768,7 +776,7 @@ class HtmlExporter:
         else:
             findings.append(("pass", "Avvik", "Ingen per-lag kampdata å vurdere."))
 
-        status = "warn" if any(severity != "pass" for severity, _, _ in findings) else "pass"
+        status = "warn" if any(s not in ("pass", "info") for s, _, _ in findings) else "pass"
         status_label = {"pass": "PASS", "warn": "VARSEL"}.get(status, "PASS")
         items_html = "".join(
             (

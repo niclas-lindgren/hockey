@@ -169,12 +169,14 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .review-summary-item--pass { border-left: 3px solid var(--emerald); }
 .review-summary-item--warn { border-left: 3px solid var(--amber); }
 .review-summary-item--fail { border-left: 3px solid var(--rose); }
+.review-summary-item--info { border-left: 3px solid var(--text-muted); }
 .review-summary-item-label { min-width: 110px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
 .review-summary-item-text { flex: 1; }
 .review-summary-item-note { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
 .review-summary-item--pass .review-summary-item-label { color: var(--emerald); }
 .review-summary-item--warn .review-summary-item-label { color: var(--amber); }
 .review-summary-item--fail .review-summary-item-label { color: var(--rose); }
+.review-summary-item--info .review-summary-item-label { color: var(--text-muted); }
 .fairness-adjustment-table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: var(--radius-sm); }
 .fairness-adjustment-table th, .fairness-adjustment-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-dim); font-size: 12px; }
 .fairness-adjustment-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); background: rgba(255,255,255,.02); }

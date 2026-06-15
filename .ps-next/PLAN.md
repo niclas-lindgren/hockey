@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/utils/rich_output.py
   - Approach: Add a `print_skipped_age_groups()` static method showing skip reasons. Call it from the `print_plan_summary()` or the `TournamentOutput` flow. Use a mild warning style (yellow) to indicate intentional skips.
 
-- [ ] Surface skipped age groups in HTML season-plan report and review summary
+- [x] Surface skipped age groups in HTML season-plan report and review summary
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: In `export()`, pass `skipped_age_groups` data into the template context. Add a new review-summary finding category for skipped groups ("Aldersgrupper som er hoppet over") with skip count and reason. In the season plan table/pages, show a "Hoppet over" section listing skipped age groups.
 
@@ -45,6 +45,13 @@
 
 
 
+
+### 2026-06-15 — Surface skipped age groups in HTML season-plan report and review summary
+**Done:** Added a new 'info' severity finding for skipped age groups in `_review_summary_html()`. The finding lists each skipped group with team count and reason. Added `.review-summary-item--info` CSS styling with muted border/label. Updated status computation to treat 'info' severity as non-warn so skipped groups don't trigger a VARSEL status on the report page.
+**Rationale:** The review summary already has the right structure to surface findings. Adding a new 'info' severity (between pass and warn) provides the right visual weight for informational skipped-group notifications.
+**Findings:** `include_diagnostics=False` on the schedule page means the review summary (with skipped group info) only appears on the report page (`season_plan_report.html`). The review summary finding appears under "Hoppet over" label with muted styling.
+**Files:** tournament_scheduler/html/html_exporter.py (+5), tournament_scheduler/html/templates/styles.css (+2)
+**Commit:** not committed
 ### 2026-06-15 — Surface skipped age groups in Rich console output
 **Done:** Added `print_skipped_age_groups()` static method to `TournamentOutput` that shows skipped age groups with team count and reason in a Rich table with yellow warning styling. Called from `print_season_overview()` so it displays before the main season overview table.
 **Rationale:** Yellow styling for mild warning indicates intentional skips (not errors). Table format matches existing Rich output conventions.
