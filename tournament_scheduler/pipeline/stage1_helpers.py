@@ -114,12 +114,15 @@ def validate_config(raw: dict[str, Any]) -> list[str]:
                         f"'round_length_minutes[\"{ag}\"]' må være et positivt heltall, fikk: {minutes!r}."
                     )
 
-    # --- Target tournament count ---
-    if "target_tournament_count" in raw:
-        target = raw["target_tournament_count"]
-        if not isinstance(target, int) or target < 1:
+    # --- Target tournament count / deltakelser per lag ---
+    # Accept both the old English key and the new Norwegian alias.
+    # If both are present, deltakelser_per_lag wins.
+    target_raw = raw.get("deltakelser_per_lag", raw.get("target_tournament_count"))
+    if target_raw is not None:
+        if not isinstance(target_raw, int) or target_raw < 1:
             errors.append(
-                "'target_tournament_count' må være et positivt heltall (f.eks. 6)."
+                f"'deltakelser_per_lag' (eller 'target_tournament_count') må være et "
+                f"positivt heltall (f.eks. 6), fikk: {target_raw!r}."
             )
 
     # --- Teams / roster ---
@@ -214,7 +217,7 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     """Build the Stage 1 checkpoint dict with only **computed** fields.
 
     Human-editable fields (start_date, end_date, age_groups, parallel_games,
-    target_tournament_count, sources) are intentionally excluded — they live only in ``input.xlsx``.
+    target_tournament_count / deltakelser_per_lag, sources) are intentionally excluded — they live only in ``input.xlsx``.
     """
 
     # Round length (minutes) — explicit values override federation defaults
@@ -243,8 +246,11 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
 
     if "fairness_thresholds" in raw:
         result["fairness_thresholds"] = dict(raw["fairness_thresholds"])
-    if "target_tournament_count" in raw:
-        result["target_tournament_count"] = int(raw["target_tournament_count"])
+    # Accept both the old English key and the new Norwegian alias.
+    # If both are present, deltakelser_per_lag wins.
+    target_raw = raw.get("deltakelser_per_lag", raw.get("target_tournament_count"))
+    if target_raw is not None:
+        result["target_tournament_count"] = int(target_raw)
 
     return result
 

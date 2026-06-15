@@ -88,7 +88,9 @@ def load_effective_config(
     merged["start_date"] = raw.get("start_date")
     merged["end_date"] = raw.get("end_date")
     merged["parallel_games"] = raw.get("parallel_games", {})
-    merged["target_tournament_count"] = raw.get("target_tournament_count")
+    # Accept Norwegian alias deltakelser_per_lag; prefer it over the English key.
+    target_ttc = raw.get("target_tournament_count")
+    merged["target_tournament_count"] = raw.get("deltakelser_per_lag", target_ttc)
     merged["sources"] = raw.get("sources", [])
 
     # Age groups: explicit input workbook value only; downstream can fall back

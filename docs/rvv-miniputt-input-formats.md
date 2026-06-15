@@ -26,7 +26,11 @@ Common rows:
 
 - `start_date` — `YYYY-MM-DD`
 - `end_date` — `YYYY-MM-DD`
-- `target_tournament_count` — positive integer
+- `deltakelser_per_lag` — mykt mål for turneringsdeltakelser per lag (positivt heltall, standard 6)
+
+  Det interne config-nøkkelen er `target_tournament_count` for bakoverkompatibilitet.
+  Begge feltnavn aksepteres i `Innstillinger`-arket, men `deltakelser_per_lag` har
+  prioritet dersom begge er satt.
 
 ### `Aldersgrupper`
 

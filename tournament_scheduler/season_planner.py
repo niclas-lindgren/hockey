@@ -243,6 +243,12 @@ class SeasonPlanner:
         # Kongsberg's U10 team).
         self._per_team_share_warnings: List[Tuple[str, str, str, int, float]] = []
 
+        # Feasibility warnings collected after build_plan runs. Each entry
+        # is a human-readable Norwegian string explaining why an age group's
+        # participation target could not reasonably be met (e.g. too few
+        # free weekends for the desired per-team participation count).
+        self._feasibility_warnings: List[str] = []
+
         self.max_month_deviation_ratio = max_month_deviation_ratio
         self.events_by_club = events_by_club or {}
         self.fairness_thresholds = dict(DEFAULT_FAIRNESS_THRESHOLDS)
@@ -385,6 +391,9 @@ class SeasonPlanner:
         self._scan_per_team_share_warnings()
         # Scan for month-load imbalance warnings.
         self._scan_month_load_warnings(expected_per_month, plan.start_date)
+        # Scan for feasibility warnings: age groups whose participation
+        # target cannot reasonably be met with the available free dates.
+        self._scan_feasibility_warnings(free_dates)
 
         if collisions:
             plan.arena_counts["_age_group_overlap_collisions"] = len(collisions)
@@ -524,6 +533,15 @@ class SeasonPlanner:
         exception, used only to reduce per-team game-count skew.
         """
         return self._club_cap_overrides
+
+    @property
+    def feasibility_warnings(self) -> List[str]:
+        """Return human-readable Norwegian feasibility warnings.
+
+        Each warning explains why an age group's desired participation
+        target could not reasonably be met given available free dates.
+        """
+        return list(self._feasibility_warnings)
 
     @property
     def month_load_warnings(self) -> List[Tuple[int, int, int, float, float]]:
@@ -811,6 +829,40 @@ class SeasonPlanner:
                     self._per_team_share_warnings.append(
                         (key, team.club, age_group, actual, expected)
                     )
+
+    def _scan_feasibility_warnings(self, free_dates: Sequence[date]) -> None:
+        """Check each age group's participation target against free-date capacity.
+
+        When an age group has enough teams to form a tournament but the
+        desired per-team participation target cannot reasonably be met
+        given the number of available free weekends, emit a warning.
+        """
+        self._feasibility_warnings = []
+        per_team_target = self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
+
+        for age_group in self.roster.age_groups():
+            teams = self.roster.by_age_group(age_group)
+            if len(teams) < MIN_TEAMS_PER_TOURNAMENT:
+                self._feasibility_warnings.append(
+                    f"{age_group}: kun {len(teams)} lag — "
+                    f"minimum {MIN_TEAMS_PER_TOURNAMENT} lag kreves for å arrangere turnering. "
+                    f"Aldersgruppen hoppes over."
+                )
+                continue
+
+            capacity = min(len(teams), self._max_teams_for(age_group))
+            target_count = max(1, math.ceil(len(teams) * per_team_target / capacity))
+
+            # Rough feasibility: if the target tournament count for this
+            # age group alone exceeds the total number of free dates,
+            # the desired participation level is unrealistic.
+            if target_count > len(free_dates):
+                self._feasibility_warnings.append(
+                    f"{age_group}: målet på ~{per_team_target} deltakelser per lag "
+                    f"({target_count} turneringer) kan neppe nås — det er bare "
+                    f"{len(free_dates)} ledige helger i sesongvinduet. "
+                    f"Planleggeren justerer ned automatisk."
+                )
 
     def _scan_month_load_warnings(
         self,
@@ -1140,12 +1192,16 @@ class SeasonPlanner:
             "kategori": "Automatisk avgjørelse",
         })
 
+        target_val = self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
         report.append({
-            "regel": f"Mål: cirka {DEFAULT_TARGET_TOURNAMENT_COUNT} turneringsdeltakelser per lag",
+            "regel": f"Mykt mål: cirka {target_val} turneringsdeltakelser per lag",
             "forklaring": (
                 f"Hver aldersgruppe planlegges mot et mykt mål på rundt "
-                f"{DEFAULT_TARGET_TOURNAMENT_COUNT} turneringsdeltakelser per lag, "
-                f"justert etter antall ledige helger, kapasitet og klubbspredning."
+                f"{target_val} turneringsdeltakelser per lag. "
+                f"Tallet er en ønsket sesongbelastning — planleggeren vil heller "
+                f"lage færre, bedre turneringer enn å presse inn ekstra bare for "
+                f"å nå målet. Dersom en aldersgruppe har for få lag eller for få "
+                f"ledige helger til å oppfylle målet, justeres det ned."
             ),
             "kategori": "Automatisk avgjørelse",
         })
@@ -1274,10 +1330,17 @@ class SeasonPlanner:
     def _target_tournaments_for_age_group(self, age_group: str) -> int:
         """Return the number of tournaments to aim for in `age_group`.
 
-        `target_tournament_count` is interpreted as the desired number of
-        tournament participations per team. The scheduler converts that into a
-        per-age-group tournament count by dividing by the age group's
-        practical capacity (capped by the roster size).
+        ``deltakelser_per_lag`` (also accepted as ``target_tournament_count``
+        for backward compatibility) is a *soft* target: the desired number of
+        tournament participations per team over the season. The scheduler
+        converts that into a per-age-group tournament count by dividing by
+        the age group's practical capacity (capped by the roster size).
+
+        This is a load/participation hint, not a hard quota. The planner
+        prefers fewer, better tournaments over hitting the target exactly,
+        and will never create low-value tournaments just to satisfy it.
+        When an age group has too few teams or free dates to reasonably
+        meet the target, the count is adjusted downward.
         """
         teams = self.roster.by_age_group(age_group)
         if len(teams) < MIN_TEAMS_PER_TOURNAMENT:
@@ -1288,7 +1351,12 @@ class SeasonPlanner:
 
     @staticmethod
     def _default_target_count(num_free_dates: int) -> int:
-        """Fallback when no age-group-specific target is available."""
+        """Fallback when no age-group-specific target is available.
+
+        Returns at most ``DEFAULT_TARGET_TOURNAMENT_COUNT``, bounded by
+        the number of free dates — again a soft upper bound, never a
+        hard quota.
+        """
         return max(1, min(DEFAULT_TARGET_TOURNAMENT_COUNT, num_free_dates))
 
     # ------------------------------------------------------------------

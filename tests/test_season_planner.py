@@ -1814,6 +1814,34 @@ class TestMonthLoadWarnings:
             assert len(w) == 5, f"expected 5-tuple, got {w}"
 
 
+class TestFeasibilityWarnings:
+    """Tests for feasibility warnings when participation targets cannot be met."""
+
+    def test_feasibility_warnings_empty_for_normal_setup(self, planner_and_plan):
+        """A normal season plan should not produce feasibility warnings."""
+        planner, plan, *_ = planner_and_plan
+        assert planner.feasibility_warnings == []
+
+    def test_feasibility_warning_for_too_few_teams(self, season_window):
+        """An age group with fewer than MIN_TEAMS_PER_TOURNAMENT teams gets a warning."""
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Jar", label="Jar JU12A", age_group="JU12"),
+            Team(club="Kongsberg", label="Kongsberg JU12", age_group="JU12"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"},
+        )
+        planner.build_plan(start, end)
+        ju12_warnings = [w for w in planner.feasibility_warnings if "JU12" in w]
+        assert any("JU12" in w for w in planner.feasibility_warnings)
+
+
 class TestSlotAwareScheduling:
     """Tests for time-of-day-aware arena slot finding in build_plan."""
 

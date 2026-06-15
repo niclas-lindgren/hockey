@@ -50,7 +50,8 @@ A successful run writes exports under `export/` by default:
 
 With `--timestamped-export`, exports are written to a timestamped subfolder for diffable runs.
 
-Set `target_tournament_count` in the workbook `Innstillinger` sheet to tune the soft per-team tournament-participation target (default: 6).
+Set `deltakelser_per_lag` in the workbook `Innstillinger` sheet to tune the soft per-team tournament-participation target (default: 6).
+The legacy key `target_tournament_count` also works for backward compatibility.
 
 ## More documentation
 

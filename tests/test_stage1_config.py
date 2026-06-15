@@ -31,7 +31,7 @@ def _write_input_workbook(path: Path, raw: dict | None = None) -> None:
     settings = wb.active
     settings.title = "Innstillinger"
     settings.append(["felt", "verdi"])
-    for key in ("start_date", "end_date", "target_tournament_count"):
+    for key in ("start_date", "end_date", "target_tournament_count", "deltakelser_per_lag"):
         if key in raw:
             settings.append([key, raw[key]])
 
@@ -131,6 +131,28 @@ class TestValidateConfig:
         combined = " ".join(errors)
         assert any(word in combined for word in ["Mangler", "felt", "Oppgi"])
 
+    def test_deltakelser_per_lag_accepted(self):
+        """The Norwegian alias `deltakelser_per_lag` passes validation."""
+        raw = _make_valid_raw()
+        raw.pop("target_tournament_count", None)
+        raw["deltakelser_per_lag"] = 6
+        assert validate_config(raw) == []
+
+    def test_deltakelser_per_lag_takes_priority(self):
+        """When both are set, `deltakelser_per_lag` wins (no validation error)."""
+        raw = _make_valid_raw()
+        raw["target_tournament_count"] = 3
+        raw["deltakelser_per_lag"] = 8
+        assert validate_config(raw) == []
+
+    def test_deltakelser_per_lag_invalid_rejected(self):
+        """An invalid `deltakelser_per_lag` produces a Norwegian validation error."""
+        raw = _make_valid_raw()
+        raw.pop("target_tournament_count", None)
+        raw["deltakelser_per_lag"] = "mange"
+        errors = validate_config(raw)
+        assert any("deltakelser_per_lag" in e for e in errors)
+
 
 class TestRunStage1:
     def test_run_writes_checkpoint_on_success(self, tmp_path):
@@ -182,6 +204,18 @@ class TestRunStage1:
             run(input_file, state)
 
         assert "Lag" in str(exc_info.value)
+
+    def test_run_accepts_deltakelser_per_lag_in_workbook(self, tmp_path):
+        """The Norwegian alias `deltakelser_per_lag` works in the Innstillinger sheet."""
+        raw = _make_valid_raw()
+        raw.pop("target_tournament_count", None)
+        raw["deltakelser_per_lag"] = 6
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file, raw)
+
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(input_file, state)
+        assert result["target_tournament_count"] == 6
 
     def test_run_rejects_json_input(self, tmp_path):
         input_file = tmp_path / "legacy.json"

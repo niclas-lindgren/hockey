@@ -27,6 +27,8 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
 
     Expected sheets:
     - ``Innstillinger``: columns ``felt`` and ``verdi`` for scalar settings.
+      Tournament-participation target can be set as ``deltakelser_per_lag``
+      (preferred) or the legacy ``target_tournament_count``.
     - ``Aldersgrupper``: columns ``age_group``, ``parallel_games``, optional
       ``round_length_minutes``.
     - ``Lag``: columns ``club``, ``label``, ``age_group``.

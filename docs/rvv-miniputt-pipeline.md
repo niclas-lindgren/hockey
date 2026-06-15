@@ -40,7 +40,9 @@ Required rows:
 
 Optional rows:
 
-- `target_tournament_count` — soft per-team tournament-participation target, default 6
+- `deltakelser_per_lag` — mykt mål for antall turneringsdeltakelser per lag (standard 6).
+  Internt lagret som `target_tournament_count`. Det gamle feltnavnet `target_tournament_count`
+  fungerer fortsatt i `Innstillinger`-arket for bakoverkompatibilitet.
 
 ### `Aldersgrupper` rows
 
