@@ -233,6 +233,18 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .team-stats summary::before { content: ''; display: inline-block; width: 6px; height: 6px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); margin-right: 8px; transform: rotate(-45deg); transition: transform .15s; }
 .team-stats[open] summary::before { transform: rotate(45deg); }
 .club-dashboard { margin-bottom: 20px; padding: 14px 18px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-left: 3px solid var(--amber); border-radius: var(--radius); }
+.club-dashboard .section-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
+.club-dashboard .eyebrow { margin: 0 0 4px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.club-dashboard h2 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px; color: var(--amber); }
+.club-dashboard .section-note { margin: 0; max-width: 260px; font-size: 12px; line-height: 1.4; color: var(--text-muted); text-align: right; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border-dim); border-radius: var(--radius-sm); }
+.club-summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.club-summary-table th { padding: 9px 12px; background: var(--bg); color: var(--text-muted); font-weight: 700; text-align: left; border-bottom: 1px solid var(--border-dim); }
+.club-summary-table td { padding: 8px 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border-dim); }
+.club-summary-table tr:last-child td { border-bottom: 0; }
+.club-summary-name { color: var(--text-primary); font-weight: 700; }
+.numeric-cell { text-align: right; font-variant-numeric: tabular-nums; }
+.empty-cell { text-align: center; color: var(--text-muted); }
 
 .no-results { text-align: center; padding: 64px 24px; color: var(--text-muted); }
 .no-results svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: .3; }

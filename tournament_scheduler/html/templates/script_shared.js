@@ -27,6 +27,34 @@ function getClubFromTeam(team) {
   return team.split(' ')[0];
 }
 
+// Render static club summary table
+(function() {
+  const body = document.getElementById('clubSummaryBody');
+  if (!body) return;
+  const clubs = (ALL_CLUBS || []).slice().sort((a, b) => a.localeCompare(b));
+  if (!clubs.length) return;
+  body.innerHTML = '';
+  clubs.forEach((club) => {
+    const stats = CLUB_STATS[club] || {};
+    const tr = document.createElement('tr');
+
+    const tdClub = document.createElement('td');
+    tdClub.textContent = club;
+    tdClub.className = 'club-summary-name';
+    tr.appendChild(tdClub);
+
+    ['teams', 'hosted', 'away', 'travel_km'].forEach((key) => {
+      const td = document.createElement('td');
+      const value = stats[key] || 0;
+      td.textContent = key === 'travel_km' ? value.toLocaleString() : value;
+      td.className = 'numeric-cell';
+      tr.appendChild(td);
+    });
+
+    body.appendChild(tr);
+  });
+})();
+
 // Render team game counts table
 (function() {
   const body = document.getElementById('teamGameCountsBody');
