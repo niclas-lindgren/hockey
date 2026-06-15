@@ -5,6 +5,8 @@ standalone, interactive HTML page showing all tournaments, filtering by
 age group / arena / club / search, and expandable match tables.
 
 HTML is assembled from template fragments in ``templates/``.
+Data computation lives in :mod:`data_computation`; rendering helpers
+live in :mod:`renderers`.
 """
 
 from __future__ import annotations
@@ -12,56 +14,42 @@ from __future__ import annotations
 import html as _html
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
-import re
 
-from tournament_scheduler.club_distances import (
-    compute_team_travel_distances,
-    furthest_traveling_team,
-)
-from tournament_scheduler.fairness_model import SeasonFairnessModel
+from tournament_scheduler.club_distances import furthest_traveling_team
 from ..models import SeasonPlan
 
-# ---------------------------------------------------------------------------
-# Inline SVG icons (14x14 or 16x16 viewBox, currentColor stroke, 1.5px)
-# ---------------------------------------------------------------------------
-
-_ICON_CALENDAR = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><line x1="2" y1="7" x2="14" y2="7"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/></svg>'
-_ICON_CLIPBOARD = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 1.5h5a1 1 0 011 1v1h-7v-1a1 1 0 011-1z"/><rect x="3" y="3.5" width="10" height="11" rx="1.5"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="6" y1="10" x2="10" y2="10"/></svg>'
-_ICON_USERS = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="4" r="2.5"/><path d="M1.5 14v-1.5a4 4 0 014-4h1a4 4 0 014 4V14"/><circle cx="12" cy="5" r="1.5"/><path d="M12 11.5a3 3 0 012.5 2.5"/></svg>'
-_ICON_TARGET = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="3"/><circle cx="8" cy="8" r="1" fill="currentColor"/></svg>'
-_ICON_TRAVEL = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 13.7C17.3 9 20 5 20 2a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg>'
-_ICON_WARNING = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.5l-7 12h14l-7-12z"/><line x1="8" y1="6" x2="8" y2="9"/><circle cx="8" cy="11" r=".5" fill="currentColor"/></svg>'
-_ICON_DOWNLOAD = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10v3a1 1 0 01-1 1H3a1 1 0 01-1-1v-3"/><polyline points="5 7 8 10 11 7"/><line x1="8" y1="10" x2="8" y2="2"/></svg>'
-_ICON_FILE_SPREADSHEET = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h6l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><polyline points="9 2 9 6 13 6"/><line x1="5" y1="9" x2="11" y2="9"/><line x1="5" y1="12" x2="11" y2="12"/></svg>'
-_ICON_CLOCK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="8 4 8 8 11 10"/></svg>'
-_ICON_BAR_CHART = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="14" x2="2" y2="6"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="4"/><line x1="14" y1="14" x2="14" y2="8"/></svg>'
-
-_RVV_CLUBS = (
-    "Ringerike",
-    "Tønsberg",
-    "Frisk Asker",
-    "Sandefjord Penguins",
-    "Jar",
-    "Holmen",
-    "Skien",
-    "Jutul",
-    "Kongsberg",
+from .data_computation import (
+    ICON_CALENDAR,
+    ICON_CLIPBOARD,
+    ICON_USERS,
+    ICON_TARGET,
+    ICON_TRAVEL,
+    ICON_WARNING,
+    ICON_BAR_CHART,
+    ICON_FILE_SPREADSHEET,
+    ICON_CLOCK,
+    _RVV_CLUBS,
+    _CLUB_ALIASES,
+    canonical_rvv_club_name,
+    season_label,
+    fmt_date,
+    age_string,
+    compute_team_game_counts,
+    compute_team_travel_info,
+    compute_heatmap_data,
+    compute_club_stats,
+    build_export_links_html,
+    compute_display_age_groups,
 )
-
-_CLUB_ALIASES = {
-    "sandefjord": "Sandefjord Penguins",
-    "sandefjord penguins": "Sandefjord Penguins",
-    "tonsberg": "Tønsberg",
-    "tønsberg": "Tønsberg",
-}
-
-
-def _canonical_rvv_club_name(club_name: str) -> str:
-    """Return the canonical RVV display name for a known club alias."""
-    normalized = " ".join(club_name.strip().casefold().split())
-    return _CLUB_ALIASES.get(normalized, club_name.strip())
+from .renderers.fairness import (
+    render_fairness_gate_html,
+    render_fairness_adjustments_html,
+)
+from .renderers.review import render_review_summary_html
+from .renderers.heatmap import build_club_color_maps
 
 # ---------------------------------------------------------------------------
 # Load template fragments
@@ -130,137 +118,32 @@ class HtmlExporter:
                 all_teams.add(g.away.label)
 
         # Team game counts
-        team_game_counts: dict[str, int] = {}
-        for t in plan.tournaments:
-            for g in t.games:
-                for team_label in (g.home.label, g.away.label):
-                    team_game_counts[team_label] = team_game_counts.get(team_label, 0) + 1
+        team_game_counts = compute_team_game_counts(plan)
         team_game_counts_json = json.dumps(team_game_counts, ensure_ascii=False)
 
-        # Team travel distances
-        team_travel = compute_team_travel_distances(plan)
+        # Travel info
+        team_travel, most_travel_team, most_travel_km, total_travel_km, travel_count_estimate_html = (
+            compute_team_travel_info(plan)
+        )
         team_travel_json = json.dumps(team_travel, ensure_ascii=False)
 
-        # Most-traveled team
-        most_travel_team = next(iter(team_travel.keys()), "-") if team_travel else "-"
-        most_travel_km = str(max(team_travel.values())) if team_travel else "0"
-
-        # Total travel km
-        total_travel_km = sum(team_travel.values())
-
-        # Travel estimate warning
-        travel_count_estimate_html = ""
-        if len(team_travel) < 3:
-            travel_count_estimate_html = (
-                '<div style="padding:8px 16px;font-size:12px;color:var(--text-muted);'
-                'text-align:center;margin-bottom:12px">'
-                '<span class="warning-icon">$ICON_WARNING$</span> '
-                'F\u00e5 lag med reisedata &mdash; avstander er estimater basert p\u00e5 '
-                'kjente arenaer.</div>'
-            )
-
-        # --- Heatmap ---
-        heatmap: dict[str, dict[str, list[str]]] = {}
-        all_host_clubs: set[str] = set()
-        for t in plan.tournaments:
-            if t.cancelled or not t.date:
-                continue
-            host = t.host_club or ""
-            if not host:
-                continue
-            iso_year, iso_week, _ = t.date.isocalendar()
-            week_key = f"{iso_year}-W{iso_week:02d}"
-            heatmap.setdefault(week_key, {}).setdefault(host, []).append(t.age_group)
-            all_host_clubs.add(host)
-
-        heatmap_weeks = sorted(heatmap.keys())
-        heatmap_clubs = sorted(all_host_clubs)
+        # Heatmap data
+        heatmap, heatmap_weeks, heatmap_clubs = compute_heatmap_data(plan)
         heatmap_json = json.dumps(heatmap, ensure_ascii=False)
         heatmap_weeks_json = json.dumps(heatmap_weeks, ensure_ascii=False)
         heatmap_clubs_json = json.dumps(heatmap_clubs, ensure_ascii=False)
 
-        # Club colors for heatmap (dark theme)
-        _club_colors_dark = [
-            {"bg": "#1a3a5c", "text": "#64b5f6"},
-            {"bg": "#1b3a1b", "text": "#81c784"},
-            {"bg": "#3a2e0a", "text": "#ffd54f"},
-            {"bg": "#2a1a3a", "text": "#ba68c8"},
-            {"bg": "#3a1a1a", "text": "#e57373"},
-            {"bg": "#0a2a3a", "text": "#4dd0e1"},
-            {"bg": "#3a3a0a", "text": "#fff176"},
-            {"bg": "#1a3a2a", "text": "#aed581"},
-            {"bg": "#3a1a0a", "text": "#ff8a65"},
-        ]
-        # Club colors for heatmap (light theme) — pastel backgrounds with
-        # darker, high-contrast text, suited for a `--bg: #f4f4f5` page.
-        _club_colors_light = [
-            {"bg": "#dbeafe", "text": "#1d4ed8"},  # blue
-            {"bg": "#dcfce7", "text": "#15803d"},  # green
-            {"bg": "#fef3c7", "text": "#b45309"},  # amber
-            {"bg": "#ede9fe", "text": "#6d28d9"},  # purple
-            {"bg": "#ffe4e6", "text": "#be123c"},  # rose
-            {"bg": "#cffafe", "text": "#0e7490"},  # cyan
-            {"bg": "#fef9c3", "text": "#a16207"},  # yellow
-            {"bg": "#ecfccb", "text": "#4d7c0f"},  # lime
-            {"bg": "#ffedd5", "text": "#c2410c"},  # orange
-        ]
-        club_color_map_dark = {
-            club: _club_colors_dark[i % len(_club_colors_dark)]
-            for i, club in enumerate(heatmap_clubs)
-        }
-        club_color_map_light = {
-            club: _club_colors_light[i % len(_club_colors_light)]
-            for i, club in enumerate(heatmap_clubs)
-        }
-        heatmap_club_colors_json = json.dumps(
-            {"dark": club_color_map_dark, "light": club_color_map_light},
-            ensure_ascii=False,
-        )
+        # Club colours
+        club_color_maps = build_club_color_maps(heatmap_clubs)
+        heatmap_club_colors_json = json.dumps(club_color_maps, ensure_ascii=False)
 
-        # --- Per-club aggregate stats ---
-        club_hosted: dict[str, int] = {}
-        club_away: dict[str, int] = {}
-        club_teams: dict[str, list[str]] = {}
-        club_travel: dict[str, int] = {}
-        for t in plan.tournaments:
-            if t.cancelled:
-                continue
-            host = t.host_club or ""
-            if host:
-                club_hosted[host] = club_hosted.get(host, 0) + 1
-            seen_clubs: set[str] = set()
-            for team in t.teams:
-                tc = team.club
-                club_teams.setdefault(tc, [])
-                if team.label not in club_teams[tc]:
-                    club_teams[tc].append(team.label)
-                if host and tc != host and tc not in seen_clubs:
-                    seen_clubs.add(tc)
-                    club_away[tc] = club_away.get(tc, 0) + 1
-
-        for team_label, km in team_travel.items():
-            for club_name in club_teams:
-                if team_label.startswith(club_name):
-                    club_travel[club_name] = club_travel.get(club_name, 0) + km
-                    break
-
-        club_stats: dict[str, dict[str, object]] = {}
-        all_clubs_set: set[str] = set()
-        for club in set(club_hosted) | set(club_away) | set(club_teams):
-            all_clubs_set.add(club)
-            club_stats[club] = {
-                "hosted": club_hosted.get(club, 0),
-                "away": club_away.get(club, 0),
-                "teams": len(club_teams.get(club, [])),
-                "travel_km": club_travel.get(club, 0),
-                "team_list": club_teams.get(club, []),
-            }
-        all_clubs_list = sorted(all_clubs_set)
+        # Club stats
+        club_stats, all_clubs_list = compute_club_stats(plan, team_travel)
         club_stats_json = json.dumps(club_stats, ensure_ascii=False)
         all_clubs_json = json.dumps(all_clubs_list, ensure_ascii=False)
 
-        season_label = _season_label(plan)
-        display_age_groups = list(dict.fromkeys(age_groups or sorted({t.age_group for t in plan.tournaments})))
+        season_label_str = season_label(plan)
+        display_age_groups = compute_display_age_groups(plan, age_groups)
         age_group_options = "".join(
             f'<option value="{ag}">{ag}</option>'
             for ag in display_age_groups
@@ -271,14 +154,14 @@ class HtmlExporter:
             ev = meta.get("total_events", 0)
             src = meta.get("source_count", 0)
             ts = meta.get("updated_at", "")
-            age = _age_string(ts)
+            age = age_string(ts)
             scrape_meta = f"{src} kilder &middot; {ev} hendelser &middot; {age}" if age else f"{src} kilder &middot; {ev} hendelser"
         else:
             scrape_meta = ""
             ev = 0
             src = 0
 
-        # --- Pipeline metrics ---
+        # Pipeline metrics
         pipeline = pipeline_meta or {}
         source_count = pipeline.get("source_count", src)
         event_count = pipeline.get("total_events", ev)
@@ -287,15 +170,18 @@ class HtmlExporter:
         blocked_names = ""
         if blocked:
             blocked_names = ": " + ", ".join(blocked)
-        date_range = pipeline.get("date_range", f"{_fmt_date(plan.start_date)} &ndash; {_fmt_date(plan.end_date)}" if plan.start_date else "")
+        date_range = pipeline.get("date_range", f"{fmt_date(plan.start_date)} &ndash; {fmt_date(plan.end_date)}" if plan.start_date else "")
         scrape_age = pipeline.get("scrape_age", "")
         scrape_age_html = ""
         if scrape_age:
             scrape_age_html = f'<div class="metrics-group"><span class="metrics-group-label">Data-alder</span><span class="metrics-group-value">{scrape_age}</span></div>'
 
-        fairness_gate_html = self._fairness_gate_html(plan.fairness_gate)
-        review_summary_html = self._review_summary_html(plan)
-        fairness_adjustments_html = self._fairness_adjustments_html(plan)
+        # Render components
+        fairness_gate_html = render_fairness_gate_html(
+            plan.fairness_gate if isinstance(plan.fairness_gate, dict) else None
+        )
+        review_summary_html = render_review_summary_html(plan)
+        fairness_adjustments_html = render_fairness_adjustments_html(plan)
         report_overview_html = self._report_overview_html(
             plan,
             source_count=source_count,
@@ -307,28 +193,9 @@ class HtmlExporter:
             club_stats=club_stats,
             team_travel=team_travel,
         )
+        export_links_html = build_export_links_html(output_files)
 
-        # --- Header export download links ---
-        export_links_html = ""
-        if output_files:
-            links_parts = ['<div class="export-links">']
-            link_defs = [
-                ("excel", _ICON_DOWNLOAD + " Last ned Excel (.xlsx)", "#38bdf8"),
-                ("csv_overview", _ICON_BAR_CHART + " Last ned CSV", "#34d399"),
-                ("csv_games", _ICON_FILE_SPREADSHEET + " Last ned CSV (kamper)", "#fbbf24"),
-                ("ical", _ICON_CALENDAR + " Last ned iCal (.ics)", "#f87171"),
-            ]
-            for key, label, color in link_defs:
-                if key in output_files:
-                    filename = Path(output_files[key]).name
-                    links_parts.append(
-                        f'<a href="{filename}" class="export-link-btn" '
-                        f'style="--link-color:{color}" download>{label}</a>'
-                    )
-            links_parts.append('</div>')
-            export_links_html = "".join(links_parts)
-
-        # --- Assemble pages from fragments ---
+        # Assemble pages from fragments
         calendars_href = "calendars.html"
         season_plan_href = "season_plan.html"
         report_href = "season_plan_report.html"
@@ -357,13 +224,13 @@ class HtmlExporter:
             }
 
             replacements = {
-                "$ICON_CALENDAR$": _ICON_CALENDAR,
-                "$ICON_CLIPBOARD$": _ICON_CLIPBOARD,
-                "$ICON_USERS$": _ICON_USERS,
-                "$ICON_TARGET$": _ICON_TARGET,
-                "$ICON_TRAVEL$": _ICON_TRAVEL,
-                "$ICON_WARNING$": _ICON_WARNING,
-                "$ICON_BAR_CHART$": _ICON_BAR_CHART,
+                "$ICON_CALENDAR$": ICON_CALENDAR,
+                "$ICON_CLIPBOARD$": ICON_CLIPBOARD,
+                "$ICON_USERS$": ICON_USERS,
+                "$ICON_TARGET$": ICON_TARGET,
+                "$ICON_TRAVEL$": ICON_TRAVEL,
+                "$ICON_WARNING$": ICON_WARNING,
+                "$ICON_BAR_CHART$": ICON_BAR_CHART,
                 "$CALENDARS_HREF$": calendars_href,
                 "$SEASON_PLAN_HREF$": season_plan_href,
                 "$REPORT_HREF$": report_href,
@@ -372,7 +239,7 @@ class HtmlExporter:
                 "$REPORT_ACTIVE$": "active" if active_page == "report" else "",
                 "$PAGE_TITLE$": page_title,
                 "$PAGE_SUBTITLE$": page_subtitle,
-                "$SEASON_LABEL$": season_label,
+                "$SEASON_LABEL$": season_label_str,
                 "$SCRAPE_META$": scrape_meta,
                 "$AGE_GROUPS$": " + ".join(display_age_groups),
                 "$TOURNAMENT_COUNT$": str(len(plan.tournaments)),
@@ -468,16 +335,16 @@ class HtmlExporter:
         if cancelled_count and status_rank[overall_status] < status_rank["warn"]:
             overall_status = "warn"
 
-        status_labels = {"pass": "KLAR FOR GJENNOMGANG", "warn": "MÅ SJEKKES", "fail": "KREVER ENDRING"}
+        status_labels = {"pass": "KLAR FOR GJENNOMGANG", "warn": "M\u00c5 SJEKKES", "fail": "KREVER ENDRING"}
         answer_by_status = {
             "pass": "Ja, planen ser brukbar ut for klubbvis gjennomgang.",
-            "warn": "Nesten, men punktene under bør sjekkes før planen sendes til klubbene.",
-            "fail": "Ikke ennå. Planen har feil eller store avvik som bør rettes først.",
+            "warn": "Nesten, men punktene under b\u00f8r sjekkes f\u00f8r planen sendes til klubbene.",
+            "fail": "Ikke enn\u00e5. Planen har feil eller store avvik som b\u00f8r rettes f\u00f8rst.",
         }
         note_by_status = {
             "pass": "Start med klubb- og aldersgruppeoppsummeringene, og bruk detaljdiagnostikken nederst ved behov.",
-            "warn": "Prioriter varsler og klubbpunkter før du vurderer om planen er god nok.",
-            "fail": "Rett kritiske punkter, kjør planlegging/eksport på nytt og kontroller rapporten igjen.",
+            "warn": "Prioriter varsler og klubbpunkter f\u00f8r du vurderer om planen er god nok.",
+            "fail": "Rett kritiske punkter, kj\u00f8r planlegging/eksport p\u00e5 nytt og kontroller rapporten igjen.",
         }
 
         active_tournaments = [t for t in plan.tournaments if not t.cancelled]
@@ -486,7 +353,7 @@ class HtmlExporter:
         for tournament in active_tournaments:
             host = tournament.host_club or ""
             if host:
-                canonical_host = _canonical_rvv_club_name(host)
+                canonical_host = canonical_rvv_club_name(host)
                 host_counts[canonical_host] = host_counts.get(canonical_host, 0) + 1
         missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
 
@@ -495,8 +362,8 @@ class HtmlExporter:
         if gate_status in {"warn", "fail"}:
             actions.append((gate_status, "Rettferdighetskontroll", f"Samlet status er {status_labels.get(gate_status, gate_status).lower()} med score {gate.get('score', 0)}%."))
         for metric in metric_warnings[:4]:
-            label = str(metric.get("label", "Måltall"))
-            detail = str(metric.get("detail", "Sjekk avviket før utsending."))
+            label = str(metric.get("label", "M\u00e5ltall"))
+            detail = str(metric.get("detail", "Sjekk avviket f\u00f8r utsending."))
             actions.append((str(metric.get("status", "warn")), label, detail))
         if blocked:
             actions.append(("warn", "Datagrunnlag", f"{len(blocked)} kalenderkilde(r) er blokkert: {', '.join(blocked)}."))
@@ -505,18 +372,18 @@ class HtmlExporter:
         if cancelled_count:
             actions.append(("warn", "Avlyst/hoppet over", f"{cancelled_count} turnering(er) er markert som avlyst eller hoppet over."))
         if not actions:
-            actions.append(("pass", "Ingen kritiske handlinger", "Gå videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
+            actions.append(("pass", "Ingen kritiske handlinger", "G\u00e5 videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
 
         age_rows: list[str] = []
         for age_group in display_age_groups:
             tournaments = [t for t in active_tournaments if t.age_group == age_group]
             labels = sorted({team.label for tournament in tournaments for team in tournament.teams})
-            hosts = sorted({_canonical_rvv_club_name(t.host_club or "") for t in tournaments if t.host_club})
+            hosts = sorted({canonical_rvv_club_name(t.host_club or "") for t in tournaments if t.host_club})
             game_counts = [team_game_counts.get(label, 0) for label in labels]
-            spread = f"{min(game_counts)}–{max(game_counts)}" if game_counts else "-"
-            first_date = _fmt_date(min((t.date for t in tournaments if t.date), default=None))
-            last_date = _fmt_date(max((t.date for t in tournaments if t.date), default=None))
-            dates = f"{first_date} – {last_date}" if first_date and last_date and first_date != last_date else (first_date or "-")
+            spread = f"{min(game_counts)}\u2013{max(game_counts)}" if game_counts else "-"
+            first_date = fmt_date(min((t.date for t in tournaments if t.date), default=None))
+            last_date = fmt_date(max((t.date for t in tournaments if t.date), default=None))
+            dates = f"{first_date} \u2013 {last_date}" if first_date and last_date and first_date != last_date else (first_date or "-")
             age_rows.append(
                 "<tr>"
                 f"<td><strong>{_html.escape(age_group)}</strong></td>"
@@ -560,9 +427,9 @@ class HtmlExporter:
             team_count = len(tournament.teams)
             tournament_rows.append(
                 "<tr>"
-                f"<td>{_html.escape(_fmt_date(tournament.date) or '-')}</td>"
+                f"<td>{_html.escape(fmt_date(tournament.date) or '-')}</td>"
                 f"<td><strong>{_html.escape(tournament.age_group)}</strong></td>"
-                f"<td>{_html.escape(_canonical_rvv_club_name(tournament.host_club or '-') or '-')}</td>"
+                f"<td>{_html.escape(canonical_rvv_club_name(tournament.host_club or '-') or '-')}</td>"
                 f"<td>{_html.escape(tournament.arena)}</td>"
                 f"<td class=\"numeric-cell\">{team_count}</td>"
                 f"<td class=\"numeric-cell\">{len(tournament.games)}</td>"
@@ -598,7 +465,7 @@ class HtmlExporter:
         )
         club_summary = (
             '<div class="table-wrap"><table class="report-table"><thead><tr>'
-            '<th>Klubb</th><th>Lag</th><th>Hjemme</th><th>Borte</th><th>Reise (km)</th><th>Klubben bør sjekke</th>'
+            '<th>Klubb</th><th>Lag</th><th>Hjemme</th><th>Borte</th><th>Reise (km)</th><th>Klubben b\u00f8r sjekke</th>'
             '</tr></thead><tbody>' + "".join(club_rows) + '</tbody></table></div>'
         )
         tournament_table = (
@@ -668,319 +535,6 @@ class HtmlExporter:
                 entry["cr"] = t.cancellation_reason or ""
             data.append(entry)
         return json.dumps(data, ensure_ascii=False)
-
-    @staticmethod
-    def _review_summary_html(plan: SeasonPlan) -> str:
-        """Render the advisory final review summary."""
-        sorted_tournaments = [t for t in plan.tournaments if not t.cancelled and t.date]
-        sorted_tournaments.sort(key=lambda t: (t.date, t.arena, t.age_group))
-
-        findings: list[tuple[str, str, str]] = []
-
-        # Clumping — weekends with more tournaments than the seasonal average.
-        week_counts: dict[tuple[int, int], int] = {}
-        for tournament in sorted_tournaments:
-            iso_year, iso_week, _ = tournament.date.isocalendar()
-            week_counts[(iso_year, iso_week)] = week_counts.get((iso_year, iso_week), 0) + 1
-        if week_counts:
-            busiest_week, busiest_count = max(week_counts.items(), key=lambda item: (item[1], item[0]))
-            avg_week = sum(week_counts.values()) / len(week_counts)
-            if busiest_count >= 2 and (busiest_count >= 3 or busiest_count > avg_week * 1.25):
-                findings.append(
-                    (
-                        "warn",
-                        "Klynge",
-                        f"Uke {busiest_week[0]}-W{busiest_week[1]:02d} har {busiest_count} turneringer, over snittet på {avg_week:.1f}.",
-                    )
-                )
-            else:
-                findings.append(("pass", "Klynge", "Ingen tydelig ukeklynge funnet."))
-        else:
-            findings.append(("pass", "Klynge", "Ingen turneringer å vurdere."))
-
-        # Missing clubs — RVV clubs without a hosted tournament.
-        host_counts: dict[str, int] = {}
-        host_sequence: list[str] = []
-        for tournament in sorted_tournaments:
-            host = tournament.host_club or ""
-            if not host:
-                continue
-            canonical_host = _canonical_rvv_club_name(host)
-            host_counts[canonical_host] = host_counts.get(canonical_host, 0) + 1
-            host_sequence.append(canonical_host)
-        missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
-        if missing_hosts:
-            findings.append(
-                (
-                    "warn",
-                    "Manglende klubber",
-                    f"Følgende RVV-klubber har ingen vertsturnering: {', '.join(missing_hosts)}.",
-                )
-            )
-        else:
-            findings.append(("pass", "Manglende klubber", "Alle 9 RVV-klubber har minst én vertsturnering."))
-
-        # Skipped age groups — <3-team age groups that were not planned.
-        if plan.skipped_age_groups:
-            items = "; ".join(
-                f"{entry['age_group']} ({entry['team_count']} lag: {entry['reason']})"
-                for entry in plan.skipped_age_groups
-            )
-            findings.append(("info", "Hoppet over", items))
-
-        # Strange host patterns — concentration or long runs at the same host.
-        if host_counts:
-            top_host, top_count = max(host_counts.items(), key=lambda item: (item[1], item[0]))
-            total_hosted = sum(host_counts.values())
-            top_share = top_count / total_hosted if total_hosted else 0.0
-            longest_run = 1
-            current_host = ""
-            current_run = 0
-            for host in host_sequence:
-                if host == current_host:
-                    current_run += 1
-                else:
-                    current_host = host
-                    current_run = 1
-                longest_run = max(longest_run, current_run)
-            if longest_run >= 3 or (top_count >= 3 and top_share >= 0.4):
-                findings.append(
-                    (
-                        "warn",
-                        "Vertsmønster",
-                        f"{top_host} står for {top_count} av {total_hosted} vertsturneringer; vurder jevnere fordeling.",
-                    )
-                )
-            else:
-                findings.append(("pass", "Vertsmønster", "Vertsmønsteret ser jevnt ut."))
-        else:
-            findings.append(("pass", "Vertsmønster", "Ingen vertsklubber å vurdere."))
-
-        # Suspicious outliers — unusually high or low per-team game counts.
-        team_counts = plan.team_game_counts or {}
-        if team_counts:
-            max_team, max_games = max(team_counts.items(), key=lambda item: (item[1], item[0]))
-            min_team, min_games = min(team_counts.items(), key=lambda item: (item[1], item[0]))
-            avg_games = sum(team_counts.values()) / len(team_counts)
-            spread = max_games - min_games
-            if spread >= 5 or (avg_games and max_games > avg_games * 1.35):
-                findings.append(
-                    (
-                        "warn",
-                        "Avvik",
-                        f"{max_team} har {max_games} kamper, mens {min_team} har {min_games} (spredning {spread}).",
-                    )
-                )
-            else:
-                findings.append(("pass", "Avvik", "Ingen tydelige kampantallsavvik funnet."))
-        else:
-            findings.append(("pass", "Avvik", "Ingen per-lag kampdata å vurdere."))
-
-        status = "warn" if any(s not in ("pass", "info") for s, _, _ in findings) else "pass"
-        status_label = {"pass": "PASS", "warn": "VARSEL"}.get(status, "PASS")
-        items_html = "".join(
-            (
-                f'<div class="review-summary-item review-summary-item--{severity}">'
-                f'<div class="review-summary-item-label">{_html.escape(label)}</div>'
-                f'<div class="review-summary-item-text">{_html.escape(text)}</div>'
-                "</div>"
-            )
-            for severity, label, text in findings
-        )
-        return (
-            REVIEW_SUMMARY.replace("$REVIEW_STATUS$", status)
-            .replace("$REVIEW_STATUS_LABEL$", status_label)
-            .replace("$REVIEW_ITEMS$", items_html)
-        )
-
-    @staticmethod
-    def _fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
-        """Render the fairness gate summary and metric cards."""
-        if not fairness_gate or not isinstance(fairness_gate, dict):
-            return ""
-
-        metrics = fairness_gate.get("metrics", [])
-        if not metrics:
-            return ""
-
-        status = str(fairness_gate.get("status", "pass")).lower()
-        score = int(fairness_gate.get("score", 0) or 0)
-        status_labels = {"pass": "PASS", "warn": "VARSEL", "fail": "FEIL"}
-        status_label = status_labels.get(status, "PASS")
-
-        metric_cards = []
-        for metric in metrics:
-            metric_status = str(metric.get("status", "pass")).lower()
-            metric_label = _html.escape(str(metric.get("label", "")))
-            value = metric.get("value", "")
-            threshold = metric.get("threshold", "")
-            unit = str(metric.get("unit", ""))
-            if unit and value != "":
-                value = f"{value} {unit}"
-            if unit and threshold != "":
-                threshold = f"{threshold} {unit}"
-            breakdown_rows = metric.get("age_group_breakdown", [])
-            breakdown_html = ""
-            if isinstance(breakdown_rows, list) and breakdown_rows:
-                row_html = "".join(
-                    "<tr>"
-                    f"<td>{_html.escape(str(row.get('age_group', '')))}</td>"
-                    f"<td>{_html.escape(str(row.get('club', '')))}</td>"
-                    f"<td class=\"numeric-cell\">{_html.escape(str(row.get('actual', '')))}</td>"
-                    f"<td class=\"numeric-cell\">{float(row.get('expected', 0.0)):.1f}</td>"
-                    "</tr>"
-                    for row in breakdown_rows[:12]
-                    if isinstance(row, dict)
-                )
-                breakdown_html = (
-                    '<div class="fairness-breakdown-label">Per aldersgruppe: faktisk vs forventet vertskap</div>'
-                    '<table class="fairness-breakdown-table"><thead><tr>'
-                    '<th>Aldersgruppe</th><th>Klubb</th><th>Faktisk</th><th>Forventet</th>'
-                    f'</tr></thead><tbody>{row_html}</tbody></table>'
-                )
-            metric_cards.append(
-                f"<div class=\"fairness-metric fairness-metric--{metric_status}\">"
-                "<div class=\"fairness-metric-head\">"
-                f"<span class=\"fairness-metric-label\">{metric_label}</span>"
-                f"<span class=\"fairness-metric-status fairness-metric-status--{metric_status}\">{status_labels.get(metric_status, metric_status.upper())}</span>"
-                "</div>"
-                f"<div class=\"fairness-metric-value\"><strong>{_html.escape(str(value))}</strong> · terskel {_html.escape(str(threshold))}</div>"
-                f"<div class=\"fairness-metric-score\">Score {int(metric.get('score', 0) or 0)}%</div>"
-                f"<div class=\"fairness-metric-detail\">{_html.escape(str(metric.get('detail', '')))}</div>"
-                f"{breakdown_html}"
-                "</div>"
-            )
-
-        return (
-            '<div class="fairness-gate-panel">'
-            '<div class="fairness-gate-head">'
-            '<div>'
-            '<div class="metrics-group-label">Rettferdighetskontroll</div>'
-            f'<div class="metrics-group-value"><strong>{score}%</strong> · {status_label}</div>'
-            '</div>'
-            f'<span class="fairness-gate-status fairness-gate-status--{status}">{status_label}</span>'
-            '</div>'
-            f'<div class="fairness-gate-grid">{"".join(metric_cards)}</div>'
-            '</div>'
-        )
-
-    @staticmethod
-    def _fairness_adjustments_html(plan: SeasonPlan) -> str:
-        """Render the fairness adjustment overview table."""
-        rows = SeasonFairnessModel().adjustment_rows_for_plan(plan)
-        if not rows:
-            return ""
-
-        total_abs = sum(abs(float(row.get("adjustment", 0.0))) for row in rows)
-        avg_abs = total_abs / len(rows)
-        max_row = rows[0]
-        under_count = sum(1 for row in rows if str(row.get("status", "")) == "under")
-        over_count = sum(1 for row in rows if str(row.get("status", "")) == "over")
-
-        def fmt(value: float) -> str:
-            return f"{value:+.1f}".replace(".", ",")
-
-        summary = (
-            '<div class="fairness-adjustment-summary">'
-            f'<div class="metrics-group"><span class="metrics-group-label">Lag med positiv rettferdighetsjustering</span><span class="metrics-group-value"><strong>{under_count}</strong></span></div>'
-            f'<div class="metrics-group"><span class="metrics-group-label">Lag over mål</span><span class="metrics-group-value"><strong>{over_count}</strong></span></div>'
-            f'<div class="metrics-group"><span class="metrics-group-label">Snitt absolutt avvik</span><span class="metrics-group-value"><strong>{fmt(avg_abs)}</strong></span></div>'
-            f'<div class="metrics-group"><span class="metrics-group-label">Største avvik</span><span class="metrics-group-value"><strong>{_html.escape(str(max_row["label"]))}</strong> {fmt(abs(float(max_row["adjustment"])))}</span></div>'
-            '</div>'
-        )
-
-        status_labels = {"under": "UNDER MÅL", "over": "OVER MÅL", "on_target": "PÅ MÅL"}
-        table_rows = []
-        # Check if any rows have per-team tournament target info
-        has_tournament_targets = any(
-            row.get("target_tournaments") is not None for row in rows
-        )
-        for row in rows:
-            status = str(row.get("status", ""))
-            adj = float(row.get("adjustment", 0.0))
-            target_tt = row.get("target_tournaments")
-            actual_tt = row.get("actual_tournaments", 0)
-            tt_cell = f'<td style="text-align:right">{actual_tt}</td>'
-            if target_tt is not None:
-                tt_cell = f'<td style="text-align:right">{actual_tt}/{target_tt}</td>'
-            table_rows.append(
-                '<tr class="fairness-adjustment-row fairness-adjustment-row--' + _html.escape(status) + '">' 
-                f'<td>{_html.escape(str(row.get("label", "")))}</td>'
-                f'<td>{_html.escape(str(row.get("club", "")))}</td>'
-                f'<td>{_html.escape(str(row.get("age_group", "")))}</td>'
-                f'<td style="text-align:right">{int(row.get("actual", 0))}</td>'
-                f'<td style="text-align:right">{fmt(float(row.get("target", 0.0)))}</td>'
-                f'<td class="fairness-adjustment-adjustment fairness-adjustment-adjustment--{_html.escape(status)}" style="text-align:right">{fmt(adj)}</td>'
-                f'<td>{status_labels.get(status, status.upper())}</td>'
-                f'<td>{"Mangler flere kamper" if adj > 0.5 else ("For mange kamper" if adj < -0.5 else "På mål")}</td>'
-                f'{tt_cell}'
-                '</tr>'
-            )
-
-        # Column headers with optional tournament target column
-        tt_header = '<th>Deltakelser</th>'
-        if has_tournament_targets:
-            tt_header = '<th>Deltakelser (faktisk/mål)</th>'
-        
-        return (
-            '<section class="fairness-adjustment-panel">'
-            '<div class="fairness-adjustment-head">'
-            '<div>'
-            '<div class="metrics-group-label">Rettferdighetsjusteringer</div>'
-            '<div class="metrics-group-value">Forskjell mellom faktisk kampantall og rettferdighetsmål</div>'
-            '</div>'
-            f'<span class="fairness-gate-status fairness-gate-status--warn">{len(rows)} lag</span>'
-            '</div>'
-            f'{summary}'
-            '<table class="fairness-adjustment-table">'
-            '<thead><tr>'
-            f'<th>Lag</th><th>Klubb</th><th>Aldersgruppe</th><th>Kamper (faktisk)</th><th>Kamper (mål)</th><th>Justering</th><th>Status</th><th>Kommentar</th>{tt_header}'
-            '</tr></thead><tbody>'
-            f'{"".join(table_rows)}'
-            '</tbody></table>'
-            '</section>'
-        )
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
-def _season_label(plan: SeasonPlan) -> str:
-    start = plan.start_date
-    end = plan.end_date
-    if start and end:
-        sy = start.year
-        ey = end.year
-        if sy == ey:
-            return f"{sy}/{ey + 1}"
-        return f"{sy}-{ey}"
-    return ""
-
-
-def _fmt_date(d: Any) -> str:
-    if d is None:
-        return "?"
-    return d.strftime("%d.%m.%Y") if hasattr(d, "strftime") else str(d)
-
-
-def _age_string(iso_str: str) -> str:
-    if not iso_str:
-        return ""
-    from datetime import datetime as _dt
-    try:
-        dt = _dt.fromisoformat(iso_str)
-        delta = _dt.now() - dt
-        if delta.total_seconds() < 60:
-            return f"{int(delta.total_seconds())}s siden"
-        if delta.total_seconds() < 3600:
-            return f"{int(delta.total_seconds() // 60)}m siden"
-        if delta.days < 1:
-            return f"{int(delta.total_seconds() // 3600)}t siden"
-        return f"{delta.days}d siden"
-    except (ValueError, TypeError):
-        return ""
 
 
 # ---------------------------------------------------------------------------
