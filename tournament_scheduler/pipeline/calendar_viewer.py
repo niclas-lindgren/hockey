@@ -371,7 +371,7 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
 
   /* Sidebar */
   .sidebar {{
-    width: 260px; min-width: 260px;
+    width: 320px; min-width: 320px;
     background: var(--bg-raised);
     border-right: 1px solid var(--border-dim);
     padding: 16px 14px; overflow-y: auto;
@@ -389,7 +389,7 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
   .sidebar-icon svg {{ display: block; width: 12px; height: 12px; }}
 
   .filter-item {{
-    display: flex; align-items: center; gap: 6px;
+    display: flex; align-items: flex-start; gap: 6px;
     padding: 5px 8px; border-radius: var(--radius-sm);
     background: var(--cbg); border: 1px solid var(--cborder);
     cursor: pointer; font-size: 12px;
@@ -402,15 +402,17 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
     width: 14px; height: 14px; cursor: pointer;
   }}
   .club-label {{
+    display: block;
     font-weight: 600; font-size: 12px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    color: #111; flex: 1;
+    color: #111; flex: 1 1 auto; min-width: 0;
+    white-space: normal; overflow: visible; text-overflow: clip;
+    overflow-wrap: anywhere; line-height: 1.25;
   }}
-  .club-stats {{ color: #444; font-size: 10px; flex-shrink: 0; }}
+  .club-stats {{ color: #444; font-size: 10px; flex-shrink: 0; white-space: nowrap; }}
   .club-freshness {{
     font-size: 9px; padding: 1px 5px;
     border-radius: var(--radius-pill);
-    font-weight: 600; flex-shrink: 0;
+    font-weight: 600; flex-shrink: 0; white-space: nowrap;
     text-transform: uppercase; letter-spacing: .04em;
     color: #555;
   }}

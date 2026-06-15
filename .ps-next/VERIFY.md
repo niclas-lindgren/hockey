@@ -1,9 +1,8 @@
 # Verification Report
 
-STATUS: PASS
+STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `season_plan_report.html` contains a readable advisory review section with at least one qualitative finding or a clear “no major issues” message. | PASS | `python3` export check found `Kvalitetsgjennomgang` in `season_plan_report.html`. |
-| `season_plan.html` does not contain the advisory review section. | PASS | `python3` export check confirmed `Kvalitetsgjennomgang` is absent from `season_plan.html`. |
-| The stage 4 HTML export tests pass. | PASS | `pytest tests/test_stage4_export.py -q` → `13 passed`. |
+| `generate_html()` produces `calendars.html` where long club names are shown without ellipsis truncation in the sidebar filter list. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The regression test passes and checks the sidebar name rendering/layout for a long source name. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
