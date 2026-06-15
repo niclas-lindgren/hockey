@@ -4,9 +4,6 @@ STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| All existing imports (`from tournament_scheduler.html.html_exporter import HtmlExporter`) continue to work without changes to callers. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `pytest tests/test_stage4_export.py -x -q` passes with all 14 tests unchanged. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `python3 -c "from tournament_scheduler.html.html_exporter import HtmlExporter; print('ok')"` succeeds. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `run: python3 -c "from tournament_scheduler.html.data_computation import compute_team_game_counts"` | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `run: python3 -c "from tournament_scheduler.html.renderers.fairness import render_fairness_gate_html" | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Generated HTML output is identical — no computation logic was changed, only moved. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `rvv_cli.py` delegates parser creation and command handling to the new modules while keeping all existing commands available. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Existing CLI-related tests still pass with no changes to their expected behavior. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `tournament_scheduler/cli/args.py`, `pipeline_orchestrator.py`, and `reporting.py` exist and contain the extracted responsibilities. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
