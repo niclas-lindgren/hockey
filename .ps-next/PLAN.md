@@ -8,7 +8,7 @@
 - [x] Replace hidden report club dashboard with a static all-club summary table
   - Files: tournament_scheduler/html/templates/club_dashboard.html, tournament_scheduler/html/templates/script_shared.js, tournament_scheduler/html/templates/styles.css
   - Approach: Change the dashboard fragment from a selector-driven hidden panel into an always-visible report section with a table body rendered from CLUB_STATS/ALL_CLUBS in shared JavaScript, and add minimal table styling.
-- [ ] Add report regression coverage for the static club summary
+- [x] Add report regression coverage for the static club summary
   - Files: tests/test_stage4_export.py
   - Approach: Extend the existing HTML export test to assert the report contains the all-club summary table, has no hidden club dashboard, and still has no schedule filters.
 
@@ -24,6 +24,13 @@
 
 ## Log
 
+
+### 2026-06-15 — Add report regression coverage for the static club summary
+**Done:** Extended the Stage 4 HTML regression test to assert the report contains a static club summary table and no hidden selector-only club dashboard.
+**Rationale:** The regression locks the chosen static-table behavior and prevents reintroducing unreachable club dashboard UI on the report page.
+**Findings:** Targeted `python3 -m pytest -q tests/test_stage4_export.py` passed.
+**Files:** tests/test_stage4_export.py
+**Commit:** not committed
 ### 2026-06-15 — Replace hidden report club dashboard with a static all-club summary table
 **Done:** Changed the report diagnostics club section from a hidden selector-driven dashboard into an always-visible all-club summary table rendered from CLUB_STATS/ALL_CLUBS.
 **Rationale:** The report page intentionally has no schedule filters, so a static aggregate table makes the club summary reachable without reintroducing report-page filter controls.

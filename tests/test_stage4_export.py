@@ -220,6 +220,12 @@ class TestRunStage4:
         assert old_adjustment_label not in report_html
         assert 'Kvalitetsgjennomgang' in report_html
         assert 'Manglende klubber' in report_html
+        assert 'id="clubSummary"' in report_html
+        assert 'id="clubSummaryBody"' in report_html
+        assert 'Samlet klubbstatus' in report_html
+        assert 'Alle klubber i planen, uten behov for filtervalg.' in report_html
+        assert 'id="clubDashboard"' not in report_html
+        assert 'style="display:none' not in report_html
         assert 'id="timeline"' not in report_html
         assert 'class="filters"' not in report_html
         assert 'class="count-bar"' not in report_html
@@ -233,6 +239,8 @@ class TestRunStage4:
             assert schedule_identifier not in report_script
         assert 'rvv-theme' in report_script
         assert 'HEATMAP' in report_script
+        assert 'clubSummaryBody' in report_script
+        assert 'clubDashName' not in report_script
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
         assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)
