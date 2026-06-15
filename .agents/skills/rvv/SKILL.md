@@ -46,7 +46,7 @@ analysis.
 ### `run` flags
 
 ```
---input <path>        Input JSON file (default: input.json)
+--input <path>        Input workbook (default: input.xlsx)
 --work-dir <path>     Working directory (default: .pipeline)
 --resume-from <N>     Resume from stage N (1-4)
 --export-dir <path>   Export directory (default: export)
@@ -55,7 +55,7 @@ analysis.
 
 ## The four stages
 
-1. **Config** — loads `input.json`, validates club configuration
+1. **Config** — loads `input.xlsx`, validates club configuration
 2. **Scraping** — scrapes calendar sources. Two-phase:
    - *Deterministic* — direct iCal feeds, iframe-based Outlook calendars, date-param pages
    - *LLM-driven* — for blocked sources (BookUp, Forumbooking, Sportello, StyledCalendar), the **ScraperAgent** takes over

@@ -70,7 +70,7 @@ export async function interactiveGuide(ctx: ExtensionCommandContext): Promise<vo
       "=== RVV Miniputt Pipeline — Hjelp ===",
       "",
       "Pipelinen bestar av fire trinn:",
-      "  1. Konfigurasjon — leser input.json og validerer",
+      "  1. Konfigurasjon — leser input.xlsx og validerer",
       "  2. Skraping — henter kalenderdata fra alle 9 RVV-klubber",
       "     (Kongsberg, Skien, Ringerike, Jutul, Jar, Holmen,",
       "      Frisk Asker, Tonsberg, Sandefjord Penguins)",
@@ -85,11 +85,11 @@ export async function interactiveGuide(ctx: ExtensionCommandContext): Promise<vo
       "  /rvv-miniputt logs       — vis logging og statistikk",
       "",
       "Vanlige flagg for /rvv-miniputt run:",
-      "  --input <fil>            — konfigurasjonsfil (standard: input.json)",
+      "  --input <fil>            — konfigurasjonsfil (standard: input.xlsx)",
       "  --resume-from <trinn>    — gjenoppta fra trinn 1-4",
       "",
       "Nokkel-filer:",
-      "  input.json               — klubb-/lag-konfigurasjon",
+      "  input.xlsx               — klubb-/lag-konfigurasjon",
       "  .pipeline/               — mellomlagring (checkpoints)",
       "  .pipeline/logs/          — kjoringslogg",
       "  export/                  — ferdige filer (Excel, iCal, CSV)",
@@ -107,16 +107,16 @@ export async function interactiveGuide(ctx: ExtensionCommandContext): Promise<vo
 async function interactiveRunPipeline(ctx: ExtensionCommandContext): Promise<void> {
   // Step 1: Input file
   const inputFile = await ctx.ui.input(
-    "Konfigurasjonsfil (standard: input.json):",
-    "input.json",
+    "Konfigurasjonsfil (standard: input.xlsx):",
+    "input.xlsx",
   );
-  const finalInput = inputFile || "input.json";
+  const finalInput = inputFile || "input.xlsx";
 
-  // Step 2: Check if input.json exists
+  // Step 2: Check if input.xlsx exists
   const inputPath = resolve(ctx.cwd, finalInput);
   if (!existsSync(inputPath)) {
     ctx.ui.notify(
-      `Finner ikke ${finalInput} — opprett en input.json eller angi riktig sti.`,
+      `Finner ikke ${finalInput} — opprett en input.xlsx eller angi riktig sti.`,
       "error",
     );
     return;

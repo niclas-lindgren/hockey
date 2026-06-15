@@ -47,6 +47,10 @@ from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 # Default target for how many tournaments each age group should receive.
 DEFAULT_TARGET_TOURNAMENT_COUNT = 6
 
+# A tournament needs at least three teams to be useful; two teams only
+# produce a single match, which is better handled outside the season plan.
+MIN_TEAMS_PER_TOURNAMENT = 3
+
 # Default start time assigned to generated tournaments when no per-arena/
 # per-age-group scheduling is available yet.
 DEFAULT_TOURNAMENT_START_TIME = "09:00"
@@ -305,6 +309,8 @@ class SeasonPlanner:
 
             arena = self.club_arenas.get(host_club, host_club)
             participants = self._select_participants(age_group)
+            if len(participants) < MIN_TEAMS_PER_TOURNAMENT:
+                continue
             self._record_grouping(participants)
 
             parallel_games = self._parallel_games_for(age_group)
@@ -1234,7 +1240,7 @@ class SeasonPlanner:
         practical capacity (capped by the roster size).
         """
         teams = self.roster.by_age_group(age_group)
-        if not teams:
+        if len(teams) < MIN_TEAMS_PER_TOURNAMENT:
             return 0
         per_team_target = self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
         capacity = min(len(teams), self._max_teams_for(age_group))

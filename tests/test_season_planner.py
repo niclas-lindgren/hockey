@@ -19,6 +19,7 @@ from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_planner import (
     SeasonPlanner,
     DEFAULT_TOURNAMENT_START_TIME,
+    MIN_TEAMS_PER_TOURNAMENT,
 )
 
 
@@ -119,6 +120,28 @@ class TestSeasonPlanner:
         counts = Counter(t.age_group for t in plan.tournaments)
         for age_group in roster.age_groups():
             assert counts[age_group] == planner._target_tournaments_for_age_group(age_group)
+
+    def test_skips_age_groups_with_too_few_teams_for_a_tournament(self, season_window):
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar JU12", age_group="JU12"),
+            Team(club="Kongsberg", label="Kongsberg JU12", age_group="JU12"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"},
+        )
+
+        plan = planner.build_plan(start, end)
+
+        assert planner._target_tournaments_for_age_group("JU12") == 0
+        assert len(plan.tournaments) == 0
+
+    def test_generated_tournaments_have_at_least_minimum_team_count(self, planner_and_plan):
+        _, plan, *_ = planner_and_plan
+        assert all(len(tournament.teams) >= MIN_TEAMS_PER_TOURNAMENT for tournament in plan.tournaments)
 
     def test_tournament_dates_are_spread_across_the_season_window(self, planner_and_plan, season_window):
         _, plan, roster, *_ = planner_and_plan

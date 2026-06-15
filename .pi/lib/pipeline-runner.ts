@@ -4,7 +4,7 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { parseRunArgs } from "./parsers";
 import { PipelineLogger } from "./pipeline-logger";
 import {
@@ -26,7 +26,7 @@ export interface PipelineRunResult {
 export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onProgress?: (e: ProgressEvent) => void): Promise<PipelineRunResult> {
   const params = parseRunArgs(rawArgs);
   const cwdPath = ctx.cwd;
-  const inputPath  = resolve(cwdPath, params.input     ?? "input.json");
+  const inputPath  = resolve(cwdPath, params.input     ?? "input.xlsx");
   const workDir    = resolve(cwdPath, params.work_dir  ?? ".pipeline");
   const exportDir  = resolve(cwdPath, params.export_dir ?? "export");
   const resumeFrom = params.resume_from ? resolveResumeStage(params.resume_from) : 1;
@@ -333,10 +333,10 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     logger.stageEnd("export", "skipped");
   }
 
-  // Bundle: copy input.json into timestamped export folder
+  // Bundle: copy the input workbook into the timestamped export folder
   try {
     const { copyFileSync } = await import("node:fs");
-    copyFileSync(inputPath, resolve(timestampedExportDir, "input.json"));
+    copyFileSync(inputPath, resolve(timestampedExportDir, basename(inputPath)));
     lines.push(`Input kopiert til ${timestampedExportDir}\n`);
   } catch {}
 
