@@ -1,12 +1,12 @@
 # Backlog
 
 ## Open
-- [93] [ ] Normalize club-name aliases in season-plan report diagnostics so clubs like `Sandefjord` and `Sandefjord Penguins` are treated as the same RVV club and do not produce false missing-host warnings.
-
 - [92] [ ] Regenerate or refresh exported HTML artifacts after report-page UI fixes so `season_plan_report.html` no longer contains stale schedule filters/count bar in the latest export folder.
 - [91] [ ] Make the report page's club summary behavior consistent after removing schedule filters: either remove the unreachable hidden club dashboard from `season_plan_report.html`, add a dedicated report-page club selector, or replace it with a static all-club summary table.
 
 ## Done
+- [93] [x] Normalize club-name aliases in season-plan report diagnostics so clubs like `Sandefjord` and `Sandefjord Penguins` are treated as the same RVV club and do not produce false missing-host warnings. (2026-06-15)
+
 - [94] [x] Split generated HTML JavaScript into schedule-only and report/shared bundles so `season_plan_report.html` no longer embeds unused timeline/filter rendering code and future schedule UI fragments cannot leak into the report page. (2026-06-15)
 
 - [95] [x] Standardize Norwegian terminology in generated reports by replacing mixed labels like `Fairness-justeringer`/`Rettferdighetsgate` with consistent Norwegian wording across HTML and Excel/report outputs. (2026-06-15)
