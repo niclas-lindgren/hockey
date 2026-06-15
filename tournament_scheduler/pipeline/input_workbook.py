@@ -61,7 +61,7 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
     raw["teams"] = _read_table(
         wb["Lag"],
         required_columns=("club", "label", "age_group"),
-        optional_columns=("region", "skill_level"),
+        optional_columns=("region", "skill_level", "target_tournament_count"),
     )
 
     if "Kilder" in wb.sheetnames:

@@ -71,3 +71,39 @@ class TestSeasonFairnessModel:
 
         assert {row["label"] for row in rows} == {"Jar 1", "Jar 2", "Kongsberg 1"}
         assert abs(float(rows[0]["adjustment"])) >= abs(float(rows[1]["adjustment"])) >= abs(float(rows[2]["adjustment"]))
+        # Check new fields: all teams participate in 1 tournament, none have per-team target
+        for row in rows:
+            assert row["actual_tournaments"] == 1
+            assert row["target_tournaments"] is None
+
+    def test_adjustment_rows_show_per_team_target_tournaments(self):
+        """adjustment_rows_for_plan includes per-team target_tournament_count and actual participation."""
+        teams = [
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 2", age_group="U10", target_tournament_count=2),
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+        ]
+        tournament = Tournament(
+            date=date(2026, 10, 10),
+            arena="Kongsberghallen",
+            age_group="U10",
+            teams=teams,
+            games=[Game(home=teams[0], away=teams[2]), Game(home=teams[1], away=teams[2])],
+            host_club="Kongsberg",
+        )
+        plan = SeasonPlan(
+            tournaments=[tournament],
+            team_game_counts={"Kongsberg 1": 1, "Kongsberg 2": 1, "Jar 1": 1},
+        )
+
+        model = SeasonFairnessModel()
+        rows = model.adjustment_rows_for_plan(plan)
+
+        rows_by_label = {row["label"]: row for row in rows}
+        # Kongsberg 2 has target=2
+        assert rows_by_label["Kongsberg 2"]["target_tournaments"] == 2
+        assert rows_by_label["Kongsberg 2"]["actual_tournaments"] == 1
+        # Others have no per-team target
+        assert rows_by_label["Kongsberg 1"]["target_tournaments"] is None
+        assert rows_by_label["Jar 1"]["target_tournaments"] is None
+        assert rows_by_label["Jar 1"]["actual_tournaments"] == 1

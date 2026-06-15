@@ -145,12 +145,22 @@ class SeasonFairnessModel:
         """Return a sorted fairness-adjustment overview for a finished plan.
 
         Each row contains the team label, club, age group, actual game count,
-        soft target, and the adjustment needed to hit that target.
+        soft target, the adjustment needed to hit that target, the team's
+        per-team tournament participation target (if set), and the actual
+        number of tournaments the team participated in.
         """
         teams_by_age_group: dict[str, list[Team]] = {}
         seen_keys: set[str] = set()
         all_teams = [team for tournament in plan.tournaments for team in tournament.teams]
         duplicate_labels = self._duplicate_labels(all_teams)
+
+        # Compute per-team tournament participation counts
+        tournament_participations: dict[str, int] = {}
+        for tournament in plan.tournaments:
+            for team in tournament.teams:
+                key = team_key(team, duplicate_labels)
+                tournament_participations[key] = tournament_participations.get(key, 0) + 1
+
         for tournament in plan.tournaments:
             for team in tournament.teams:
                 key = team_key(team, duplicate_labels)
@@ -170,6 +180,9 @@ class SeasonFairnessModel:
                 actual = int(plan.team_game_counts.get(key, 0))
                 target = float(targets.get(key, 0.0))
                 delta = round(target - actual, 3)
+                # Per-team tournament participation info
+                team_target_ttc = team.target_tournament_count or None  # None = not set, uses global
+                actual_participations = tournament_participations.get(key, 0)
                 rows.append({
                     "label": key,
                     "club": team.club,
@@ -178,6 +191,8 @@ class SeasonFairnessModel:
                     "target": target,
                     "adjustment": delta,
                     "status": "under" if delta > 0.5 else ("over" if delta < -0.5 else "on_target"),
+                    "target_tournaments": team_target_ttc,
+                    "actual_tournaments": actual_participations,
                 })
 
         rows.sort(

@@ -249,6 +249,14 @@ class SeasonPlanner:
         # free weekends for the desired per-team participation count).
         self._feasibility_warnings: List[str] = []
 
+        # Per-team tournament participation count — how many tournaments
+        # each team has been invited to (distinct from game counts, which
+        # are tracked by `_running_game_counts`). Used to enforce per-team
+        # target_tournament_count caps.
+        self._tournament_participations: Dict[str, int] = {
+            self._team_key(team): 0 for team in roster.teams
+        }
+
         self.max_month_deviation_ratio = max_month_deviation_ratio
         self.events_by_club = events_by_club or {}
         self.fairness_thresholds = dict(DEFAULT_FAIRNESS_THRESHOLDS)
@@ -259,6 +267,20 @@ class SeasonPlanner:
         # Kept for compatibility with older reports/tests; the planner now
         # only books tournaments from the assigned host club's own calendar.
         self._fallback_host_substitutions: List[Tuple[date, str, str, str]] = []
+
+    def _team_target_tournament_count(self, team: Team) -> int:
+        """Return the tournament participation target for *team*.
+
+        Returns the per-team override if set, otherwise the global default.
+        """
+        return team.target_tournament_count or (self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT)
+
+    def _team_at_target(self, team: Team) -> bool:
+        """Return True if *team* has reached its tournament participation cap."""
+        key = self._team_key(team)
+        count = self._tournament_participations.get(key, 0)
+        target = self._team_target_tournament_count(team)
+        return count >= target
 
     def _team_key(self, team: Team) -> str:
         return team_key(team, self._duplicate_team_labels)
@@ -867,7 +889,6 @@ class SeasonPlanner:
         given the number of available free weekends, emit a warning.
         """
         self._feasibility_warnings = []
-        per_team_target = self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
 
         for age_group in self.roster.age_groups():
             teams = self.roster.by_age_group(age_group)
@@ -880,14 +901,29 @@ class SeasonPlanner:
                 continue
 
             capacity = min(len(teams), self._max_teams_for(age_group))
-            target_count = max(1, math.ceil(len(teams) * per_team_target / capacity))
+            
+            # Compute target tournament count from per-team targets summed
+            total_target = sum(
+                (t.target_tournament_count or self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT)
+                for t in teams
+            )
+            target_count = max(1, math.ceil(total_target / capacity))
+            
+            # Show the range of per-team targets in the warning message
+            targets = [
+                t.target_tournament_count or self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
+                for t in teams
+            ]
+            min_target = min(targets)
+            max_target = max(targets)
 
             # Rough feasibility: if the target tournament count for this
             # age group alone exceeds the total number of free dates,
             # the desired participation level is unrealistic.
             if target_count > len(free_dates):
+                target_desc = f"{min_target}" if min_target == max_target else f"{min_target}–{max_target}"
                 self._feasibility_warnings.append(
-                    f"{age_group}: målet på ~{per_team_target} deltakelser per lag "
+                    f"{age_group}: målet på ~{target_desc} deltakelser per lag "
                     f"({target_count} turneringer) kan neppe nås — det er bare "
                     f"{len(free_dates)} ledige helger i sesongvinduet. "
                     f"Planleggeren justerer ned automatisk."
@@ -1222,11 +1258,31 @@ class SeasonPlanner:
         })
 
         target_val = self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
-        report.append({
-            "regel": f"Mykt mål: cirka {target_val} turneringsdeltakelser per lag",
-            "forklaring": (
+        all_same_target = all(
+            t.target_tournament_count is None or t.target_tournament_count == target_val
+            for t in self.roster.teams
+        )
+        if all_same_target:
+            target_desc = f"cirka {target_val} turneringsdeltakelser per lag"
+            target_detail = (
                 f"Hver aldersgruppe planlegges mot et mykt mål på rundt "
-                f"{target_val} turneringsdeltakelser per lag. "
+                f"{target_val} turneringsdeltakelser per lag."
+            )
+        else:
+            targets = {
+                t.target_tournament_count or target_val
+                for t in self.roster.teams
+            }
+            target_range = ", ".join(sorted(str(t) for t in targets))
+            target_desc = f"{min(targets)}–{max(targets)} turneringsdeltakelser per lag (varierer per lag)"
+            target_detail = (
+                f"Lag planlegges mot individuelle mål for turneringsdeltakelser: "
+                f"{target_range}. Lag uten eget mål bruker standarden på {target_val}. "
+            )
+        report.append({
+            "regel": f"Mykt mål: {target_desc}",
+            "forklaring": (
+                f"{target_detail} "
                 f"Tallet er en ønsket sesongbelastning — planleggeren vil heller "
                 f"lage færre, bedre turneringer enn å presse inn ekstra bare for "
                 f"å nå målet. Dersom en aldersgruppe har for få lag eller for få "
@@ -1374,9 +1430,16 @@ class SeasonPlanner:
         teams = self.roster.by_age_group(age_group)
         if len(teams) < MIN_TEAMS_PER_TOURNAMENT:
             return 0
-        per_team_target = self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
+        
+        # Sum per-team targets: each team contributes its own target if set,
+        # otherwise the global default. This lets teams with lower targets
+        # reduce the overall age-group tournament count appropriately.
+        total_target = sum(
+            (t.target_tournament_count or self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT)
+            for t in teams
+        )
         capacity = min(len(teams), self._max_teams_for(age_group))
-        return max(1, math.ceil(len(teams) * per_team_target / capacity))
+        return max(1, math.ceil(total_target / capacity))
 
     @staticmethod
     def _default_target_count(num_free_dates: int) -> int:
@@ -1561,6 +1624,13 @@ class SeasonPlanner:
         if not candidates:
             return []
 
+        # Exclude teams that have already reached their per-team
+        # tournament participation cap. Teams at their target are not
+        # invited to further tournaments, even if capacity exists.
+        candidates = [t for t in candidates if not self._team_at_target(t)]
+        if not candidates:
+            return []
+
         max_teams = self._participant_limit_for(age_group, len(candidates))
         if len(candidates) <= max_teams:
             # Enforce per-club slot allowance even on the small-roster
@@ -1735,7 +1805,13 @@ class SeasonPlanner:
         already above that target. Used by `_pick_least_recently_grouped`
         and `_select_participants` to steer the season toward the same
         soft fairness shape that post-plan warnings use.
+
+        If the team has already reached its per-team tournament
+        participation cap (`_team_at_target`), returns -1 so the team
+        is deprioritised and will not be invited to further tournaments.
         """
+        if self._team_at_target(team):
+            return -1.0
         age_group_teams = self.roster.by_age_group(age_group)
         if not age_group_teams:
             return 0.0
@@ -1949,6 +2025,9 @@ class SeasonPlanner:
         for team in participants:
             key = self._team_key(team)
             self._invite_counts[key] = self._invite_counts.get(key, 0) + 1
+            self._tournament_participations[key] = (
+                self._tournament_participations.get(key, 0) + 1
+            )
             grouped = self._grouped_with.setdefault(key, set())
             grouped.update(label for label in labels if label != key)
             self._running_game_counts[key] = (

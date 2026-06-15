@@ -891,9 +891,18 @@ class HtmlExporter:
 
         status_labels = {"under": "UNDER MÅL", "over": "OVER MÅL", "on_target": "PÅ MÅL"}
         table_rows = []
+        # Check if any rows have per-team tournament target info
+        has_tournament_targets = any(
+            row.get("target_tournaments") is not None for row in rows
+        )
         for row in rows:
             status = str(row.get("status", ""))
             adj = float(row.get("adjustment", 0.0))
+            target_tt = row.get("target_tournaments")
+            actual_tt = row.get("actual_tournaments", 0)
+            tt_cell = f'<td style="text-align:right">{actual_tt}</td>'
+            if target_tt is not None:
+                tt_cell = f'<td style="text-align:right">{actual_tt}/{target_tt}</td>'
             table_rows.append(
                 '<tr class="fairness-adjustment-row fairness-adjustment-row--' + _html.escape(status) + '">' 
                 f'<td>{_html.escape(str(row.get("label", "")))}</td>'
@@ -904,9 +913,15 @@ class HtmlExporter:
                 f'<td class="fairness-adjustment-adjustment fairness-adjustment-adjustment--{_html.escape(status)}" style="text-align:right">{fmt(adj)}</td>'
                 f'<td>{status_labels.get(status, status.upper())}</td>'
                 f'<td>{"Mangler flere kamper" if adj > 0.5 else ("For mange kamper" if adj < -0.5 else "På mål")}</td>'
+                f'{tt_cell}'
                 '</tr>'
             )
 
+        # Column headers with optional tournament target column
+        tt_header = '<th>Deltakelser</th>'
+        if has_tournament_targets:
+            tt_header = '<th>Deltakelser (faktisk/mål)</th>'
+        
         return (
             '<section class="fairness-adjustment-panel">'
             '<div class="fairness-adjustment-head">'
@@ -919,7 +934,7 @@ class HtmlExporter:
             f'{summary}'
             '<table class="fairness-adjustment-table">'
             '<thead><tr>'
-            '<th>Lag</th><th>Klubb</th><th>Aldersgruppe</th><th>Faktisk</th><th>Mål</th><th>Justering</th><th>Status</th><th>Kommentar</th>'
+            f'<th>Lag</th><th>Klubb</th><th>Aldersgruppe</th><th>Kamper (faktisk)</th><th>Kamper (mål)</th><th>Justering</th><th>Status</th><th>Kommentar</th>{tt_header}'
             '</tr></thead><tbody>'
             f'{"".join(table_rows)}'
             '</tbody></table>'

@@ -25,6 +25,8 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
         d: dict[str, Any] = {"club": t.club, "label": t.label, "age_group": t.age_group}
         if t.skill_level is not None:
             d["skillLevel"] = t.skill_level
+        if t.target_tournament_count is not None:
+            d["target_tournament_count"] = t.target_tournament_count
         return d
 
     def _tournament_to_dict(t: Tournament) -> dict[str, Any]:
@@ -43,6 +45,12 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
             d["cancellation_reason"] = t.cancellation_reason
         return d
 
+    # Compute per-team tournament participation counts from the tournament list
+    participations: Dict[str, int] = {}
+    for t in plan.tournaments:
+        for team in t.teams:
+            participations[team.label] = participations.get(team.label, 0) + 1
+
     checkpoint = {
         "start_date": plan.start_date.isoformat() if plan.start_date else None,
         "end_date": plan.end_date.isoformat() if plan.end_date else None,
@@ -51,6 +59,7 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
         "month_balance_score": plan.month_balance_score,
         "arena_counts": plan.arena_counts,
         "team_game_counts": dict(plan.team_game_counts),
+        "team_tournament_participations": participations,
         "game_count_spread": plan.game_count_spread,
         "fairness_gate": plan.fairness_gate,
         "team_last_game_dates": {
@@ -73,7 +82,12 @@ def _build_roster(config: dict[str, Any]) -> Roster:
     """Build a :class:`Roster` from the Stage 1 config."""
     teams_data = config.get("teams", [])
     teams = [
-        Team(club=t["club"], label=t["label"], age_group=t["age_group"])
+        Team(
+            club=t["club"],
+            label=t["label"],
+            age_group=t["age_group"],
+            target_tournament_count=t.get("target_tournament_count"),
+        )
         for t in teams_data
         if isinstance(t, dict)
     ]
@@ -182,6 +196,7 @@ def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
             label=t["label"],
             age_group=t["age_group"],
             skill_level=t.get("skillLevel"),
+            target_tournament_count=t.get("target_tournament_count"),
         )
         for t in data.get("teams", [])
     ]

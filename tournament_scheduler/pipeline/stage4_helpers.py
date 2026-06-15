@@ -17,6 +17,7 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
                 club=tm["club"],
                 label=tm["label"],
                 age_group=tm["age_group"],
+                target_tournament_count=tm.get("target_tournament_count"),
             )
             for tm in t_dict.get("teams", [])
         ]

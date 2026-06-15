@@ -75,6 +75,7 @@ class Team:
     age_group: str  # e.g. "U10", "JU11"
     region: str = "RVV"  # geographical region, e.g. "RVV", "Oslo"
     skill_level: Optional[int] = None  # 1-10 skill tier (None = unrated, grouped with everyone)
+    target_tournament_count: Optional[int] = None  # per-team override for deltakelser_per_lag (None = use global default)
 
     @property
     def name(self) -> str:

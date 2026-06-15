@@ -46,9 +46,16 @@ def _write_input_workbook(path: Path, raw: dict | None = None) -> None:
             ])
 
     teams = wb.create_sheet("Lag")
-    teams.append(["club", "label", "age_group"])
+    header_cols = ["club", "label", "age_group"]
+    team_has_ttc = any("target_tournament_count" in team for team in raw.get("teams", []))
+    if team_has_ttc:
+        header_cols.append("target_tournament_count")
+    teams.append(header_cols)
     for team in raw.get("teams", []):
-        teams.append([team.get("club"), team.get("label"), team.get("age_group")])
+        row = [team.get("club"), team.get("label"), team.get("age_group")]
+        if team_has_ttc:
+            row.append(team.get("target_tournament_count"))
+        teams.append(row)
 
     sources = wb.create_sheet("Kilder")
     sources.append(["name", "type", "url"])
@@ -216,6 +223,30 @@ class TestRunStage1:
         state = PipelineState(tmp_path / "pipeline")
         result = run(input_file, state)
         assert result["target_tournament_count"] == 6
+
+    def test_run_preserves_per_team_target_tournament_count(self, tmp_path):
+        """The per-team `target_tournament_count` column in the Lag sheet is preserved."""
+        raw = _make_valid_raw()
+        raw["teams"] = [
+            {"club": "Kongsberg", "label": "Kongsberg 1", "age_group": "U10"},
+            {"club": "Kongsberg", "label": "Kongsberg 2", "age_group": "U7", "target_tournament_count": 2},
+            {"club": "Jar", "label": "Jar 1", "age_group": "U10", "target_tournament_count": 6},
+        ]
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file, raw)
+
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(input_file, state)
+        teams = result["teams"]
+        # Team without target
+        kong1 = next(t for t in teams if t["label"] == "Kongsberg 1")
+        assert "target_tournament_count" not in kong1 or kong1.get("target_tournament_count") is None
+        # Team with target=2
+        kong2 = next(t for t in teams if t["label"] == "Kongsberg 2")
+        assert kong2["target_tournament_count"] == 2
+        # Team with target=6
+        jar1 = next(t for t in teams if t["label"] == "Jar 1")
+        assert jar1["target_tournament_count"] == 6
 
     def test_run_rejects_json_input(self, tmp_path):
         input_file = tmp_path / "legacy.json"

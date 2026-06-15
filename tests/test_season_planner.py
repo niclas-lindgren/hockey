@@ -252,6 +252,47 @@ class TestSeasonPlanner:
             expected_games = n * (n - 1) // 2
             assert len(tournament.games) == expected_games
 
+    def test_per_team_target_tournament_count_is_enforced(self, season_window):
+        """A team with target_tournament_count=1 is invited to at most 1 tournament."""
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+
+        # Create a small roster where Kongsberg 2 has target=1 while others use global default
+        teams = [
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 2", age_group="U10", target_tournament_count=1),
+            Team(club="Jar",       label="Jar U10",       age_group="U10"),
+            Team(club="Holmen",    label="Holmen U10",    age_group="U10"),
+            Team(club="Skien",     label="Skien U10",     age_group="U10"),
+            Team(club="Jutul",     label="Jutul U10",     age_group="U10"),
+            Team(club="Ringerike", label="Ringerike U10", age_group="U10"),
+        ]
+        roster = Roster(teams=teams)
+        club_arenas = {"Kongsberg": "Kongsberghallen", "Jar": "Jarhallen",
+                       "Holmen": "Holmenhallen", "Skien": "Skienhallen",
+                       "Jutul": "Baerumhallen", "Ringerike": "Ringerikehallen"}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+            target_tournament_count=6,
+        )
+        plan = planner.build_plan(start, end)
+
+        # Count how many tournaments Kongsberg 2 appears in
+        participations = 0
+        for tournament in plan.tournaments:
+            for team in tournament.teams:
+                if team.label == "Kongsberg 2":
+                    participations += 1
+
+        assert participations <= 1, (
+            f"Kongsberg 2 (target=1) was invited to {participations} tournaments"
+        )
+        assert plan.tournaments, "should still generate tournaments"
+
 
 class TestRoundRobinGameGeneration:
     def test_same_club_pairs_are_kept_in_round_robin_games(self):
