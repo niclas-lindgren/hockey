@@ -203,11 +203,15 @@ class TestRunStage4:
         assert 'Fairness-justeringer' not in html
         assert 'Kvalitetsgjennomgang' not in html
         assert 'id="timeline"' in html
+        assert 'class="filters"' in html
+        assert 'class="count-bar"' in html
         assert 'Rettferdighetsgate' in report_html
         assert 'Fairness-justeringer' in report_html
         assert 'Kvalitetsgjennomgang' in report_html
         assert 'Manglende klubber' in report_html
         assert 'id="timeline"' not in report_html
+        assert 'class="filters"' not in report_html
+        assert 'class="count-bar"' not in report_html
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
         assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)

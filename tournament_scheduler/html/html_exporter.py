@@ -320,8 +320,8 @@ class HtmlExporter:
                 "$TEAM_STATS$": TEAM_STATS if include_diagnostics else "",
                 "$TRAVEL_STATS$": TRAVEL_STATS if include_diagnostics else "",
                 "$HEATMAP$": HEATMAP if include_diagnostics else "",
-                "$FILTERS$": FILTERS,
-                "$COUNT_BAR$": COUNT_BAR,
+                "$FILTERS$": FILTERS if include_timeline else "",
+                "$COUNT_BAR$": COUNT_BAR if include_timeline else "",
                 "$TIMELINE$": '<div class="timeline" id="timeline"></div>' if include_timeline else "",
                 "$SCRIPT$": JAVASCRIPT,
             }
