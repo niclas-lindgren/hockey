@@ -216,3 +216,4 @@ export/
 logs/
 cache/
 .pipeline/
+.ps-next/.lock
