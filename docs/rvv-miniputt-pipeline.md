@@ -4,7 +4,7 @@
 
 The season-planning workflow is checkpointed in `.pipeline/` and runs in four stages:
 
-1. **Stage 1 — Config**: validate `input.json` and expand the roster
+1. **Stage 1 — Config**: validate `input.json` or a workbook input and expand the roster
 2. **Stage 2 — Scraping**: fetch calendar events from all configured sources
 3. **Stage 3 — Planning**: build the season plan
 4. **Stage 4 — Export**: write Excel, CSV, iCal, HTML, and Spond outputs
@@ -13,7 +13,7 @@ The pipeline is designed so you can fix a blocked source, rerun the command, and
 
 ## Input file
 
-`input.json` is the canonical pipeline input.
+`input.json` is the canonical pipeline input and interchange format. For organizer editing, `--input` can also point to an `.xlsx` workbook that Stage 1 imports into the same JSON-shaped schema before validation.
 
 Required fields:
 
@@ -51,9 +51,26 @@ Example:
 }
 ```
 
+### Excel workbook input
+
+A workbook input uses these sheets:
+
+- `Innstillinger` — columns `felt` and `verdi` for `start_date`, `end_date`, and `target_tournament_count`.
+- `Aldersgrupper` — columns `age_group`, `parallel_games`, and optional `round_length_minutes`.
+- `Lag` — columns `club`, `label`, and `age_group`.
+- `Kilder` — columns `name`, `type`, and `url`.
+
+Run it the same way as JSON:
+
+```bash
+rvv-miniputt run --input input.xlsx --export-dir export
+```
+
+See `docs/rvv-miniputt-input-formats.md` for why Excel is supported as an editor-friendly supplement while JSON remains canonical.
+
 ### Roster files
 
-If `teams` is a string, it should point to a JSON/YAML roster file. Each team entry needs:
+If `teams` is a string in JSON, it should point to a JSON/YAML roster file. Each team entry needs:
 
 - `club`
 - `label`
@@ -104,7 +121,7 @@ Useful flags:
 - `--non-strict` — continue past some stage failures
 - `--allow-missing-sources` — keep partial Stage 2 results and continue
 - `--timestamped-export` — write diffable exports into a timestamped folder only
-- `target_tournament_count` — soft per-team tournament-participation target in `input.json` (default: 6)
+- `target_tournament_count` — soft per-team tournament-participation target in `input.json` or workbook settings (default: 6)
 
 ### Rebuild calendar HTML
 
@@ -126,7 +143,7 @@ The pipeline also stores per-run logs in `.pipeline/logs/`.
 
 Typical recovery loop:
 
-1. fix `input.json` or source credentials
+1. fix `input.json`, workbook input, or source credentials
 2. rerun `rvv-miniputt run`
 3. if a JS source is still blocked, try `rvv-miniputt scrape-llm --club NAME`
 4. rebuild calendars with `rvv-miniputt calendars`

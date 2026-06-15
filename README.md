@@ -3,7 +3,7 @@
 RVV Miniputt is the season-planning and calendar-scraping pipeline for RVV hockey clubs.
 It replaces the older single-tournament workflow with a four-stage pipeline that:
 
-1. validates season input (`input.json` + roster data)
+1. validates season input (`input.json` or workbook input + roster data)
 2. scrapes club calendars and caches results
 3. builds a season plan
 4. exports Excel, CSV, iCal, HTML, and Spond files
@@ -12,6 +12,7 @@ It replaces the older single-tournament workflow with a four-stage pipeline that
 
 ```bash
 rvv-miniputt run --input input.json --export-dir export
+# or: rvv-miniputt run --input input.xlsx --export-dir export
 ```
 
 If you use the Pi extension, the matching slash commands are:
@@ -50,7 +51,7 @@ A successful run writes exports under `export/` by default:
 
 With `--timestamped-export`, exports are written to a timestamped subfolder for diffable runs.
 
-Set `target_tournament_count` in `input.json` to tune the soft per-team tournament-participation target (default: 6).
+Set `target_tournament_count` in `input.json` (or the workbook `Innstillinger` sheet) to tune the soft per-team tournament-participation target (default: 6).
 
 ## More documentation
 

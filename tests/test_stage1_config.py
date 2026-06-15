@@ -145,9 +145,12 @@ class TestRunStage1:
         state = PipelineState(tmp_path / "pipeline")
         result = run(input_file, state)
         effective = load_effective_config(state, input_path=input_file)
+        checkpoint = state.read_stage(StageName.CONFIG)
 
         assert state.is_done(StageName.CONFIG)
         assert len(result["teams"]) == 2
+        assert checkpoint["teams"] == result["teams"]
+        assert "start_date" not in checkpoint
         assert result["input_path"] == str(input_file.resolve())
         assert effective["start_date"] == "2025-09-01"
         assert effective["end_date"] == "2025-12-01"

@@ -58,7 +58,7 @@ def _build_parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--input",
         default="input.json",
-        help="Path to pipeline input config (default: input.json)",
+        help="Path to pipeline input config, .json or .xlsx (default: input.json)",
     )
     run.add_argument(
         "--export-dir",

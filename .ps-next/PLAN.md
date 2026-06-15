@@ -11,7 +11,7 @@
 - [x] Add an Excel workbook reader for pipeline input
   - Files: tournament_scheduler/pipeline/input_workbook.py, tournament_scheduler/pipeline/stage1_helpers.py, tournament_scheduler/pipeline/stage1_config.py, tests/test_stage1_config.py
   - Approach: Implement an openpyxl-based `.xlsx` reader that maps simple sheets (`Innstillinger`, `Aldersgrupper`, `Lag`, `Kilder`) into the existing raw config dict before existing validation; keep `input.json` behavior unchanged and cover success/error cases with pytest.
-- [ ] Surface workbook input support in CLI/docs
+- [x] Surface workbook input support in CLI/docs
   - Files: tournament_scheduler/cli/rvv_cli.py, README.md, docs/rvv-miniputt-pipeline.md, tests/test_stage1_config.py
   - Approach: Update help/docs to say `--input` accepts `.json` or `.xlsx`, add a round-trip-ish test that `run()` accepts a workbook path and writes the normal Stage 1 checkpoint, and ensure documentation names JSON as the canonical interchange format.
 
@@ -29,6 +29,13 @@
 ## Log
 
 
+
+### 2026-06-15 — Surface workbook input support in CLI/docs
+**Done:** Updated CLI help and pipeline docs to advertise `.json`/`.xlsx` input support, documented workbook sheets, and strengthened the workbook Stage 1 test to assert the normal checkpoint shape.
+**Rationale:** Users can now discover workbook support from the command help and docs while still seeing JSON described as the canonical interchange format.
+**Findings:** This environment lacks a `python` executable, so the Stage 1 module acceptance command was run successfully with `python3`.
+**Files:** tournament_scheduler/cli/rvv_cli.py, README.md, docs/rvv-miniputt-pipeline.md, tests/test_stage1_config.py, .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-06-15 — Add an Excel workbook reader for pipeline input
 **Done:** Added an openpyxl workbook adapter for `Innstillinger`, `Aldersgrupper`, `Lag`, and `Kilder` sheets, wired Stage 1 loading to accept `.xlsx`/`.xlsm`, and covered workbook success/missing-sheet behavior.
 **Rationale:** Mapping Excel into the existing raw config dict reuses current validation and keeps the JSON-shaped schema canonical for downstream stages.
