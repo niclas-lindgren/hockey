@@ -4,5 +4,6 @@ STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `season_plan.html` contains Excel, CSV, and iCal download links in a top-of-header action row. | PASS | `tournament_scheduler/html/templates/header.html` places `$EXPORT_LINKS$` in `.header-actions` above `.header-main`, and `tests/test_stage4_export.py` asserts the generated HTML contains the Excel/CSV/iCal links. |
-| `tests/test_stage4_export.py` verifies the export links are positioned before the main header stats/content. | PASS | The test now checks `class="export-links"` appears before `class="header-main"` and `class="stat-badge"` in both `season_plan.html` and `season_plan_report.html`. |
+| `season_plan_report.html` contains a readable advisory review section with at least one qualitative finding or a clear “no major issues” message. | PASS | `python3` export check found `Kvalitetsgjennomgang` in `season_plan_report.html`. |
+| `season_plan.html` does not contain the advisory review section. | PASS | `python3` export check confirmed `Kvalitetsgjennomgang` is absent from `season_plan.html`. |
+| The stage 4 HTML export tests pass. | PASS | `pytest tests/test_stage4_export.py -q` → `13 passed`. |
