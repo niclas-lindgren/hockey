@@ -1,6 +1,7 @@
 """Tests for SeasonPlanner (season planning/optimization engine)."""
 
 from collections import Counter
+from typing import Dict
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -1115,9 +1116,9 @@ class TestPerTeamGameCounts:
         assert total_tournaments > 0
         assert planner.club_cap_overrides >= 0
 
-    def test_prefers_new_clubs_before_stacking_same_club_teams(self):
-        """When enough other clubs are available, the picker should keep a tournament
-        mixed instead of packing multiple Jar siblings into the same round."""
+    def test_deficit_aware_club_mix_lets_large_clubs_catch_up(self):
+        """When deficit spread exceeds max_game_count_spread, the picker allows
+        more than one sibling team per tournament so large clubs can catch up."""
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
         free_dates = _all_weekend_dates(start, end)
 
@@ -1136,12 +1137,35 @@ class TestPerTeamGameCounts:
         plan = planner.build_plan(start, end)
 
         assert plan.tournaments
-        for tournament in plan.tournaments[:6]:
-            club_counts = Counter(team.club for team in tournament.teams)
-            assert club_counts["Jar"] <= 1, (
-                f"expected Jar to stay mixed with other clubs, got {club_counts}"
+
+        # Early tournaments still prefer diverse club mixing (deficit not yet high)
+        tournament_club_mix = []
+        for t in plan.tournaments:
+            club_counts = Counter(team.club for team in t.teams)
+            tournament_club_mix.append(club_counts["Jar"])
+
+        # At least some early tournament has Jar <= 1 (preferred_club_mix before deficit builds)
+        assert tournament_club_mix[0] <= 1, (
+            f"First tournament should mix Jar with other clubs, got {tournament_club_mix[0]}"
+        )
+
+        # At least some later tournament has Jar > 1 (deficit-aware expansion)
+        assert any(c > 1 for c in tournament_club_mix), (
+            f"No tournament has more than 1 Jar team: {tournament_club_mix}"
+        )
+
+        # Game counts across all Jar teams should be roughly even
+        jar_game_counts = {}
+        for t in plan.tournaments:
+            for team in t.teams:
+                if team.club == "Jar":
+                    key = team.label
+                    jar_game_counts[key] = jar_game_counts.get(key, 0) + (len(t.teams) - 1)
+        if len(jar_game_counts) > 1:
+            spread = max(jar_game_counts.values()) - min(jar_game_counts.values())
+            assert spread <= 5, (
+                f"Jar U10 game-count spread too large: {spread}, counts={jar_game_counts}"
             )
-            assert len(club_counts) == len(tournament.teams)
 
 
 class TestSkillLevelDivisions:
@@ -1590,6 +1614,84 @@ class TestProportionalHosting:
         assert any(row["age_group"] == "U7" and row["club"] == "Kongsberg" for row in breakdown)
         assert any(row["age_group"] == "U10" and row["club"] == "Jar" for row in breakdown)
         assert "basert på" in planner._hosting_fairness_breakdown(plan)["detail"]
+
+
+    def test_game_count_spread_improves_with_deficit_aware_club_mix(self, season_window):
+        """Skewed multi-team club vs single-team clubs balances via deficit-aware club mix.
+
+        Sets up a skewed scenario: Jar has 7 U10 teams, while 7 other clubs
+        each have 1 U10 team. The deficit-aware preferred_club_mix filter
+        (added to `_pick_least_recently_grouped`) skips cross-club mixing
+        once deficit spread exceeds max_game_count_spread, allowing the
+        proportional club cap (ceil(7/14*6)=3 Jar slots) to be fully utilized
+        instead of limiting Jar to 1 slot per tournament.
+
+        Key acceptance: the per-team game-count spread is at most 1
+        tournament's worth of games (5 per 6-team tournament), and all
+        teams participate across the season.
+        """
+        start, end = season_window
+        free_dates = _all_weekend_dates(start, end)
+
+        clubs = [
+            "Jar", "Kongsberg", "Skien", "Holmen",
+            "Ringerike", "Frisk Asker", "Tønsberg", "Jutul",
+        ]
+        # Jar gets 7 teams; everyone else gets 1.
+        roster = _build_roster(["Jar"], ["U10"], teams_per_club_per_age_group=7)
+        for club in clubs[1:]:
+            roster.teams.append(Team(club=club, label=f"{club} U10", age_group="U10"))
+
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},  # capacity = 6 teams
+            deficit_cap_expansion=1,
+            fairness_thresholds={"max_game_count_spread": 6},
+        )
+        plan = planner.build_plan(start, end)
+
+        # (1) All tournaments have minimum team count
+        assert all(len(t.teams) >= MIN_TEAMS_PER_TOURNAMENT for t in plan.tournaments)
+
+        # (2) Every team has at least one tournament
+        team_invites = Counter()
+        for t in plan.tournaments:
+            for team in t.teams:
+                team_invites[team.label] += 1
+        assert all(count >= 1 for count in team_invites.values())
+
+        # (3) Per-team game-count spread is at most 1 tournament's worth
+        # (5 games for a 6-team round-robin).
+        team_game_counts: Dict[str, int] = {}
+        for t in plan.tournaments:
+            for team in t.teams:
+                key = team.label
+                team_game_counts[key] = team_game_counts.get(key, 0) + (len(t.teams) - 1)
+
+        u10_counts = [
+            count for team_label, count in team_game_counts.items()
+            if "U10" in team_label
+        ]
+        assert u10_counts, "No U10 game counts found"
+        absolute_spread = max(u10_counts) - min(u10_counts)
+
+        # Normalized spread should be at most 5 (one tournament's games)
+        assert absolute_spread <= 5, (
+            f"Game-count spread {absolute_spread} exceeds 1-tournament gap"
+        )
+
+        # (4) Normalized spread metric passes a lenient gate
+        gate = planner._build_fairness_gate(plan)
+        metrics = gate.get("metrics", []) if isinstance(gate, dict) else []
+        spread_metric = next(m for m in metrics if m.get("key") == "game_count_spread")
+        assert spread_metric["value"] < 0.5, (
+            f"Normalized spread {spread_metric['value']} >= 0.5 "
+            f"(absolute spread: {absolute_spread})"
+        )
 
 
 class TestRulesReport:

@@ -80,6 +80,7 @@ class SeasonPlanner:
         round_length_for_age_group: Optional[Dict[str, int]] = None,
         target_tournament_count: Optional[int] = None,
         max_club_teams_per_tournament: int = 1,
+        deficit_cap_expansion: int = 1,
         max_game_count_spread: int = 2,
         max_early_finish_gap_days: int = 60,
         division_skill_band: int = 2,
@@ -112,6 +113,13 @@ class SeasonPlanner:
                 Default 1 — at most one team per club per tournament unless
                 the proportional allowance or other overrides permit more,
                 which means same-club matchups can occur when needed.
+            deficit_cap_expansion: Number of extra slots added to the
+                proportional per-club cap in `_max_club_teams_for` when the
+                deficit spread in the age group exceeds
+                `max_game_count_spread`. Default 1 means at most one
+                additional team from a deficit-heavy club can attend each
+                tournament, accelerating catch-up for under-served sibling
+                teams without drastically changing tournament composition.
             division_skill_band: Maximum skill-level difference treated as
                 "adjacent" for the skill-division penalty in participant
                 selection. Default 2 means levels 3 and 5 are adjacent but
@@ -142,6 +150,7 @@ class SeasonPlanner:
         self.round_length_for_age_group = round_length_for_age_group or {}
         self.target_tournament_count = target_tournament_count
         self.max_club_teams_per_tournament = max_club_teams_per_tournament
+        self.deficit_cap_expansion = deficit_cap_expansion
         self.max_game_count_spread = max_game_count_spread
         self.max_early_finish_gap_days = max_early_finish_gap_days
         self.division_skill_band = division_skill_band
@@ -613,7 +622,13 @@ class SeasonPlanner:
             if counts:
                 average = sum(counts) / len(counts)
                 spread = max(counts) - min(counts)
-                age_group_spreads.append(spread / average if average > 0 else float(spread))
+                # Normalize by average with a floor of 1 and cap at 1.0.
+                # The ratio-based normalization (spread/average) can diverge
+                # when averages are small early in planning; the floor and
+                # cap keep the metric in a stable [0, 1] range regardless
+                # of how few games have been played so far.
+                normalized = spread / max(average, 1.0)
+                age_group_spreads.append(min(normalized, 1.0))
         normalized_game_count_spread = max(age_group_spreads) if age_group_spreads else float(plan.game_count_spread)
 
         add_metric(
@@ -623,7 +638,8 @@ class SeasonPlanner:
             thresholds.get("max_game_count_spread", self.max_game_count_spread),
             direction="max",
             severity="fail",
-            detail=f"Normalisert spredning per aldersgruppe er {normalized_game_count_spread:.3f} (rå spredning: {plan.game_count_spread} kamper).",
+            detail=f"Normalisert spredning per aldersgruppe er {normalized_game_count_spread:.3f} (rå spredning: {plan.game_count_spread} kamper, tak på [0, 1]).",
+
         )
         add_metric(
             "hosting_deviation",
@@ -1561,7 +1577,41 @@ class SeasonPlanner:
 
         max_teams = self._max_teams_for(age_group)
         proportional = math.ceil(club_team_count / total * max_teams)
+
+        # Deficit-aware cap expansion: when the age group's deficit spread
+        # exceeds `max_game_count_spread`, add `deficit_cap_expansion` extra
+        # slots to the proportional cap. This lets teams from clubs that
+        # are structurally behind (e.g. Jar's many U10 siblings rotating
+        # through limited slots) catch up faster without fundamentally
+        # changing the proportional fairness logic for balanced groups.
+        deficit_spread = self._age_group_deficit_spread(age_group, teams_in_age_group)
+        if deficit_spread > self.max_game_count_spread:
+            proportional = min(proportional + self.deficit_cap_expansion, max_teams)
+
         return max(self.max_club_teams_per_tournament, min(proportional, max_teams))
+
+    def _age_group_deficit_spread(self, age_group: str, teams_in_age_group: Optional[List[Team]] = None) -> float:
+        """Return the deficit spread (max - min deficit) across `age_group`.
+
+        When planning targets and running counts are available, computes
+        each team's deficit (target - actual) and returns the spread.
+        Returns 0.0 when no running counts are available (e.g. at the
+        start of planning) so the cap expansion does not kick in early.
+        """
+        if teams_in_age_group is None:
+            teams_in_age_group = self.roster.by_age_group(age_group)
+        if not teams_in_age_group:
+            return 0.0
+        if not any(self._running_game_counts.get(self._team_key(t), 0) for t in teams_in_age_group):
+            return 0.0
+        deficits = [
+            self._deficit_score(t, age_group)
+            for t in teams_in_age_group
+        ]
+        if not deficits:
+            return 0.0
+        return max(deficits) - min(deficits)
+
 
     def _expected_average_for(self, age_group: str) -> float:
         """Return the current running average game count for `age_group`.
@@ -1712,9 +1762,17 @@ class SeasonPlanner:
                 eligible = remaining
 
             selected_clubs = {s.club for s in selected}
-            preferred_club_mix = [t for t in eligible if t.club not in selected_clubs]
-            if preferred_club_mix:
-                eligible = preferred_club_mix
+            # Deficit-aware club-mix filter: when the age group's deficit
+            # spread exceeds max_game_count_spread, skip the cross-club
+            # mixing heuristic so multi-team clubs (e.g. Jar with 7 U10
+            # teams) can bring more than one sibling to a tournament when
+            # their teams are structurally behind. When deficits are small
+            # or zero, the filter stays active to preserve opponent diversity.
+            deficit_spread = self._age_group_deficit_spread(age_group)
+            if deficit_spread <= self.max_game_count_spread:
+                preferred_club_mix = [t for t in eligible if t.club not in selected_clubs]
+                if preferred_club_mix:
+                    eligible = preferred_club_mix
 
             eligible_over_cap_labels = {self._team_key(t) for t in eligible_over_cap}
 
@@ -1726,7 +1784,7 @@ class SeasonPlanner:
             def club_penalty(team: Team) -> int:
                 club_count = sum(1 for s in selected if s.club == team.club)
                 max_club = self._max_club_teams_for(age_group, team.club)
-                base = club_count * 20
+                base = club_count * 10
                 if club_count < max_club:
                     return base
                 if self._team_key(team) in eligible_over_cap_labels:
@@ -1755,7 +1813,7 @@ class SeasonPlanner:
 
             eligible.sort(
                 key=lambda t: (
-                    -self._deficit_score(t, age_group),
+                    -self._deficit_score(t, age_group) * 1000,
                     repeat_matchup_score(t),
                     overlap_score(t),
                     skill_penalty(t),
