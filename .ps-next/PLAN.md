@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: In `export()`, pass `skipped_age_groups` data into the template context. Add a new review-summary finding category for skipped groups ("Aldersgrupper som er hoppet over") with skip count and reason. In the season plan table/pages, show a "Hoppet over" section listing skipped age groups.
 
-- [ ] Surface skipped age groups in Excel review packets
+- [x] Surface skipped age groups in Excel review packets
   - Files: tournament_scheduler/review/review_packet_exporter.py
   - Approach: Add a "Hoppet over" sheet or an info row/list in the club review packet that lists skipped age groups and the reason, so organizers know JU12 was intentionally skipped (only 2 teams).
 
@@ -46,6 +46,13 @@
 
 
 
+
+### 2026-06-15 — Surface skipped age groups in Excel review packets
+**Done:** Added skipped age groups section to the club review packet overview sheet. When `plan.skipped_age_groups` is populated, a "Hoppet over" section is added to each club's overview sheet listing skipped age groups with the Norwegian-language reason.
+**Rationale:** Adding the skipped groups section to the overview sheet keeps it visible alongside the club summary. Using the existing `sheet.append()` pattern ensures consistent formatting.
+**Findings:** `SeasonPlan` doesn't have a `roster` attribute, so per-club filtering of skipped groups isn't straightforward. Showing all skipped groups to every club is the cleanest approach — it's informational and consistent across all club packets.
+**Files:** tournament_scheduler/review/review_packet_exporter.py (+9/-0)
+**Commit:** not committed
 ### 2026-06-15 — Surface skipped age groups in HTML season-plan report and review summary
 **Done:** Added a new 'info' severity finding for skipped age groups in `_review_summary_html()`. The finding lists each skipped group with team count and reason. Added `.review-summary-item--info` CSS styling with muted border/label. Updated status computation to treat 'info' severity as non-warn so skipped groups don't trigger a VARSEL status on the report page.
 **Rationale:** The review summary already has the right structure to surface findings. Adding a new 'info' severity (between pass and warn) provides the right visual weight for informational skipped-group notifications.

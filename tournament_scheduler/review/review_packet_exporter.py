@@ -242,7 +242,17 @@ class ReviewPacketExporter:
         sheet.append([f"Turneringer på bortebane: {away_count}"])
         sheet.append([f"Totalt reisebehov (km): {total_travel}"])
         sheet.append([f"Anbefaling: {'Godkjenn' if club_tournaments else 'Ingen turneringer å vurdere'}"])
-        sheet.append([])
+
+        # Skipped age groups — groups with <3 teams that were not planned.
+        if plan.skipped_age_groups:
+            sheet.append([])
+            sheet.append(["Hoppet over — aldersgrupper som ikke planlegges:"])
+            for entry in plan.skipped_age_groups:
+                sheet.append([
+                    f"{entry['age_group']}: {entry['reason']}"
+                ])
+            sheet.append([])
+
         sheet.append(["Dato", "Aldersgruppe", "Arena", "Vertsklubb", "Start", "Slutt", "Lag", "Kamper"])
         for tournament in club_tournaments:
             start_time = tournament.start_time or ""
