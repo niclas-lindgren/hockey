@@ -35,18 +35,11 @@ from ..models import CalendarEvent
 from .cache_manager import ScrapedDataCache
 from .scraper_strategies import get_strategy, requires_credentials, needs_llm_agent
 from .state import PipelineState, StageName, StageStatus
+from .scraper_constants import (
+    SOURCE_OUTLOOK, SOURCE_HTML, SOURCE_ICAL, SOURCE_GOOGLE,
+    _BROWSER_SOURCE_TYPES, _ICAL_SOURCE_TYPES,
+)
 from .stage2_helpers import (_blocked_sources_warning, _cached_source_result, _credentialed_scrape_months, _events_to_dicts, _group_events_by_club, _recovery_hint_for_source, _run_bookup_scraper, _run_credentialed_bookup_or_outlook, _run_ical_scraper, _run_outlook_scraper, _run_styledcalendar_scraper, _try_credentialed_scrape, _bookup_navigate_to_date, _parse_bookup_timegrid, _parse_date_param_calendar, _parse_outlook_calendar)
-# ---------------------------------------------------------------------------
-# Source type constants
-# ---------------------------------------------------------------------------
-
-SOURCE_OUTLOOK = "outlook"
-SOURCE_HTML = "html"
-SOURCE_ICAL = "ical"
-SOURCE_GOOGLE = "google"
-
-_BROWSER_SOURCE_TYPES = {SOURCE_OUTLOOK, SOURCE_HTML}
-_ICAL_SOURCE_TYPES = {SOURCE_ICAL, SOURCE_GOOGLE}
 
 # ---------------------------------------------------------------------------
 # Errors
