@@ -8,7 +8,7 @@ total computed duration).
 
 The core entry point is :func:`find_available_slots`, parameterized by
 *required_minutes* (rather than a fixed ``min_duration_hours``) so callers
-can pass ``Tournament.duration_minutes(round_length)`` directly.
+can pass the required hall occupancy for a tournament directly.
 """
 
 from __future__ import annotations
@@ -35,6 +35,17 @@ def minutes_to_time(minutes: int) -> str:
     hour = minutes // 60
     minute = minutes % 60
     return f"{hour:02d}:{minute:02d}"
+
+
+def matchday_duration_minutes(round_length: int, round_count: int, setup_buffer_minutes: int = 5) -> int:
+    """Return the total occupied hall time for a round-robin matchday.
+
+    `round_count` is the number of round-robin rounds that must fit in the
+    hall. The result includes one setup/changeover buffer after each round.
+    """
+    if round_length <= 0 or round_count <= 0:
+        return 0
+    return round_count * (round_length + max(0, setup_buffer_minutes))
 
 
 def find_available_slots(

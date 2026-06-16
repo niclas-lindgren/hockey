@@ -125,3 +125,31 @@ class TestFindArenaSlotForDate:
         # is closer to 11:00 than Ringerike's earliest slot (08:00).
         assert host_used == "Frisk Asker"
         assert start == "10:30"
+
+    def test_prefers_the_requested_later_start_when_available(self):
+        scheduler = _make_scheduler()
+        events_by_club = {
+            "Frisk Asker": [
+                CalendarEvent(
+                    date=CHECK_DATE.strftime("%d.%m.%Y"),
+                    name="Morgentrening",
+                    datetime=datetime(2026, 9, 5, 8, 0),
+                    duration_hours=2.0,
+                ),
+                CalendarEvent(
+                    date=CHECK_DATE.strftime("%d.%m.%Y"),
+                    name="Kort pause",
+                    datetime=datetime(2026, 9, 5, 11, 45),
+                    duration_hours=0.25,
+                ),
+            ],
+        }
+
+        result = scheduler.find_arena_slot_for_date(
+            CHECK_DATE, "Frisk Asker", 105, events_by_club, preferred_start="12:00"
+        )
+
+        assert result is not None
+        host_used, start, _end = result
+        assert host_used == "Frisk Asker"
+        assert start == "12:00"

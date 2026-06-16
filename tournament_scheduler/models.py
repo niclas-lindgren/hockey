@@ -153,7 +153,7 @@ class Tournament:
     start_time: Optional[str] = None  # HH:MM string, e.g. "09:00"
 
     def duration_minutes(self, round_length: int) -> int:
-        """Return the total tournament duration in minutes.
+        """Return the total tournament play time in minutes.
 
         Computed as ``round_length`` (minutes per round) times the number of
         rounds in the round-robin schedule. Returns 0 if there are no games.
@@ -162,6 +162,19 @@ class Tournament:
             return 0
         max_round = max(g.round_number for g in self.games)
         return round_length * max_round
+
+    def matchday_duration_minutes(self, round_length: int, setup_buffer_minutes: int = 5) -> int:
+        """Return the full hall occupancy for the tournament.
+
+        This includes the round-robin play time plus a setup/changeover buffer
+        after each round.
+        """
+        if not self.games:
+            return 0
+        max_round = max(g.round_number for g in self.games)
+        from tournament_scheduler.utils.slot_finder import matchday_duration_minutes as _matchday_duration_minutes
+
+        return _matchday_duration_minutes(round_length, max_round, setup_buffer_minutes)
 
     def end_time(self, round_length: int) -> Optional[str]:
         """Return the computed end time as an HH:MM string.

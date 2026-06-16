@@ -106,6 +106,20 @@ class TestTournamentDurationAndEndTime:
         assert tournament.duration_minutes(round_length=12) == 12
         assert tournament.duration_minutes(round_length=8) == 8
 
+    def test_matchday_duration_minutes_includes_setup_buffer(self):
+        teams = self._make_teams(4)
+        games = [
+            Game(home=teams[0], away=teams[1], round_number=1),
+            Game(home=teams[2], away=teams[3], round_number=1),
+            Game(home=teams[0], away=teams[2], round_number=2),
+            Game(home=teams[1], away=teams[3], round_number=2),
+            Game(home=teams[0], away=teams[3], round_number=3),
+            Game(home=teams[1], away=teams[2], round_number=3),
+        ]
+        tournament = Tournament(date=date(2026, 1, 17), arena="Arena", age_group="U10", teams=teams, games=games)
+
+        assert tournament.matchday_duration_minutes(round_length=10) == 45
+
     def test_end_time_computed_from_start_time_and_duration(self):
         teams = self._make_teams(4)
         games = [

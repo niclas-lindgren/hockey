@@ -121,6 +121,7 @@ class TournamentScheduler:
         host_club: str,
         required_minutes: int,
         events_by_club: Dict[str, List[CalendarEvent]],
+        preferred_start: str = _OPTIMAL_SLOT_START,
     ) -> Optional[Tuple[str, str, str]]:
         """Find a time slot in the host club's own arena on a date.
 
@@ -156,10 +157,17 @@ class TournamentScheduler:
         if not slots:
             return None
 
-        optimal_minutes = _time_to_minutes(parse_time(_OPTIMAL_SLOT_START))
+        try:
+            preferred_minutes = _time_to_minutes(parse_time(preferred_start))
+        except Exception:
+            preferred_minutes = _time_to_minutes(parse_time(_OPTIMAL_SLOT_START))
+
         start_str, end_str = min(
             slots,
-            key=lambda slot: abs(_time_to_minutes(parse_time(slot[0])) - optimal_minutes),
+            key=lambda slot: (
+                abs(_time_to_minutes(parse_time(slot[0])) - preferred_minutes),
+                _time_to_minutes(parse_time(slot[0])),
+            ),
         )
         return host_entry.club, start_str, end_str
 

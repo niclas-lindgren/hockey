@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import date
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from tournament_scheduler.models import Game
+from tournament_scheduler.club_distances import furthest_traveling_team
+from tournament_scheduler.models import Game, Team, Tournament
+from tournament_scheduler.utils.slot_finder import matchday_duration_minutes
 
 
 def pick_spread_dates(
@@ -184,6 +186,7 @@ def find_slot_for_tournament(
     host_club: str,
     age_group: str,
     games: List[Game],
+    preferred_start: Optional[str] = None,
 ) -> Optional[Tuple[str, str, str]]:
     """Find a time-of-day slot in the host club's own calendar."""
     if not planner.events_by_club:
@@ -197,10 +200,43 @@ def find_slot_for_tournament(
         return None
 
     max_round = max(g.round_number for g in games)
-    required_minutes = round_length * max_round
+    required_minutes = matchday_duration_minutes(round_length, max_round)
     if required_minutes <= 0:
         return None
 
+    if preferred_start is None:
+        unique_teams: list[Team] = []
+        seen_labels: set[str] = set()
+        for game in games:
+            for team in (game.home, game.away):
+                if team.label in seen_labels:
+                    continue
+                seen_labels.add(team.label)
+                unique_teams.append(team)
+
+        tournament = Tournament(
+            date=tournament_date,
+            arena=planner.club_arenas.get(host_club, host_club),
+            age_group=age_group,
+            teams=unique_teams,
+            host_club=host_club,
+        )
+        travel = furthest_traveling_team(tournament)
+        if travel is None:
+            preferred_start = "11:00"
+        else:
+            _, km = travel
+            if km >= 120:
+                preferred_start = "12:00"
+            elif km >= 60:
+                preferred_start = "11:30"
+            else:
+                preferred_start = "11:00"
+
     return planner.scheduler.find_arena_slot_for_date(
-        tournament_date, host_club, required_minutes, planner.events_by_club
+        tournament_date,
+        host_club,
+        required_minutes,
+        planner.events_by_club,
+        preferred_start=preferred_start,
     )

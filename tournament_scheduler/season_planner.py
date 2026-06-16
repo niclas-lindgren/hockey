@@ -85,6 +85,7 @@ from tournament_scheduler.warnings import (
     scan_per_team_share_warnings as _scan_per_team_share_warnings,
 )
 from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
+from tournament_scheduler.utils.slot_finder import matchday_duration_minutes
 
 
 # Default target for how many tournaments each age group should receive.
@@ -545,7 +546,11 @@ class SeasonPlanner:
                 tournament.start_time = f"{cursor_minutes // 60:02d}:{cursor_minutes % 60:02d}"
 
                 round_length = self.round_length_for_age_group.get(tournament.age_group)
-                duration_minutes = tournament.duration_minutes(round_length) if round_length else 0
+                duration_minutes = (
+                    matchday_duration_minutes(round_length, max(g.round_number for g in tournament.games))
+                    if round_length and tournament.games
+                    else 0
+                )
                 cursor_minutes += duration_minutes + ARENA_DAY_SEQUENCE_BUFFER_MINUTES
 
     def _find_slot_for_tournament(

@@ -1,8 +1,9 @@
 """Tests for SeasonPlanner (season planning/optimization engine)."""
 
 from collections import Counter
-from typing import Dict
 from datetime import date, datetime, timedelta
+from types import SimpleNamespace
+from typing import Dict
 
 import pytest
 
@@ -23,6 +24,7 @@ from tournament_scheduler.season_planner import (
     DEFAULT_TOURNAMENT_START_TIME,
     MIN_TEAMS_PER_TOURNAMENT,
 )
+from tournament_scheduler.host_assignment import find_slot_for_tournament
 
 
 class FakeScheduler:
@@ -50,9 +52,20 @@ class FakeScheduler:
             total_weekends_checked=len(self.free_dates),
         )
 
-    def find_arena_slot_for_date(self, check_date, host_club, required_minutes, events_by_club):
+    def find_arena_slot_for_date(
+        self,
+        check_date,
+        host_club,
+        required_minutes,
+        events_by_club,
+        preferred_start="11:00",
+    ):
         return self._real_scheduler.find_arena_slot_for_date(
-            check_date, host_club, required_minutes, events_by_club
+            check_date,
+            host_club,
+            required_minutes,
+            events_by_club,
+            preferred_start=preferred_start,
         )
 
 
@@ -282,7 +295,7 @@ class TestSeasonPlanner:
 
         first, second = same_day
         assert first.start_time == "10:00"
-        assert second.start_time == "13:05"
+        assert second.start_time == "13:20"
         assert plan.arena_day_collisions == []
         assert plan.arena_counts.get("_arena_day_collisions", 0) == 0
 
@@ -2033,6 +2046,46 @@ class TestSlotAwareScheduling:
         # should start at or after 10:00.
         assert all(t.start_time >= "10:00" for t in plan.tournaments)
         assert any(t.start_time == DEFAULT_TOURNAMENT_START_TIME for t in plan.tournaments)
+
+    def test_far_traveling_tournament_prefers_a_later_start(self):
+        event_date = datetime(2026, 10, 3)
+        planner = SimpleNamespace(
+            events_by_club={
+                "Jar": [
+                    CalendarEvent(
+                        date=event_date.strftime("%d.%m.%Y"),
+                        name="Morgentrening",
+                        datetime=datetime(event_date.year, event_date.month, event_date.day, 8, 0),
+                        duration_hours=2.0,
+                    ),
+                    CalendarEvent(
+                        date=event_date.strftime("%d.%m.%Y"),
+                        name="Kort pause",
+                        datetime=datetime(event_date.year, event_date.month, event_date.day, 11, 45),
+                        duration_hours=0.25,
+                    ),
+                ],
+            },
+            round_length_for_age_group={"U10": 30},
+            club_arenas={"Jar": "Jarahallen"},
+            scheduler=FakeScheduler([event_date.date()]),
+        )
+
+        jar = Team(club="Jar", label="Jar U10", age_group="U10")
+        kongsberg = Team(club="Kongsberg", label="Kongsberg U10", age_group="U10")
+        ringerike = Team(club="Ringerike", label="Ringerike U10", age_group="U10")
+        games = [
+            Game(home=jar, away=kongsberg, round_number=1),
+            Game(home=ringerike, away=jar, round_number=2),
+            Game(home=kongsberg, away=ringerike, round_number=3),
+        ]
+
+        slot = find_slot_for_tournament(planner, event_date.date(), "Jar", "U10", games)
+
+        assert slot is not None
+        host_used, start_time, _end_time = slot
+        assert host_used == "Jar"
+        assert start_time == "12:00"
 
     def test_host_fully_booked_keeps_original_host_without_cross_club_fallback(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
