@@ -271,8 +271,8 @@ def pick_least_recently_grouped(
 
     remaining.sort(
         key=lambda t: (
-            -deficit_score(planner, t, age_group),
             normalized_invite_count(planner, t),
+            -deficit_score(planner, t, age_group),
             candidates.index(t),
         )
     )
@@ -346,12 +346,12 @@ def pick_least_recently_grouped(
 
         eligible.sort(
             key=lambda t: (
+                normalized_invite_count(planner, t),
                 -deficit_score(planner, t, age_group) * 1000,
                 repeat_matchup_score(t),
                 overlap_score(t),
                 skill_penalty(t),
                 club_penalty(t),
-                normalized_invite_count(planner, t),
                 candidates.index(t),
             )
         )

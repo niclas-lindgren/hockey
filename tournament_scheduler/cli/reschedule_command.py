@@ -36,7 +36,7 @@ class RescheduleCommand:
 
         print("\nNow scraping calendars to check team availability (30-60 seconds)...\n")
 
-        cache = CalendarCache()
+        cache = CalendarCache(work_dir=".pipeline")
         scraper = CalendarScraper(cache)
 
         # Registry-driven calendar sources for every club with a known,

@@ -33,6 +33,9 @@ from typing import Any
 from ..club_registry import club_for_source_name
 from ..models import CalendarEvent
 from .cache_manager import ScrapedDataCache
+from ..utils.calendar_cache import CalendarCache
+
+_CALENDAR_CACHE: CalendarCache | None = None
 from .scraper_strategies import get_strategy, requires_credentials, needs_llm_agent
 from .state import PipelineState, StageName, StageStatus
 from .scraper_constants import (
@@ -127,7 +130,9 @@ def run(
         return result
 
     # --- Split sources into cache hits and sources that need (re-)scraping ---
+    global _CALENDAR_CACHE
     cache = ScrapedDataCache(work_dir=state.work_dir)
+    _CALENDAR_CACHE = CalendarCache(work_dir=state.work_dir)
     cache_data = cache.read()
     cache_meta = cache_data.get("_meta", {})
     cache_sources = cache_data.get("sources", {})
@@ -282,6 +287,8 @@ def _scrape_source(
     events: list[CalendarEvent] = []
     scraper_error: str = ""
 
+    calendar_cache = _CALENDAR_CACHE
+
     try:
         # Jutul/Bærum uses StyledCalendar (FullCalendar) in a cross-origin iframe.
         # Navigate to the embed URL directly instead.
@@ -290,9 +297,9 @@ def _scrape_source(
         elif "bookup.no" in url:
             events, _ = _run_bookup_scraper(url, name, start_date, end_date)
         elif source_type in _BROWSER_SOURCE_TYPES:
-            events, _ = _run_outlook_scraper(url, name, start_date, end_date)
+            events, _ = _run_outlook_scraper(url, name, start_date, end_date, calendar_cache)
         elif source_type in _ICAL_SOURCE_TYPES:
-            events = _run_ical_scraper(url, name, start_date, end_date, source_type)
+            events = _run_ical_scraper(url, name, start_date, end_date, source_type, calendar_cache)
         else:
             scraper_error = f"Ukjent kildetype '{source_type}'."
     except Exception as exc:  # noqa: BLE001
@@ -304,7 +311,7 @@ def _scrape_source(
     # --- If deterministic failed, try credentialed fallback ---
     if not events:
         events, cred_error = _try_credentialed_scrape(
-            name, url, start_date, end_date
+            name, url, start_date, end_date, calendar_cache
         )
         if cred_error:
             scraper_error = scraper_error or cred_error

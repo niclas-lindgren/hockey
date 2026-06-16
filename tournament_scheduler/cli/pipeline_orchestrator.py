@@ -25,7 +25,7 @@ def _cmd_calendars(args: argparse.Namespace) -> int:
         # 1. Clear iCal scraper cache (avoids stale cached HTTP responses)
         _console.print("  Tømmer iCal-skraper-cache...", end=" ")
         try:
-            CalendarCache().clear()
+            CalendarCache(work_dir=work_dir).clear()
             _console.print("[green]✓[/green]")
         except Exception as exc:
             _console.print(f"[yellow]⚠[/yellow] ({exc})")

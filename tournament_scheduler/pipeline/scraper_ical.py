@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from ..models import CalendarEvent
+from ..utils.calendar_cache import CalendarCache
 
 
 def _run_ical_scraper(
@@ -14,6 +15,7 @@ def _run_ical_scraper(
     start_date: datetime,
     end_date: datetime,
     source_type: str,
+    cache: CalendarCache | None = None,
 ) -> list[CalendarEvent]:
     """Run the iCal scraper for ``ical`` and ``google`` source types.
 
@@ -24,5 +26,5 @@ def _run_ical_scraper(
     """
     from ..data_sources.ical_scraper import ICalScraper
 
-    scraper = ICalScraper(url)
+    scraper = ICalScraper(url, cache=cache)
     return scraper.scrape_calendar(url, name, start_date, end_date)

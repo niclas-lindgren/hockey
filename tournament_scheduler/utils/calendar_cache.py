@@ -1,9 +1,9 @@
 """Calendar event caching to avoid repeated scraping."""
 
-import json
 import hashlib
-from pathlib import Path
+import json
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import List, Optional
 from tournament_scheduler.models import CalendarEvent
 from rich.console import Console
@@ -14,19 +14,29 @@ console = Console()
 class CalendarCache:
     """Cache calendar events to avoid repeated scraping."""
 
-    def __init__(self, cache_dir: Optional[str] = None, ttl_minutes: int = 60):
+    def __init__(
+        self,
+        cache_dir: Optional[str] = None,
+        ttl_minutes: int = 60,
+        work_dir: Optional[str] = None,
+    ):
         """Initialize calendar cache.
 
         Args:
-            cache_dir: Directory for cache files. If None, uses ~/.hockey_calendar_cache/
+            cache_dir: Explicit cache directory for JSON files.
             ttl_minutes: Cache time-to-live in minutes (default: 60)
+            work_dir: Pipeline work directory. When provided, cache files live
+                under ``<work_dir>/cache/calendars``.
+
+        Defaults to ``.pipeline/cache/calendars``.
         """
         if cache_dir:
             self.cache_dir = Path(cache_dir)
         else:
-            self.cache_dir = Path.home() / '.hockey_calendar_cache'
+            base_dir = Path(work_dir) if work_dir else Path(".pipeline")
+            self.cache_dir = base_dir / "cache" / "calendars"
 
-        self.cache_dir.mkdir(exist_ok=True)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.ttl = timedelta(minutes=ttl_minutes)
 
     def _get_cache_key(self, url: str, calendar_name: str, start_date: datetime, end_date: datetime) -> str:

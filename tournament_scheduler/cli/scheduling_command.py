@@ -30,7 +30,7 @@ class SchedulingCommand:
             TournamentOutput.print_info(f"Filtering conflicts for teams: {', '.join(team_names)}")
         TournamentOutput.print_info("Scraping calendars (this may take 30-60 seconds)...")
 
-        cache = CalendarCache()
+        cache = CalendarCache(work_dir=".pipeline")
         scraper = CalendarScraper(cache)
 
         # Registry-driven calendar sources for every club with a known,

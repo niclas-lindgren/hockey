@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 
 from ..models import CalendarEvent
+from ..utils.calendar_cache import CalendarCache
 from .scraper_bookup import _parse_bookup_timegrid
 from .scraper_outlook import _parse_date_param_calendar, _parse_outlook_calendar
 from .scraper_strategies import get_strategy, requires_credentials
@@ -23,6 +24,7 @@ def _try_credentialed_scrape(
     url: str,
     start_date: datetime,
     end_date: datetime,
+    cache: CalendarCache | None = None,
 ) -> tuple[list[CalendarEvent], str]:
     """Retry scraping with environment-variable credentials.
 
@@ -60,7 +62,7 @@ def _try_credentialed_scrape(
     # Execute the login flow via Playwright, then scrape
     try:
         return _run_credentialed_bookup_or_outlook(
-            name, url, start_date, end_date, strategy, creds
+            name, url, start_date, end_date, strategy, creds, cache
         )
     except Exception as exc:
         return [], f"Credentialed scrape feilet for '{name}': {exc}"
@@ -73,6 +75,7 @@ def _run_credentialed_bookup_or_outlook(
     end_date: datetime,
     strategy: Any,
     creds: dict[str, str],
+    cache: CalendarCache | None = None,
 ) -> tuple[list[CalendarEvent], str]:
     """Playwright scraper that logs in before scraping.
 
@@ -87,7 +90,7 @@ def _run_credentialed_bookup_or_outlook(
 
     events: list[CalendarEvent] = []
     raw_html: str = ""
-    norwegian_months = OutlookCalendarScraper().norwegian_months
+    norwegian_months = OutlookCalendarScraper(cache).norwegian_months
 
     start_month = start_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     end_month = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)

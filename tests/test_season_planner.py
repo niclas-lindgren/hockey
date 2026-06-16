@@ -15,6 +15,7 @@ from tournament_scheduler.models import (
     Team,
     Tournament,
     overlapping_age_groups,
+    team_key,
 )
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_planner import (
@@ -1072,12 +1073,13 @@ class TestPerTeamGameCounts:
             parallel_games_for_age_group=parallel_games,
         )
         plan = planner.build_plan(start, end)
+        duplicate_labels = {label for label, count in Counter(t.label for t in roster.teams).items() if count > 1}
 
         jar_u10_labels = [
-            t.label for t in roster.teams if t.club == "Jar" and t.age_group == "U10"
+            team_key(t, duplicate_labels) for t in roster.teams if t.club == "Jar" and t.age_group == "U10"
         ]
         kongsberg_u10_labels = [
-            t.label for t in roster.teams if t.club == "Kongsberg" and t.age_group == "U10"
+            team_key(t, duplicate_labels) for t in roster.teams if t.club == "Kongsberg" and t.age_group == "U10"
         ]
         assert jar_u10_labels, "expected Jar to have U10 teams in the real roster"
         assert kongsberg_u10_labels, "expected Kongsberg to have a U10 team in the real roster"
@@ -1129,12 +1131,13 @@ class TestPerTeamGameCounts:
             parallel_games_for_age_group=parallel_games,
         )
         plan = planner.build_plan(start, end)
+        duplicate_labels = {label for label, count in Counter(t.label for t in roster.teams).items() if count > 1}
 
         jar_u10_labels = [
-            t.label for t in roster.teams if t.club == "Jar" and t.age_group == "U10"
+            team_key(t, duplicate_labels) for t in roster.teams if t.club == "Jar" and t.age_group == "U10"
         ]
         kongsberg_u10_labels = [
-            t.label for t in roster.teams if t.club == "Kongsberg" and t.age_group == "U10"
+            team_key(t, duplicate_labels) for t in roster.teams if t.club == "Kongsberg" and t.age_group == "U10"
         ]
         assert jar_u10_labels, "expected Jar to have U10 teams in the real roster"
         assert kongsberg_u10_labels, "expected Kongsberg to have a U10 team in the real roster"

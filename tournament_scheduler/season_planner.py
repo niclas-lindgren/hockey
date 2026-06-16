@@ -447,10 +447,11 @@ class SeasonPlanner:
             if team.age_group in skipped_age_groups_set:
                 continue
             key = self._team_key(team)
-            public_team_game_counts[team.label] = public_team_game_counts.get(team.label, 0) + self._team_game_counts.get(key, 0)
+            public_key = team_key(team, self._duplicate_team_labels)
+            public_team_game_counts[public_key] = public_team_game_counts.get(public_key, 0) + self._team_game_counts.get(key, 0)
             last = self._team_last_date.get(key)
-            if last is not None and (team.label not in public_team_last_dates or last > public_team_last_dates[team.label]):
-                public_team_last_dates[team.label] = last
+            if last is not None and (public_key not in public_team_last_dates or last > public_team_last_dates[public_key]):
+                public_team_last_dates[public_key] = last
         plan.team_game_counts = public_team_game_counts
         plan.team_last_game_dates = public_team_last_dates
         if public_team_game_counts:
