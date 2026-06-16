@@ -167,7 +167,9 @@ class HtmlExporter:
         blocked_names = ""
         if blocked:
             blocked_names = ": " + ", ".join(blocked)
-        date_range = pipeline.get("date_range", f"{fmt_date(plan.start_date)} 83 {fmt_date(plan.end_date)}" if plan.start_date else "")
+        date_range = pipeline.get("date_range", f"{fmt_date(plan.start_date)} – {fmt_date(plan.end_date)}" if plan.start_date else "")
+        if isinstance(date_range, str):
+            date_range = date_range.replace("&ndash;", "–")
         scrape_age = pipeline.get("scrape_age", "")
         scrape_age_html = ""
         if scrape_age:
