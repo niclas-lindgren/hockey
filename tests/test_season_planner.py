@@ -324,7 +324,7 @@ class TestTournamentStartTimeAndRoundLength:
     def test_generated_tournaments_have_a_default_start_time(self, planner_and_plan):
         _, plan, *_ = planner_and_plan
         for tournament in plan.tournaments:
-            assert tournament.start_time == "09:00"
+            assert tournament.start_time == "10:00"
 
     def test_round_length_for_age_group_is_stored_on_planner(self, season_window):
         start, end = season_window
@@ -1928,7 +1928,7 @@ class TestSlotAwareScheduling:
         # Build the plan once without calendar data to discover the chosen
         # tournament dates, then construct events_by_club so every host's
         # arena has a single morning booking that pushes the available slot
-        # later than the default 09:00.
+        # later than the default 10:00.
         probe_planner = self._basic_planner(free_dates, events_by_club=None)
         probe_plan = probe_planner.build_plan(start, end)
         tournament_dates = [t.date for t in probe_plan.tournaments]
@@ -1950,11 +1950,9 @@ class TestSlotAwareScheduling:
 
         assert plan.tournaments
         # Every host's arena is busy 08:00-10:00, so the computed slot
-        # should start at or after 10:00 -- not the default 09:00.
-        non_default = [t for t in plan.tournaments if t.start_time != DEFAULT_TOURNAMENT_START_TIME]
-        assert non_default, "expected at least one tournament with a non-default start_time"
-        for t in non_default:
-            assert t.start_time >= "10:00"
+        # should start at or after 10:00.
+        assert all(t.start_time >= "10:00" for t in plan.tournaments)
+        assert any(t.start_time == DEFAULT_TOURNAMENT_START_TIME for t in plan.tournaments)
 
     def test_host_fully_booked_keeps_original_host_without_cross_club_fallback(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
@@ -2030,7 +2028,7 @@ class TestSlotAwareScheduling:
         plan = planner.build_plan(start, end)
 
         # No slot is available anywhere, so every tournament keeps its
-        # originally-assigned host/arena and the default start time.
+        # originally-assigned host/arena and the default 10:00 start time.
         assert planner.fallback_host_substitutions == []
         assert all(t.start_time == DEFAULT_TOURNAMENT_START_TIME for t in plan.tournaments)
 

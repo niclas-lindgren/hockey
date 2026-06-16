@@ -41,7 +41,7 @@ def find_available_slots(
     events: List,
     check_date: date,
     required_minutes: int,
-    earliest_start: str = "11:00",
+    earliest_start: str = "10:00",
     latest_start: str = "15:30",
 ) -> List[Tuple[str, str]]:
     """Find available time slots on *check_date* that fit *required_minutes*.

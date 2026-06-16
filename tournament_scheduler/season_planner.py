@@ -96,7 +96,7 @@ MIN_TEAMS_PER_TOURNAMENT = 3
 
 # Default start time assigned to generated tournaments when no per-arena/
 # per-age-group scheduling is available yet.
-DEFAULT_TOURNAMENT_START_TIME = "09:00"
+DEFAULT_TOURNAMENT_START_TIME = "10:00"
 
 # Default thresholds for the roster-based fairness gate. These can be
 # overridden via the planner constructor and (optionally) pipeline config.

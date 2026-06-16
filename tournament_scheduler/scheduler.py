@@ -18,7 +18,7 @@ from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
 # closer to the middle of this window score better than slots starting
 # very early or very late.
 _OPTIMAL_SLOT_START = "11:00"
-_SLOT_SEARCH_EARLIEST = "08:00"
+_SLOT_SEARCH_EARLIEST = "10:00"
 _SLOT_SEARCH_LATEST = "20:00"
 
 
