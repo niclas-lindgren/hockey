@@ -2,7 +2,6 @@
 
 ## Open
 
-- [120] [ ] Verify and prevent double-booking of the same ice in the same arena on the same day across age groups (for example, JU11 and U11 should not use the same arena/ice on the same day if that means overlapping tournaments). Add detection and reporting, then enforce a scheduling constraint if needed.
 - [112] [ ] Relax the tournament club-diversity rule: prefer maximizing the number of distinct clubs in each tournament, penalize repeated clubs strongly, and allow multiple teams from the same club only when needed for feasibility. Use a soft target rather than a hard max-1-team-per-club rule, with clear fallback behavior for skewed club distributions.
 - [110] [ ] Update tournament scheduling to compute total time per matchday from input.xlsx: number of matches × match duration, plus 5 minutes per match for course change/setup, and require the full total to fit within the available calendar/scheduled time slot. Also verify scheduling avoids too-early start times when teams from far away are participating.
 - [109] [ ] Fix stale calendar scraping entries so old/irrelevant events do not remain in cached scraping data or report outputs after a run.
@@ -10,6 +9,8 @@
 - [108] [ ] Investigate and remove unused Team fields `region` and `skill_level` if they are truly dead code. Audit callers, config loaders, fairness/participant-selection logic, and tests to confirm whether the fields still affect scheduling; if not, delete the fields and any dead branches, otherwise document their remaining use and keep them.
 - [104] [ ] Refactor season_planner.py into smaller, dedicated files/classes for SOLID principles and readability. Currently ~2500 lines with deeply nested methods, mixed concerns (participant selection, host assignment, game generation, fairness scoring, rules report, feasibility warnings). Extract into focused modules such as participant_selection.py, host_assignment.py, game_generation.py, fairness_scoring.py, rules_report.py, and warnings.py. Keep SeasonPlanner as a thin orchestration facade. Acceptance: existing tests pass without changes, per-module cohesion is clear, no circular imports.
 ## Done
+- [120] [x] Verify and prevent double-booking of the same ice in the same arena on the same day across age groups (for example, JU11 and U11 should not use the same arena/ice on the same day if that means overlapping tournaments). Add detection and reporting, then enforce a scheduling constraint if needed. (2026-06-16)
+
 - [117] [x] Merge the post-export 'Kvalitetsgjennomgang' into the main assessment/summary when it only contains overlapping advisory findings. If the checks add no new information beyond existing sections, remove the separate block and keep only a small advisory subsection where needed. (2026-06-16)
 
 - [119] [x] Overhaul the generated plan report into one cohesive, run-specific assessment: merge the summary, rule transparency, metrics, advisory checks, and narrative judgment into a single readable structure; remove boilerplate/duplicated blocks; compact the metrics UI; and make all comparisons granular enough to operate per club and age group where relevant. (2026-06-16)
