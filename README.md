@@ -70,3 +70,4 @@ gitleaks detect --source . --config .gitleaks.toml --redact
 
 - [Pipeline guide](docs/rvv-miniputt-pipeline.md)
 - [Rules report](docs/rvv-miniputt-rules-report.md)
+- `./scripts/rules-report.sh` or `make rules-report` — regenerate the report and run the sync tests

@@ -1857,7 +1857,7 @@ class TestRulesReport:
             assert "regel" in entry, f"missing 'regel' key in {entry}"
             assert "forklaring" in entry, f"missing 'forklaring' key in {entry}"
             assert "kategori" in entry, f"missing 'kategori' key in {entry}"
-            assert entry["kategori"] in {"Hard krav", "Automatisk avgjørelse", "Anbefaling"}, (
+            assert entry["kategori"] in {"Hard krav", "Myk regel", "Automatisk avgjørelse", "Anbefaling"}, (
                 f"unexpected kategori: {entry['kategori']}"
             )
 
@@ -1883,7 +1883,7 @@ class TestRulesReport:
         assert u12_found, f"U12 parallel games not found in report"
 
     def test_hard_constraints_have_correct_category(self):
-        """Rules with kategori='Hard krav' cover club limit, skill band, parallel games."""
+        """Rules with kategori='Hard krav' cover the truly blocking scheduler constraints."""
         roster = Roster(teams=[
             Team(club="Jar", label="Jar U10", age_group="U10", skill_level=5),
             Team(club="Kongsberg", label="Kongsberg U10", age_group="U10", skill_level=6),
@@ -1893,18 +1893,18 @@ class TestRulesReport:
             scheduler=FakeScheduler([]),
             roster=roster,
             club_arenas=club_arenas,
-            parallel_games_for_age_group={"U10": 4},
+            parallel_games_for_age_group={"U10": 4, "JU11": 2},
             division_skill_band=3,
         )
         report = planner.rules_report()
 
         hard = [r for r in report if r["kategori"] == "Hard krav"]
-        assert len(hard) >= 3, f"expected at least 3 hard constraints, got {len(hard)}"
+        assert len(hard) >= 2, f"expected at least 2 hard constraints, got {len(hard)}"
 
-        # Check that key hard constraints are present
+        # Check that the blocking constraints are present.
         regel_texts = " ".join(r["regel"] for r in hard)
-        assert "lag per klubb" in regel_texts.lower(), "missing club limit constraint"
-        assert "ferdighet" in regel_texts.lower(), "missing skill band constraint"
+        assert "parallel" in regel_texts.lower(), "missing parallel-games capacity constraint"
+        assert "U10" in regel_texts and "JU11" in regel_texts, "missing configured age-group capacity rules"
 
     def test_works_before_build_plan(self):
         """rules_report() does not require build_plan() to have been called."""

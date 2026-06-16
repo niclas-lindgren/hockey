@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Sequence
 
 from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 
@@ -12,14 +12,13 @@ def rules_report(planner) -> List[Dict[str, str]]:
     report: List[Dict[str, str]] = []
 
     report.append({
-        "regel": f"Maks {planner.max_club_teams_per_tournament} lag per klubb per turnering",
+        "regel": "Per-klubb kapasitet beregnes proporsjonalt",
         "forklaring": (
-            f"Høyst {planner.max_club_teams_per_tournament} lag fra samme klubb kan delta "
-            "i én og samme turnering. Dette er et hardt krav som forhindrer "
-            "at to lag fra samme klubb møter hverandre — slike kamper er "
-            "uønsket fordi de ikke gir variasjon for spillerne."
+            f"Planleggeren starter med et minimumstak på {planner.max_club_teams_per_tournament} lag per klubb, "
+            "men det effektive taket beregnes proporsjonalt ut fra klubbens størrelse i aldersgruppen og kan "
+            "utvides videre av deficit-logikk. Dette er en kapasitetsregel, ikke et hardt forbud mot flere lag fra samme klubb."
         ),
-        "kategori": "Hard krav",
+        "kategori": "Automatisk avgjørelse",
     })
 
     if planner.parallel_games_for_age_group:
@@ -48,11 +47,11 @@ def rules_report(planner) -> List[Dict[str, str]]:
     report.append({
         "regel": f"Ferdighetsnivå-bånd: ±{planner.division_skill_band}",
         "forklaring": (
-            f"Lag med registrert ferdighetsnivå (1–10) grupperes med lag innenfor ±{planner.division_skill_band} "
-            "nivåer av hverandre. Dette motvirker ensidige kamper og sikrer jevnere motstand. "
+            f"Lag med registrert ferdighetsnivå (1–10) foretrekkes sammen med lag innenfor ±{planner.division_skill_band} "
+            "nivåer av hverandre. Dette er en myk prioritering i participant selection, ikke en absolutt sperre. "
             "Lag uten registrert nivå påvirkes ikke."
         ),
-        "kategori": "Hard krav",
+        "kategori": "Myk regel",
     })
 
     report.extend([
@@ -190,3 +189,81 @@ def rules_report(planner) -> List[Dict[str, str]]:
         })
 
     return report
+
+
+def render_rules_markdown(planner) -> str:
+    """Render the rules report as markdown for docs / review snapshots."""
+    report = rules_report(planner)
+
+    def _table(rows: Sequence[Dict[str, str]], include_category: bool = True) -> str:
+        if not rows:
+            return ""
+        if include_category:
+            lines = ["| Rule | What it does | Kind |", "|---|---|---|"]
+            for row in rows:
+                lines.append(f"| {row['regel']} | {row['forklaring']} | {row['kategori']} |")
+        else:
+            lines = ["| Rule | What it does |", "|---|---|"]
+            for row in rows:
+                lines.append(f"| {row['regel']} | {row['forklaring']} |")
+        return "\n".join(lines)
+
+    policy_rows = [r for r in report if r["kategori"] in {"Hard krav", "Myk regel"}]
+    implementation_rows = [r for r in report if r["kategori"] == "Automatisk avgjørelse"]
+    recommendation_rows = [r for r in report if r["kategori"] == "Anbefaling"]
+
+    lines = [
+        "# RVV Miniputt rules report",
+        "",
+        "This is a review/discussion snapshot of the current season-planning logic.",
+        "It is based on the planner code, not on the marketing/docs wording, so it calls out where a rule is truly hard, soft, automatic, or only a warning.",
+        "",
+        "## Policy vs implementation",
+        "",
+        "### Policy rules",
+        "",
+        _table(policy_rows),
+        "",
+        "### Implementation rules",
+        "",
+        _table(implementation_rows, include_category=False),
+        "",
+    ]
+
+    if recommendation_rows:
+        lines.extend([
+            "### Recommendations / review notes",
+            "",
+            _table(recommendation_rows),
+            "",
+        ])
+
+    lines.extend([
+        "## WARNINGS / diagnostics",
+        "",
+        "These do not block planning, but they surface problems for review:",
+        "",
+        "- club-load warnings when a club exceeds its per-tournament share in an age group",
+        "- hosting warnings when home-tournament distribution deviates too much from proportional fairness",
+        "- game-count warnings when team game counts spread too far or teams finish too early",
+        "- per-team share warnings when a team is too far from age-group expectations",
+        "- feasibility warnings when the season window likely cannot satisfy the participation target",
+        "- same-arena / same-day collision warnings for overlapping bookings",
+        "- fallback host substitutions when the preferred host cannot fit the hall slot",
+        "",
+        "## Important discussion point",
+        "",
+        "The skill-band rule is soft in the implementation: it adds a penalty during participant selection rather than blocking a team outright.",
+        "The per-club \"minimum 1\" value is also not a standalone policy rule; it is just the floor used before proportional expansion.",
+        "",
+        "## Primary source files",
+        "",
+        "- `tournament_scheduler/rules_report.py`",
+        "- `tournament_scheduler/participant_selection.py`",
+        "- `tournament_scheduler/warnings.py`",
+        "- `tournament_scheduler/season_planner.py`",
+        "- `tournament_scheduler/models.py`",
+        "- `tournament_scheduler/season_config.py`",
+    ])
+
+    return "\n".join(lines) + "\n"

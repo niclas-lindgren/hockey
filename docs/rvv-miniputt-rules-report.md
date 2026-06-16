@@ -3,38 +3,32 @@
 This is a review/discussion snapshot of the current season-planning logic.
 It is based on the planner code, not on the marketing/docs wording, so it calls out where a rule is truly hard, soft, automatic, or only a warning.
 
-## HARD rules
+## Policy vs implementation
+
+### Policy rules
+
+| Rule | What it does | Kind |
+|---|---|---|
+| Parallelle kamper for JU11: 2 | For aldersgruppen JU11 spilles det 2 kamper samtidig per runde. Det gir plass til opptil 4 lag per turnering, og hvis lagetallet er oddetall får ett lag pause i hver runde. | Hard krav |
+| Parallelle kamper for U10: 3 | For aldersgruppen U10 spilles det 3 kamper samtidig per runde. Det gir plass til opptil 6 lag per turnering, og hvis lagetallet er oddetall får ett lag pause i hver runde. | Hard krav |
+| Ferdighetsnivå-bånd: ±2 | Lag med registrert ferdighetsnivå (1–10) foretrekkes sammen med lag innenfor ±2 nivåer av hverandre. Dette er en myk prioritering i participant selection, ikke en absolutt sperre. Lag uten registrert nivå påvirkes ikke. | Myk regel |
+
+### Implementation rules
 
 | Rule | What it does |
 |---|---|
-| Minimum 3 teams per tournament | Age groups with fewer than 3 teams are skipped. |
-| Round-robin format | Every invited team plays every other invited team once. |
-| Base per-club cap | Each tournament has a minimum club cap (`max_club_teams_per_tournament`). The effective cap can be expanded later by fairness logic. |
-| No same-club matches | Games between teams from the same club are skipped. |
-| Parallel-game capacity | Tournament size is capped by the configured number of parallel games for the age group. Federation defaults apply when the workbook does not override them. |
-
-## SOFT rules / heuristics
-
-| Rule | What it does |
-|---|---|
-| Skill-band preference | Teams with `skill_level` are preferred within `±divisionSkillBand` of the selected group median. This is a scoring penalty, not a strict exclusion. |
-| Minimize repeat matchups | The planner prefers team combinations that have not already been grouped together. |
-| Spread tournaments across the season | Dates are chosen in spaced buckets so the season is not clustered. |
-| Proportional home-hosting | Clubs with more teams should host more often. |
-| Balanced games per team | The planner tries to keep total games per team close together. |
-| Balanced per-age-group share | Teams that drift too far from the age-group average are flagged. |
-| Avoid overlapping age groups on the same date | Age groups that share players are given a strong penalty if they land on the same date. |
-| Participation target | `deltakelser_per_lag` / `target_tournament_count` is a soft target, not a quota. |
-
-## AUTOMATIC decisions / implementation rules
-
-| Rule | What it does |
-|---|---|
-| Club-cap expansion | The base per-club limit can expand proportionally when a club has a larger share of teams in the age group. |
-| Deficit-aware overrides | A team can exceed the normal club cap if its deficit is worse than the remaining alternatives. |
-| Start time selection | If hall calendar data exists, the planner looks for a suitable slot and prefers a start time near 11:00. |
-| Same-arena sequencing | When multiple tournaments share an arena and day, start times are sequenced with a buffer. |
-| Round-robin home/away alternation | Home and away are alternated by round when games are generated. |
+| Per-klubb kapasitet beregnes proporsjonalt | Planleggeren starter med et minimumstak på 1 lag per klubb, men det effektive taket beregnes proporsjonalt ut fra klubbens størrelse i aldersgruppen og kan utvides videre av deficit-logikk. Dette er en kapasitetsregel, ikke et hardt forbud mot flere lag fra samme klubb. |
+| Minst mulig gjentatte grupperinger | Når planleggeren velger hvilke lag som skal møtes i en turnering, prioriterer den lag som ikke har vært i samme turnering tidligere i sesongen. Målet er at hvert lag skal møte flest mulig forskjellige motstandere gjennom sesongen. |
+| Jevn fordeling av turneringer over sesongen | Sesongvinduet deles i omtrent like store tidsbolker, og én turnering legges til hver bolk. Dette sikrer at turneringene er spredt jevnt utover og at ingen periode blir overbelastet. Måneder som avviker mer enn 50% fra forventet antall turneringer flagges som et varsel. |
+| Rettferdig fordeling av hjemmeturneringer | Hjemmeturneringer fordeles proporsjonalt etter antall lag hver klubb stiller. Klubber med flere lag får hjemmeturnering oftere. Maksimalt tillatt avvik fra forventet antall er 1 turnering(er). |
+| Jevnt antall kamper per lag | Planleggeren teller opp alle kamper hvert lag spiller i løpet av sesongen. Forskjellen mellom laget med flest og færrest kamper skal være maksimalt 2. Lag som blir ferdige for tidlig (mer enn 60 dager før sesongslutt) flagges som et varsel. |
+| Jevn fordeling av kamper innad i aldersgruppe/klubb | For hver aldersgruppe beregnes gjennomsnittlig antall kamper per lag. Lag som avviker fra dette gjennomsnittet med mer enn 2 kamper flagges som et varsel. Dette fanger opp skjevheter der en klubb med flere lag i samme aldersgruppe får færre eller flere kamper enn andre lag i samme aldersgruppe. |
+| Behovsbasert unntak fra klubb-tak per turnering | Når et lag fra en klubb som allerede har fylt sin forholdsmessige andel av plassene i en turnering (_max_club_teams_for) har et større etterslep i antall spilte kamper enn alle ledige lag fra andre klubber, kan laget likevel velges — med en straff i prioriteringen proporsjonal med hvor langt over taket klubben er. Dette unntaket er brukt 0 gang(er) i denne sesongplanen. |
+| Ingen overlappende aldersgrupper | Aldersgrupper som deler spillerbase (for eksempel JU11 og U10) skal helst ikke ha turnering samme helg, fordi noen spillere tilhører begge grupper og ville blitt dobbeltbooket. Planleggeren forsøker å unngå dette; kollisjoner som ikke kan løses, rapporteres. |
+| Round-robin: alle mot alle innen turneringen | Innenfor hver turnering spiller alle inviterte lag mot hverandre nøyaktig én gang (round-robin). Turneringens størrelse og antall parallelle kamper avgjør hvor mange runder som trengs. Hjemme/borte byttes annenhver runde for rettferdig fordeling. |
+| Sikkerhetsfilter mot klubb-interne kamper | Som en ekstra sikkerhet (belt-and-suspenders) hoppes det over kamper mellom to lag fra samme klubb under round-robin-genereringen, selv om deltakerutvelgelsen allerede skal ha forhindret dette. |
+| Mykt mål: cirka 6 turneringsdeltakelser per lag | Hver aldersgruppe planlegges mot et mykt mål på rundt 6 turneringsdeltakelser per lag. Tallet er en ønsket sesongbelastning — planleggeren vil heller lage færre, bedre turneringer enn å presse inn ekstra bare for å nå målet. Dersom en aldersgruppe har for få lag eller for få ledige helger til å oppfylle målet, justeres det ned. |
+| Tidspunkt på dagen velges ut fra vertsklubbens egen hallkalender | For hver turnering beregnes hvor lang tid hele turneringen tar (rundelengde × antall runder), og planleggeren ser etter en sammenhengende ledig luke av denne lengden i vertsklubbens egen hallkalender. Tidspunkt nærmest 11:00 foretrekkes, for å unngå svært tidlige eller sene starttider. Hvis vertsklubbens egen hall ikke har en passende ledig luke den dagen, beholdes den opprinnelige vertsklubben og standard starttid i stedet for å låne kapasitet fra andre klubber. |
 
 ## WARNINGS / diagnostics
 
@@ -50,8 +44,8 @@ These do not block planning, but they surface problems for review:
 
 ## Important discussion point
 
-The code currently labels the skill-band rule as "hard", but the implementation is soft: it only adds a penalty during participant selection.
-That is worth confirming in review.
+The skill-band rule is soft in the implementation: it adds a penalty during participant selection rather than blocking a team outright.
+The per-club "minimum 1" value is also not a standalone policy rule; it is just the floor used before proportional expansion.
 
 ## Primary source files
 
