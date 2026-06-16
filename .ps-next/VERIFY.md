@@ -4,6 +4,6 @@ STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| Newly generated tournaments have `start_time` at or after `10:00`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| The planner fallback no longer uses `09:00`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Relevant tests pass with the updated default. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Exported report HTML no longer shows a separate full advisory review block when it only repeats the main assessment. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Exported report HTML still includes a small advisory subsection when the review finds new, non-duplicative issues. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Relevant HTML export tests pass. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |

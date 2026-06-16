@@ -48,7 +48,7 @@ from .renderers.fairness import (
     render_fairness_gate_html,
     render_fairness_adjustments_html,
 )
-from .renderers.review import render_review_summary_html
+from .renderers.review import analyze_review_summary, render_review_summary_html
 from .renderers.judgment import analyze_opinionated_judgment, render_opinionated_judgment_html
 from .renderers.heatmap import build_club_color_maps
 
@@ -177,7 +177,11 @@ class HtmlExporter:
         fairness_gate_html = render_fairness_gate_html(
             plan.fairness_gate if isinstance(plan.fairness_gate, dict) else None
         )
-        review_summary_html = render_review_summary_html(plan)
+        review_summary = analyze_review_summary(plan)
+        review_summary_html = render_review_summary_html(
+            plan,
+            compact=not review_summary["has_unique_findings"],
+        )
         fairness_adjustments_html = render_fairness_adjustments_html(plan)
         judgment = analyze_opinionated_judgment(
             plan,

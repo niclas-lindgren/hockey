@@ -304,6 +304,18 @@ class TestRunStage4:
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
         assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)
 
+    def test_review_summary_collapses_when_it_only_repeats_main_assessment(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_plan_dict(),
+            state,
+            export_dir=str(tmp_path / "export"),
+        )
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+
+        assert 'review-summary-panel--compact' in report_html
+        assert 'Kortversjon av kontrollen' in report_html
+
     def test_report_missing_hosts_uses_canonical_club_aliases(self, tmp_path):
         """Short RVV club aliases should not trigger false missing-host warnings."""
         rvv_hosts = [
