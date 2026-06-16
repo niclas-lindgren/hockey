@@ -37,23 +37,23 @@ The current report page already has separate review, fairness, club, and judgmen
 **Rationale:** The HTML structure and copy changed materially, so the regression checks had to move with it to keep the new report shape locked down.
 **Findings:** The stage4 export tests now validate the cohesive report overview, the new advisory section order, the per-age-group hosting wording, and the shorter metrics labels. They still confirm the schedule page keeps its timeline/filter UI while the report page stays diagnostics-only.
 **Files:** tests/test_stage4_export.py
-**Commit:** not committed
+**Commit:** bcffad8
 ### 2026-06-16 — Compact the metrics UI and align the styling with the new structure
 **Done:** Tightened the report’s visual density by shortening the compact metrics labels, shrinking card/table paddings, and reducing the spacing around the assessment blocks so the same information fits into fewer vertical rows.
 **Rationale:** The report now has a single cohesive structure, so the remaining polish was to make the cards, tables, and status blocks feel less bulky without hiding any information.
 **Findings:** The report overview now reads more tightly on screen; metrics/score bars and fairness/review panels use smaller gaps, paddings, and labels. The report text also uses shorter metric terms ('Blokkert', 'Periode', 'Reise') to match the compact layout.
 **Files:** tournament_scheduler/html/templates/styles.css; tournament_scheduler/html/templates/report_overview.html
-**Commit:** not committed
+**Commit:** bcffad8
 ### 2026-06-16 — Make the report comparisons granular by club and age group where relevant
 **Done:** Added age-group-specific host/load callouts to the report’s advisory text and judgment, and tightened the fairness breakdown label so the report now reads comparisons in club/age-group terms rather than only aggregate totals.
 **Rationale:** The remaining aggregated summaries were hiding which age group was actually driving the warning. Surfacing per-age-group host and load context makes the report more actionable without changing the underlying scoring.
 **Findings:** Review summary now adds per-age-group host and game-spread callouts; the opinionated judgment now mentions the worst age-group load and the farthest-traveling team’s age group; fairness breakdown text is explicit about per-age-group and club context. Regression assertions were updated to match the new wording.
 **Files:** tournament_scheduler/html/html_exporter.py; tournament_scheduler/html/renderers/review.py; tournament_scheduler/html/renderers/judgment.py; tournament_scheduler/html/renderers/fairness.py; tournament_scheduler/html/templates/report_overview.html; tournament_scheduler/html/templates/review_summary.html; tournament_scheduler/html/templates/club_dashboard.html; tests/test_stage4_export.py
-**Commit:** not committed
+**Commit:** bcffad8
 ### 2026-06-16 — Rebuild the report overview into one cohesive assessment flow
 **Done:** Reworked the report page so the assessment reads as one ordered flow: summary cards, priority actions, rule transparency, age-group and club summaries, advisory review, tournament table, and embedded diagnostics now live together in the report overview.
 **Rationale:** The previous report split the same story across separate blocks and duplicated headings. Collapsing the core report sections into one structured overview makes the output easier to read without losing the existing diagnostics.
 **Findings:** The report no longer needs separate top-level fairness/review/judgment panels; those sections are now embedded inside the overview. The old 'Kvalitetsgjennomgang' label was replaced with 'Rådgivende kontroll'. The club dashboard fragment is retained as a reusable compact component but is no longer rendered as a separate report block.
 **Files:** tournament_scheduler/html/html_exporter.py; tournament_scheduler/html/templates/report_overview.html; tournament_scheduler/html/templates/review_summary.html; tournament_scheduler/html/templates/club_dashboard.html; tests/test_stage4_export.py
-**Commit:** not committed
+**Commit:** bcffad8
 <!-- pi-next appends entries here after each task -->
