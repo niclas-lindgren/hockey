@@ -1,7 +1,7 @@
 # RVV Miniputt
 
 RVV Miniputt is the season-planning and calendar-scraping pipeline for RVV hockey clubs.
-It replaces the older single-tournament workflow with a four-stage pipeline that:
+It runs a four-stage workflow that:
 
 1. validates season input (`input.xlsx` workbook + roster data)
 2. scrapes club calendars and caches results
@@ -10,27 +10,26 @@ It replaces the older single-tournament workflow with a four-stage pipeline that
 
 ## Quick start
 
+Activate the skill with:
+
 ```bash
-rvv-miniputt run --input input.xlsx --export-dir export
+/rvv-miniputt run
 ```
 
-If you use the Pi extension, the matching slash commands are:
+That starts the full pipeline. Useful follow-up commands:
 
-- `/rvv-miniputt run`
 - `/rvv-miniputt calendars`
 - `/rvv-miniputt logs`
 - `/rvv-miniputt status`
 
 ## Current commands
 
-- `rvv-miniputt run` — full pipeline run
-- `rvv-miniputt calendars` — regenerate calendar HTML from cache
-- `rvv-miniputt calendars --refresh` — force a fresh scrape first
-- `rvv-miniputt scrape --club NAME` — scrape one calendar source for troubleshooting
-- `rvv-miniputt scrape-llm --club NAME` — use the LLM-guided browser scraper for blocked JS-heavy sources
-- `rvv-miniputt logs` — show pipeline logs
-- `rvv-miniputt cancel` / `replan` — cancel or move an existing tournament
-- `rvv-miniputt tournament ...` — list/add/remove/cancel tournaments in the plan
+- `/rvv-miniputt run` — run the full pipeline
+- `/rvv-miniputt calendars` — regenerate calendar HTML from cache
+- `/rvv-miniputt calendars --refresh` — force a fresh scrape first
+- `/rvv-miniputt logs` — show pipeline logs
+- `/rvv-miniputt status` — show stage status
+- `/rvv-miniputt guide` — interactive wizard for setup and first run
 
 ## Inputs
 
