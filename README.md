@@ -69,3 +69,4 @@ gitleaks detect --source . --config .gitleaks.toml --redact
 ## More documentation
 
 - [Pipeline guide](docs/rvv-miniputt-pipeline.md)
+- [Rules report](docs/rvv-miniputt-rules-report.md)
