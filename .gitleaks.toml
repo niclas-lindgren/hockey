@@ -1,0 +1,23 @@
+title = "RVV Miniputt secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Repo-specific placeholders and generated data"
+paths = [
+  '''^\.pipeline/''',
+  '''^\.pi/logs/''',
+  '''^export/''',
+  '''^htmlcov/''',
+  '''^node_modules/''',
+  '''^venv/''',
+  '''^\.pytest_cache/''',
+  '''^__pycache__/''',
+  '''^rvv_miniputt\.egg-info/''',
+]
+regexes = [
+  '''SuperSecret123''',
+  '''s3cr3t!pass''',
+  '''sk_test_placeholder''',
+]

@@ -52,6 +52,15 @@ With `--timestamped-export`, exports are written to a timestamped subfolder for 
 Set `deltakelser_per_lag` in the workbook `Innstillinger` sheet to tune the soft per-team tournament-participation target (default: 6).
 The legacy key `target_tournament_count` also works for backward compatibility.
 
+## Secret scanning
+
+Gitleaks runs in GitHub Actions on pull requests and pushes to `main`.
+You can also run it locally if you have it installed:
+
+```bash
+gitleaks detect --source . --config .gitleaks.toml --redact
+```
+
 ## More documentation
 
 - [Pipeline guide](docs/rvv-miniputt-pipeline.md)
