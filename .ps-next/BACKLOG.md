@@ -1,14 +1,29 @@
 # Backlog
 
 ## Open
-- [111] [ ] Include the tournament-matching and setup rules in the generated report so the plan is transparent about which rules led to the proposed schedule and allocations.
+- [119] [ ] Overhaul the generated plan report into one cohesive, run-specific assessment: merge the summary, rule transparency, metrics, advisory checks, and narrative judgment into a single readable structure; remove boilerplate/duplicated blocks; compact the metrics UI; and make all comparisons granular enough to operate per club and age group where relevant.
 
+- [117] [ ] Merge the post-export 'Kvalitetsgjennomgang' into the main assessment/summary when it only contains overlapping advisory findings. If the checks add no new information beyond existing sections, remove the separate block and keep only a small advisory subsection where needed.
+
+- [112] [ ] Relax the tournament club-diversity rule: prefer maximizing the number of distinct clubs in each tournament, penalize repeated clubs strongly, and allow multiple teams from the same club only when needed for feasibility. Use a soft target rather than a hard max-1-team-per-club rule, with clear fallback behavior for skewed club distributions.
 - [110] [ ] Update tournament scheduling to compute total time per matchday from input.xlsx: number of matches × match duration, plus 5 minutes per match for course change/setup, and require the full total to fit within the available calendar/scheduled time slot. Also verify scheduling avoids too-early start times when teams from far away are participating.
 - [109] [ ] Fix stale calendar scraping entries so old/irrelevant events do not remain in cached scraping data or report outputs after a run.
 
 - [108] [ ] Investigate and remove unused Team fields `region` and `skill_level` if they are truly dead code. Audit callers, config loaders, fairness/participant-selection logic, and tests to confirm whether the fields still affect scheduling; if not, delete the fields and any dead branches, otherwise document their remaining use and keep them.
 - [104] [ ] Refactor season_planner.py into smaller, dedicated files/classes for SOLID principles and readability. Currently ~2500 lines with deeply nested methods, mixed concerns (participant selection, host assignment, game generation, fairness scoring, rules report, feasibility warnings). Extract into focused modules such as participant_selection.py, host_assignment.py, game_generation.py, fairness_scoring.py, rules_report.py, and warnings.py. Keep SeasonPlanner as a thin orchestration facade. Acceptance: existing tests pass without changes, per-module cohesion is clear, no circular imports.
 ## Done
+- [116] [x] Simplify or remove the post-export 'Kvalitetsgjennomgang' block when it only repeats findings already covered elsewhere in the report. Keep it only for truly new, advisory checks; otherwise fold those points into the main assessment/metrics sections to avoid duplicated warnings. (2026-06-16)
+
+- [111] [x] Include the tournament-matching and setup rules in the generated report so the plan is transparent about which rules led to the proposed schedule and allocations. (2026-06-16)
+
+- [114] [x] Refactor the generated plan report into a single cohesive top-level assessment section: combine the current summary, rule transparency, and 'Egen vurdering' narrative into one run-specific, data-driven section with clear subheadings; remove duplicated boilerplate and generic warnings when there are no real issues. (2026-06-16)
+
+- [118] [x] Make report metrics more granular by showing them per club and age group instead of aggregating at club level, so comparisons reflect the actual tournament groups rather than mixing all age groups within a club. (2026-06-16)
+
+- [115] [x] Redesign the plan report metrics block to be compact and readable: fix overflowing text in 'Hjemmebanebelastning', reduce scroll-heavy boilerplate, and present the data source / balance / warning metrics in a cleaner layout with truncated summaries and expandable details. (2026-06-16)
+
+- [113] [x] Remove boilerplate from the generated plan report summary so it becomes run-specific and data-driven: avoid fixed intro text like 'Kort svar / Kan planen brukes?', show only relevant deviations and actionable findings, and hide generic 'MÅ SJEKKES' sections when there are no real issues. (2026-06-16)
+
 - [105] [x] Refactor rvv_cli.py (~1358 lines) into smaller, focused modules. Currently a monolithic CLI entry point mixing argument parsing, pipeline orchestration, export handling, and status reporting. Split into at least: cli/args.py for argument parsing/validation, cli/pipeline_orchestrator.py for run/resume flows, cli/reporting.py for status/log output. Keep rvv_cli.py as a thin dispatch layer that delegates to the modules. (2026-06-15)
 
 - [106] [x] Refactor html_exporter.py (~1011 lines) into smaller, focused modules. Currently mixes HTML template generation, data computation (heatmaps, team stats, travel distances), fairness/review rendering, and CSS/JS injection. Split into: html/data_computation.py for derived stats, html/renderers/fairness.py, html/renderers/review.py, html/renderers/heatmap.py, and keep the main exporter as a thin coordinator. Acceptance: generated HTML output is identical to current output. (2026-06-15)
