@@ -123,7 +123,7 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         thresholds.get("max_hosting_deviation", planner.max_hosting_deviation),
         direction="max",
         severity="fail",
-        detail=hosting_detail or "Aldersgruppevis vertskapsfordeling ligger innenfor terskelen.",
+        detail=hosting_detail or "Aldersgruppevis fordeling av hjemmeturneringer ligger innenfor terskelen.",
     )
     if metrics and metrics[-1].get("key") == "hosting_deviation":
         metrics[-1]["age_group_breakdown"] = hosting_breakdown.get("age_group_breakdown", [])

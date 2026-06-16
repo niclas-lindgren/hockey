@@ -1,6 +1,8 @@
 # Backlog
 
 ## Open
+
+- [120] [ ] Verify and prevent double-booking of the same ice in the same arena on the same day across age groups (for example, JU11 and U11 should not use the same arena/ice on the same day if that means overlapping tournaments). Add detection and reporting, then enforce a scheduling constraint if needed.
 - [112] [ ] Relax the tournament club-diversity rule: prefer maximizing the number of distinct clubs in each tournament, penalize repeated clubs strongly, and allow multiple teams from the same club only when needed for feasibility. Use a soft target rather than a hard max-1-team-per-club rule, with clear fallback behavior for skewed club distributions.
 - [110] [ ] Update tournament scheduling to compute total time per matchday from input.xlsx: number of matches × match duration, plus 5 minutes per match for course change/setup, and require the full total to fit within the available calendar/scheduled time slot. Also verify scheduling avoids too-early start times when teams from far away are participating.
 - [109] [ ] Fix stale calendar scraping entries so old/irrelevant events do not remain in cached scraping data or report outputs after a run.

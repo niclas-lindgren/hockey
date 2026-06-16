@@ -1653,7 +1653,7 @@ class TestProportionalHosting:
             if metric.get("key") == "hosting_deviation"
         )
 
-        assert "Aldersgruppevis vertskapsfordeling" in hosting_metric["detail"]
+        assert "Aldersgruppevis fordeling av hjemmeturneringer" in hosting_metric["detail"]
         breakdown = hosting_metric["age_group_breakdown"]
         assert any(row["age_group"] == "U7" and row["club"] == "Kongsberg" for row in breakdown)
         assert any(row["age_group"] == "U10" and row["club"] == "Jar" for row in breakdown)

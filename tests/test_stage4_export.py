@@ -83,7 +83,7 @@ def _make_plan_dict():
                         "status": "pass",
                         "score": 100,
                         "unit": "",
-                        "detail": "Aldersgruppevis vertskapsfordeling: U10 Kongsberg 1 vs ~1.0.",
+                        "detail": "Aldersgruppevis fordeling av hjemmeturneringer: U10 Kongsberg 1 vs ~1.0.",
                         "age_group_breakdown": [
                             {"age_group": "U10", "club": "Kongsberg", "actual": 1, "expected": 1.0},
                             {"age_group": "U10", "club": "Skien", "actual": 0, "expected": 0.0},
@@ -256,8 +256,8 @@ class TestRunStage4:
         assert 'class="count-bar"' in html
         assert 'Ser planen jevn ut?' in report_html
         assert 'Rettferdighetsjusteringer' in report_html
-        assert 'Per aldersgruppe og klubb: faktisk vs forventet vertskap' in report_html
-        assert 'Aldersgruppevis vertskapsfordeling: U10 Kongsberg 1 vs ~1.0.' in report_html
+        assert 'Per aldersgruppe og klubb: faktisk vs forventet hjemmeturneringer' in report_html
+        assert 'Aldersgruppevis fordeling av hjemmeturneringer: U10 Kongsberg 1 vs ~1.0.' in report_html
         assert 'id="reportOverview"' in report_html
         assert 'Kan planen brukes?' in report_html
         assert 'Hva må sjekkes eller endres?' in report_html

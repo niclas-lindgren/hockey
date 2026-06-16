@@ -184,7 +184,7 @@ class ReviewPacketExporter:
         overview = wb.active
         overview.title = "Oversikt"
         tournaments_sheet = wb.create_sheet("Turneringer")
-        hosting_sheet = wb.create_sheet("Vertskap")
+        hosting_sheet = wb.create_sheet("Hjemmeturneringer")
         travel_sheet = wb.create_sheet("Reise")
 
         team_travel = compute_team_travel_distances(plan)

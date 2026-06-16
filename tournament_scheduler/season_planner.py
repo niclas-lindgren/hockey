@@ -750,7 +750,7 @@ class SeasonPlanner:
             thresholds.get("max_hosting_deviation", self.max_hosting_deviation),
             direction="max",
             severity="fail",
-            detail=hosting_detail or "Aldersgruppevis vertskapsfordeling ligger innenfor terskelen.",
+            detail=hosting_detail or "Aldersgruppevis fordeling av hjemmeturneringer ligger innenfor terskelen.",
         )
         if metrics and metrics[-1].get("key") == "hosting_deviation":
             metrics[-1]["age_group_breakdown"] = hosting_breakdown.get("age_group_breakdown", [])
@@ -1079,9 +1079,9 @@ class SeasonPlanner:
                 f"{row['age_group']} {row['club']}: {row['actual']} vs ~{float(row['expected']):.1f}"
                 for row in sorted(rows, key=lambda row: float(row["deviation"]), reverse=True)[:4]
             )
-            detail = f"Aldersgruppevis vertskapsfordeling: {examples}. Størst avvik: {max_detail}"
+            detail = f"Aldersgruppevis fordeling av hjemmeturneringer: {examples}. Størst avvik: {max_detail}"
         else:
-            detail = "Ingen vertskapsdata å vurdere."
+            detail = "Ingen data om hjemmeturneringer å vurdere."
         return {
             "max_deviation": max_deviation,
             "detail": detail,
@@ -1205,7 +1205,7 @@ class SeasonPlanner:
         report.append({
             "regel": f"Rettferdig fordeling av hjemmeturneringer",
             "forklaring": (
-                f"Arena-vertskap fordeles proporsjonalt etter antall lag hver klubb "
+                f"Hjemmeturneringer fordeles proporsjonalt etter antall lag hver klubb "
                 f"stiller. Klubber med flere lag får hjemmeturnering oftere. "
                 f"Maksimalt tillatt avvik fra forventet antall er "
                 f"{self.max_hosting_deviation} turnering(er)."

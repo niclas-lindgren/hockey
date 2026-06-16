@@ -162,15 +162,15 @@ def analyze_opinionated_judgment(
         load_text += " Det er et punkt jeg ville sett nærmere på før utsending."
 
     if missing_hosts:
-        hosting_text = f"Vertskapet er planen svakeste del: {len(missing_hosts)} RVV-klubber mangler hjemmeturnering ({', '.join(_missing_host_label(club) for club in missing_hosts)})."
+        hosting_text = f"Hjemmeturneringene er planen svakeste del: {len(missing_hosts)} RVV-klubber mangler hjemmeturnering ({', '.join(_missing_host_label(club) for club in missing_hosts)})."
         if busiest_club:
             hosting_text += f" {busiest_club} bærer mest av klubbbelastningen totalt ({busiest_club_load} roller)."
     elif top_host_share >= 0.4:
-        hosting_text = f"Vertskapet er litt for konsentrert hos {top_host}: {top_host_count} av {total_hosted} hjemmeturneringer."
+        hosting_text = f"Hjemmeturneringene er litt for konsentrert hos {top_host}: {top_host_count} av {total_hosted} hjemmeturneringer."
         if busiest_club:
             hosting_text += f" {busiest_club} er samtidig den mest belastede klubben totalt ({busiest_club_load} roller)."
     else:
-        hosting_text = "Vertskapet ser balansert ut og gir et ryddig sesongbilde."
+        hosting_text = "Hjemmeturneringene ser balansert ut og gir et ryddig sesongbilde."
     if age_group_host_summaries:
         hosting_text += f" Per aldersgruppe: {', '.join(age_group_host_summaries[:3])}."
 
@@ -183,15 +183,15 @@ def analyze_opinionated_judgment(
         travel_text = "Reisebildet ser ikke ut til å være det som drar planen i noen retning her."
 
     action_text = {
-        "strong": "Hvis du vil pirke, ville jeg først sjekket vertskap og reise, ikke matchupene.",
-        "mixed": "Hvis jeg skulle justert noe nå, ville jeg startet med vertskapet og de mest skjeve lagene.",
+        "strong": "Hvis du vil pirke, ville jeg først sjekket hjemmeturneringene og reise, ikke matchupene.",
+        "mixed": "Hvis jeg skulle justert noe nå, ville jeg startet med hjemmeturneringene og de mest skjeve lagene.",
         "rough": "Jeg ville stoppet her og brukt neste runde på å jevne ut kampbildet og fordele belastningen bedre.",
     }[tone]
 
     cards = [
         ("Matchup", matchup_text),
         ("Belastning", load_text),
-        ("Vertskap", hosting_text),
+        ("Hjemmeturneringer", hosting_text),
         ("Reise", travel_text),
     ]
 

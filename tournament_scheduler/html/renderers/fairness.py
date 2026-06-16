@@ -55,7 +55,7 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
                 if isinstance(row, dict)
             )
             breakdown_html = (
-                '<div class="fairness-breakdown-label">Per aldersgruppe og klubb: faktisk vs forventet vertskap</div>'
+                '<div class="fairness-breakdown-label">Per aldersgruppe og klubb: faktisk vs forventet hjemmeturneringer</div>'
                 '<table class="fairness-breakdown-table"><thead><tr>'
                 '<th>Aldersgruppe</th><th>Klubb</th><th>Faktisk</th><th>Forventet</th>'
                 f'</tr></thead><tbody>{row_html}</tbody></table>'

@@ -191,7 +191,7 @@ class SeasonCommand:
         if not warnings:
             return
         TournamentOutput.print_warning(
-            f"Advarsel — {len(warnings)} tilfelle(r) der vertskap avviker "
+            f"Advarsel — {len(warnings)} tilfelle(r) der hjemmeturneringer avviker "
             f"fra proporsjonal fordeling:"
         )
         for warning in warnings:

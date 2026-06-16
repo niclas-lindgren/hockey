@@ -419,7 +419,7 @@ class HtmlExporter:
         if blocked:
             actions.append(("warn", "Datagrunnlag", f"{len(blocked)} kalenderkilde(r) er blokkert: {', '.join(blocked)}."))
         if missing_hosts:
-            actions.append(("warn", "Vertskap", f"Ingen hjemmeturnering registrert for: {', '.join(_missing_host_label(club) for club in missing_hosts)}."))
+            actions.append(("warn", "Hjemmeturneringer", f"Ingen hjemmeturnering registrert for: {', '.join(_missing_host_label(club) for club in missing_hosts)}."))
         if cancelled_count:
             actions.append(("warn", "Avlyst/hoppet over", f"{cancelled_count} turnering(er) er markert som avlyst eller hoppet over."))
         if not actions:

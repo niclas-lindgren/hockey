@@ -216,9 +216,9 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
             f"{row['age_group']} {row['club']}: {row['actual']} vs ~{float(row['expected']):.1f}"
             for row in sorted(rows, key=lambda row: float(row["deviation"]), reverse=True)[:4]
         )
-        detail = f"Aldersgruppevis vertskapsfordeling: {examples}. Størst avvik: {max_detail}"
+        detail = f"Aldersgruppevis fordeling av hjemmeturneringer: {examples}. Størst avvik: {max_detail}"
     else:
-        detail = "Ingen vertskapsdata å vurdere."
+        detail = "Ingen data om hjemmeturneringer å vurdere."
     return {
         "max_deviation": max_deviation,
         "detail": detail,

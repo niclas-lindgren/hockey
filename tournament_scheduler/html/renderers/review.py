@@ -117,7 +117,7 @@ def analyze_review_summary(plan: object) -> dict[str, object]:
     else:
         _add_finding("missing_hosts", "pass", "Manglende klubber", "Alle 9 RVV-klubber har minst én hjemmeturnering.")
     if age_host_summaries:
-        _add_finding("age_group_host_summaries", "info", "Vertskap per aldersgruppe", f"Fordeling: {', '.join(age_host_summaries[:4])}.")
+        _add_finding("age_group_host_summaries", "info", "Hjemmeturneringer per aldersgruppe", f"Fordeling: {', '.join(age_host_summaries[:4])}.")
     if age_spread_summaries:
         _add_finding("age_spread_summaries", "info", "Kampbredde per aldersgruppe", f"Spredning: {', '.join(age_spread_summaries[:4])}.")
 
