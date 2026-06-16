@@ -375,6 +375,7 @@ class SeasonPlanner:
         self._fallback_host_substitutions = []
 
         scheduled_age_groups_by_date: Dict[date, List[str]] = {}
+        arena_day_collisions: List[Dict[str, str]] = list(getattr(self, "_arena_day_collisions", []))
 
         for (tournament_date, age_group), host_club in zip(scheduled, host_assignments):
             self._record_month(tournament_date)
@@ -432,6 +433,9 @@ class SeasonPlanner:
         plan.diversity_score = self._diversity_score(plan.tournaments)
         plan.pairwise_matchup_score = self._pairwise_matchup_score(plan.tournaments)
         plan.month_balance_score = self._month_balance_score(expected_per_month)
+        plan.arena_day_collisions = arena_day_collisions
+        if arena_day_collisions:
+            plan.arena_counts["_arena_day_collisions"] = len(arena_day_collisions)
 
         # Compute per-team game counts and last-game dates.
         self._compute_game_counts(plan.tournaments)
@@ -479,6 +483,10 @@ class SeasonPlanner:
             self._collisions = collisions
         else:
             self._collisions = []
+
+        if not arena_day_collisions:
+            plan.arena_counts.pop("_arena_day_collisions", None)
+
 
         return plan
 
@@ -799,6 +807,19 @@ class SeasonPlanner:
             direction="max",
             severity="warn",
             detail=weekend_detail,
+        )
+        add_metric(
+            "arena_day_collisions",
+            "Arena-/dagskollisjoner",
+            len(getattr(plan, "arena_day_collisions", []) or []),
+            0,
+            direction="max",
+            severity="fail",
+            detail=(
+                "Ingen dobbeltbooking av samme arena samme dag."
+                if not getattr(plan, "arena_day_collisions", None)
+                else f"{len(plan.arena_day_collisions)} kollisjon(er) der samme arena ble tildelt mer enn én turnering samme dag."
+            ),
         )
 
         statuses = [str(m["status"]) for m in metrics]

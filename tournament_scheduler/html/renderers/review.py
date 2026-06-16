@@ -156,6 +156,28 @@ def analyze_review_summary(plan: object) -> dict[str, object]:
     else:
         _add_finding("host_pattern", "pass", "Vertsmønster", "Ingen vertsklubber å vurdere.")
 
+    # Arena/day collisions — same hall booked twice on the same date.
+    arena_day_collisions = getattr(plan, "arena_day_collisions", None) or []
+    if arena_day_collisions:
+        examples = "; ".join(
+            f"{entry.get('date')} {entry.get('arena')}: {entry.get('age_group')} vs {entry.get('conflicting_age_group')}"
+            for entry in arena_day_collisions[:3]
+            if isinstance(entry, dict)
+        )
+        _add_finding(
+            "arena_day_collisions",
+            "warn",
+            "Arena-/dagskollisjoner",
+            f"{len(arena_day_collisions)} kollisjon(er): {examples}.",
+        )
+    else:
+        _add_finding(
+            "arena_day_collisions",
+            "pass",
+            "Arena-/dagskollisjoner",
+            "Ingen samme-arena-samme-dag-kollisjoner funnet.",
+        )
+
     # Suspicious outliers — unusually high or low per-team game counts.
     if team_game_counts:
         max_team, max_games = max(team_game_counts.items(), key=lambda item: (item[1], item[0]))

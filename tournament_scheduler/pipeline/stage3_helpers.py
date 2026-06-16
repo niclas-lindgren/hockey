@@ -66,6 +66,7 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
             k: v.isoformat() for k, v in plan.team_last_game_dates.items()
         },
         "skipped_age_groups": list(plan.skipped_age_groups),
+        "arena_day_collisions": list(plan.arena_day_collisions),
         "tournaments": [_tournament_to_dict(t) for t in plan.tournaments],
     }
     if plan.manual_adjustments:

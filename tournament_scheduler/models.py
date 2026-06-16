@@ -246,6 +246,10 @@ class SeasonPlan:
     # Keys are small string lists such as locked_dates, banned_dates,
     # forced_host_clubs, excluded_host_clubs, and pinned_tournament_ids.
     manual_adjustments: Dict[str, list[str]] = field(default_factory=dict)
+    # Same-arena same-day collisions that could not be avoided while
+    # assigning hosts. Each entry is a small dict with date/arena/age-group
+    # details for reporting.
+    arena_day_collisions: List[Dict[str, str]] = field(default_factory=list)
 
 
 # Mapping of age groups whose player pools are known to overlap (e.g. a player

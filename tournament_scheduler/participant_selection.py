@@ -72,6 +72,7 @@ def pick_spread_dates(
                 diversity_penalty = planner._score_candidate_date(
                     d, predicted_age_group, predicted_participants, expected_per_month
                 )
+                same_day_penalty = len(scheduled_age_groups_by_date.get(d, [])) * 50.0
                 overlap_penalty = 0.0
                 for existing in scheduled_age_groups_by_date.get(d, []):
                     if (
@@ -79,7 +80,7 @@ def pick_spread_dates(
                         or existing in overlapping_age_groups(predicted_age_group)
                     ):
                         overlap_penalty += 100.0
-                return spread_penalty + diversity_penalty + overlap_penalty
+                return spread_penalty + diversity_penalty + same_day_penalty + overlap_penalty
 
             best = min(candidates, key=combined_score)
 

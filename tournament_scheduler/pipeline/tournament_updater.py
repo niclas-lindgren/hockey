@@ -99,6 +99,7 @@ class TournamentUpdater:
             start_date=_parse_date(plan_data.get("start_date")),
             end_date=_parse_date(plan_data.get("end_date")),
             manual_adjustments=dict(plan_data.get("manual_adjustments", {})),
+            arena_day_collisions=list(plan_data.get("arena_day_collisions", [])),
         )
         return plan
 

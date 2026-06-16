@@ -243,3 +243,17 @@ def scan_hosting_warnings(planner, plan: SeasonPlan) -> None:
                 f"{row.get('teams')} lag i aldersgruppen, avvik {deviation:.1f} > "
                 f"{planner.max_hosting_deviation})"
             )
+
+
+def scan_arena_day_collision_warnings(plan: SeasonPlan) -> List[str]:
+    """Return readable warnings for same-arena same-day collisions."""
+    warnings: List[str] = []
+    for entry in getattr(plan, "arena_day_collisions", []) or []:
+        if not isinstance(entry, dict):
+            continue
+        warnings.append(
+            f"{entry.get('date')} {entry.get('arena')}: {entry.get('age_group')} "
+            f"deler hall med {entry.get('conflicting_age_group')} "
+            f"({entry.get('conflicting_host_club')}) samme dag"
+        )
+    return warnings

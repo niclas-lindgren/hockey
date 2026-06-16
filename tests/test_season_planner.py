@@ -243,6 +243,45 @@ class TestSeasonPlanner:
         assert plan.arena_counts.get("_age_group_overlap_collisions", 0) == 0
         assert planner_and_plan[0].collisions == []
 
+    def test_avoids_duplicate_arena_assignments_on_the_same_day(self, planner_and_plan):
+        _, plan, *_ = planner_and_plan
+
+        seen = set()
+        for tournament in plan.tournaments:
+            key = (tournament.date, tournament.arena)
+            assert key not in seen, f"duplicate arena/day assignment found: {key}"
+            seen.add(key)
+
+        assert plan.arena_day_collisions == []
+        assert plan.arena_counts.get("_arena_day_collisions", 0) == 0
+
+    def test_unavoidable_same_arena_collision_is_reported(self, season_window):
+        start, end = season_window
+        free_dates = [start.date()]
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U7-1", age_group="U7"),
+            Team(club="Jar", label="Jar U7-2", age_group="U7"),
+            Team(club="Jar", label="Jar U7-3", age_group="U7"),
+            Team(club="Jar", label="Jar U10-1", age_group="U10"),
+            Team(club="Jar", label="Jar U10-2", age_group="U10"),
+            Team(club="Jar", label="Jar U10-3", age_group="U10"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={"Jar": "Jarahallen"},
+            parallel_games_for_age_group={"U7": 4, "U10": 4},
+        )
+
+        plan = planner.build_plan(start, end)
+
+        assert len(plan.tournaments) == 2
+        assert len(plan.arena_day_collisions) == 1
+        assert plan.arena_day_collisions[0]["arena"] == "Jarahallen"
+        assert plan.arena_counts.get("_arena_day_collisions", 0) == 1
+        assert plan.fairness_gate["status"] == "fail"
+        assert any(metric["key"] == "arena_day_collisions" for metric in plan.fairness_gate["metrics"])
+
     def test_each_tournament_is_single_age_group_with_round_robin_games(self, planner_and_plan):
         _, plan, *_ = planner_and_plan
         for tournament in plan.tournaments:

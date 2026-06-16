@@ -173,6 +173,19 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         severity="warn",
         detail=weekend_detail,
     )
+    add_metric(
+        "arena_day_collisions",
+        "Arena-/dagskollisjoner",
+        len(getattr(plan, "arena_day_collisions", []) or []),
+        0,
+        direction="max",
+        severity="fail",
+        detail=(
+            "Ingen dobbeltbooking av samme arena samme dag."
+            if not getattr(plan, "arena_day_collisions", None)
+            else f"{len(plan.arena_day_collisions)} kollisjon(er) der samme arena ble tildelt mer enn én turnering samme dag."
+        ),
+    )
 
     statuses = [str(m["status"]) for m in metrics]
     if "fail" in statuses:

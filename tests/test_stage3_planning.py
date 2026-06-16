@@ -78,6 +78,7 @@ class TestRunStage3:
         assert "tournaments" in plan
         assert "diversity_score" in plan
         assert "month_balance_score" in plan
+        assert "arena_day_collisions" in plan
 
     def test_plan_accepted_without_llm_evaluation(self, tmp_path):
         """Plan is accepted deterministically without LLM evaluation."""

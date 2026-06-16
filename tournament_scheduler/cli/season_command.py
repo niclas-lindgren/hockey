@@ -181,6 +181,7 @@ class SeasonCommand:
             TournamentOutput.print_tournament_schedule(tournament)
         TournamentOutput.print_game_count_table(plan)
         TournamentOutput.print_diversity_summary(plan)
+        self._print_arena_day_collision_warnings(plan)
         if planner is not None:
             TournamentOutput.print_game_count_warnings(planner.game_count_warnings)
 
@@ -196,6 +197,21 @@ class SeasonCommand:
         )
         for warning in warnings:
             TournamentOutput.print_warning(f"  {warning}")
+
+    @staticmethod
+    def _print_arena_day_collision_warnings(plan) -> None:
+        """Print warnings for same-arena same-day collisions."""
+        collisions = getattr(plan, "arena_day_collisions", []) or []
+        if not collisions:
+            return
+        TournamentOutput.print_error(
+            f"Feil — {len(collisions)} arena-/dagskollisjon(er) der samme hall ville blitt dobbelbooket:"
+        )
+        for entry in collisions:
+            TournamentOutput.print_error(
+                f"  {entry.get('date')} {entry.get('arena')}: {entry.get('age_group')} "
+                f"mot {entry.get('conflicting_age_group')} ({entry.get('conflicting_host_club')})"
+            )
 
     @staticmethod
     def _print_club_load_warnings(planner) -> None:

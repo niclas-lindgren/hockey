@@ -408,6 +408,21 @@ class TournamentOutput:
                 style="green"
             )
 
+        arena_day_collisions = getattr(plan, "arena_day_collisions", []) or []
+        if arena_day_collisions:
+            summary_text.append(
+                f"⚠ {len(arena_day_collisions)} arena-/dagskollisjon(er) som ellers ville gitt dobbelbooking\n",
+                style="red"
+            )
+            for entry in arena_day_collisions[:4]:
+                summary_text.append(
+                    f"  • {entry.get('date')}: {entry.get('arena')} — {entry.get('age_group')} "
+                    f"mot {entry.get('conflicting_age_group')}\n",
+                    style="red"
+                )
+        else:
+            summary_text.append("✓ Ingen arena-/dagskollisjoner\n", style="green")
+
         console.print(Panel(
             summary_text,
             title="Mangfold og fordeling",

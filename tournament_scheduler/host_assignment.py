@@ -39,8 +39,14 @@ def default_target_count(num_free_dates: int) -> int:
 
 
 def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
-    """Assign a host club to each scheduled `(date, age_group)`."""
+    """Assign a host club to each scheduled `(date, age_group)`.
+
+    The assignment prefers hosts whose arena is still unused on that date,
+    so the planner avoids double-booking the same ice whenever an alternate
+    club is available.
+    """
     if not scheduled:
+        planner._arena_day_collisions = []
         return []
 
     age_totals: Dict[str, int] = {}
@@ -60,36 +66,83 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
         for age_group, targets in targets_by_age.items()
     }
 
+    clubs_by_age: Dict[str, List[str]] = {}
+    for team in planner.roster.teams:
+        clubs = clubs_by_age.setdefault(team.age_group, [])
+        if team.club not in clubs:
+            clubs.append(team.club)
+
     assignments: List[str] = []
     all_clubs = planner.roster.clubs()
-    for i, (_, age_group) in enumerate(scheduled):
+    used_arenas_by_date: Dict[date, Dict[str, Tuple[str, str]]] = {}
+    collisions: List[Dict[str, str]] = []
+
+    for i, (tournament_date, age_group) in enumerate(scheduled):
         targets = targets_by_age.get(age_group, {})
-        if not targets:
-            assignments.append(all_clubs[i % len(all_clubs)] if all_clubs else "")
+        candidate_pool = list(targets) if targets else list(clubs_by_age.get(age_group, [])) or list(all_clubs)
+        if not candidate_pool:
+            assignments.append("")
             continue
 
-        actual_counts = actual_by_age[age_group]
-        last_hosted_index = last_hosted_by_age[age_group]
-        deficit_clubs = [
-            club for club in targets
-            if actual_counts.get(club, 0) < targets.get(club, 0)
+        used_arenas = used_arenas_by_date.setdefault(tournament_date, {})
+        available_pool = [
+            club for club in candidate_pool
+            if planner.club_arenas.get(club, club) not in used_arenas
         ]
-        if deficit_clubs:
-            host = max(
-                deficit_clubs,
+        selection_pool = available_pool or candidate_pool
+
+        actual_counts = actual_by_age.get(age_group, {})
+        last_hosted_index = last_hosted_by_age.get(age_group, {})
+        candidate_order = {club: idx for idx, club in enumerate(candidate_pool)}
+
+        def _pick_host(pool: List[str]) -> str:
+            if targets:
+                deficit_clubs = [
+                    club for club in pool
+                    if actual_counts.get(club, 0) < targets.get(club, 0)
+                ]
+                if deficit_clubs:
+                    return max(
+                        deficit_clubs,
+                        key=lambda club: (
+                            targets.get(club, 0) - actual_counts.get(club, 0),
+                            -last_hosted_index.get(club, -1),
+                            targets.get(club, 0),
+                            -candidate_order.get(club, 0),
+                        ),
+                    )
+            return min(
+                pool,
                 key=lambda club: (
-                    targets.get(club, 0) - actual_counts.get(club, 0),
-                    -last_hosted_index.get(club, -1),
-                    targets.get(club, 0),
+                    last_hosted_index.get(club, -1),
+                    actual_counts.get(club, 0),
+                    candidate_order.get(club, 0),
                 ),
             )
+
+        host = _pick_host(selection_pool)
+        arena = planner.club_arenas.get(host, host)
+        if arena in used_arenas:
+            conflicting_age_group, conflicting_host_club = used_arenas[arena]
+            collisions.append(
+                {
+                    "date": tournament_date.isoformat(),
+                    "arena": arena,
+                    "age_group": age_group,
+                    "host_club": host,
+                    "conflicting_age_group": conflicting_age_group,
+                    "conflicting_host_club": conflicting_host_club,
+                    "reason": "same_arena_same_day",
+                }
+            )
         else:
-            host = min(targets, key=lambda club: last_hosted_index.get(club, -1))
+            used_arenas[arena] = (age_group, host)
 
         assignments.append(host)
         actual_counts[host] = actual_counts.get(host, 0) + 1
         last_hosted_index[host] = i
 
+    planner._arena_day_collisions = collisions
     return assignments
 
 

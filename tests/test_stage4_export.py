@@ -151,6 +151,23 @@ class TestDictToPlan:
         assert t.games[0].round_number == 3
         assert plan.manual_adjustments["locked_dates"] == ["2025-10-05"]
 
+    def test_round_trips_arena_day_collisions(self):
+        plan_dict = _make_plan_dict()["plan"]
+        plan_dict["arena_day_collisions"] = [
+            {
+                "date": "2025-10-05",
+                "arena": "Jarahallen",
+                "age_group": "U7",
+                "host_club": "Jar",
+                "conflicting_age_group": "U10",
+                "conflicting_host_club": "Jar",
+                "reason": "same_arena_same_day",
+            }
+        ]
+        plan = _dict_to_plan(plan_dict)
+        assert plan.arena_day_collisions[0]["arena"] == "Jarahallen"
+        assert plan.arena_day_collisions[0]["conflicting_age_group"] == "U10"
+
     def test_handles_missing_dates(self):
         plan_dict = {"tournaments": [], "diversity_score": 0.0,
                      "pairwise_matchup_score": 0.0, "month_balance_score": 0.0,

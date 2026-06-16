@@ -69,6 +69,7 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
         game_count_spread=int(d.get("game_count_spread", 0)),
         fairness_gate=dict(d.get("fairness_gate", {})),
         skipped_age_groups=list(d.get("skipped_age_groups", [])),
+        arena_day_collisions=list(d.get("arena_day_collisions", [])),
         team_last_game_dates={
             k: date.fromisoformat(v) for k, v in d.get("team_last_game_dates", {}).items()
         },
