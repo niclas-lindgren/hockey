@@ -256,7 +256,7 @@ class TestRunStage4:
         assert 'class="count-bar"' in html
         assert 'Ser planen jevn ut?' in report_html
         assert 'Rettferdighetsjusteringer' in report_html
-        assert 'Per aldersgruppe: faktisk vs forventet vertskap' in report_html
+        assert 'Per aldersgruppe og klubb: faktisk vs forventet vertskap' in report_html
         assert 'Aldersgruppevis vertskapsfordeling: U10 Kongsberg 1 vs ~1.0.' in report_html
         assert 'id="reportOverview"' in report_html
         assert 'Kan planen brukes?' in report_html
@@ -271,18 +271,18 @@ class TestRunStage4:
         assert 'Dette er en separat tolkning av tallene' in report_html
         assert 'Min ærlige dom på hele planen' in report_html
         assert report_html.index('id="reportOverview"') < report_html.index('Ser planen jevn ut?')
-        assert report_html.index('Hva må sjekkes eller endres?') < report_html.index('Spredning (motstandervariasjon)')
-        assert report_html.index('Detaljerte måltall og kontroller') < report_html.index('Ser planen jevn ut?')
-        assert report_html.index('id="detailedDiagnosticsIntro"') < report_html.index('id="opinionatedJudgment"')
+        assert report_html.index('Hva må sjekkes eller endres?') < report_html.index('Detaljerte måltall og kontroller')
+        assert report_html.index('Ser planen jevn ut?') < report_html.index('Detaljerte måltall og kontroller')
+        assert report_html.index('id="opinionatedJudgment"') < report_html.index('id="detailedDiagnosticsIntro"')
         assert report_html.index('id="reportOverview"') < report_html.index('Min egen vurdering')
         assert old_gate_label not in report_html
         assert old_adjustment_label not in report_html
-        assert 'Kvalitetsgjennomgang' in report_html
+        assert 'Rådgivende kontroll' in report_html
         assert 'Manglende klubber' in report_html
-        assert 'id="clubSummary"' in report_html
-        assert 'id="clubSummaryBody"' in report_html
-        assert 'Samlet klubbstatus' in report_html
-        assert 'Alle klubber i planen, uten behov for filtervalg.' in report_html
+        assert 'id="clubReviewSummary"' in report_html
+        assert 'id="teamStats"' in report_html
+        assert 'id="travelStats"' in report_html
+        assert 'id="heatmapSection"' in report_html
         assert 'id="clubDashboard"' not in report_html
         assert 'style="display:none' not in report_html
         assert 'id="timeline"' not in report_html
@@ -359,7 +359,7 @@ class TestRunStage4:
         )
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
 
-        assert "Kvalitetsgjennomgang" in report_html
+        assert "Rådgivende kontroll" in report_html
         assert "Alle 9 RVV-klubber har minst én hjemmeturnering." in report_html
         assert "Følgende RVV-klubber har ingen hjemmeturnering" not in report_html
 

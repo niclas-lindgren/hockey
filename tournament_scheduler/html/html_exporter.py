@@ -60,14 +60,10 @@ from .templates import (
     STYLES_CSS,
     NAVBAR,
     HEADER,
-    SCORES,
-    METRICS,
     FILTERS,
     TEAM_STATS,
     TRAVEL_STATS,
     HEATMAP,
-    CLUB_DASHBOARD,
-    REVIEW_SUMMARY,
     REPORT_OVERVIEW,
     PAGE_TEMPLATE,
     SHARED_JAVASCRIPT,
@@ -205,6 +201,13 @@ class HtmlExporter:
             team_game_counts=team_game_counts,
             club_stats=club_stats,
             team_travel=team_travel,
+            fairness_gate_html=fairness_gate_html,
+            fairness_adjustments_html=fairness_adjustments_html,
+            review_summary_html=review_summary_html,
+            judgment_html=judgment_html,
+            team_stats_html=TEAM_STATS,
+            travel_stats_html=TRAVEL_STATS,
+            heatmap_html=HEATMAP,
             judgment=judgment,
         )
         export_links_html = build_export_links_html(output_files)
@@ -220,16 +223,16 @@ class HtmlExporter:
                 "$NAVBAR$": NAVBAR,
                 "$HEADER$": HEADER,
                 "$REPORT_OVERVIEW$": report_overview_html if include_diagnostics else "",
-                "$SCORES$": SCORES if include_diagnostics else "",
-                "$METRICS$": METRICS if include_diagnostics else "",
-                "$FAIRNESS_ADJUSTMENTS$": fairness_adjustments_html if include_diagnostics else "",
-                "$REVIEW_SUMMARY$": review_summary_html if include_diagnostics else "",
+                "$SCORES$": "",
+                "$METRICS$": "",
+                "$FAIRNESS_ADJUSTMENTS$": "",
+                "$REVIEW_SUMMARY$": "",
                 "$EXPORT_LINKS$": export_links_html,
-                "$CLUB_DASHBOARD$": CLUB_DASHBOARD if include_diagnostics else "",
-                "$TEAM_STATS$": TEAM_STATS if include_diagnostics else "",
-                "$TRAVEL_STATS$": TRAVEL_STATS if include_diagnostics else "",
-                "$HEATMAP$": HEATMAP if include_diagnostics else "",
-                "$JUDGMENT$": judgment_html if include_diagnostics else "",
+                "$CLUB_DASHBOARD$": "",
+                "$TEAM_STATS$": "",
+                "$TRAVEL_STATS$": "",
+                "$HEATMAP$": "",
+                "$JUDGMENT$": "",
                 "$FILTERS$": FILTERS if include_timeline else "",
                 "$COUNT_BAR$": COUNT_BAR if include_timeline else "",
                 "$TIMELINE$": '<div class="timeline" id="timeline"></div>' if include_timeline else "",
@@ -338,6 +341,13 @@ class HtmlExporter:
         team_game_counts: dict[str, int],
         club_stats: dict[str, dict[str, object]],
         team_travel: dict[str, int],
+        fairness_gate_html: str,
+        fairness_adjustments_html: str,
+        review_summary_html: str,
+        judgment_html: str,
+        team_stats_html: str,
+        travel_stats_html: str,
+        heatmap_html: str,
         judgment: dict[str, object],
     ) -> str:
         """Render the organizer-first report overview above raw diagnostics."""
@@ -513,6 +523,9 @@ class HtmlExporter:
             '<th>Dato</th><th>Aldersgruppe</th><th>Vert</th><th>Arena</th><th>Lag</th><th>Kamper</th>'
             '</tr></thead><tbody>' + "".join(tournament_rows) + '</tbody></table></div>'
         )
+        rule_transparency_html = fairness_gate_html + fairness_adjustments_html
+        advisory_html = review_summary_html + judgment_html
+        diagnostics_html = team_stats_html + travel_stats_html + heatmap_html
 
         replacements = {
             "$REPORT_STATUS$": overall_status,
@@ -521,9 +534,12 @@ class HtmlExporter:
             "$REPORT_NOTE$": note,
             "$REPORT_STATUS_CARDS$": status_cards,
             "$REPORT_ACTIONS$": actions_html,
+            "$REPORT_RULE_TRANSPARENCY$": rule_transparency_html,
             "$REPORT_AGE_SUMMARY$": age_summary,
             "$REPORT_CLUB_SUMMARY$": club_summary,
+            "$REPORT_ADVISORY$": advisory_html,
             "$REPORT_TOURNAMENT_TABLE$": tournament_table,
+            "$REPORT_DIAGNOSTICS$": diagnostics_html,
         }
         html = REPORT_OVERVIEW
         for marker, value in replacements.items():

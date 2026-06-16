@@ -54,6 +54,7 @@ def render_review_summary_html(plan: object) -> str:
     # Missing clubs — RVV clubs without a hosted tournament.
     host_counts: dict[str, int] = {}
     host_sequence: list[str] = []
+    tournaments_by_age: dict[str, list[object]] = {}
     team_clubs = sorted(
         {
             canonical_rvv_club_name(team.club)
@@ -63,12 +64,31 @@ def render_review_summary_html(plan: object) -> str:
         }
     )
     for tournament in sorted_tournaments:
+        age_group = str(getattr(tournament, "age_group", "") or "")
+        tournaments_by_age.setdefault(age_group, []).append(tournament)
         host = getattr(tournament, "host_club", None) or ""
         if not host:
             continue
         canonical_host = canonical_rvv_club_name(host)
         host_counts[canonical_host] = host_counts.get(canonical_host, 0) + 1
         host_sequence.append(canonical_host)
+    age_host_summaries: list[str] = []
+    age_spread_summaries: list[str] = []
+    for age_group, age_tournaments in sorted(tournaments_by_age.items()):
+        age_hosts: dict[str, int] = {}
+        age_labels = sorted({team.label for tournament in age_tournaments for team in getattr(tournament, "teams", [])})
+        age_counts = [team_game_counts.get(label, 0) for label in age_labels]
+        if age_counts:
+            age_spread_summaries.append(f"{age_group} {min(age_counts)}–{max(age_counts)}")
+        for tournament in age_tournaments:
+            host = getattr(tournament, "host_club", None) or ""
+            if not host:
+                continue
+            canonical_host = canonical_rvv_club_name(host)
+            age_hosts[canonical_host] = age_hosts.get(canonical_host, 0) + 1
+        if age_hosts:
+            top_age_host, top_age_host_count = max(age_hosts.items(), key=lambda item: (item[1], item[0]))
+            age_host_summaries.append(f"{age_group}: {top_age_host} {top_age_host_count}/{len(age_tournaments)}")
     missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
     def _missing_host_label(club: str) -> str:
         return f"{club} (ingen lag i planen)" if club not in team_clubs else club
@@ -82,6 +102,10 @@ def render_review_summary_html(plan: object) -> str:
         )
     else:
         findings.append(("pass", "Manglende klubber", "Alle 9 RVV-klubber har minst én hjemmeturnering."))
+    if age_host_summaries:
+        findings.append(("info", "Vertskap per aldersgruppe", f"Fordeling: {', '.join(age_host_summaries[:4])}."))
+    if age_spread_summaries:
+        findings.append(("info", "Kampbredde per aldersgruppe", f"Spredning: {', '.join(age_spread_summaries[:4])}."))
 
     # Skipped age groups — <3-team age groups that were not planned.
     if skipped_age_groups:

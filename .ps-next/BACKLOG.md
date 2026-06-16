@@ -1,8 +1,6 @@
 # Backlog
 
 ## Open
-- [119] [ ] Overhaul the generated plan report into one cohesive, run-specific assessment: merge the summary, rule transparency, metrics, advisory checks, and narrative judgment into a single readable structure; remove boilerplate/duplicated blocks; compact the metrics UI; and make all comparisons granular enough to operate per club and age group where relevant.
-
 - [117] [ ] Merge the post-export 'Kvalitetsgjennomgang' into the main assessment/summary when it only contains overlapping advisory findings. If the checks add no new information beyond existing sections, remove the separate block and keep only a small advisory subsection where needed.
 
 - [112] [ ] Relax the tournament club-diversity rule: prefer maximizing the number of distinct clubs in each tournament, penalize repeated clubs strongly, and allow multiple teams from the same club only when needed for feasibility. Use a soft target rather than a hard max-1-team-per-club rule, with clear fallback behavior for skewed club distributions.
@@ -12,6 +10,8 @@
 - [108] [ ] Investigate and remove unused Team fields `region` and `skill_level` if they are truly dead code. Audit callers, config loaders, fairness/participant-selection logic, and tests to confirm whether the fields still affect scheduling; if not, delete the fields and any dead branches, otherwise document their remaining use and keep them.
 - [104] [ ] Refactor season_planner.py into smaller, dedicated files/classes for SOLID principles and readability. Currently ~2500 lines with deeply nested methods, mixed concerns (participant selection, host assignment, game generation, fairness scoring, rules report, feasibility warnings). Extract into focused modules such as participant_selection.py, host_assignment.py, game_generation.py, fairness_scoring.py, rules_report.py, and warnings.py. Keep SeasonPlanner as a thin orchestration facade. Acceptance: existing tests pass without changes, per-module cohesion is clear, no circular imports.
 ## Done
+- [119] [x] Overhaul the generated plan report into one cohesive, run-specific assessment: merge the summary, rule transparency, metrics, advisory checks, and narrative judgment into a single readable structure; remove boilerplate/duplicated blocks; compact the metrics UI; and make all comparisons granular enough to operate per club and age group where relevant. (2026-06-16)
+
 - [116] [x] Simplify or remove the post-export 'Kvalitetsgjennomgang' block when it only repeats findings already covered elsewhere in the report. Keep it only for truly new, advisory checks; otherwise fold those points into the main assessment/metrics sections to avoid duplicated warnings. (2026-06-16)
 
 - [111] [x] Include the tournament-matching and setup rules in the generated report so the plan is transparent about which rules led to the proposed schedule and allocations. (2026-06-16)

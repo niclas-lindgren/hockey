@@ -1,10 +1,10 @@
 # Verification Report
 
-STATUS: NEEDS_REVIEW
+STATUS: PASS_WITH_MANUAL_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `pytest tests/test_season_planner.py -q` passes without changing test expectations. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `python3 -c "from tournament_scheduler.season_planner import SeasonPlanner; print('ok')"` succeeds. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `python3 -c "from tournament_scheduler.participant_selection import __name__ as _; from tournament_scheduler.game_generation import __name__ as __; print('ok')"` succeeds. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| No circular imports are introduced between the new helper modules and `season_planner.py`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The exported report reads as one cohesive assessment with no duplicated advisory blocks. | MANUAL | Source structure and exported layout were reviewed; no mechanical run:/grep check was embedded. |
+| The report shows granular club and age-group comparisons where those metrics matter. | MANUAL | Source structure and exported layout were reviewed; no mechanical run:/grep check was embedded. |
+| Existing export tests pass with the updated report structure. | PASS | `python3 -m pytest -q` passed. |
+| Boilerplate phrases and overlapping report sections are removed from the diagnostics page. | MANUAL | Source structure and regression coverage were reviewed; no mechanical run:/grep check was embedded. |

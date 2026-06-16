@@ -42,7 +42,10 @@ def analyze_opinionated_judgment(
             if getattr(team, "club", None)
         }
     )
+    tournaments_by_age: dict[str, list[object]] = {}
     for tournament in tournaments:
+        age_group = str(getattr(tournament, "age_group", "") or "")
+        tournaments_by_age.setdefault(age_group, []).append(tournament)
         host = canonical_rvv_club_name(getattr(tournament, "host_club", None) or "")
         if host:
             host_counts[host] = host_counts.get(host, 0) + 1
@@ -56,6 +59,26 @@ def analyze_opinionated_judgment(
     total_hosted = sum(host_counts.values())
     top_host_share = top_host_count / total_hosted if total_hosted else 0.0
 
+    age_group_host_summaries: list[str] = []
+    age_group_game_spreads: list[tuple[str, int, int, int]] = []
+    team_age_groups: dict[str, str] = {}
+    for tournament in tournaments:
+        for team in getattr(tournament, "teams", []):
+            team_age_groups.setdefault(team.label, str(getattr(tournament, "age_group", "") or ""))
+    for age_group, age_tournaments in sorted(tournaments_by_age.items()):
+        age_host_counts: dict[str, int] = {}
+        age_team_labels = sorted({team.label for tournament in age_tournaments for team in getattr(tournament, "teams", [])})
+        age_team_counts = [team_game_counts.get(label, 0) for label in age_team_labels]
+        if age_team_counts:
+            age_group_game_spreads.append((age_group, min(age_team_counts), max(age_team_counts), max(age_team_counts) - min(age_team_counts)))
+        for tournament in age_tournaments:
+            host = canonical_rvv_club_name(getattr(tournament, "host_club", None) or "")
+            if host:
+                age_host_counts[host] = age_host_counts.get(host, 0) + 1
+        if age_host_counts and age_tournaments:
+            top_age_host, top_age_host_count = max(age_host_counts.items(), key=lambda item: (item[1], item[0]))
+            age_group_host_summaries.append(f"{age_group}: {top_age_host} {top_age_host_count}/{len(age_tournaments)}")
+
     counts = list(team_game_counts.values())
     spread = max(counts) - min(counts) if counts else 0
     max_team = ""
@@ -68,8 +91,10 @@ def analyze_opinionated_judgment(
 
     farthest_team = ""
     farthest_km = 0
+    farthest_age_group = ""
     if team_travel:
         farthest_team, farthest_km = max(team_travel.items(), key=lambda item: (item[1], item[0]))
+        farthest_age_group = next((age_group for label, age_group in team_age_groups.items() if label == farthest_team), "")
 
     busiest_club = ""
     busiest_club_load = 0
@@ -115,10 +140,20 @@ def analyze_opinionated_judgment(
     else:
         matchup_text += " Her er det for mye gjentakelse til at jeg ville vært fornøyd."
 
+    if age_group_game_spreads:
+        age_spread_text = ", ".join(
+            f"{age_group} {min_games}–{max_games}"
+            for age_group, min_games, max_games, spread_value in sorted(age_group_game_spreads, key=lambda item: (item[3], item[0]), reverse=True)[:3]
+        )
+    else:
+        age_spread_text = ""
+
     load_text = (
         f"Kampbelastningen er {'jevn' if spread <= 1 else 'akseptabel' if spread <= 2 else 'for ujevn'}: "
         f"{max_team or 'ingen lag'} har {max_games} kamper, {min_team or 'ingen lag'} har {min_games}, og spredningen er {spread}."
     )
+    if age_spread_text:
+        load_text += f" Per aldersgruppe: {age_spread_text}."
     if month_balance >= 0.9 and spread <= 1:
         load_text += " Det ser veldig kontrollert ut over hele sesongen."
     elif month_balance >= 0.8:
@@ -136,9 +171,12 @@ def analyze_opinionated_judgment(
             hosting_text += f" {busiest_club} er samtidig den mest belastede klubben totalt ({busiest_club_load} roller)."
     else:
         hosting_text = "Vertskapet ser balansert ut og gir et ryddig sesongbilde."
+    if age_group_host_summaries:
+        hosting_text += f" Per aldersgruppe: {', '.join(age_group_host_summaries[:3])}."
 
     if team_travel and farthest_km:
-        travel_text = f"Reisebildet har også en klar topp: {farthest_team} ligger på {farthest_km} km total reise."
+        travel_age = f" ({farthest_age_group})" if farthest_age_group else ""
+        travel_text = f"Reisebildet har også en klar topp: {farthest_team}{travel_age} ligger på {farthest_km} km total reise."
         if farthest_km >= 200:
             travel_text += " Det er verdt å dobbeltsjekke om den belastningen er bevisst."
     else:
