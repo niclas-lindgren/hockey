@@ -5,14 +5,13 @@ description: RVV Miniputt season planning pipeline for Norwegian hockey clubs. R
 
 # RVV Miniputt — season planning pipeline
 
-The extension at `.pi/extensions/rvv-miniputt.ts` provides slash commands for execution. This skill provides tribal knowledge, usage patterns, and troubleshooting that don't belong in code.
+This skill runs the RVV Miniputt workflow for Norwegian hockey clubs: config, scraping, planning, and export.
+Typical use: activate the skill with `/rvv-miniputt run`; the skill handles the command flow for you.
 
 ## Agent-callable tools
 
-The `/rvv-miniputt ...` slash commands below are Pi extension commands, not shell
-binaries — running e.g. `/rvv-miniputt run` via Bash fails with "command not found".
-If you (the agent) need to trigger the pipeline yourself, call these tools instead,
-which the extension also registers:
+Use the `/rvv-miniputt ...` slash commands from Pi, not Bash.
+If you need to trigger the pipeline from the agent, use these tools:
 
 | Tool | Equivalent slash command |
 |---|---|
@@ -22,11 +21,13 @@ which the extension also registers:
 | `rvv_miniputt_calendars` | `/rvv-miniputt calendars` |
 
 Each tool takes the same flags as its slash command via an optional `args` string
-(e.g. `rvv_miniputt_run({ args: "--resume-from 2 --log-level verbose" })`). Always
-prefer these over reimplementing the pipeline by calling
-`tournament_scheduler.pipeline.stageN_*` Python modules directly — that bypasses
-checkpointing, resumption, and the structured run logging used for self-improvement
-analysis.
+(e.g. `rvv_miniputt_run({ args: "--resume-from 2 --log-level verbose" })`).
+
+## How to use it
+
+1. Activate the skill with `/rvv-miniputt run`
+2. Use `/rvv-miniputt status` or `/rvv-miniputt logs` to inspect results
+3. Use `/rvv-miniputt calendars` when you want calendar output from cache
 
 ## Slash commands
 
