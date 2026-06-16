@@ -13,6 +13,7 @@ from tournament_scheduler.models import (
     Game,
     Roster,
     SchedulingResult,
+    SeasonPlan,
     Team,
     Tournament,
     overlapping_age_groups,
@@ -1919,6 +1920,30 @@ class TestRulesReport:
         # No build_plan() call — should still work
         report = planner.rules_report()
         assert len(report) > 0, "rules_report should work before build_plan"
+
+    def test_extracted_helper_modules_import_cleanly_with_facade(self):
+        """Importing the extracted helper modules first should not break the facade."""
+        from tournament_scheduler import fairness_scoring, game_generation, host_assignment, participant_selection, rules_report as rules_report_module, warnings as warnings_module
+
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Skien", label="Skien U10", age_group="U10"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen", "Skien": "Skienhallen"},
+        )
+        plan = SeasonPlan(tournaments=[], start_date=date(2026, 10, 1), end_date=date(2027, 4, 30))
+
+        assert callable(rules_report_module.rules_report)
+        assert participant_selection.default_target_count(4) == planner._default_target_count(4)
+        assert host_assignment.default_target_count(4) == planner._default_target_count(4)
+        assert isinstance(fairness_scoring.build_fairness_gate(planner, plan), dict)
+        assert game_generation.generate_round_robin_games(roster.by_age_group("U10")[:3], 2)
+        assert isinstance(warnings_module.scan_arena_day_collision_warnings(plan), list)
+        assert planner.rules_report()
 
 
 class TestMonthLoadWarnings:

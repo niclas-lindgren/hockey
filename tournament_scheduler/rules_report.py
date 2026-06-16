@@ -4,7 +4,189 @@ from __future__ import annotations
 
 from typing import Dict, List
 
+from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
+
 
 def rules_report(planner) -> List[Dict[str, str]]:
-    """Delegate to the planner's preserved rules-report implementation."""
-    return planner._rules_report_impl()
+    """Return a structured report of every constraint and automatic decision."""
+    report: List[Dict[str, str]] = []
+
+    report.append({
+        "regel": f"Maks {planner.max_club_teams_per_tournament} lag per klubb per turnering",
+        "forklaring": (
+            f"Høyst {planner.max_club_teams_per_tournament} lag fra samme klubb kan delta "
+            "i én og samme turnering. Dette er et hardt krav som forhindrer "
+            "at to lag fra samme klubb møter hverandre — slike kamper er "
+            "uønsket fordi de ikke gir variasjon for spillerne."
+        ),
+        "kategori": "Hard krav",
+    })
+
+    if planner.parallel_games_for_age_group:
+        for ag, pg in sorted(planner.parallel_games_for_age_group.items()):
+            capacity = planner._max_teams_for(ag)
+            report.append({
+                "regel": f"Parallelle kamper for {ag}: {pg}",
+                "forklaring": (
+                    f"For aldersgruppen {ag} spilles det {pg} kamper samtidig per runde. "
+                    f"Det gir plass til opptil {capacity} lag per turnering, og hvis lagetallet er oddetall "
+                    "får ett lag pause i hver runde."
+                ),
+                "kategori": "Hard krav",
+            })
+    else:
+        report.append({
+            "regel": "Parallelle kamper: ingen spesifisert",
+            "forklaring": (
+                "Ingen aldersgrupper har spesifisert antall parallelle kamper. "
+                f"Planleggeren bruker et standard nivå på {DEFAULT_PARALLEL_GAMES} parallelle kamper "
+                f"og kan dermed invitere opptil {DEFAULT_PARALLEL_GAMES * 2 + 1} lag per turnering."
+            ),
+            "kategori": "Hard krav",
+        })
+
+    report.append({
+        "regel": f"Ferdighetsnivå-bånd: ±{planner.division_skill_band}",
+        "forklaring": (
+            f"Lag med registrert ferdighetsnivå (1–10) grupperes med lag innenfor ±{planner.division_skill_band} "
+            "nivåer av hverandre. Dette motvirker ensidige kamper og sikrer jevnere motstand. "
+            "Lag uten registrert nivå påvirkes ikke."
+        ),
+        "kategori": "Hard krav",
+    })
+
+    report.extend([
+        {
+            "regel": "Minst mulig gjentatte grupperinger",
+            "forklaring": (
+                "Når planleggeren velger hvilke lag som skal møtes i en turnering, prioriterer den lag "
+                "som ikke har vært i samme turnering tidligere i sesongen. Målet er at hvert lag skal møte "
+                "flest mulig forskjellige motstandere gjennom sesongen."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+        {
+            "regel": "Jevn fordeling av turneringer over sesongen",
+            "forklaring": (
+                f"Sesongvinduet deles i omtrent like store tidsbolker, og én turnering legges til hver bolk. "
+                f"Dette sikrer at turneringene er spredt jevnt utover og at ingen periode blir overbelastet. "
+                f"Måneder som avviker mer enn {int(planner.max_month_deviation_ratio * 100)}% fra forventet antall turneringer flagges som et varsel."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+        {
+            "regel": "Rettferdig fordeling av hjemmeturneringer",
+            "forklaring": (
+                f"Hjemmeturneringer fordeles proporsjonalt etter antall lag hver klubb stiller. Klubber med flere lag får "
+                f"hjemmeturnering oftere. Maksimalt tillatt avvik fra forventet antall er {planner.max_hosting_deviation} turnering(er)."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+        {
+            "regel": "Jevnt antall kamper per lag",
+            "forklaring": (
+                f"Planleggeren teller opp alle kamper hvert lag spiller i løpet av sesongen. Forskjellen mellom laget med flest "
+                f"og færrest kamper skal være maksimalt {planner.max_game_count_spread}. Lag som blir ferdige for tidlig (mer enn "
+                f"{planner.max_early_finish_gap_days} dager før sesongslutt) flagges som et varsel."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+        {
+            "regel": "Jevn fordeling av kamper innad i aldersgruppe/klubb",
+            "forklaring": (
+                f"For hver aldersgruppe beregnes gjennomsnittlig antall kamper per lag. Lag som avviker fra dette gjennomsnittet "
+                f"med mer enn {planner.max_game_count_spread} kamper flagges som et varsel. Dette fanger opp skjevheter der en klubb "
+                "med flere lag i samme aldersgruppe får færre eller flere kamper enn andre lag i samme aldersgruppe."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+    ])
+
+    for label, club, age_group, actual, expected in planner._per_team_share_warnings:
+        direction = "flere" if actual > expected else "færre"
+        report.append({
+            "regel": f"Skjev kampfordeling: {label}",
+            "forklaring": (
+                f"{label} ({club}, {age_group}) spiller {actual} kamper, mens snittet for {age_group} er {expected:.1f} — "
+                f"{abs(actual - expected):.1f} {direction} enn snittet."
+            ),
+            "kategori": "Anbefaling",
+        })
+
+    report.extend([
+        {
+            "regel": "Behovsbasert unntak fra klubb-tak per turnering",
+            "forklaring": (
+                "Når et lag fra en klubb som allerede har fylt sin forholdsmessige andel av plassene i en turnering "
+                "(_max_club_teams_for) har et større etterslep i antall spilte kamper enn alle ledige lag fra andre klubber, "
+                "kan laget likevel velges — med en straff i prioriteringen proporsjonal med hvor langt over taket klubben er. "
+                f"Dette unntaket er brukt {planner._club_cap_overrides} gang(er) i denne sesongplanen."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+        {
+            "regel": "Ingen overlappende aldersgrupper",
+            "forklaring": (
+                "Aldersgrupper som deler spillerbase (for eksempel JU11 og U10) skal helst ikke ha turnering samme helg, "
+                "fordi noen spillere tilhører begge grupper og ville blitt dobbeltbooket. Planleggeren forsøker å unngå dette; "
+                "kollisjoner som ikke kan løses, rapporteres."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+        {
+            "regel": "Round-robin: alle mot alle innen turneringen",
+            "forklaring": (
+                "Innenfor hver turnering spiller alle inviterte lag mot hverandre nøyaktig én gang (round-robin). "
+                "Turneringens størrelse og antall parallelle kamper avgjør hvor mange runder som trengs. "
+                "Hjemme/borte byttes annenhver runde for rettferdig fordeling."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+        {
+            "regel": "Sikkerhetsfilter mot klubb-interne kamper",
+            "forklaring": (
+                "Som en ekstra sikkerhet (belt-and-suspenders) hoppes det over kamper mellom to lag fra samme klubb under round-robin-genereringen, "
+                "selv om deltakerutvelgelsen allerede skal ha forhindret dette."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+    ])
+
+    target_val = planner.target_tournament_count or 6
+    all_same_target = all(
+        t.target_tournament_count is None or t.target_tournament_count == target_val for t in planner.roster.teams
+    )
+    if all_same_target:
+        target_desc = f"cirka {target_val} turneringsdeltakelser per lag"
+        target_detail = f"Hver aldersgruppe planlegges mot et mykt mål på rundt {target_val} turneringsdeltakelser per lag."
+    else:
+        targets = {t.target_tournament_count or target_val for t in planner.roster.teams}
+        target_range = ", ".join(sorted(str(t) for t in targets))
+        target_desc = f"{min(targets)}–{max(targets)} turneringsdeltakelser per lag (varierer per lag)"
+        target_detail = (
+            f"Lag planlegges mot individuelle mål for turneringsdeltakelser: {target_range}. "
+            f"Lag uten eget mål bruker standarden på {target_val}. "
+        )
+    report.append({
+        "regel": f"Mykt mål: {target_desc}",
+        "forklaring": (
+            f"{target_detail} Tallet er en ønsket sesongbelastning — planleggeren vil heller lage færre, bedre turneringer "
+            "enn å presse inn ekstra bare for å nå målet. Dersom en aldersgruppe har for få lag eller for få ledige helger "
+            "til å oppfylle målet, justeres det ned."
+        ),
+        "kategori": "Automatisk avgjørelse",
+    })
+
+    if planner.events_by_club:
+        report.append({
+            "regel": "Tidspunkt på dagen velges ut fra vertsklubbens egen hallkalender",
+            "forklaring": (
+                "For hver turnering beregnes hvor lang tid hele turneringen tar (rundelengde × antall runder), og planleggeren "
+                "ser etter en sammenhengende ledig luke av denne lengden i vertsklubbens egen hallkalender. Tidspunkt nærmest 11:00 "
+                "foretrekkes, for å unngå svært tidlige eller sene starttider. Hvis vertsklubbens egen hall ikke har en passende "
+                "ledig luke den dagen, beholdes den opprinnelige vertsklubben og standard starttid i stedet for å låne kapasitet fra andre klubber."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        })
+
+    return report
