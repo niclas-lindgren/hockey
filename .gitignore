@@ -215,3 +215,4 @@ node_modules/
 export/
 .pipeline/
 .ps-next/.lock
+.DS_Store
