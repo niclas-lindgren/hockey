@@ -1,6 +1,10 @@
 # Backlog
 
 ## Open
+- [111] [ ] Include the tournament-matching and setup rules in the generated report so the plan is transparent about which rules led to the proposed schedule and allocations.
+
+- [110] [ ] Update tournament scheduling to compute total time per matchday from input.xlsx: number of matches × match duration, plus 5 minutes per match for course change/setup, and require the full total to fit within the available calendar/scheduled time slot. Also verify scheduling avoids too-early start times when teams from far away are participating.
+- [109] [ ] Fix stale calendar scraping entries so old/irrelevant events do not remain in cached scraping data or report outputs after a run.
 
 - [108] [ ] Investigate and remove unused Team fields `region` and `skill_level` if they are truly dead code. Audit callers, config loaders, fairness/participant-selection logic, and tests to confirm whether the fields still affect scheduling; if not, delete the fields and any dead branches, otherwise document their remaining use and keep them.
 - [104] [ ] Refactor season_planner.py into smaller, dedicated files/classes for SOLID principles and readability. Currently ~2500 lines with deeply nested methods, mixed concerns (participant selection, host assignment, game generation, fairness scoring, rules report, feasibility warnings). Extract into focused modules such as participant_selection.py, host_assignment.py, game_generation.py, fairness_scoring.py, rules_report.py, and warnings.py. Keep SeasonPlanner as a thin orchestration facade. Acceptance: existing tests pass without changes, per-module cohesion is clear, no circular imports.

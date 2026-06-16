@@ -34,11 +34,21 @@ def analyze_opinionated_judgment(
     month_balance = float(getattr(plan, "month_balance_score", 0.0) or 0.0)
 
     host_counts: dict[str, int] = {}
+    team_clubs = sorted(
+        {
+            canonical_rvv_club_name(team.club)
+            for tournament in tournaments
+            for team in getattr(tournament, "teams", [])
+            if getattr(team, "club", None)
+        }
+    )
     for tournament in tournaments:
         host = canonical_rvv_club_name(getattr(tournament, "host_club", None) or "")
         if host:
             host_counts[host] = host_counts.get(host, 0) + 1
     missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
+    def _missing_host_label(club: str) -> str:
+        return f"{club} (ingen lag i planen)" if club not in team_clubs else club
     top_host = ""
     top_host_count = 0
     if host_counts:
@@ -117,11 +127,11 @@ def analyze_opinionated_judgment(
         load_text += " Det er et punkt jeg ville sett nærmere på før utsending."
 
     if missing_hosts:
-        hosting_text = f"Vertskapet er planen svakeste del: {len(missing_hosts)} RVV-klubber mangler vertsturnering ({', '.join(missing_hosts)})."
+        hosting_text = f"Vertskapet er planen svakeste del: {len(missing_hosts)} RVV-klubber mangler hjemmeturnering ({', '.join(_missing_host_label(club) for club in missing_hosts)})."
         if busiest_club:
             hosting_text += f" {busiest_club} bærer mest av klubbbelastningen totalt ({busiest_club_load} roller)."
     elif top_host_share >= 0.4:
-        hosting_text = f"Vertskapet er litt for konsentrert hos {top_host}: {top_host_count} av {total_hosted} vertsturneringer."
+        hosting_text = f"Vertskapet er litt for konsentrert hos {top_host}: {top_host_count} av {total_hosted} hjemmeturneringer."
         if busiest_club:
             hosting_text += f" {busiest_club} er samtidig den mest belastede klubben totalt ({busiest_club_load} roller)."
     else:

@@ -54,6 +54,14 @@ def render_review_summary_html(plan: object) -> str:
     # Missing clubs — RVV clubs without a hosted tournament.
     host_counts: dict[str, int] = {}
     host_sequence: list[str] = []
+    team_clubs = sorted(
+        {
+            canonical_rvv_club_name(team.club)
+            for tournament in sorted_tournaments
+            for team in getattr(tournament, "teams", [])
+            if getattr(team, "club", None)
+        }
+    )
     for tournament in sorted_tournaments:
         host = getattr(tournament, "host_club", None) or ""
         if not host:
@@ -62,16 +70,18 @@ def render_review_summary_html(plan: object) -> str:
         host_counts[canonical_host] = host_counts.get(canonical_host, 0) + 1
         host_sequence.append(canonical_host)
     missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
+    def _missing_host_label(club: str) -> str:
+        return f"{club} (ingen lag i planen)" if club not in team_clubs else club
     if missing_hosts:
         findings.append(
             (
                 "warn",
                 "Manglende klubber",
-                f"Følgende RVV-klubber har ingen vertsturnering: {', '.join(missing_hosts)}.",
+                f"Følgende RVV-klubber har ingen hjemmeturnering: {', '.join(_missing_host_label(club) for club in missing_hosts)}.",
             )
         )
     else:
-        findings.append(("pass", "Manglende klubber", "Alle 9 RVV-klubber har minst én vertsturnering."))
+        findings.append(("pass", "Manglende klubber", "Alle 9 RVV-klubber har minst én hjemmeturnering."))
 
     # Skipped age groups — <3-team age groups that were not planned.
     if skipped_age_groups:
@@ -101,7 +111,7 @@ def render_review_summary_html(plan: object) -> str:
                 (
                     "warn",
                     "Vertsmønster",
-                    f"{top_host} står for {top_count} av {total_hosted} vertsturneringer; vurder jevnere fordeling.",
+                    f"{top_host} står for {top_count} av {total_hosted} hjemmeturneringer; vurder jevnere fordeling.",
                 )
             )
         else:

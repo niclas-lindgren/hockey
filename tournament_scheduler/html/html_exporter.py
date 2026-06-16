@@ -377,12 +377,22 @@ class HtmlExporter:
         active_tournaments = [t for t in plan.tournaments if not t.cancelled]
         active_tournaments.sort(key=lambda t: (t.date or plan.end_date, t.age_group, t.host_club or "", t.arena))
         host_counts: dict[str, int] = {}
+        team_clubs = sorted(
+            {
+                canonical_rvv_club_name(team.club)
+                for tournament in active_tournaments
+                for team in tournament.teams
+                if getattr(team, "club", None)
+            }
+        )
         for tournament in active_tournaments:
             host = tournament.host_club or ""
             if host:
                 canonical_host = canonical_rvv_club_name(host)
                 host_counts[canonical_host] = host_counts.get(canonical_host, 0) + 1
         missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
+        def _missing_host_label(club: str) -> str:
+            return f"{club} (ingen lag i planen)" if club not in team_clubs else club
 
         metric_warnings = [m for m in gate.get("metrics", []) if isinstance(m, dict) and m.get("status") in {"warn", "fail"}]
         actions: list[tuple[str, str, str]] = []
@@ -395,7 +405,7 @@ class HtmlExporter:
         if blocked:
             actions.append(("warn", "Datagrunnlag", f"{len(blocked)} kalenderkilde(r) er blokkert: {', '.join(blocked)}."))
         if missing_hosts:
-            actions.append(("warn", "Vertskap", f"Ingen vertsturnering registrert for: {', '.join(missing_hosts)}."))
+            actions.append(("warn", "Vertskap", f"Ingen hjemmeturnering registrert for: {', '.join(_missing_host_label(club) for club in missing_hosts)}."))
         if cancelled_count:
             actions.append(("warn", "Avlyst/hoppet over", f"{cancelled_count} turnering(er) er markert som avlyst eller hoppet over."))
         if not actions:
@@ -436,7 +446,7 @@ class HtmlExporter:
             travel_km = int(stats.get("travel_km", 0) or 0)
             review_note = "Sjekk hjemmedatoer og lagliste"
             if hosted == 0:
-                review_note = "Mangler vertskap i planen"
+                review_note = "Mangler hjemmeturnering i planen"
             elif travel_km > 0 and team_travel:
                 review_note = "Sjekk anslått reisebelastning og bortedatoer"
             club_rows.append(
@@ -474,7 +484,7 @@ class HtmlExporter:
             ("Planstatus", status_labels.get(overall_status, "STATUS"), f"{len(active_tournaments)} turneringer, {sum(len(t.games) for t in active_tournaments)} kamper"),
             ("Datagrunnlag", f"{source_count} kilder", f"{event_count} kalenderhendelser, {len(blocked)} blokkert"),
             ("Tidsrom", date_range or "Ikke oppgitt", f"{len(display_age_groups)} aldersgrupper"),
-            ("Klubbfordeling", f"{len(host_counts)} vertsklubber", f"{len(missing_hosts)} RVV-klubber uten vertskap"),
+            ("Klubbfordeling", f"{len(host_counts)} vertsklubber", f"{len(missing_hosts)} RVV-klubber uten hjemmeturnering"),
         ]
         status_cards = "".join(
             '<article class="report-card">'

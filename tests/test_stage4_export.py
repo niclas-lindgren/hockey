@@ -360,8 +360,8 @@ class TestRunStage4:
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
 
         assert "Kvalitetsgjennomgang" in report_html
-        assert "Alle 9 RVV-klubber har minst én vertsturnering." in report_html
-        assert "Følgende RVV-klubber har ingen vertsturnering" not in report_html
+        assert "Alle 9 RVV-klubber har minst én hjemmeturnering." in report_html
+        assert "Følgende RVV-klubber har ingen hjemmeturnering" not in report_html
 
     def test_html_filters_fall_back_to_plan_age_groups_when_input_omits_them(self, tmp_path):
         input_path = tmp_path / "input.xlsx"
