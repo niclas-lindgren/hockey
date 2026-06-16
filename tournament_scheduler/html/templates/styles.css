@@ -112,6 +112,12 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .report-section--judgment-strong { border-left-color: var(--emerald); }
 .report-section--judgment-mixed { border-left-color: var(--amber); }
 .report-section--judgment-rough { border-left-color: var(--rose); }
+.report-section--collapsible { padding-top: 14px; }
+.report-section--collapsible > summary.section-head { cursor: pointer; list-style: none; }
+.report-section--collapsible > summary.section-head::-webkit-details-marker { display: none; }
+.report-section--collapsible > summary.section-head::before { content: ''; display: inline-block; width: 7px; height: 7px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); margin: 5px 8px 0 0; transform: rotate(-45deg); transition: transform .15s; flex-shrink: 0; }
+.report-section--collapsible[open] > summary.section-head::before { transform: rotate(45deg); margin-top: 2px; }
+.report-section--collapsible:not([open]) > summary.section-head { margin-bottom: 0; }
 .judgment-callout { padding: 14px 16px; background: linear-gradient(135deg, var(--bg), var(--bg-raised)); border: 1px solid var(--border-dim); border-radius: var(--radius); margin-bottom: 10px; }
 .judgment-callout--strong { background: rgba(16,185,129,.06); }
 .judgment-callout--mixed { background: rgba(245,158,11,.06); }
@@ -169,9 +175,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .fairness-metric-value { font-size: 12px; color: var(--text-muted); }
 .fairness-metric-score { font-size: 11px; color: var(--accent); font-weight: 600; }
 .fairness-metric-detail { font-size: 11px; color: var(--text-muted); }
-.fairness-breakdown-label { margin-top: 8px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
-.fairness-breakdown-table { width: 100%; margin-top: 5px; border-collapse: collapse; font-size: 11px; }
-.fairness-breakdown-table th, .fairness-breakdown-table td { padding: 4px 5px; border-bottom: 1px solid var(--border-dim); }
+.fairness-breakdown-row { margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); }
+.fairness-breakdown-label { margin-bottom: 8px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.fairness-breakdown-scroll { overflow-x: auto; }
+.fairness-breakdown-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 11px; }
+.fairness-breakdown-table th, .fairness-breakdown-table td { padding: 4px 5px; border-bottom: 1px solid var(--border-dim); white-space: nowrap; }
 .fairness-breakdown-table th { color: var(--text-muted); text-align: left; font-weight: 700; }
 .fairness-adjustment-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .fairness-adjustment-summary .metrics-group { min-width: 140px; }

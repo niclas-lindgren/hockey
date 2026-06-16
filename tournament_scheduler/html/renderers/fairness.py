@@ -31,6 +31,7 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
     status_label = status_labels.get(status, "PASS")
 
     metric_cards = []
+    breakdown_blocks = []
     for metric in metrics:
         metric_status = str(metric.get("status", "pass")).lower()
         metric_label = _html.escape(str(metric.get("label", "")))
@@ -42,7 +43,6 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
         if unit and threshold != "":
             threshold = f"{threshold} {unit}"
         breakdown_rows = metric.get("age_group_breakdown", [])
-        breakdown_html = ""
         if isinstance(breakdown_rows, list) and breakdown_rows:
             row_html = "".join(
                 "<tr>"
@@ -54,11 +54,15 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
                 for row in breakdown_rows[:12]
                 if isinstance(row, dict)
             )
-            breakdown_html = (
+            breakdown_blocks.append(
+                '<div class="fairness-breakdown-row">'
                 '<div class="fairness-breakdown-label">Per aldersgruppe og klubb: faktisk vs forventet hjemmeturneringer</div>'
+                '<div class="fairness-breakdown-scroll">'
                 '<table class="fairness-breakdown-table"><thead><tr>'
                 '<th>Aldersgruppe</th><th>Klubb</th><th>Faktisk</th><th>Forventet</th>'
                 f'</tr></thead><tbody>{row_html}</tbody></table>'
+                '</div>'
+                '</div>'
             )
         metric_cards.append(
             f"<div class=\"fairness-metric fairness-metric--{metric_status}\">"
@@ -69,7 +73,6 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
             f"<div class=\"fairness-metric-value\"><strong>{_html.escape(str(value))}</strong> \u00b7 terskel {_html.escape(str(threshold))}</div>"
             f"<div class=\"fairness-metric-score\">Score {int(metric.get('score', 0) or 0)}%</div>"
             f"<div class=\"fairness-metric-detail\">{_html.escape(str(metric.get('detail', '')))}</div>"
-            f"{breakdown_html}"
             "</div>"
         )
 
@@ -83,9 +86,9 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
         f'<span class="fairness-gate-status fairness-gate-status--{status}">{status_label}</span>'
         '</div>'
         f'<div class="fairness-gate-grid">{"".join(metric_cards)}</div>'
+        f'{"".join(breakdown_blocks)}'
         '</div>'
     )
-
 
 def render_fairness_adjustments_html(plan: object) -> str:
     """Render the fairness adjustment overview table.
