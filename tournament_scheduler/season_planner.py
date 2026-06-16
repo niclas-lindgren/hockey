@@ -97,6 +97,8 @@ MIN_TEAMS_PER_TOURNAMENT = 3
 # Default start time assigned to generated tournaments when no per-arena/
 # per-age-group scheduling is available yet.
 DEFAULT_TOURNAMENT_START_TIME = "10:00"
+# Minimum buffer between tournaments in the same arena on the same day.
+ARENA_DAY_SEQUENCE_BUFFER_MINUTES = 5
 
 # Default thresholds for the roster-based fairness gate. These can be
 # overridden via the planner constructor and (optionally) pipeline config.
@@ -375,7 +377,6 @@ class SeasonPlanner:
         self._fallback_host_substitutions = []
 
         scheduled_age_groups_by_date: Dict[date, List[str]] = {}
-        arena_day_collisions: List[Dict[str, str]] = list(getattr(self, "_arena_day_collisions", []))
 
         for (tournament_date, age_group), host_club in zip(scheduled, host_assignments):
             self._record_month(tournament_date)
@@ -429,13 +430,14 @@ class SeasonPlanner:
             start_date.date(), end_date.date(), len(scheduled)
         )
 
+        self._sequence_same_arena_day_start_times(plan)
+
         plan.arena_counts = self._arena_counts(plan.tournaments)
         plan.diversity_score = self._diversity_score(plan.tournaments)
         plan.pairwise_matchup_score = self._pairwise_matchup_score(plan.tournaments)
         plan.month_balance_score = self._month_balance_score(expected_per_month)
-        plan.arena_day_collisions = arena_day_collisions
-        if arena_day_collisions:
-            plan.arena_counts["_arena_day_collisions"] = len(arena_day_collisions)
+        plan.arena_day_collisions = []
+        plan.arena_counts.pop("_arena_day_collisions", None)
 
         # Compute per-team game counts and last-game dates.
         self._compute_game_counts(plan.tournaments)
@@ -484,10 +486,6 @@ class SeasonPlanner:
         else:
             self._collisions = []
 
-        if not arena_day_collisions:
-            plan.arena_counts.pop("_arena_day_collisions", None)
-
-
         return plan
 
     @property
@@ -513,6 +511,42 @@ class SeasonPlanner:
         date.
         """
         return getattr(self, "_fallback_host_substitutions", [])
+
+    def _sequence_same_arena_day_start_times(self, plan: SeasonPlan) -> None:
+        """Sequence tournaments that share an arena/date so they do not overlap."""
+        groups: Dict[Tuple[date, str], List[Tournament]] = {}
+        for tournament in plan.tournaments:
+            if tournament.cancelled:
+                continue
+            groups.setdefault((tournament.date, tournament.arena), []).append(tournament)
+
+        for (_tournament_date, _arena), tournaments in groups.items():
+            if len(tournaments) < 2:
+                continue
+
+            ordered = sorted(
+                tournaments,
+                key=lambda t: (t.start_time or DEFAULT_TOURNAMENT_START_TIME, t.age_group, t.id),
+            )
+            cursor_minutes: Optional[int] = None
+            for tournament in ordered:
+                start_time = tournament.start_time or DEFAULT_TOURNAMENT_START_TIME
+                try:
+                    requested = datetime.strptime(start_time, "%H:%M")
+                    requested_minutes = requested.hour * 60 + requested.minute
+                except ValueError:
+                    requested_minutes = 10 * 60
+
+                if cursor_minutes is None:
+                    cursor_minutes = requested_minutes
+                else:
+                    cursor_minutes = max(cursor_minutes, requested_minutes)
+
+                tournament.start_time = f"{cursor_minutes // 60:02d}:{cursor_minutes % 60:02d}"
+
+                round_length = self.round_length_for_age_group.get(tournament.age_group)
+                duration_minutes = tournament.duration_minutes(round_length) if round_length else 0
+                cursor_minutes += duration_minutes + ARENA_DAY_SEQUENCE_BUFFER_MINUTES
 
     def _find_slot_for_tournament(
         self,

@@ -255,7 +255,7 @@ class TestSeasonPlanner:
         assert plan.arena_day_collisions == []
         assert plan.arena_counts.get("_arena_day_collisions", 0) == 0
 
-    def test_unavoidable_same_arena_collision_is_reported(self, season_window):
+    def test_same_arena_same_day_tournaments_are_sequenced(self, season_window):
         start, end = season_window
         free_dates = [start.date()]
         roster = Roster(teams=[
@@ -271,16 +271,20 @@ class TestSeasonPlanner:
             roster=roster,
             club_arenas={"Jar": "Jarahallen"},
             parallel_games_for_age_group={"U7": 4, "U10": 4},
+            round_length_for_age_group={"U7": 60, "U10": 60},
         )
 
         plan = planner.build_plan(start, end)
 
-        assert len(plan.tournaments) == 2
-        assert len(plan.arena_day_collisions) == 1
-        assert plan.arena_day_collisions[0]["arena"] == "Jarahallen"
-        assert plan.arena_counts.get("_arena_day_collisions", 0) == 1
-        assert plan.fairness_gate["status"] == "fail"
-        assert any(metric["key"] == "arena_day_collisions" for metric in plan.fairness_gate["metrics"])
+        same_day = [t for t in plan.tournaments if t.arena == "Jarahallen" and t.date == start.date()]
+        assert len(same_day) == 2
+        same_day.sort(key=lambda t: t.start_time)
+
+        first, second = same_day
+        assert first.start_time == "10:00"
+        assert second.start_time == "13:05"
+        assert plan.arena_day_collisions == []
+        assert plan.arena_counts.get("_arena_day_collisions", 0) == 0
 
     def test_each_tournament_is_single_age_group_with_round_robin_games(self, planner_and_plan):
         _, plan, *_ = planner_and_plan
