@@ -62,11 +62,12 @@ class SeasonFairnessModel:
         team: Team,
         age_group_teams: Sequence[Team],
         team_game_counts: Mapping[str, int],
+        duplicate_labels: set[str] | None = None,
     ) -> float:
         if not age_group_teams:
             return 0.0
 
-        duplicate_labels = self._duplicate_labels(age_group_teams)
+        duplicate_labels = duplicate_labels or self._duplicate_labels(age_group_teams)
         counts = [team_game_counts.get(team_key(t, duplicate_labels), 0) for t in age_group_teams]
         if not counts:
             return 0.0
@@ -97,19 +98,21 @@ class SeasonFairnessModel:
         team: Team,
         age_group_teams: Sequence[Team],
         team_game_counts: Mapping[str, int],
+        duplicate_labels: set[str] | None = None,
     ) -> float:
         """Return the soft target game count for `team`.
 
         This is the diagnostic / post-plan form: it uses the actual counts
         recorded so far.
         """
-        return self._target_games_from_counts(team, age_group_teams, team_game_counts)
+        return self._target_games_from_counts(team, age_group_teams, team_game_counts, duplicate_labels=duplicate_labels)
 
     def planning_target_games_for_team(
         self,
         team: Team,
         age_group_teams: Sequence[Team],
         team_game_counts: Mapping[str, int],
+        duplicate_labels: set[str] | None = None,
     ) -> float:
         """Return a planning-time soft target for `team`.
 
@@ -122,22 +125,23 @@ class SeasonFairnessModel:
         if not age_group_teams:
             return 0.0
 
-        duplicate_labels = self._duplicate_labels(age_group_teams)
+        duplicate_labels = duplicate_labels or self._duplicate_labels(age_group_teams)
         if any(team_game_counts.get(team_key(t, duplicate_labels), 0) for t in age_group_teams):
-            return self._target_games_from_counts(team, age_group_teams, team_game_counts)
+            return self._target_games_from_counts(team, age_group_teams, team_game_counts, duplicate_labels=duplicate_labels)
 
         seeded_counts = {team_key(t, duplicate_labels): 1 for t in age_group_teams}
-        return self._target_games_from_counts(team, age_group_teams, seeded_counts)
+        return self._target_games_from_counts(team, age_group_teams, seeded_counts, duplicate_labels=duplicate_labels)
 
     def planning_targets_for_age_group(
         self,
         age_group_teams: Sequence[Team],
         team_game_counts: Mapping[str, int],
+        duplicate_labels: set[str] | None = None,
     ) -> Dict[str, float]:
         """Return planning-time soft targets for every team in an age group."""
-        duplicate_labels = self._duplicate_labels(age_group_teams)
+        duplicate_labels = duplicate_labels or self._duplicate_labels(age_group_teams)
         return {
-            team_key(team, duplicate_labels): self.planning_target_games_for_team(team, age_group_teams, team_game_counts)
+            team_key(team, duplicate_labels): self.planning_target_games_for_team(team, age_group_teams, team_game_counts, duplicate_labels=duplicate_labels)
             for team in age_group_teams
         }
 
@@ -173,10 +177,9 @@ class SeasonFairnessModel:
         for age_group, teams in teams_by_age_group.items():
             if not teams:
                 continue
-            age_group_duplicate_labels = self._duplicate_labels(teams)
-            targets = self.targets_for_age_group(teams, plan.team_game_counts)
+            targets = self.targets_for_age_group(teams, plan.team_game_counts, duplicate_labels=duplicate_labels)
             for team in teams:
-                key = team_key(team, age_group_duplicate_labels)
+                key = team_key(team, duplicate_labels)
                 actual = int(plan.team_game_counts.get(key, 0))
                 target = float(targets.get(key, 0.0))
                 delta = round(target - actual, 3)
@@ -184,7 +187,8 @@ class SeasonFairnessModel:
                 team_target_ttc = team.target_tournament_count or None  # None = not set, uses global
                 actual_participations = tournament_participations.get(key, 0)
                 rows.append({
-                    "label": key,
+                    "label": team.label,
+                    "key": key,
                     "club": team.club,
                     "age_group": age_group,
                     "actual": actual,
@@ -201,6 +205,7 @@ class SeasonFairnessModel:
                 str(row["age_group"]),
                 str(row["club"]),
                 str(row["label"]),
+                str(row.get("key", row["label"])),
             )
         )
         return rows
@@ -209,10 +214,11 @@ class SeasonFairnessModel:
         self,
         age_group_teams: Sequence[Team],
         team_game_counts: Mapping[str, int],
+        duplicate_labels: set[str] | None = None,
     ) -> Dict[str, float]:
         """Return soft target counts for every team in an age group."""
-        duplicate_labels = self._duplicate_labels(age_group_teams)
+        duplicate_labels = duplicate_labels or self._duplicate_labels(age_group_teams)
         return {
-            team_key(team, duplicate_labels): self.target_games_for_team(team, age_group_teams, team_game_counts)
+            team_key(team, duplicate_labels): self.target_games_for_team(team, age_group_teams, team_game_counts, duplicate_labels=duplicate_labels)
             for team in age_group_teams
         }
