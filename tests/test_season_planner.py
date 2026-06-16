@@ -1255,6 +1255,43 @@ class TestPerTeamGameCounts:
             )
 
 
+    def test_prefers_distinct_clubs_before_repeating_when_feasible(self):
+        """A skewed roster should use every available club before repeating one.
+
+        With 5 clubs available and 6 tournament slots, the first tournament
+        should contain all 5 clubs and only one repeated slot (from Jar).
+        """
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = _all_weekend_dates(start, end)
+
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Jar", label="Jar 2", age_group="U10"),
+            Team(club="Jar", label="Jar 3", age_group="U10"),
+            Team(club="Jar", label="Jar 4", age_group="U10"),
+            Team(club="Holmen", label="Holmen 1", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+            Team(club="Skien", label="Skien 1", age_group="U10"),
+            Team(club="Jutul", label="Jutul 1", age_group="U10"),
+        ])
+        club_arenas = {team.club: f"{team.club}hallen" for team in roster.teams}
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U10": 3},
+        )
+
+        plan = planner.build_plan(start, end)
+        first_tournament = next(t for t in plan.tournaments if t.age_group == "U10")
+        club_counts = Counter(team.club for team in first_tournament.teams)
+
+        assert len(first_tournament.teams) == 6
+        assert len(club_counts) == 5, club_counts
+        assert club_counts["Jar"] == 2, club_counts
+        assert all(count == 1 for club, count in club_counts.items() if club != "Jar"), club_counts
+
+
 class TestSkillLevelDivisions:
     """Tests for skill-level-based participant selection."""
 

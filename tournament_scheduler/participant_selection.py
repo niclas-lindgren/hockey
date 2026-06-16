@@ -259,6 +259,31 @@ def normalized_invite_count(planner, team: Team) -> float:
     return planner._invite_counts.get(key, 0) * sibling_count
 
 
+def club_diversity_penalty(
+    planner,
+    selected: Sequence[Team],
+    remaining: Sequence[Team],
+    team: Team,
+) -> int:
+    """Return a strong penalty for repeating a club before others are used.
+
+    Clubs that are not yet represented in the current tournament get no
+    penalty. Once every remaining club has been represented at least once,
+    repeated clubs become feasible again and the penalty drops to a soft
+    tie-breaker.
+    """
+    selected_clubs = {s.club for s in selected}
+    if team.club not in selected_clubs:
+        return 0
+
+    remaining_new_clubs = {t.club for t in remaining if t.club not in selected_clubs}
+    if not remaining_new_clubs:
+        return 0
+
+    repeated_count = sum(1 for s in selected if s.club == team.club)
+    return 1000 + repeated_count * 250 + len(remaining_new_clubs) * 50
+
+
 def pick_least_recently_grouped(
     planner,
     candidates: Sequence[Team],
@@ -311,23 +336,22 @@ def pick_least_recently_grouped(
             eligible = remaining
 
         selected_clubs = {s.club for s in selected}
-        deficit_spread = age_group_deficit_spread(planner, age_group)
-        if deficit_spread <= planner.max_game_count_spread:
-            preferred_club_mix = [t for t in eligible if t.club not in selected_clubs]
-            if preferred_club_mix:
-                eligible = preferred_club_mix
-
         eligible_over_cap_labels = {planner._team_key(t) for t in eligible_over_cap}
 
+        # Club-load penalty: push down candidates whose club is already
+        # represented in the selected set. Repeating a club becomes a
+        # fallback only after every remaining club has been used at least
+        # once, while the proportional soft cap still nudges the picker
+        # away from runaway same-club clustering.
         def club_penalty(team: Team) -> int:
             club_count = sum(1 for s in selected if s.club == team.club)
             max_club = max_club_teams_for(planner, age_group, team.club)
-            base = club_count * 10
+            base = club_count * 25
             if club_count < max_club:
                 return base
             if planner._team_key(team) in eligible_over_cap_labels:
-                return base + (club_count - max_club + 1) * 50
-            return base + club_count * 100
+                return base + (club_count - max_club + 1) * 100
+            return base + club_count * 250  # outweighs typical match-up scores
 
         def skill_penalty(team: Team) -> int:
             selected_levels = [
@@ -347,12 +371,13 @@ def pick_least_recently_grouped(
 
         eligible.sort(
             key=lambda t: (
+                0 if t.club not in selected_clubs else 1,
+                club_penalty(t),
                 normalized_invite_count(planner, t),
                 -deficit_score(planner, t, age_group) * 1000,
                 repeat_matchup_score(t),
                 overlap_score(t),
                 skill_penalty(t),
-                club_penalty(t),
                 candidates.index(t),
             )
         )
