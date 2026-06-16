@@ -54,8 +54,13 @@ The legacy key `target_tournament_count` also works for backward compatibility.
 
 ## Secret scanning
 
-Gitleaks runs in GitHub Actions on pull requests and pushes to `main`.
-You can also run it locally if you have it installed:
+Run locally with:
+
+```bash
+./scripts/secret-scan.sh
+```
+
+Or, if you have `gitleaks` installed:
 
 ```bash
 gitleaks detect --source . --config .gitleaks.toml --redact
