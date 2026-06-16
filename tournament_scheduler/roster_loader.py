@@ -24,7 +24,8 @@ Extended format (recommended) — includes federation defaults alongside clubs::
 
 Optionally, the extended format also supports a ``neighborClubs`` section
 for listing clubs from neighboring regions (e.g. Oslo-area clubs for girls'
-cross-region tournaments):::
+cross-region tournaments). These teams keep their ``region`` metadata so
+reports/export round-trips can distinguish them from RVV teams::
 
     {
       "federationDefaults": { ... },
@@ -39,7 +40,8 @@ cross-region tournaments):::
 
 Teams from ``neighborClubs`` get their ``region`` set to the club name
 (e.g. ``"Oslo"``) so downstream tools can distinguish RVV teams from
-cross-region teams.
+cross-region teams. ``skill_level`` is parsed here as well and passed
+through unchanged so the planner can use it later when forming tournaments.
 
 Both JSON and YAML config files are supported. YAML support is optional and
 only requires `pyyaml` to be installed — if it is not available, only JSON
@@ -104,7 +106,9 @@ class RosterLoader:
         clubs_data:
             Dict mapping club name to dict of age group -> list of team labels.
         region:
-            Region value to assign to every team parsed (default ``"RVV"``).
+            Region metadata value to assign to every team parsed (default
+            ``"RVV"``). The scheduler keeps this for reporting and
+            round-tripping, not as a hard constraint.
         section_label:
             Norwegian label for the config section (used in error messages).
 

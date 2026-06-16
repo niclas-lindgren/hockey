@@ -59,8 +59,8 @@ Each row configures one team:
 - `club`
 - `label`
 - `age_group`
-- `region` (optional)
-- `skill_level` (optional)
+- `region` (optional) — preserved roster metadata for cross-region teams and reporting
+- `skill_level` (optional) — 1-10 planning hint used when selecting participants
 
 ### `Kilder` rows
 
