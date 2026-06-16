@@ -168,6 +168,7 @@ def run(
             and date_range_matches
             and entry
             and entry.get("events")
+            and not entry.get("blocked")
             and not cache.is_stale(name)
         ):
             source_results.append(_cached_source_result(source_cfg, entry))

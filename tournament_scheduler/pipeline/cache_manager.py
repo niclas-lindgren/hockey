@@ -125,26 +125,11 @@ class ScrapedDataCache:
                 "events": events,
             }
 
-            # Merge with any existing cached data (preserve previous scrape if current is empty).
-            # If the latest scrape was blocked or returned 0 events, keep the prior
-            # events but refresh the timestamp so fresh cache data remains reusable
-            # on the next run instead of forcing another scrape immediately.
-            if not events:
-                existing = cache.get("sources", {}).get(name, {})
-                if existing.get("events"):
-                    entry["events"] = existing["events"]
-                    entry["event_count"] = existing["event_count"]
-                    entry["scrape_timestamp"] = now
-                    entry["note"] = "bruker tidligere cache (ny skraping ga 0 hendelser)"
-
             sources_data[name] = entry
 
-        # Add sources that are in the cache but not in the current scrape
-        # (e.g. clubs scraped by the extension's ScraperAgent)
-        cached_sources = cache.get("sources", {})
-        for cached_name, cached_entry in cached_sources.items():
-            if cached_name not in sources_data:
-                sources_data[cached_name] = cached_entry
+        # Do not retain sources that were not part of the current scrape.
+        # This keeps the unified cache aligned with the latest configured inputs
+        # and avoids stale calendar events leaking into later reports.
 
         cache["sources"] = sources_data
         cache["source_count"] = len(sources_data)

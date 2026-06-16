@@ -383,7 +383,7 @@ class TestUnifiedCache:
         assert src["event_count"] == 1
         assert src["events"][0]["name"] == "Cached practice"
 
-    def test_blocked_fresh_cache_is_reused(self, tmp_path):
+    def test_blocked_fresh_cache_is_rescraped_and_not_reused(self, tmp_path):
         work_dir = tmp_path / "pipeline"
         state = PipelineState(work_dir)
         cfg = _make_config_with_sources([
@@ -398,6 +398,7 @@ class TestUnifiedCache:
 
         with patch(
             "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Fresh practice")], ""),
         ) as mock_scraper:
             result = run(
                 cfg, state,
@@ -405,14 +406,15 @@ class TestUnifiedCache:
                 strict=False,
             )
 
-        mock_scraper.assert_not_called()
-        assert result["cached"] == ["Kongsberg"]
-        assert result["sources"][0]["from_cache"] is True
+        mock_scraper.assert_called_once()
+        assert result["cached"] == []
+        assert "from_cache" not in result["sources"][0]
+        assert result["sources"][0]["events"][0]["name"] == "Fresh practice"
         cache = ScrapedDataCache(work_dir=work_dir).read()
-        assert cache["sources"]["Kongsberg"]["blocked"] is True
-        assert cache["sources"]["Kongsberg"]["events"][0]["name"] == "Cached practice"
+        assert cache["sources"]["Kongsberg"]["blocked"] is False
+        assert cache["sources"]["Kongsberg"]["events"][0]["name"] == "Fresh practice"
 
-    def test_blocked_scrape_refreshes_preserved_cache_timestamp(self, tmp_path):
+    def test_blocked_scrape_clears_previous_events_and_refreshes_timestamp(self, tmp_path):
         work_dir = tmp_path / "pipeline"
         state = PipelineState(work_dir)
         cfg = _make_config_with_sources([
@@ -442,7 +444,49 @@ class TestUnifiedCache:
         cache = ScrapedDataCache(work_dir=work_dir).read()
         refreshed_ts = cache["sources"]["Kongsberg"]["scrape_timestamp"]
         assert datetime.fromisoformat(refreshed_ts) > datetime.fromisoformat(old_ts)
-        assert cache["sources"]["Kongsberg"]["events"][0]["name"] == "Cached practice"
+        assert cache["sources"]["Kongsberg"]["blocked"] is True
+        assert cache["sources"]["Kongsberg"]["events"] == []
+
+    def test_removed_source_is_pruned_from_unified_cache(self, tmp_path):
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        self._seed_cache(
+            work_dir,
+            start_date=cfg["start_date"], end_date=cfg["end_date"],
+            source_name="Kongsberg", events=_events_to_dicts([_make_event("Current")]),
+        )
+        cache = ScrapedDataCache(work_dir=work_dir)
+        cache.write({
+            **cache.read(),
+            "sources": {
+                "Kongsberg": cache.read()["sources"]["Kongsberg"],
+                "Skien": {
+                    "name": "Skien",
+                    "url": "https://example.com/skien",
+                    "scrape_timestamp": datetime.now().isoformat(),
+                    "ttl_hours": 6,
+                    "event_count": 1,
+                    "blocked": False,
+                    "events": _events_to_dicts([_make_event("Stale Skien")]),
+                },
+            },
+        })
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+        ) as mock_scraper:
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_scraper.assert_not_called()
+        cache_after = ScrapedDataCache(work_dir=work_dir).read()
+        assert set(cache_after["sources"].keys()) == {"Kongsberg"}
 
     def test_fresh_z_suffixed_timestamp_skips_scraping(self, tmp_path):
         """Cache entries written with a 'Z'-suffixed (tz-aware) timestamp,
