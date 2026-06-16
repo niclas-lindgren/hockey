@@ -213,7 +213,5 @@ __marimo__/
 # Node
 node_modules/
 export/
-logs/
-cache/
 .pipeline/
 .ps-next/.lock
