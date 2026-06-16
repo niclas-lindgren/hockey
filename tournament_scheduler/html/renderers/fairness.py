@@ -77,7 +77,7 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
         '<div class="fairness-gate-panel">'
         '<div class="fairness-gate-head">'
         '<div>'
-        '<div class="metrics-group-label">Rettferdighetskontroll</div>'
+        '<div class="metrics-group-label">Ser planen jevn ut?</div>'
         f'<div class="metrics-group-value"><strong>{score}%</strong> \u00b7 {status_label}</div>'
         '</div>'
         f'<span class="fairness-gate-status fairness-gate-status--{status}">{status_label}</span>'

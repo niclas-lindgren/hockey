@@ -240,7 +240,7 @@ class ReviewPacketExporter:
         sheet.append([f"Totalt antall relevante turneringer: {len(club_tournaments)}"])
         sheet.append([f"Turneringer klubben arrangerer: {len(hosted)}"])
         sheet.append([f"Turneringer på bortebane: {away_count}"])
-        sheet.append([f"Totalt reisebehov (km): {total_travel}"])
+        sheet.append([f"Anslått totalt reisebehov (km): {total_travel}"])
         sheet.append([f"Anbefaling: {'Godkjenn' if club_tournaments else 'Ingen turneringer å vurdere'}"])
 
         # Skipped age groups — groups with <3 teams that were not planned.
@@ -337,7 +337,7 @@ class ReviewPacketExporter:
             ])
 
     def _write_travel_sheet(self, sheet: Worksheet, team_travel: dict[str, int]) -> None:
-        sheet.append(["Lag", "Reise (km)"])
+        sheet.append(["Lag", "Anslått kjøreavstand (km)"])
         if not team_travel:
             sheet.append(["-", 0])
             return

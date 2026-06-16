@@ -81,7 +81,7 @@ class TestSeasonPlanExporter:
         rows = list(overview.iter_rows(values_only=True))
 
         header, *data_rows = rows
-        assert header == ("Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengste reise", "Starttid", "Sluttid")
+        assert header == ("Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengst anslått reise", "Starttid", "Sluttid")
         assert len(data_rows) == len(sample_plan.tournaments)
 
         for tournament, row in zip(sample_plan.tournaments, data_rows):
@@ -95,8 +95,8 @@ class TestSeasonPlanExporter:
             assert row[3] == tournament.arena
             assert row[4] == tournament.host_club
             assert row[5] == expected_teams
-            # row[6] is "Lengste reise" — varies by arena/teams
-            # row[6] is "Lengste reise" — may be None (empty cell) or a string
+            # row[6] is "Lengst anslått reise" — varies by arena/teams
+            # row[6] is "Lengst anslått reise" — may be None (empty cell) or a string
             assert row[6] is None or "~" in str(row[6])
             # row[7] is "Starttid" — empty string when start_time unset, becomes None in Excel
             assert row[7] == (tournament.start_time or None)

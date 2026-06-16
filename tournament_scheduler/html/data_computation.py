@@ -149,7 +149,7 @@ def compute_team_travel_info(plan: object) -> tuple[dict[str, int], str, str, in
             '<div style="padding:8px 16px;font-size:12px;color:var(--text-muted);'
             'text-align:center;margin-bottom:12px">'
             '<span class="warning-icon">$ICON_WARNING$</span> '
-            "F\u00e5 lag med reisedata &mdash; avstander er estimater basert p\u00e5 "
+            "F\u00e5 lag med reisedata &mdash; avstandene er grove anslag basert p\u00e5 "
             "kjente arenaer.</div>"
         )
     return team_travel, most_travel_team, most_travel_km, total_travel_km, travel_count_estimate_html

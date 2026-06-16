@@ -35,7 +35,7 @@ _NORWEGIAN_WEEKDAYS = [
     "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag", "søndag",
 ]
 
-_OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengste reise", "Starttid", "Sluttid"]
+_OVERVIEW_HEADERS = ["Dato", "Ukedag", "Aldersgruppe", "Arena", "Vertsklubb", "Lag", "Lengst anslått reise", "Starttid", "Sluttid"]
 _GAMES_HEADERS = ["Runde", "Hjemmelag", "Bortelag", "Parallellbane"]
 _CLUB_SUMMARY_HEADERS = ["Lag", "Aldersgruppe", "Dato", "Ukedag", "Motstander(e)", "Vertsarena"]
 _RULES_HEADERS = ["Regel", "Forklaring", "Kategori"]
@@ -276,7 +276,7 @@ class SeasonPlanExporter:
         sheet.append([f"Deltakende lag: {', '.join(team.label for team in tournament.teams)}"])
         travel_info = self._travel_info(tournament)
         if travel_info:
-            sheet.append([f"Lengst reise: {travel_info}"])
+            sheet.append([f"Lengst anslått reise: {travel_info}"])
         sheet.append([])
 
         sheet.append(_GAMES_HEADERS)

@@ -229,7 +229,7 @@ class SeasonCommand:
                     longest_km = km
         if longest_team:
             TournamentOutput.print_info(
-                f"Lengste enkeltreise i sesongen: {longest_team.label} ({longest_km} km)"
+                f"Lengste anslåtte enkeltreise i sesongen: {longest_team.label} ({longest_km} km)"
             )
 
     @staticmethod

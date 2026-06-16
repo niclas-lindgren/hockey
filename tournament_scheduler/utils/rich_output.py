@@ -346,7 +346,7 @@ class TournamentOutput:
         travel = furthest_traveling_team(tournament)
         if travel is not None:
             team, km = travel
-            console.print(f"[yellow]🚗 Lengst reise:[/yellow] {team.label} (~{km} km)")
+            console.print(f"[yellow]🚗 Lengst anslått reise:[/yellow] {team.label} (~{km} km)")
         else:
             console.print("[dim]🚗 Reise: kun lokale lag (0 km)[/dim]")
 
@@ -391,7 +391,7 @@ class TournamentOutput:
                     longest_km = km
         if longest_team:
             summary_text.append(
-                f"\n🚗 Lengste enkeltreise: {longest_team.label} ({longest_km} km)\n",
+                f"\n🚗 Lengste anslåtte enkeltreise: {longest_team.label} ({longest_km} km)\n",
                 style="yellow"
             )
 

@@ -108,6 +108,21 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .report-section { padding: 16px 18px 18px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); }
 .report-section--priority { border-left: 3px solid var(--amber); }
 .report-section--diagnostics { margin: 22px 0 14px; border-left: 3px solid var(--violet); }
+.report-section--judgment { margin: 22px 0 14px; border-left: 3px solid var(--accent); }
+.report-section--judgment-strong { border-left-color: var(--emerald); }
+.report-section--judgment-mixed { border-left-color: var(--amber); }
+.report-section--judgment-rough { border-left-color: var(--rose); }
+.judgment-callout { padding: 14px 16px; background: linear-gradient(135deg, var(--bg), var(--bg-raised)); border: 1px solid var(--border-dim); border-radius: var(--radius); margin-bottom: 10px; }
+.judgment-callout--strong { background: rgba(16,185,129,.06); }
+.judgment-callout--mixed { background: rgba(245,158,11,.06); }
+.judgment-callout--rough { background: rgba(244,63,94,.06); }
+.judgment-callout-label { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+.judgment-callout-verdict { font-size: 15px; color: var(--text-secondary); font-weight: 650; margin-bottom: 4px; }
+.judgment-callout-action { font-size: 12px; color: var(--text-muted); }
+.judgment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.judgment-card { padding: 12px 14px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); }
+.judgment-card span { display: block; margin-bottom: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 700; }
+.judgment-card p { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
 .section-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
 .section-head h2 { margin: 0; font-size: 16px; color: var(--text); }
 .section-note { margin: 0; max-width: 320px; font-size: 12px; line-height: 1.4; color: var(--text-muted); text-align: right; }

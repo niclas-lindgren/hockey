@@ -121,7 +121,7 @@ function getClubFromTeam(team) {
     const tdLabel = document.createElement('td');
     tdLabel.style.padding = '6px 12px';
     if (isMost) {
-      tdLabel.innerHTML = '<span class="travel-icon">$ICON_TRAVEL$</span> <strong>' + label + '</strong> <span style="font-size:10px;color:var(--amber);font-weight:600">(lengst reisevei)</span>';
+      tdLabel.innerHTML = '<span class="travel-icon">$ICON_TRAVEL$</span> <strong>' + label + '</strong> <span style="font-size:10px;color:var(--amber);font-weight:600">(størst anslått reise)</span>';
     } else {
       tdLabel.textContent = label;
     }

@@ -49,6 +49,7 @@ from .renderers.fairness import (
     render_fairness_adjustments_html,
 )
 from .renderers.review import render_review_summary_html
+from .renderers.judgment import analyze_opinionated_judgment, render_opinionated_judgment_html
 from .renderers.heatmap import build_club_color_maps
 
 # ---------------------------------------------------------------------------
@@ -182,6 +183,18 @@ class HtmlExporter:
         )
         review_summary_html = render_review_summary_html(plan)
         fairness_adjustments_html = render_fairness_adjustments_html(plan)
+        judgment = analyze_opinionated_judgment(
+            plan,
+            team_game_counts=team_game_counts,
+            club_stats=club_stats,
+            team_travel=team_travel,
+        )
+        judgment_html = render_opinionated_judgment_html(
+            plan,
+            team_game_counts=team_game_counts,
+            club_stats=club_stats,
+            team_travel=team_travel,
+        )
         report_overview_html = self._report_overview_html(
             plan,
             source_count=source_count,
@@ -192,6 +205,7 @@ class HtmlExporter:
             team_game_counts=team_game_counts,
             club_stats=club_stats,
             team_travel=team_travel,
+            judgment=judgment,
         )
         export_links_html = build_export_links_html(output_files)
 
@@ -215,6 +229,7 @@ class HtmlExporter:
                 "$TEAM_STATS$": TEAM_STATS if include_diagnostics else "",
                 "$TRAVEL_STATS$": TRAVEL_STATS if include_diagnostics else "",
                 "$HEATMAP$": HEATMAP if include_diagnostics else "",
+                "$JUDGMENT$": judgment_html if include_diagnostics else "",
                 "$FILTERS$": FILTERS if include_timeline else "",
                 "$COUNT_BAR$": COUNT_BAR if include_timeline else "",
                 "$TIMELINE$": '<div class="timeline" id="timeline"></div>' if include_timeline else "",
@@ -323,6 +338,7 @@ class HtmlExporter:
         team_game_counts: dict[str, int],
         club_stats: dict[str, dict[str, object]],
         team_travel: dict[str, int],
+        judgment: dict[str, object],
     ) -> str:
         """Render the organizer-first report overview above raw diagnostics."""
         gate = plan.fairness_gate if isinstance(plan.fairness_gate, dict) else {}
@@ -346,6 +362,17 @@ class HtmlExporter:
             "warn": "Prioriter varsler og klubbpunkter f\u00f8r du vurderer om planen er god nok.",
             "fail": "Rett kritiske punkter, kj\u00f8r planlegging/eksport p\u00e5 nytt og kontroller rapporten igjen.",
         }
+        judgment_tone = str(judgment.get("tone", "mixed"))
+        judgment_addendum = {
+            "strong": " Min egen vurdering: dette holder faktisk godt.",
+            "mixed": " Min egen vurdering: dette er brukbart, men litt mer skjørt enn tallene alene sier.",
+            "rough": " Min egen vurdering: dette er ikke klart ennå.",
+        }.get(judgment_tone, "")
+        judgment_note_addendum = {
+            "strong": " Jeg ville primært brukt denne som bekreftelse, ikke som advarsel.",
+            "mixed": " Jeg ville lest dette som et tegn på at den er nær, men ikke helt i mål.",
+            "rough": " Her bør du stole mer på den kritiske lesningen enn på det positive toppsjiktet.",
+        }.get(judgment_tone, "")
 
         active_tournaments = [t for t in plan.tournaments if not t.cancelled]
         active_tournaments.sort(key=lambda t: (t.date or plan.end_date, t.age_group, t.host_club or "", t.arena))
@@ -360,7 +387,7 @@ class HtmlExporter:
         metric_warnings = [m for m in gate.get("metrics", []) if isinstance(m, dict) and m.get("status") in {"warn", "fail"}]
         actions: list[tuple[str, str, str]] = []
         if gate_status in {"warn", "fail"}:
-            actions.append((gate_status, "Rettferdighetskontroll", f"Samlet status er {status_labels.get(gate_status, gate_status).lower()} med score {gate.get('score', 0)}%."))
+            actions.append((gate_status, "Ser planen jevn ut?", f"Samlet status er {status_labels.get(gate_status, gate_status).lower()} med score {gate.get('score', 0)}%."))
         for metric in metric_warnings[:4]:
             label = str(metric.get("label", "M\u00e5ltall"))
             detail = str(metric.get("detail", "Sjekk avviket f\u00f8r utsending."))
@@ -373,6 +400,9 @@ class HtmlExporter:
             actions.append(("warn", "Avlyst/hoppet over", f"{cancelled_count} turnering(er) er markert som avlyst eller hoppet over."))
         if not actions:
             actions.append(("pass", "Ingen kritiske handlinger", "G\u00e5 videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
+
+        answer = answer_by_status.get(overall_status, answer_by_status["warn"]) + judgment_addendum
+        note = note_by_status.get(overall_status, note_by_status["warn"]) + judgment_note_addendum
 
         age_rows: list[str] = []
         for age_group in display_age_groups:
@@ -408,7 +438,7 @@ class HtmlExporter:
             if hosted == 0:
                 review_note = "Mangler vertskap i planen"
             elif travel_km > 0 and team_travel:
-                review_note = "Sjekk reisebelastning og bortedatoer"
+                review_note = "Sjekk anslått reisebelastning og bortedatoer"
             club_rows.append(
                 "<tr>"
                 f"<td><strong>{_html.escape(club)}</strong></td>"
@@ -465,7 +495,7 @@ class HtmlExporter:
         )
         club_summary = (
             '<div class="table-wrap"><table class="report-table"><thead><tr>'
-            '<th>Klubb</th><th>Lag</th><th>Hjemme</th><th>Borte</th><th>Reise (km)</th><th>Klubben b\u00f8r sjekke</th>'
+            '<th>Klubb</th><th>Lag</th><th>Hjemme</th><th>Borte</th><th>Anslått kjøreavstand (km)</th><th>Klubben bør sjekke</th>'
             '</tr></thead><tbody>' + "".join(club_rows) + '</tbody></table></div>'
         )
         tournament_table = (
@@ -477,8 +507,8 @@ class HtmlExporter:
         replacements = {
             "$REPORT_STATUS$": overall_status,
             "$REPORT_STATUS_LABEL$": status_labels.get(overall_status, "STATUS"),
-            "$REPORT_ANSWER$": answer_by_status.get(overall_status, answer_by_status["warn"]),
-            "$REPORT_NOTE$": note_by_status.get(overall_status, note_by_status["warn"]),
+            "$REPORT_ANSWER$": answer,
+            "$REPORT_NOTE$": note,
             "$REPORT_STATUS_CARDS$": status_cards,
             "$REPORT_ACTIONS$": actions_html,
             "$REPORT_AGE_SUMMARY$": age_summary,
