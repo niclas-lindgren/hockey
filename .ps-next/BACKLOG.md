@@ -4,9 +4,8 @@
 
 - [124] [ ] Re-evaluate fairness warnings after manual adjustments: manual_adjustment_workflow.py currently patches the plan without re-running game count spread, hosting deviation, or month load checks — add a post-patch warnings pass
 
-- [123] [ ] Add consecutive hosting warning in warnings.py: fire a warning when any club is assigned to host on two weekends within 7 days of each other
-
 ## Done
+- [123] [x] Add consecutive hosting warning in warnings.py: fire a warning when any club is assigned to host on two weekends within 7 days of each other (2026-06-17)
 - [122] [x] Prevent consecutive weekend hosting: change host_assignment.py sort key to use date-based recency instead of tournament index, so a club cannot be assigned to host two weekends in a row (2026-06-17)
 - [121] [x] Make Pi-dependent skills/extensions available directly from Codex/Claude/OpenCode by separating harness-neutral workflow logic from Pi adapters, adding CLI/script entrypoints for slash-command functionality, and documenting cross-harness usage/portability boundaries. (2026-06-17)
 
