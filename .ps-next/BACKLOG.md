@@ -1,9 +1,9 @@
 # Backlog
 
 ## Open
-- [121] [ ] Make Pi-dependent skills/extensions available directly from Codex/Claude/OpenCode by separating harness-neutral workflow logic from Pi adapters, adding CLI/script entrypoints for slash-command functionality, and documenting cross-harness usage/portability boundaries.
-
 ## Done
+- [121] [x] Make Pi-dependent skills/extensions available directly from Codex/Claude/OpenCode by separating harness-neutral workflow logic from Pi adapters, adding CLI/script entrypoints for slash-command functionality, and documenting cross-harness usage/portability boundaries. (2026-06-17)
+
 - [104] [x] Refactor season_planner.py into smaller, dedicated files/classes for SOLID principles and readability. Currently ~2500 lines with deeply nested methods, mixed concerns (participant selection, host assignment, game generation, fairness scoring, rules report, feasibility warnings). Extract into focused modules such as participant_selection.py, host_assignment.py, game_generation.py, fairness_scoring.py, rules_report.py, and warnings.py. Keep SeasonPlanner as a thin orchestration facade. Acceptance: existing tests pass without changes, per-module cohesion is clear, no circular imports. (2026-06-16)
 
 - [108] [x] Investigate and remove unused Team fields `region` and `skill_level` if they are truly dead code. Audit callers, config loaders, fairness/participant-selection logic, and tests to confirm whether the fields still affect scheduling; if not, delete the fields and any dead branches, otherwise document their remaining use and keep them. (2026-06-16)
