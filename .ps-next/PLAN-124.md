@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/pipeline/tournament_updater.py
   - Approach: Extend the UpdateResult dataclass with a `post_patch_warnings: list[str]` field (default empty list) so callers receive structured warning data alongside the existing conflicts and changes fields.
 
-- [ ] Implement `_collect_post_patch_warnings()` in ManualAdjustmentWorkflow
+- [x] Added _collect_post_patch_warnings(planner, plan) to ManualAdjustmentWorkflow, calling scan_game_count_warnings, scan_hosting_warnings, scan_month_load_warnings, and scan_arena_day_collision_warnings, collecting results into deduplicated warning strings. — 2026-06-18
   - Files: tournament_scheduler/pipeline/manual_adjustment_workflow.py, tournament_scheduler/warnings.py
   - Approach: Add a private method that calls `scan_game_count_warnings(planner, ...)`, `scan_hosting_warnings(planner, plan)`, `scan_month_load_warnings(planner, expected_per_month, ...)`, and `scan_arena_day_collision_warnings(plan)` using the already-primed planner and updated plan; collect and deduplicate the returned warning strings.
 
@@ -47,4 +47,11 @@
 **Findings:** All 418 tests pass with no changes required elsewhere.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/tournament_updater.py (+1/-0)
+**Commit:** f98fca3 (hockey)
+
+### 2026-06-18 — Added _collect_post_patch_warnings(planner, plan) to ManualAdjustmentWorkflow, calling scan_game_count_warnings, scan_hosting_warnings, scan_month_load_warnings, and scan_arena_day_collision_warnings, collecting results into deduplicated warning strings.
+**Rationale:** Imported the four scan functions from warnings.py; formatted tuple-based warnings into Norwegian strings matching existing CLI patterns; deduplicated by ordered set.
+**Findings:** All 418 tests pass; method returns list[str] ready for wiring into apply() in the next task.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/manual_adjustment_workflow.py (+66/-0)
 **Commit:** [pending — fill after commit]

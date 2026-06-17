@@ -13,6 +13,12 @@ from datetime import date
 from typing import Any, Optional
 
 from ..models import SeasonPlan, Tournament
+from ..warnings import (
+    scan_arena_day_collision_warnings,
+    scan_game_count_warnings,
+    scan_hosting_warnings,
+    scan_month_load_warnings,
+)
 from .cancellation_workflow import CancellationWorkflow
 from .stage1_config import load_effective_config
 from .stage3_helpers import _build_club_arenas, _build_events_by_club, _build_parallel_games, _build_roster, _build_round_length, _make_planner
@@ -310,3 +316,63 @@ class ManualAdjustmentWorkflow:
             date_conflicts = self.updater._check_date_conflicts(tournament.date, tournament, plan)
             conflicts.extend(date_conflicts)
         return conflicts
+
+    def _collect_post_patch_warnings(self, planner, plan: SeasonPlan) -> list[str]:
+        """Re-run fairness checks after manual patches and return deduplicated warning strings.
+
+        Uses the already-primed planner (populated by ``_prime_planner`` and
+        ``_refresh_plan_metadata``) so game-count and month tracking is current.
+        """
+        warnings: list[str] = []
+
+        # --- game count spread / early-finish warnings ---
+        scan_game_count_warnings(planner, plan.start_date, plan.end_date)
+        for key, count, value, kind in planner._game_count_warnings:
+            if kind == "spread":
+                warnings.append(
+                    f"Spilltallspredning: {key} har {count} kamper (spredning {value})"
+                )
+            elif kind == "early_finish":
+                warnings.append(
+                    f"Tidlig sesonslutt: {key} har {count} kamper, siste kamp {value} dager før sesongslutt"
+                )
+
+        # --- hosting deviation warnings ---
+        planner._hosting_warnings = []
+        scan_hosting_warnings(planner, plan)
+        warnings.extend(planner._hosting_warnings)
+
+        # --- month load warnings ---
+        expected_per_month: float = 0.0
+        if plan.start_date and plan.end_date:
+            expected_per_month = planner._expected_monthly_load(
+                plan.start_date,
+                plan.end_date,
+                len(plan.tournaments),
+            )
+        scan_month_load_warnings(planner, expected_per_month, plan.start_date)
+        _NORWEGIAN_MONTHS = {
+            1: "januar", 2: "februar", 3: "mars", 4: "april",
+            5: "mai", 6: "juni", 7: "juli", 8: "august",
+            9: "september", 10: "oktober", 11: "november", 12: "desember",
+        }
+        for year, month, count, expected, deviation in planner._month_load_warnings:
+            month_name = _NORWEGIAN_MONTHS.get(month, str(month))
+            direction = "overbelastet" if deviation > 0 else "underbelastet"
+            tournament_text = "turnering" if count == 1 else "turneringer"
+            warnings.append(
+                f"Månedslast: {month_name} {year}: {count} {tournament_text} "
+                f"(forventet ~{expected:.1f}, {direction} med {abs(deviation):.0%})"
+            )
+
+        # --- arena day collision warnings ---
+        warnings.extend(scan_arena_day_collision_warnings(plan))
+
+        # Deduplicate while preserving order.
+        seen: set[str] = set()
+        result: list[str] = []
+        for w in warnings:
+            if w not in seen:
+                seen.add(w)
+                result.append(w)
+        return result
