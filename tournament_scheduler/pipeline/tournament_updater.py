@@ -47,6 +47,7 @@ class UpdateResult:
     conflicts: list[dict[str, Any]] = field(default_factory=list)
     cascade: list[dict[str, Any]] = field(default_factory=list)
     success: bool = True
+    post_patch_warnings: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
