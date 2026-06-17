@@ -1857,7 +1857,7 @@ class TestRulesReport:
             assert "regel" in entry, f"missing 'regel' key in {entry}"
             assert "forklaring" in entry, f"missing 'forklaring' key in {entry}"
             assert "kategori" in entry, f"missing 'kategori' key in {entry}"
-            assert entry["kategori"] in {"Hard krav", "Myk regel", "Automatisk avgjørelse", "Anbefaling"}, (
+            assert entry["kategori"] in {"Hard krav", "Myk regel", "Automatisk avgjørelse", "Advarsel", "Anbefaling"}, (
                 f"unexpected kategori: {entry['kategori']}"
             )
 
@@ -1899,12 +1899,14 @@ class TestRulesReport:
         report = planner.rules_report()
 
         hard = [r for r in report if r["kategori"] == "Hard krav"]
+        warnings = [r for r in report if r["kategori"] == "Advarsel"]
         assert len(hard) >= 2, f"expected at least 2 hard constraints, got {len(hard)}"
 
         # Check that the blocking constraints are present.
         regel_texts = " ".join(r["regel"] for r in hard)
         assert "parallel" in regel_texts.lower(), "missing parallel-games capacity constraint"
         assert "U10" in regel_texts and "JU11" in regel_texts, "missing configured age-group capacity rules"
+        assert warnings, "expected warning rules to be included"
 
     def test_works_before_build_plan(self):
         """rules_report() does not require build_plan() to have been called."""

@@ -30,17 +30,18 @@ It is based on the planner code, not on the marketing/docs wording, so it calls 
 | Mykt mål: cirka 6 turneringsdeltakelser per lag | Hver aldersgruppe planlegges mot et mykt mål på rundt 6 turneringsdeltakelser per lag. Tallet er en ønsket sesongbelastning — planleggeren vil heller lage færre, bedre turneringer enn å presse inn ekstra bare for å nå målet. Dersom en aldersgruppe har for få lag eller for få ledige helger til å oppfylle målet, justeres det ned. |
 | Tidspunkt på dagen velges ut fra vertsklubbens egen hallkalender | For hver turnering beregnes hvor lang tid hele turneringen tar (rundelengde × antall runder), og planleggeren ser etter en sammenhengende ledig luke av denne lengden i vertsklubbens egen hallkalender. Tidspunkt nærmest 11:00 foretrekkes, for å unngå svært tidlige eller sene starttider. Hvis vertsklubbens egen hall ikke har en passende ledig luke den dagen, beholdes den opprinnelige vertsklubben og standard starttid i stedet for å låne kapasitet fra andre klubber. |
 
-## WARNINGS / diagnostics
+### Warnings / diagnostics
 
-These do not block planning, but they surface problems for review:
-
-- club-load warnings when a club exceeds its per-tournament share in an age group
-- hosting warnings when home-tournament distribution deviates too much from proportional fairness
-- game-count warnings when team game counts spread too far or teams finish too early
-- per-team share warnings when a team is too far from age-group expectations
-- feasibility warnings when the season window likely cannot satisfy the participation target
-- same-arena / same-day collision warnings for overlapping bookings
-- fallback host substitutions when the preferred host cannot fit the hall slot
+| Rule | What it does | Kind |
+|---|---|---|
+| Klubbbelastning per turnering | Kjører en advarsel når en klubb har flere lag i en turnering enn det effektive taket tillater; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
+| Hjemmeturneringsfordeling | Kjører en advarsel når en klubb avviker for mye fra proporsjonal hjemmeturneringsfordeling; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
+| Kampbalanse og tidlig slutt | Kjører en advarsel når kampantall spres for mye mellom lag eller når lag blir ferdige for tidlig; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
+| Skjev kampfordeling per aldersgruppe | Kjører en advarsel når et lag avviker for mye fra aldersgruppens forventede kampmengde; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
+| Feasibility / kapasitet | Kjører en advarsel når sesongvinduet sannsynligvis ikke kan oppfylle deltakelsesmålet; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
+| Samme arena / samme dag | Kjører en advarsel når to turneringer kolliderer i samme hall samme dag; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
+| Fallback vertsklubb | Kjører en advarsel når planleggeren må beholde opprinnelig vertsklubb fordi ønsket slot ikke finnes; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
+| Månedslast | Kjører en advarsel når en måned avviker mer enn terskelen fra forventet turneringslast; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
 
 ## Important discussion point
 

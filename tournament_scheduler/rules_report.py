@@ -151,6 +151,73 @@ def rules_report(planner) -> List[Dict[str, str]]:
         },
     ])
 
+    report.extend([
+        {
+            "regel": "Klubbbelastning per turnering",
+            "forklaring": (
+                f"Kjører en advarsel når en klubb har flere lag i en turnering enn det effektive taket tillater; "
+                f"{len(planner._club_load_warnings)} tilfelle(r) er registrert i denne planen."
+            ),
+            "kategori": "Advarsel",
+        },
+        {
+            "regel": "Hjemmeturneringsfordeling",
+            "forklaring": (
+                f"Kjører en advarsel når en klubb avviker for mye fra proporsjonal hjemmeturneringsfordeling; "
+                f"{len(planner._hosting_warnings)} tilfelle(r) er registrert i denne planen."
+            ),
+            "kategori": "Advarsel",
+        },
+        {
+            "regel": "Kampbalanse og tidlig slutt",
+            "forklaring": (
+                f"Kjører en advarsel når kampantall spres for mye mellom lag eller når lag blir ferdige for tidlig; "
+                f"{len(planner._game_count_warnings)} tilfelle(r) er registrert i denne planen."
+            ),
+            "kategori": "Advarsel",
+        },
+        {
+            "regel": "Skjev kampfordeling per aldersgruppe",
+            "forklaring": (
+                f"Kjører en advarsel når et lag avviker for mye fra aldersgruppens forventede kampmengde; "
+                f"{len(planner._per_team_share_warnings)} tilfelle(r) er registrert i denne planen."
+            ),
+            "kategori": "Advarsel",
+        },
+        {
+            "regel": "Feasibility / kapasitet",
+            "forklaring": (
+                f"Kjører en advarsel når sesongvinduet sannsynligvis ikke kan oppfylle deltakelsesmålet; "
+                f"{len(planner._feasibility_warnings)} tilfelle(r) er registrert i denne planen."
+            ),
+            "kategori": "Advarsel",
+        },
+        {
+            "regel": "Samme arena / samme dag",
+            "forklaring": (
+                f"Kjører en advarsel når to turneringer kolliderer i samme hall samme dag; "
+                f"{len(getattr(planner, '_collisions', []))} tilfelle(r) er registrert i denne planen."
+            ),
+            "kategori": "Advarsel",
+        },
+        {
+            "regel": "Fallback vertsklubb",
+            "forklaring": (
+                f"Kjører en advarsel når planleggeren må beholde opprinnelig vertsklubb fordi ønsket slot ikke finnes; "
+                f"{len(planner.fallback_host_substitutions)} tilfelle(r) er registrert i denne planen."
+            ),
+            "kategori": "Advarsel",
+        },
+        {
+            "regel": "Månedslast",
+            "forklaring": (
+                f"Kjører en advarsel når en måned avviker mer enn terskelen fra forventet turneringslast; "
+                f"{len(planner._month_load_warnings)} tilfelle(r) er registrert i denne planen."
+            ),
+            "kategori": "Advarsel",
+        },
+    ])
+
     target_val = planner.target_tournament_count or 6
     all_same_target = all(
         t.target_tournament_count is None or t.target_tournament_count == target_val for t in planner.roster.teams
@@ -210,6 +277,7 @@ def render_rules_markdown(planner) -> str:
 
     policy_rows = [r for r in report if r["kategori"] in {"Hard krav", "Myk regel"}]
     implementation_rows = [r for r in report if r["kategori"] == "Automatisk avgjørelse"]
+    warning_rows = [r for r in report if r["kategori"] == "Advarsel"]
     recommendation_rows = [r for r in report if r["kategori"] == "Anbefaling"]
 
     lines = [
@@ -230,6 +298,14 @@ def render_rules_markdown(planner) -> str:
         "",
     ]
 
+    if warning_rows:
+        lines.extend([
+            "### Warnings / diagnostics",
+            "",
+            _table(warning_rows),
+            "",
+        ])
+
     if recommendation_rows:
         lines.extend([
             "### Recommendations / review notes",
@@ -239,18 +315,6 @@ def render_rules_markdown(planner) -> str:
         ])
 
     lines.extend([
-        "## WARNINGS / diagnostics",
-        "",
-        "These do not block planning, but they surface problems for review:",
-        "",
-        "- club-load warnings when a club exceeds its per-tournament share in an age group",
-        "- hosting warnings when home-tournament distribution deviates too much from proportional fairness",
-        "- game-count warnings when team game counts spread too far or teams finish too early",
-        "- per-team share warnings when a team is too far from age-group expectations",
-        "- feasibility warnings when the season window likely cannot satisfy the participation target",
-        "- same-arena / same-day collision warnings for overlapping bookings",
-        "- fallback host substitutions when the preferred host cannot fit the hall slot",
-        "",
         "## Important discussion point",
         "",
         "The skill-band rule is soft in the implementation: it adds a penalty during participant selection rather than blocking a team outright.",
