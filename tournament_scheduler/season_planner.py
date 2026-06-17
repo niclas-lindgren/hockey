@@ -476,3 +476,5 @@ SeasonPlanner._diversity_score = _diversity_score
 SeasonPlanner._pairwise_matchup_score = _pairwise_matchup_score
 SeasonPlanner._month_balance_score = _month_balance_score
 SeasonPlanner.rules_report = _rules_report
+SeasonPlanner.DEFAULT_TOURNAMENT_START_TIME = DEFAULT_TOURNAMENT_START_TIME
+SeasonPlanner.ARENA_DAY_SEQUENCE_BUFFER_MINUTES = ARENA_DAY_SEQUENCE_BUFFER_MINUTES

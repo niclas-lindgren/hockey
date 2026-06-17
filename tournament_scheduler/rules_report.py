@@ -54,7 +54,46 @@ def rules_report(planner) -> List[Dict[str, str]]:
         "kategori": "Myk regel",
     })
 
+    fairness_thresholds = planner.fairness_thresholds
+    thresholds_text = ", ".join(
+        f"{key}={fairness_thresholds[key]}"
+        for key in sorted(fairness_thresholds)
+    )
     report.extend([
+        {
+            "regel": "Konfigurasjonsstandarder og fairness-terskler",
+            "forklaring": (
+                f"Standard deltakelsesmål er {planner.target_tournament_count or 6} turneringsdeltakelser per lag, "
+                f"minimumsklubb-taket starter på {planner.max_club_teams_per_tournament} lag per klubb, og deficit-kapasitet "
+                f"kan utvides med {planner.deficit_cap_expansion}. Fairness-terskler som brukes av fairness-gaten: {thresholds_text}."
+            ),
+            "kategori": "Konfigurasjonsstandard",
+        },
+        {
+            "regel": "Standard parallel-games fallback",
+            "forklaring": (
+                f"Hvis en aldersgruppe ikke er konfigurert, brukes {DEFAULT_PARALLEL_GAMES} parallelle kamper som fallback. "
+                "Dette er bare en teknisk standard; konkrete aldersgrupper kan fortsatt ha egne konfigurerte verdier."
+            ),
+            "kategori": "Konfigurasjonsstandard",
+        },
+        {
+            "regel": f"Standard starttid: {planner.DEFAULT_TOURNAMENT_START_TIME}",
+            "forklaring": (
+                f"Når en turnering ikke får et mer spesifikt slot-forslag fra hallkalenderen, brukes {planner.DEFAULT_TOURNAMENT_START_TIME} som standard starttid. "
+                "Dette er hovedsakelig et teknisk utgangspunkt for planlegging og visning."
+            ),
+            "kategori": "Konfigurasjonsstandard",
+        },
+        {
+            "regel": f"Buffer mellom turneringer i samme hall-dag: {planner.ARENA_DAY_SEQUENCE_BUFFER_MINUTES} min",
+            "forklaring": (
+                f"Når flere turneringer havner i samme arena samme dag, legges det inn {planner.ARENA_DAY_SEQUENCE_BUFFER_MINUTES} minutter buffer mellom starttidene. "
+                "Det hindrer at arrangementene overlapper tidsmessig."
+            ),
+            "kategori": "Konfigurasjonsstandard",
+        },
+
         {
             "regel": "Minst mulig gjentatte grupperinger",
             "forklaring": (
@@ -276,6 +315,7 @@ def render_rules_markdown(planner) -> str:
         return "\n".join(lines)
 
     policy_rows = [r for r in report if r["kategori"] in {"Hard krav", "Myk regel"}]
+    config_rows = [r for r in report if r["kategori"] == "Konfigurasjonsstandard"]
     implementation_rows = [r for r in report if r["kategori"] == "Automatisk avgjørelse"]
     warning_rows = [r for r in report if r["kategori"] == "Advarsel"]
     recommendation_rows = [r for r in report if r["kategori"] == "Anbefaling"]
@@ -291,6 +331,10 @@ def render_rules_markdown(planner) -> str:
         "### Policy rules",
         "",
         _table(policy_rows),
+        "",
+        "### Configuration defaults / guardrails",
+        "",
+        _table(config_rows),
         "",
         "### Implementation rules",
         "",

@@ -13,6 +13,15 @@ It is based on the planner code, not on the marketing/docs wording, so it calls 
 | Parallelle kamper for U10: 3 | For aldersgruppen U10 spilles det 3 kamper samtidig per runde. Det gir plass til opptil 6 lag per turnering, og hvis lagetallet er oddetall får ett lag pause i hver runde. | Hard krav |
 | Ferdighetsnivå-bånd: ±2 | Lag med registrert ferdighetsnivå (1–10) foretrekkes sammen med lag innenfor ±2 nivåer av hverandre. Dette er en myk prioritering i participant selection, ikke en absolutt sperre. Lag uten registrert nivå påvirkes ikke. | Myk regel |
 
+### Configuration defaults / guardrails
+
+| Rule | What it does | Kind |
+|---|---|---|
+| Konfigurasjonsstandarder og fairness-terskler | Standard deltakelsesmål er 6 turneringsdeltakelser per lag, minimumsklubb-taket starter på 1 lag per klubb, og deficit-kapasitet kan utvides med 1. Fairness-terskler som brukes av fairness-gaten: max_game_count_spread=2, max_hosting_deviation=1, max_same_weekend_club_load=3, max_team_travel_km=700, min_diversity_score=0.75, min_month_balance_score=0.75, min_pairwise_matchup_score=0.25. | Konfigurasjonsstandard |
+| Standard parallel-games fallback | Hvis en aldersgruppe ikke er konfigurert, brukes 2 parallelle kamper som fallback. Dette er bare en teknisk standard; konkrete aldersgrupper kan fortsatt ha egne konfigurerte verdier. | Konfigurasjonsstandard |
+| Standard starttid: 10:00 | Når en turnering ikke får et mer spesifikt slot-forslag fra hallkalenderen, brukes 10:00 som standard starttid. Dette er hovedsakelig et teknisk utgangspunkt for planlegging og visning. | Konfigurasjonsstandard |
+| Buffer mellom turneringer i samme hall-dag: 5 min | Når flere turneringer havner i samme arena samme dag, legges det inn 5 minutter buffer mellom starttidene. Det hindrer at arrangementene overlapper tidsmessig. | Konfigurasjonsstandard |
+
 ### Implementation rules
 
 | Rule | What it does |
