@@ -4,10 +4,11 @@
 Provides the commands referenced by the HTML calendar viewer, scraper tools,
 and pipeline logs::
 
+    rvv-miniputt status                 Show checkpoint/log status
     rvv-miniputt calendars              Regenerate calendar HTML from cache
     rvv-miniputt calendars --refresh    Full re-scrape: clear caches, scrape, regenerate
     rvv-miniputt run                    Full pipeline: stages 1→4 + HTML views
-    rvv-miniputt logs                   Show pipeline update logs
+    rvv-miniputt logs                   Show structured pipeline run logs
     rvv-miniputt cancel                 Cancel a tournament and suggest/reschedule makeup dates
 """
 
@@ -23,7 +24,7 @@ from rich.console import Console
 
 from .args import build_parser as _build_parser
 from .pipeline_orchestrator import _cmd_calendars, _cmd_run, _cmd_scrape, _cmd_scrape_llm
-from .reporting import _cmd_logs
+from .reporting import _cmd_logs, _cmd_status
 
 _console = Console()
 
@@ -442,7 +443,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "calendars":
+    if args.command == "status":
+        return _cmd_status(args)
+    elif args.command == "calendars":
         return _cmd_calendars(args)
     elif args.command == "run":
         return _cmd_run(args)

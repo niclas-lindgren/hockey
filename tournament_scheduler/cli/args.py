@@ -12,6 +12,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", title="commands")
 
+    # status
+    status = sub.add_parser("status", help="Show checkpoint/log status for the pipeline work directory")
+    status.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
     # calendars
     cal = sub.add_parser("calendars", help="Calendar viewer commands")
     cal.add_argument(
@@ -43,6 +51,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Export output directory (default: export)",
     )
     run.add_argument(
+        "--resume-from",
+        default="1",
+        help="Resume from stage number or alias (1-4, config, scraping, planning, export)",
+    )
+    run.add_argument(
+        "--log-level",
+        default="info",
+        choices=["info", "verbose"],
+        help="Console/log verbosity hint (default: info)",
+    )
+    run.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Force calendar cache refresh before Stage 2 when that stage runs",
+    )
+    run.add_argument(
         "--non-strict",
         action="store_true",
         help="Continue on blocked sources or warnings",
@@ -59,7 +83,24 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # logs
-    sub.add_parser("logs", help="Show pipeline update logs")
+    logs = sub.add_parser("logs", help="Show structured pipeline run logs")
+    logs.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    logs_sub = logs.add_subparsers(dest="logs_command")
+
+    logs_list = logs_sub.add_parser("list", help="List recent pipeline runs")
+    logs_list.add_argument("--count", type=int, default=10, help="How many recent runs to show (default: 10)")
+    logs_list.add_argument("--work-dir", default=".pipeline", help=argparse.SUPPRESS)
+
+    logs_show = logs_sub.add_parser("show", help="Show details for one run")
+    logs_show.add_argument("run_id", nargs="?", default="latest", help="Run id, or 'latest' (default)")
+    logs_show.add_argument("--work-dir", default=".pipeline", help=argparse.SUPPRESS)
+
+    logs_stats = logs_sub.add_parser("stats", help="Show aggregate run statistics")
+    logs_stats.add_argument("--work-dir", default=".pipeline", help=argparse.SUPPRESS)
 
     # scrape — single-club troubleshooting
     scrape = sub.add_parser("scrape", help="Scrape a single club's calendar for troubleshooting")
@@ -315,5 +356,3 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     return parser
-
-

@@ -123,20 +123,41 @@ def _write_run_log(
 
 
 
+def _resolve_resume_stage(value: str | int | None) -> int:
+    mapping = {
+        "1": 1, "config": 1, "stage1": 1,
+        "2": 2, "scraping": 2, "stage2": 2,
+        "3": 3, "planning": 3, "plan": 3, "stage3": 3,
+        "4": 4, "export": 4, "stage4": 4,
+    }
+    if value is None:
+        return 1
+    return mapping.get(str(value).lower(), 1)
+
+
+
+def _force_refresh_stage2_inputs(work_dir: str) -> None:
+    from ..pipeline.cache_manager import ScrapedDataCache
+    from ..utils.calendar_cache import CalendarCache
+
+    CalendarCache(work_dir=work_dir).clear()
+    ScrapedDataCache(work_dir=work_dir).force_refresh()
+
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
-    from pathlib import Path
-    from ..pipeline.state import PipelineState, StageName, StageStatus
-    from ..pipeline.stage1_config import run as stage1_run
+    from ..pipeline.calendar_viewer import generate_html as generate_calendars
+    from ..pipeline.stage1_config import load_effective_config, run as stage1_run
     from ..pipeline.stage2_scraping import run as stage2_run
     from ..pipeline.stage3_planning import run as stage3_run
     from ..pipeline.stage4_export import run as stage4_run
-    from ..pipeline.calendar_viewer import generate_html as generate_calendars
+    from ..pipeline.state import PipelineState, StageName
 
     strict = not args.non_strict
+    resume_from = _resolve_resume_stage(getattr(args, "resume_from", None))
     state = PipelineState(args.work_dir)
 
-    # Initialize per-run log
     log_start = datetime.now()
     log_lines: list[str] = []
     run_failed = False
@@ -146,120 +167,161 @@ def _cmd_run(args: argparse.Namespace) -> int:
         log_lines.append(f"[{ts}] {msg}")
 
     _console.print("[bold]🏒 RVV Miniputt — full pipeline[/bold]\n")
-    _log(f"Pipeline started (work_dir={args.work_dir}, input={args.input}, strict={strict})")
+    _log(
+        f"Pipeline started (work_dir={args.work_dir}, input={args.input}, strict={strict}, "
+        f"resume_from={resume_from}, log_level={getattr(args, 'log_level', 'info')})"
+    )
+    if resume_from > 1:
+        _console.print(f"[dim]Gjenopptar fra Stage {resume_from}[/dim]")
 
-    # Stage 1: Config
-    _console.print("[bold]Stage 1:[/bold] Konfigurasjon...")
-    try:
-        cfg = stage1_run(args.input, state, strict=strict)
-        _console.print(f"  [green]✓[/green] {cfg.get('source_count', 0)} kilder, "
-                       f"{cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
-        _log(f"Stage 1 OK: {cfg.get('source_count', 0)} sources, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
-    except Exception as exc:
-        _console.print(f"  [red]✗[/red] {exc}")
-        _log(f"Stage 1 FAILED: {exc}")
-        _write_run_log(args.work_dir, log_start, log_lines, success=False)
-        return 1
+    cfg: dict[str, Any] | None = None
+    scraping: dict[str, Any] | None = None
+    plan: dict[str, Any] | None = None
+
+    if resume_from <= 1:
+        _console.print("[bold]Stage 1:[/bold] Konfigurasjon...")
+        try:
+            cfg = stage1_run(args.input, state, strict=strict)
+            _console.print(f"  [green]✓[/green] {cfg.get('source_count', 0)} kilder, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
+            _log(f"Stage 1 OK: {cfg.get('source_count', 0)} sources, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
+        except Exception as exc:
+            _console.print(f"  [red]✗[/red] {exc}")
+            _log(f"Stage 1 FAILED: {exc}")
+            _write_run_log(args.work_dir, log_start, log_lines, success=False)
+            return 1
+    else:
+        cfg = load_effective_config(state)
+        if not cfg:
+            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 1-checkpoint mangler.")
+            _write_run_log(args.work_dir, log_start, log_lines, success=False)
+            return 1
+        _console.print("[bold]Stage 1:[/bold] Hoppet over (gjenopptatt)")
+        _log("Stage 1 skipped via --resume-from")
 
     start = datetime.strptime(cfg["start_date"], "%Y-%m-%d")
     end = datetime.strptime(cfg["end_date"], "%Y-%m-%d")
 
-    # Stage 2: Scraping
-    _console.print("[bold]Stage 2:[/bold] Skraping...")
-    allow_missing_sources = args.allow_missing_sources
-    try:
-        scraping = stage2_run(
-            cfg,
-            state,
-            start,
-            end,
-            strict=strict,
-            allow_missing_sources=allow_missing_sources,
-        )
-        n = len(scraping.get("sources", []))
-        blocked = scraping.get("blocked", [])
-        llm_fallback = scraping.get("llm_fallback", [])
-        _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
-        _log(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked, {len(llm_fallback)} llm fallback")
-        if blocked:
-            for b in blocked:
-                _console.print(f"    [yellow]⚠[/yellow] {b}")
-                _log(f"  Blocked: {b}")
+    if resume_from <= 2:
+        _console.print("[bold]Stage 2:[/bold] Skraping...")
+        allow_missing_sources = args.allow_missing_sources
+        if getattr(args, "force_refresh", False):
+            try:
+                _force_refresh_stage2_inputs(args.work_dir)
+                _console.print("  [green]✓[/green] Cache tvangsoppdatert før Stage 2")
+                _log("Stage 2 inputs force-refreshed")
+            except Exception as exc:
+                _console.print(f"  [yellow]⚠[/yellow] Cache-refresh feilet: {exc}")
+                _log(f"Stage 2 force-refresh warning: {exc}")
+        try:
+            scraping = stage2_run(
+                cfg,
+                state,
+                start,
+                end,
+                strict=strict,
+                allow_missing_sources=allow_missing_sources,
+            )
+            n = len(scraping.get("sources", []))
+            blocked = scraping.get("blocked", [])
+            llm_fallback = scraping.get("llm_fallback", [])
+            _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
+            _log(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked, {len(llm_fallback)} llm fallback")
+            if blocked:
+                for blocked_name in blocked:
+                    _console.print(f"    [yellow]⚠[/yellow] {blocked_name}")
+                    _log(f"  Blocked: {blocked_name}")
+                if scraping.get("warning"):
+                    _console.print(f"  [dim]{scraping['warning']}[/dim]")
+                if allow_missing_sources:
+                    _console.print("  [green]✓[/green] Delvise resultater er lagret og pipeline fortsetter med godkjente mangler.")
+                else:
+                    _console.print("  [dim]Delvise resultater er lagret; kjør [bold]rvv-miniputt run --allow-missing-sources[/bold] for å fortsette med slike mangler neste gang.[/dim]")
+            if llm_fallback:
+                _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
+                for fallback in llm_fallback:
+                    strategy = fallback.get("llm_strategy", {})
+                    engine = strategy.get("engine", "?")
+                    creds = strategy.get("credential_env_vars", [])
+                    cred_hint = f" (credentials: {', '.join(creds)})" if creds else ""
+                    _console.print(f"    [cyan]→[/cyan] {fallback['name']} — {engine}{cred_hint}")
+                _console.print("\n  [dim]Kjør [bold]rvv-miniputt scrape-llm[/bold] for å skrape disse kildene interaktivt.[/dim]")
+        except Exception as exc:
+            _console.print(f"  [red]✗[/red] {exc}")
+            _log(f"Stage 2 FAILED: {exc}")
+            scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": [], "llm_fallback": []}
             if scraping.get("warning"):
                 _console.print(f"  [dim]{scraping['warning']}[/dim]")
-            if allow_missing_sources:
-                _console.print("  [green]✓[/green] Delvise resultater er lagret og pipeline fortsetter med godkjente mangler.")
-            else:
-                _console.print("  [dim]Delvise resultater er lagret; kjør [bold]rvv-miniputt run --allow-missing-sources[/bold] for å fortsette med slike mangler neste gang.[/dim]")
-        if llm_fallback:
-            _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
-            for fb in llm_fallback:
-                strategy = fb.get("llm_strategy", {})
-                engine = strategy.get("engine", "?")
-                creds = strategy.get("credential_env_vars", [])
-                cred_hint = f" (credentials: {', '.join(creds)})" if creds else ""
-                _console.print(f"    [cyan]→[/cyan] {fb['name']} — {engine}{cred_hint}")
-            _console.print(f"\n  [dim]Kjør [bold]rvv-miniputt scrape-llm[/bold] for å skrape disse kildene interaktivt.[/dim]")
-    except Exception as exc:
-        _console.print(f"  [red]✗[/red] {exc}")
-        _log(f"Stage 2 FAILED: {exc}")
-        # Always check the checkpoint for blocked sources and llm_fallback, even in strict mode
-        scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": [], "llm_fallback": []}
-        if scraping.get("warning"):
-            _console.print(f"  [dim]{scraping['warning']}[/dim]")
-        llm_fallback = scraping.get("llm_fallback", [])
-        if llm_fallback:
-            _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
-            for fb in llm_fallback:
-                strategy = fb.get("llm_strategy", {})
-                engine = strategy.get("engine", "?")
-                creds = strategy.get("credential_env_vars", [])
-                cred_hint = f" (credentials: {', '.join(creds)})" if creds else ""
-                _console.print(f"    [cyan]→[/cyan] {fb['name']} — {engine}{cred_hint}")
-                _log(f"  LLM fallback: {fb['name']} ({engine})")
-            _console.print(f"\n  [dim]Kjør [bold]rvv-miniputt scrape-llm[/bold] for å skrape disse kildene interaktivt.[/dim]")
-        if strict:
+            llm_fallback = scraping.get("llm_fallback", [])
+            if llm_fallback:
+                _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
+                for fallback in llm_fallback:
+                    strategy = fallback.get("llm_strategy", {})
+                    engine = strategy.get("engine", "?")
+                    creds = strategy.get("credential_env_vars", [])
+                    cred_hint = f" (credentials: {', '.join(creds)})" if creds else ""
+                    _console.print(f"    [cyan]→[/cyan] {fallback['name']} — {engine}{cred_hint}")
+                    _log(f"  LLM fallback: {fallback['name']} ({engine})")
+                _console.print("\n  [dim]Kjør [bold]rvv-miniputt scrape-llm[/bold] for å skrape disse kildene interaktivt.[/dim]")
+            if strict:
+                _write_run_log(args.work_dir, log_start, log_lines, success=False)
+                return 1
+            run_failed = True
+            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+    else:
+        scraping = state.read_stage(StageName.SCRAPING)
+        if not scraping:
+            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 2-checkpoint mangler.")
             _write_run_log(args.work_dir, log_start, log_lines, success=False)
             return 1
-        run_failed = True
-        _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+        _console.print("[bold]Stage 2:[/bold] Hoppet over (gjenopptatt)")
+        _log("Stage 2 skipped via --resume-from")
 
-    # Stage 3: Planning
-    _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
-    try:
-        plan = stage3_run(cfg, scraping, state, start, end, strict=strict)
-        n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
-        _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
-        _log(f"Stage 3 OK: {n_tournaments} tournaments planned")
-    except Exception as exc:
-        _console.print(f"  [red]✗[/red] {exc}")
-        _log(f"Stage 3 FAILED: {exc}")
-        if strict:
+    if resume_from <= 3:
+        _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
+        try:
+            plan = stage3_run(cfg, scraping, state, start, end, strict=strict)
+            n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
+            _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
+            _log(f"Stage 3 OK: {n_tournaments} tournaments planned")
+        except Exception as exc:
+            _console.print(f"  [red]✗[/red] {exc}")
+            _log(f"Stage 3 FAILED: {exc}")
+            if strict:
+                _write_run_log(args.work_dir, log_start, log_lines, success=False)
+                return 1
+            run_failed = True
+            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+            plan = state.read_stage(StageName.PLANNING) or {}
+    else:
+        plan = state.read_stage(StageName.PLANNING)
+        if not plan:
+            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 3-checkpoint mangler.")
             _write_run_log(args.work_dir, log_start, log_lines, success=False)
             return 1
-        run_failed = True
-        _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
-        plan = state.read_stage(StageName.PLANNING) or {}
+        _console.print("[bold]Stage 3:[/bold] Hoppet over (gjenopptatt)")
+        _log("Stage 3 skipped via --resume-from")
 
-    # Stage 4: Export
-    _console.print("[bold]Stage 4:[/bold] Eksport...")
-    try:
-        export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, 'timestamped_export', False))
-        files = export.get("output_files", {})
-        _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")
-        for label, f in files.items():
-            _console.print(f"    → {f}")
-        _log(f"Stage 4 OK: {len(files)} files exported")
-    except Exception as exc:
-        _console.print(f"  [red]✗[/red] {exc}")
-        _log(f"Stage 4 FAILED: {exc}")
-        if strict:
-            _write_run_log(args.work_dir, log_start, log_lines, success=False)
-            return 1
-        run_failed = True
-        _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+    if resume_from <= 4:
+        _console.print("[bold]Stage 4:[/bold] Eksport...")
+        try:
+            export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", False))
+            files = export.get("output_files", {})
+            _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")
+            for label, file_path in files.items():
+                _console.print(f"    → {file_path}")
+            _log(f"Stage 4 OK: {len(files)} files exported")
+        except Exception as exc:
+            _console.print(f"  [red]✗[/red] {exc}")
+            _log(f"Stage 4 FAILED: {exc}")
+            if strict:
+                _write_run_log(args.work_dir, log_start, log_lines, success=False)
+                return 1
+            run_failed = True
+            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+    else:
+        _console.print("[bold]Stage 4:[/bold] Hoppet over (gjenopptatt)")
+        _log("Stage 4 skipped via --resume-from")
 
-    # Generate calendars.html (in export/ alongside other files)
     _console.print("Genererer calendars.html...", end=" ")
     try:
         path = generate_calendars(work_dir=args.work_dir, export_dir=args.export_dir)
@@ -271,10 +333,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
         run_failed = True
 
     if run_failed:
-        _console.print(f"\n[bold yellow]⚠ Pipeline fullført med feil.[/bold yellow]")
+        _console.print("\n[bold yellow]⚠ Pipeline fullført med feil.[/bold yellow]")
         _log("Pipeline completed with failures")
     else:
-        _console.print(f"\n[bold green]✓ Pipeline fullført.[/bold green]")
+        _console.print("\n[bold green]✓ Pipeline fullført.[/bold green]")
         _log("Pipeline completed successfully")
     _write_run_log(args.work_dir, log_start, log_lines, success=not run_failed)
     return 0

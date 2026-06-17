@@ -3,87 +3,74 @@ import { Type } from "typebox";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseStatusArgs, parseLogsArgs, parseCalendarsArgs } from "../lib/parsers";
-import { buildStatusText } from "../lib/pipeline-helpers";
-import { buildLogsListText, buildLogsShowText, buildLogsStatsText } from "../lib/log-inspector";
 import { runPipeline, type PipelineRunResult } from "../lib/pipeline-runner";
 import { interactiveGuide } from "../lib/interactive-guide";
-import { LOG_LEVELS, type ProgressEvent } from "../lib/types";
+import { LOG_LEVELS } from "../lib/types";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 
-/** Build the logs report text for a given args string. Shared by the command and tool. */
-function buildLogsResult(rawArgs: unknown, cwd: string): { status: "success" | "failure"; text: string } {
-  const params = parseLogsArgs(rawArgs);
-  const workDir = resolve(cwd, params.work_dir ?? ".pipeline");
-  const count = params.count ?? 10;
-
-  switch (params.subcommand) {
-    case "show":
-      if (!params.run_id) {
-        return { status: "failure", text: "Bruk: /rvv-miniputt logs show <run-id>" };
-      }
-      return { status: "success", text: buildLogsShowText(workDir, params.run_id) };
-    case "stats":
-      return { status: "success", text: buildLogsStatsText(workDir) };
-    case "list":
-    default:
-      return { status: "success", text: buildLogsListText(workDir, count) };
-  }
+function buildStatusCommandArgs(rawArgs: unknown, cwd: string): string[] {
+  const params = parseStatusArgs(rawArgs);
+  return ["status", "--work-dir", resolve(cwd, params.work_dir ?? ".pipeline")];
 }
 
-/** Run the calendars CLI (cache regen or full refresh). Shared by the command and tool. */
-async function runCalendars(rawArgs: unknown, ctx: ExtensionContext): Promise<{ status: "success" | "failure"; text: string }> {
-  const params = parseCalendarsArgs(rawArgs);
-  const refresh = params.refresh ?? false;
-  const workDir = params.work_dir ?? ".pipeline";
+function buildLogsCommandArgs(rawArgs: unknown, cwd: string): string[] {
+  const params = parseLogsArgs(rawArgs);
+  const args = ["logs", "--work-dir", resolve(cwd, params.work_dir ?? ".pipeline")];
+  switch (params.subcommand) {
+    case "show":
+      args.push("show", params.run_id ?? "latest");
+      break;
+    case "stats":
+      args.push("stats");
+      break;
+    case "list":
+    default:
+      args.push("list", "--count", String(params.count ?? 10));
+      break;
+  }
+  return args;
+}
 
+function buildCalendarsCommandArgs(rawArgs: unknown, cwd: string): string[] {
+  const params = parseCalendarsArgs(rawArgs);
+  const args = ["calendars", "--work-dir", resolve(cwd, params.work_dir ?? ".pipeline")];
+  if (params.refresh) args.push("--refresh");
+  return args;
+}
+
+async function runRepoCli(commandArgs: string[], ctx: ExtensionContext, timeout = 60_000): Promise<{ status: "success" | "failure"; text: string }> {
   const python = resolve(ctx.cwd, "venv", "bin", "python3");
   const exe = existsSync(python) ? python : "python3";
-  const absWorkDir = resolve(ctx.cwd, workDir);
-
-  // Use the unified Python CLI for both cache-only and full refresh.
-  const cliArgs = [
-    "-m", "tournament_scheduler.cli.rvv_cli",
-    "calendars",
-    "--work-dir", absWorkDir,
-  ];
-  if (refresh) cliArgs.push("--refresh");
-
-  const lines: string[] = [];
-  lines.push(refresh
-    ? "🔄 Tvinger full re-skraping av kalendere (via rvv-miniputt CLI)..."
-    : "Genererer kalendere fra cache...");
-
   try {
     const { execFile } = await import("node:child_process");
     const { promisify } = await import("node:util");
     const execFileAsync = promisify(execFile);
-    const { copyFileSync } = await import("node:fs");
-
-    const { stdout, stderr } = await execFileAsync(exe, cliArgs, {
+    const { stdout, stderr } = await execFileAsync(exe, ["-m", "tournament_scheduler.cli.rvv_cli", ...commandArgs], {
       cwd: ctx.cwd,
-      timeout: refresh ? 300_000 : 60_000,
+      timeout,
     });
-
-    if (stdout.trim()) lines.push(stdout.trim());
-
-    // Copy season plan HTML next to calendars.html for navbar cross-linking
-    if (!refresh) {
-      try {
-        const src = resolve(ctx.cwd, "export", "season_plan.html");
-        const dst = resolve(absWorkDir, "season_plan.html");
-        if (existsSync(src)) {
-          copyFileSync(src, dst);
-        }
-      } catch { /* best-effort */ }
-    }
-
-    if (stderr.trim()) lines.push(`[stderr] ${stderr.trim()}`);
-    return { status: "success", text: lines.join("\n") };
+    const parts = [stdout.trim(), stderr.trim() ? `[stderr] ${stderr.trim()}` : ""].filter(Boolean);
+    return { status: "success", text: parts.join("\n") };
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    lines.push(`Feil: ${msg}`);
-    return { status: "failure", text: lines.join("\n") };
+    return { status: "failure", text: err instanceof Error ? err.message : String(err) };
   }
+}
+
+async function runCalendars(rawArgs: unknown, ctx: ExtensionContext): Promise<{ status: "success" | "failure"; text: string }> {
+  const params = parseCalendarsArgs(rawArgs);
+  const result = await runRepoCli(buildCalendarsCommandArgs(rawArgs, ctx.cwd), ctx, params.refresh ? 300_000 : 60_000);
+
+  if (result.status === "success" && !params.refresh) {
+    try {
+      const { copyFileSync } = await import("node:fs");
+      const absWorkDir = resolve(ctx.cwd, params.work_dir ?? ".pipeline");
+      const src = resolve(ctx.cwd, "export", "season_plan.html");
+      const dst = resolve(absWorkDir, "season_plan.html");
+      if (existsSync(src)) copyFileSync(src, dst);
+    } catch { /* best-effort */ }
+  }
+
+  return result;
 }
 
 function notifyPipelineResult(ctx: ExtensionContext, result: PipelineRunResult): void {
@@ -157,9 +144,8 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       "Vis gjeldende status for alle fire trinn i sesongplanleggingspipelinen.\n" +
       "Valgfritt flagg: --work-dir <sti>",
     handler: async (args, ctx) => {
-      const params = parseStatusArgs(args);
-      const workDir = resolve(ctx.cwd, params.work_dir ?? ".pipeline");
-      ctx.ui.notify(buildStatusText(workDir), "info");
+      const result = await runRepoCli(buildStatusCommandArgs(args, ctx.cwd), ctx);
+      ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
     },
   });
 
@@ -180,7 +166,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       return words.filter((w) => w.startsWith(prefix)).map((value) => ({ value, label: value }));
     },
     handler: async (args, ctx) => {
-      const result = buildLogsResult(args, ctx.cwd);
+      const result = await runRepoCli(buildLogsCommandArgs(args, ctx.cwd), ctx);
       ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
     },
   });
@@ -254,10 +240,8 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const parsed = parseStatusArgs(params.args ?? "");
-      const workDir = resolve(ctx.cwd, parsed.work_dir ?? ".pipeline");
-      const text = buildStatusText(workDir);
-      return { content: [{ type: "text", text }], details: { text } };
+      const result = await runRepoCli(buildStatusCommandArgs(params.args ?? "", ctx.cwd), ctx);
+      return { content: [{ type: "text", text: result.text }], details: result };
     },
   });
 
@@ -275,7 +259,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       })),
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      const result = buildLogsResult(params.args ?? "", ctx.cwd);
+      const result = await runRepoCli(buildLogsCommandArgs(params.args ?? "", ctx.cwd), ctx);
       return { content: [{ type: "text", text: result.text }], details: result };
     },
   });
