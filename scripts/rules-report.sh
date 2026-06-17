@@ -8,10 +8,11 @@ python3 - <<'PY'
 from datetime import datetime
 from pathlib import Path
 
-from tournament_scheduler.models import CalendarEvent, Roster, Team
+from tournament_scheduler.models import CalendarEvent
 from tournament_scheduler.rules_report import render_rules_markdown
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_planner import SeasonPlanner
+from tournament_scheduler.testing.canonical_input import load_canonical_roster
 
 
 class FakeScheduler:
@@ -46,22 +47,18 @@ class FakeScheduler:
         )
 
 
-roster = Roster(
-    teams=[
-        Team(club="Jar", label="Jar U10", age_group="U10", skill_level=5),
-        Team(club="Kongsberg", label="Kongsberg U10", age_group="U10", skill_level=6),
-    ]
-)
+roster, parallel_games = load_canonical_roster()
+clubs = sorted({team.club for team in roster.teams})
 planner = SeasonPlanner(
     scheduler=FakeScheduler(),
     roster=roster,
-    club_arenas={"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"},
-    parallel_games_for_age_group={"U10": 3, "JU11": 2},
+    club_arenas={club: f"{club}hallen" for club in clubs},
+    parallel_games_for_age_group=parallel_games,
     events_by_club={
-        "Jar": [
+        clubs[0]: [
             CalendarEvent(
                 date="01.10.2026",
-                name="Jar hallbooking",
+                name=f"{clubs[0]} hallbooking",
                 datetime=datetime(2026, 10, 1, 11, 0),
                 duration_hours=2.0,
             )

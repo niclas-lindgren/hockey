@@ -1,5 +1,6 @@
 """Tests for tournament_scheduler.pipeline.stage3_planning."""
 
+from collections import Counter
 from datetime import date, datetime
 
 from tournament_scheduler.models import Game, SeasonPlan, Team, Tournament
@@ -56,6 +57,29 @@ def _make_duplicate_label_config():
 
 
 class TestRunStage3:
+    def test_accepts_canonical_workbook_config(self, tmp_path, canonical_input_data, canonical_season_window):
+        state = PipelineState(tmp_path / "pipeline")
+        start, end = canonical_season_window
+        result = run(canonical_input_data, {}, state, start, end)
+
+        assert state.is_done(StageName.PLANNING)
+        assert "plan" in result
+        assert len(result["plan"]["tournaments"]) > 0
+
+        configured_age_groups = set(canonical_input_data["age_groups"])
+        planned_age_groups = {t["age_group"] for t in result["plan"]["tournaments"]}
+        assert planned_age_groups <= configured_age_groups
+        assert planned_age_groups
+
+    def test_canonical_workbook_plan_covers_multiple_age_groups(self, tmp_path, canonical_input_data, canonical_season_window):
+        state = PipelineState(tmp_path / "pipeline")
+        start, end = canonical_season_window
+        result = run(canonical_input_data, {}, state, start, end)
+
+        counts = Counter(t["age_group"] for t in result["plan"]["tournaments"])
+        assert len(counts) >= 3
+        assert counts["U10"] > 0
+
     def test_accepts_plan_without_llm(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         result = run(

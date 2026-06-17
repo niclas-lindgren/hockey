@@ -1,7 +1,7 @@
 """Tests for SeasonPlanner (season planning/optimization engine)."""
 
 from collections import Counter
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from types import SimpleNamespace
 from typing import Dict
 
@@ -12,72 +12,23 @@ from tournament_scheduler.models import (
     CalendarEvent,
     Game,
     Roster,
-    SchedulingResult,
     SeasonPlan,
     Team,
     Tournament,
     overlapping_age_groups,
     team_key,
 )
-from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_planner import (
     SeasonPlanner,
     DEFAULT_TOURNAMENT_START_TIME,
     MIN_TEAMS_PER_TOURNAMENT,
 )
 from tournament_scheduler.host_assignment import find_slot_for_tournament
+from tournament_scheduler.testing.canonical_input import OfflineScheduler, all_weekend_dates
 
 
-class FakeScheduler:
-    """Stand-in for TournamentScheduler that returns a fixed set of free weekend dates
-    without scraping any calendars (keeps the test fast, deterministic, and offline).
 
-    `find_arena_slot_for_date` delegates to a real `TournamentScheduler`
-    instance (pure in-memory logic, no I/O) so tests that pass
-    `events_by_club` to `SeasonPlanner` exercise the real slot-finding /
-    fallback-host logic end-to-end.
-    """
-
-    def __init__(self, free_dates):
-        self.free_dates = free_dates
-        self._real_scheduler = TournamentScheduler(
-            calendar_sources=[], conflict_checkers=[], date_parser=None
-        )
-
-    def find_available_dates(self, start_date, end_date, **kwargs):
-        return SchedulingResult(
-            available_dates=list(self.free_dates),
-            excluded_dates=[],
-            exclusion_breakdown={},
-            detailed_exclusions=[],
-            total_weekends_checked=len(self.free_dates),
-        )
-
-    def find_arena_slot_for_date(
-        self,
-        check_date,
-        host_club,
-        required_minutes,
-        events_by_club,
-        preferred_start="11:00",
-    ):
-        return self._real_scheduler.find_arena_slot_for_date(
-            check_date,
-            host_club,
-            required_minutes,
-            events_by_club,
-            preferred_start=preferred_start,
-        )
-
-
-def _all_weekend_dates(start, end):
-    dates = []
-    d = start.date()
-    while d <= end.date():
-        if d.weekday() in (5, 6):
-            dates.append(d)
-        d += timedelta(days=1)
-    return dates
+FakeScheduler = OfflineScheduler
 
 
 def _build_roster(clubs, age_groups, teams_per_club_per_age_group=1):
@@ -91,16 +42,10 @@ def _build_roster(clubs, age_groups, teams_per_club_per_age_group=1):
 
 
 def _load_real_roster_from_input_workbook():
-    import os
+    from tournament_scheduler.testing.canonical_input import load_canonical_roster
 
-    from tournament_scheduler.pipeline.input_workbook import load_workbook_config
+    return load_canonical_roster()
 
-    input_path = os.path.join(os.path.dirname(__file__), "..", "input.xlsx")
-    data = load_workbook_config(input_path)
-
-    roster = Roster(teams=[Team(**team) for team in data["teams"]])
-    parallel_games = data.get("parallel_games", {})
-    return roster, parallel_games
 
 
 @pytest.fixture
@@ -111,7 +56,7 @@ def season_window():
 @pytest.fixture
 def planner_and_plan(season_window):
     start, end = season_window
-    free_dates = _all_weekend_dates(start, end)
+    free_dates = all_weekend_dates(start, end)
 
     clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]
     age_groups = ["U10", "U11", "JU11", "U7"]
@@ -139,7 +84,7 @@ class TestSeasonPlanner:
 
     def test_skips_age_groups_with_too_few_teams_for_a_tournament(self, season_window):
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         roster = Roster(teams=[
             Team(club="Jar", label="Jar JU12", age_group="JU12"),
             Team(club="Kongsberg", label="Kongsberg JU12", age_group="JU12"),
@@ -313,7 +258,7 @@ class TestSeasonPlanner:
     def test_per_team_target_tournament_count_is_enforced(self, season_window):
         """A team with target_tournament_count=1 is invited to at most 1 tournament."""
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         # Create a small roster where Kongsberg 2 has target=1 while others use global default
         teams = [
@@ -385,7 +330,7 @@ class TestTournamentStartTimeAndRoundLength:
 
     def test_round_length_for_age_group_is_stored_on_planner(self, season_window):
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = ["Jar", "Kongsberg"]
         age_groups = ["U10", "U12"]
@@ -405,7 +350,7 @@ class TestTournamentStartTimeAndRoundLength:
 
     def test_round_length_for_age_group_defaults_to_empty_dict(self, season_window):
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = ["Jar", "Kongsberg"]
         age_groups = ["U10"]
@@ -423,7 +368,7 @@ class TestTournamentStartTimeAndRoundLength:
 
     def test_generated_tournament_duration_uses_configured_round_length(self, season_window):
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = ["Jar", "Kongsberg", "Skien", "Jutul"]
         age_groups = ["U10"]
@@ -461,7 +406,7 @@ def small_roster_planner_and_plan():
     depend on it.
     """
     start, end = datetime(2026, 9, 1), datetime(2027, 5, 31)
-    free_dates = _all_weekend_dates(start, end)
+    free_dates = all_weekend_dates(start, end)
 
     clubs = ["Jar", "Holmen", "Kongsberg", "Skien"]
     age_groups = ["U10"]
@@ -645,7 +590,7 @@ class TestOpponentHistoryTrackingAndScoring:
         roster = _build_roster(clubs, age_groups)
 
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         club_arenas = {club: f"{club}hallen" for club in clubs}
 
         planner = SeasonPlanner(
@@ -665,7 +610,7 @@ class TestOpponentHistoryTrackingAndScoring:
         roster = _build_roster(clubs, age_groups)
 
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         club_arenas = {club: f"{club}hallen" for club in clubs}
 
         planner = SeasonPlanner(
@@ -758,7 +703,7 @@ class TestPerTeamGameCounts:
         from datetime import datetime as _dt
 
         start, end = _dt(2026, 10, 1), _dt(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = ["Jar", "Holmen", "Kongsberg"]
         roster = _build_roster(clubs, ["U10"])
@@ -789,7 +734,7 @@ class TestPerTeamGameCounts:
         from datetime import datetime as _dt
 
         start, end = _dt(2026, 10, 1), _dt(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul"]
         age_groups = ["U10"]
@@ -822,7 +767,7 @@ class TestPerTeamGameCounts:
         from datetime import datetime as _dt
 
         start, end = _dt(2026, 10, 1), _dt(2026, 12, 31)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]
         age_groups = ["U10"]
@@ -884,7 +829,7 @@ class TestPerTeamGameCounts:
 
     def test_parallel_games_define_tournament_capacity_and_bye_rounds(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul"]
         roster = _build_roster(clubs, ["U10"])
@@ -916,7 +861,7 @@ class TestPerTeamGameCounts:
     )
     def test_odd_team_count_gets_one_rest_team_per_round(self, parallel_games, team_count):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = [f"Club {i}" for i in range(1, team_count + 1)]
         roster = _build_roster(clubs, ["U10"])
@@ -965,7 +910,7 @@ class TestPerTeamGameCounts:
         from datetime import datetime as _dt
 
         start, end = _dt(2026, 10, 1), _dt(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         other_clubs = ["Holmen", "Skien", "Jutul", "Ringerike", "Tonsberg", "Sandefjord", "Frisk Asker"]
         age_groups = ["U10", "U11"]
@@ -1101,7 +1046,7 @@ class TestPerTeamGameCounts:
         assert "Holmen U11" not in warnings_by_label
         assert "Skien U11" not in warnings_by_label
 
-    def test_real_roster_end_to_end_jar_vs_kongsberg(self):
+    def test_real_roster_end_to_end_jar_vs_kongsberg(self, canonical_plan):
         """End-to-end check against the real `input.xlsx`
         roster (Jar: 7 U10 teams, Kongsberg: 1 U10 team, plus the other RVV
         clubs), over the 2026-09-01 to 2027-04-30 season window.
@@ -1117,19 +1062,8 @@ class TestPerTeamGameCounts:
         game-count-spread checking") surfaces the real-roster imbalance
         described in the original backlog item.
         """
-        roster, parallel_games = _load_real_roster_from_input_workbook()
-
-        start, end = datetime(2026, 9, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
-        club_arenas = {team.club: f"{team.club}hallen" for team in roster.teams}
-
-        planner = SeasonPlanner(
-            scheduler=FakeScheduler(free_dates),
-            roster=roster,
-            club_arenas=club_arenas,
-            parallel_games_for_age_group=parallel_games,
-        )
-        plan = planner.build_plan(start, end)
+        planner, plan, start, end = canonical_plan
+        roster = planner.roster
         duplicate_labels = {label for label, count in Counter(t.label for t in roster.teams).items() if count > 1}
 
         jar_u10_labels = [
@@ -1165,7 +1099,7 @@ class TestPerTeamGameCounts:
         flagged_labels = {w[0] for w in planner.per_team_share_warnings}
         assert flagged_labels
 
-    def test_real_roster_jar_vs_kongsberg_spread_reduced_by_deficit_aware_selection(self):
+    def test_real_roster_jar_vs_kongsberg_spread_reduced_by_deficit_aware_selection(self, canonical_plan):
         """Regression test for the real roster's U10 balance.
 
         The expanded canonical roster now schedules per age group, so the
@@ -1175,19 +1109,8 @@ class TestPerTeamGameCounts:
         Kongsberg U10 team should get non-zero games, and the fairness
         diagnostics should still surface the residual skew.
         """
-        roster, parallel_games = _load_real_roster_from_input_workbook()
-
-        start, end = datetime(2026, 9, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
-        club_arenas = {team.club: f"{team.club}hallen" for team in roster.teams}
-
-        planner = SeasonPlanner(
-            scheduler=FakeScheduler(free_dates),
-            roster=roster,
-            club_arenas=club_arenas,
-            parallel_games_for_age_group=parallel_games,
-        )
-        plan = planner.build_plan(start, end)
+        planner, plan, start, end = canonical_plan
+        roster = planner.roster
         duplicate_labels = {label for label, count in Counter(t.label for t in roster.teams).items() if count > 1}
 
         jar_u10_labels = [
@@ -1221,7 +1144,7 @@ class TestPerTeamGameCounts:
         """When deficit spread exceeds max_game_count_spread, the picker allows
         more than one sibling team per tournament so large clubs can catch up."""
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]
         teams = [Team(club="Jar", label=f"Jar {i}", age_group="U10") for i in range(1, 5)]
@@ -1276,7 +1199,7 @@ class TestPerTeamGameCounts:
         should contain all 5 clubs and only one repeated slot (from Jar).
         """
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         roster = Roster(teams=[
             Team(club="Jar", label="Jar 1", age_group="U10"),
@@ -1330,7 +1253,7 @@ class TestSkillLevelDivisions:
     @pytest.fixture
     def free_dates(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        return _all_weekend_dates(start, end)
+        return all_weekend_dates(start, end)
 
     @pytest.fixture
     def skill_planner(self, skill_roster, free_dates):
@@ -1403,7 +1326,7 @@ class TestSkillLevelDivisions:
         ])
         club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         planner = SeasonPlanner(
             scheduler=FakeScheduler(free_dates),
             roster=roster,
@@ -1431,7 +1354,7 @@ class TestSkillLevelDivisions:
         ])
         club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         planner = SeasonPlanner(
             scheduler=FakeScheduler(free_dates),
             roster=roster,
@@ -1456,7 +1379,7 @@ class TestSkillLevelDivisions:
         ])
         club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         planner = SeasonPlanner(
             scheduler=FakeScheduler(free_dates),
             roster=roster,
@@ -1483,7 +1406,7 @@ class TestProportionalHosting:
     @pytest.fixture
     def free_dates(self, season_window):
         start, end = season_window
-        return _all_weekend_dates(start, end)
+        return all_weekend_dates(start, end)
 
     def test_clubs_with_more_teams_host_more_tournaments(self, free_dates, season_window):
         """Jar with 3 teams should host more than Kongsberg with 1 team."""
@@ -1769,7 +1692,7 @@ class TestProportionalHosting:
         teams participate across the season.
         """
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         clubs = [
             "Jar", "Kongsberg", "Skien", "Holmen",
@@ -1965,7 +1888,7 @@ class TestMonthLoadWarnings:
         ])
         club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         planner = SeasonPlanner(
             scheduler=FakeScheduler(free_dates),
             roster=roster,
@@ -1994,7 +1917,7 @@ class TestFeasibilityWarnings:
     def test_feasibility_warning_for_too_few_teams(self, season_window):
         """An age group with fewer than MIN_TEAMS_PER_TOURNAMENT teams gets a warning."""
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         roster = Roster(teams=[
             Team(club="Jar", label="Jar U10", age_group="U10"),
             Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
@@ -2037,7 +1960,7 @@ class TestSlotAwareScheduling:
 
     def test_without_events_by_club_uses_default_start_time(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         planner = self._basic_planner(free_dates, events_by_club=None)
         plan = planner.build_plan(start, end)
@@ -2048,7 +1971,7 @@ class TestSlotAwareScheduling:
 
     def test_with_events_by_club_sets_non_default_start_time(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         # Build the plan once without calendar data to discover the chosen
         # tournament dates, then construct events_by_club so every host's
@@ -2121,7 +2044,7 @@ class TestSlotAwareScheduling:
 
     def test_host_fully_booked_keeps_original_host_without_cross_club_fallback(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         probe_planner = self._basic_planner(free_dates, events_by_club=None)
         probe_plan = probe_planner.build_plan(start, end)
@@ -2165,7 +2088,7 @@ class TestSlotAwareScheduling:
 
     def test_no_arena_available_keeps_original_host_and_default_time(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
 
         probe_planner = self._basic_planner(free_dates, events_by_club=None)
         probe_plan = probe_planner.build_plan(start, end)
@@ -2203,7 +2126,7 @@ class TestFairnessGate:
 
     def test_fairness_gate_passes_with_lenient_thresholds(self, season_window):
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         roster = _build_roster(["Jar", "Holmen", "Kongsberg"], ["U10", "U11"])
         planner = SeasonPlanner(
             scheduler=FakeScheduler(free_dates),
@@ -2230,7 +2153,7 @@ class TestFairnessGate:
 
     def test_fairness_gate_flags_skew_with_tight_thresholds(self, season_window):
         start, end = season_window
-        free_dates = _all_weekend_dates(start, end)
+        free_dates = all_weekend_dates(start, end)
         roster = _build_roster(["Jar", "Holmen", "Kongsberg"], ["U10"])
         planner = SeasonPlanner(
             scheduler=FakeScheduler(free_dates),
