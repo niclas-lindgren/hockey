@@ -26,9 +26,14 @@ python3 -m tournament_scheduler.cli.rvv_cli run
 
 Useful follow-up commands in either mode:
 
-- `/rvv-miniputt calendars` or `scripts/rvv-miniputt calendars`
-- `/rvv-miniputt logs` or `scripts/rvv-miniputt logs list`
-- `/rvv-miniputt status` or `scripts/rvv-miniputt status`
+- `/rvv-miniputt calendars` in Pi, or `scripts/rvv-miniputt calendars` elsewhere
+- `/rvv-miniputt logs` in Pi, or `scripts/rvv-miniputt logs list` elsewhere
+- `/rvv-miniputt status` in Pi, or `scripts/rvv-miniputt status` elsewhere
+
+Project-local command adapters are also included for:
+- Claude: `.claude/commands/rvv-miniputt/` → `/rvv-miniputt:run`, `/rvv-miniputt:status`, ...
+- OpenCode: `.opencode/commands/rvv-miniputt/` → `/rvv-miniputt:run`, `/rvv-miniputt:status`, ...
+- Codex: `.codex/commands/rvv-miniputt/` plus `CODEX.md` guidance
 
 ## Current commands
 
@@ -77,8 +82,9 @@ gitleaks detect --source . --config .gitleaks.toml --redact
 ## Cross-harness usage
 
 - **Portable / harness-neutral:** `scripts/rvv-miniputt ...` and `python3 -m tournament_scheduler.cli.rvv_cli ...` work from Codex, Claude, OpenCode, or a normal shell.
+- **Project command adapters:** `.claude/commands/rvv-miniputt/`, `.opencode/commands/rvv-miniputt/`, and `.codex/commands/rvv-miniputt/` provide local command wrappers around the portable repo entrypoints.
 - **Pi adapter layer:** `/rvv-miniputt ...` slash commands and agent-callable `rvv_miniputt_*` tools are Pi conveniences layered on top of the repo workflows.
-- **Still Pi-specific:** `/rvv-miniputt guide`, live slash-command notifications, and the extension-managed `rvv_miniputt_*` tool registrations.
+- **Still Pi-specific:** the native `/rvv-miniputt guide` extension UX, live slash-command notifications, and the extension-managed `rvv_miniputt_*` tool registrations.
 
 ## More documentation
 
