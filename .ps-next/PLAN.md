@@ -5,7 +5,7 @@
 **Backlog-ref:** 121
 
 ## Tasks
-- [ ] Extract RVV slash-command logic behind scriptable CLI entrypoints
+- [x] Extract RVV slash-command logic behind scriptable CLI entrypoints
   - Files: tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/cli/reporting.py, tournament_scheduler/cli/pipeline_orchestrator.py, .pi/extensions/rvv-miniputt.ts, scripts/rvv-miniputt
   - Approach: Add any missing `rvv-miniputt` subcommands/flags needed to cover the slash-command surface from the repo CLI, create a small repo-local launcher script, and make the Pi extension delegate to those harness-neutral entrypoints where practical instead of embedding command-only logic.
 - [ ] Add regression coverage for the new cross-harness entrypoints and portability contract
@@ -26,4 +26,11 @@ Search before changing behavior: the RVV Python CLI already exposes most pipelin
 - [ ] `grep:.agents/skills/pi-next/SKILL.md contains harness-neutral`
 
 ## Log
+
+### 2026-06-17 — Extract RVV slash-command logic behind scriptable CLI entrypoints
+**Done:** Added a repo-local `scripts/rvv-miniputt` launcher, expanded the Python CLI with portable `status`/structured `logs` support and run parity flags, and pointed the Pi RVV extension at those harness-neutral CLI entrypoints for status/logs/calendars.
+**Rationale:** Using the existing Python CLI as the portable surface keeps non-Pi agents on repo-native commands while leaving Pi-specific streaming run behavior and guide UX in the extension layer.
+**Findings:** Untracked files do not appear in `pi_next_plan_drift` until staged; the new launcher script showed as missing there until commit staging. Existing historical JSONL logs can lack finalized run metadata, so `logs list` may show `─` for older start times.
+**Files:** A scripts/rvv-miniputt; M tournament_scheduler/cli/{args.py,pipeline_orchestrator.py,reporting.py,rvv_cli.py}; M .pi/extensions/rvv-miniputt.ts; M .ps-next/PLAN.md
+**Commit:** 146d20d
 <!-- pi-next appends entries here after each task -->

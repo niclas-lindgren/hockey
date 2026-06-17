@@ -10,26 +10,34 @@ It runs a four-stage workflow that:
 
 ## Quick start
 
-Activate the skill with:
+In Pi, start the workflow with:
 
 ```bash
 /rvv-miniputt run
 ```
 
-That starts the full pipeline. Useful follow-up commands:
+Outside Pi (Codex/Claude/OpenCode/shell), use the repo-local launcher or Python CLI:
 
-- `/rvv-miniputt calendars`
-- `/rvv-miniputt logs`
-- `/rvv-miniputt status`
+```bash
+scripts/rvv-miniputt run
+# or
+python3 -m tournament_scheduler.cli.rvv_cli run
+```
+
+Useful follow-up commands in either mode:
+
+- `/rvv-miniputt calendars` or `scripts/rvv-miniputt calendars`
+- `/rvv-miniputt logs` or `scripts/rvv-miniputt logs list`
+- `/rvv-miniputt status` or `scripts/rvv-miniputt status`
 
 ## Current commands
 
-- `/rvv-miniputt run` — run the full pipeline
-- `/rvv-miniputt calendars` — regenerate calendar HTML from cache
-- `/rvv-miniputt calendars --refresh` — force a fresh scrape first
-- `/rvv-miniputt logs` — show pipeline logs
-- `/rvv-miniputt status` — show stage status
-- `/rvv-miniputt guide` — interactive wizard for setup and first run
+- `/rvv-miniputt run` / `scripts/rvv-miniputt run` — run the full pipeline
+- `/rvv-miniputt calendars` / `scripts/rvv-miniputt calendars` — regenerate calendar HTML from cache
+- `/rvv-miniputt calendars --refresh` / `scripts/rvv-miniputt calendars --refresh` — force a fresh scrape first
+- `/rvv-miniputt logs` / `scripts/rvv-miniputt logs ...` — show structured pipeline logs
+- `/rvv-miniputt status` / `scripts/rvv-miniputt status` — show stage status
+- `/rvv-miniputt guide` — interactive wizard for setup and first run (Pi-only)
 
 ## Inputs
 
@@ -65,6 +73,12 @@ Or, if you have `gitleaks` installed:
 ```bash
 gitleaks detect --source . --config .gitleaks.toml --redact
 ```
+
+## Cross-harness usage
+
+- **Portable / harness-neutral:** `scripts/rvv-miniputt ...` and `python3 -m tournament_scheduler.cli.rvv_cli ...` work from Codex, Claude, OpenCode, or a normal shell.
+- **Pi adapter layer:** `/rvv-miniputt ...` slash commands and agent-callable `rvv_miniputt_*` tools are Pi conveniences layered on top of the repo workflows.
+- **Still Pi-specific:** `/rvv-miniputt guide`, live slash-command notifications, and the extension-managed `rvv_miniputt_*` tool registrations.
 
 ## More documentation
 

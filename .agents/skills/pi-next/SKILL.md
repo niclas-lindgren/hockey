@@ -31,6 +31,8 @@ Do not rely on Claude-only tools, subagents, or `~/.claude/bin/*`. Use the proje
 .agents/skills/pi-next/scripts/pi-next-archive.sh "$PS_DIR" "optional-backlog-id"
 ```
 
+The helper scripts are the harness-neutral way to access project-local PS:next state from Codex, Claude, OpenCode, or a normal shell; the Pi extension tools below are adapters on top of that same file protocol.
+
 When the extension is loaded, prefer its tools for state/backlog/task/archive operations:
 
 - `pi_next_state` — structured `.ps-next` state
@@ -53,6 +55,8 @@ When the extension is loaded, prefer its tools for state/backlog/task/archive op
 If this skill is installed outside the project, resolve helper paths relative to this SKILL.md's directory.
 
 ## Boundary / cleanup target
+
+The portable, harness-neutral contract is the `.ps-next` file layout plus the helper scripts in `.agents/skills/pi-next/scripts/`. Pi-only additions should stay in the extension/tooling layer, not in the shared workflow protocol.
 
 - Keep local logic limited to project state access, backlog manipulation, locking, and handoff safety.
 - Prefer syncing or delegating to the shared PS:next workflow for plan routing, task execution, verification, and archive semantics.

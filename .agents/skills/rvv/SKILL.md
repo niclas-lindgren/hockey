@@ -23,6 +23,29 @@ If you need to trigger the pipeline from the agent, use these tools:
 Each tool takes the same flags as its slash command via an optional `args` string
 (e.g. `rvv_miniputt_run({ args: "--resume-from 2 --log-level verbose" })`).
 
+## Non-Pi / cross-harness usage
+
+When you are not running inside Pi, use the harness-neutral repo entrypoints instead of Pi slash commands:
+
+```bash
+scripts/rvv-miniputt status
+scripts/rvv-miniputt logs list --count 5
+scripts/rvv-miniputt run --resume-from 2 --log-level verbose
+# or
+python3 -m tournament_scheduler.cli.rvv_cli status
+```
+
+These commands are intended for Codex, Claude, OpenCode, or a normal shell. They expose the repo workflow directly without requiring Pi's command registry.
+
+## Pi-only boundary
+
+The following remain Pi-specific adapters on top of the repo workflow:
+
+- `/rvv-miniputt ...` slash-command dispatch itself
+- `rvv_miniputt_*` agent-callable tool registration
+- `/rvv-miniputt guide` interactive wizard UX
+- live Pi notifications/status updates during `/rvv-miniputt run`
+
 ## How to use it
 
 1. Activate the skill with `/rvv-miniputt run`

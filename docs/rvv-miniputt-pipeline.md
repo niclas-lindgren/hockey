@@ -106,6 +106,29 @@ With `--timestamped-export`, the same files are written into a timestamped subdi
 
 ## Operator flows
 
+### Cross-harness entrypoints
+
+Use whichever entrypoint your harness supports:
+
+```bash
+# Portable, repo-local launcher
+scripts/rvv-miniputt status
+scripts/rvv-miniputt run --resume-from 2 --log-level verbose
+
+# Direct Python CLI
+python3 -m tournament_scheduler.cli.rvv_cli logs list --count 5
+```
+
+In Pi, the slash commands remain available and map onto the same repo workflow surface where possible:
+
+```bash
+/rvv-miniputt status
+/rvv-miniputt logs show latest
+/rvv-miniputt run --resume-from 2 --log-level verbose
+```
+
+Pi-only features remain the interactive guide and extension-managed tool wrappers (`rvv_miniputt_run`, `rvv_miniputt_status`, etc.).
+
 ### Full run
 
 ```bash
@@ -131,6 +154,11 @@ In Pi, use the slash commands:
 
 - `/rvv-miniputt status`
 - `/rvv-miniputt logs`
+
+Outside Pi, use the portable equivalents:
+
+- `scripts/rvv-miniputt status`
+- `scripts/rvv-miniputt logs list`
 
 The pipeline also stores per-run logs in `.pipeline/logs/`.
 
