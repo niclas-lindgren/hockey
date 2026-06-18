@@ -26,7 +26,7 @@ none
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`
   - Approach: Import `generate_critic_summary` from `plan_critic`, call it with `plan_checkpoint["plan"]` after Stage 3 completes, and print each bullet using `_console.print` with a `[bold cyan]` prefix; the gate still always returns `True` so Stage 4 is not blocked.
 
-- [ ] Add `rvv-miniputt critic` CLI subcommand that reads an existing Stage 3 checkpoint from disk and prints the harness summary without running the full pipeline.
+- [x] Added 'critic' subcommand to args.py and implemented _cmd_critic in rvv_cli.py; the command reads the Stage 3 checkpoint, calls generate_critic_summary, and prints issues with Rich. — 2026-06-18
   - Files: `tournament_scheduler/cli/rvv_cli.py`, `tournament_scheduler/cli/args.py`
   - Approach: Register a `critic` subcommand in `args.py` that accepts `--work-dir` (default `.pipeline`), then in `rvv_cli.py` load `stage3_planning.json` via `state.py`, call `generate_critic_summary`, and print with Rich — mirrors the pattern used by `rvv-miniputt status`.
 
@@ -60,4 +60,11 @@ LESSONS: none
 **Findings:** Prints up to 5 ranked issues or a clean 'Ingen problemer' message; gate always returns True.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+15/-1)
+**Commit:** 0dbf31f (hockey)
+
+### 2026-06-18 — Added 'critic' subcommand to args.py and implemented _cmd_critic in rvv_cli.py; the command reads the Stage 3 checkpoint, calls generate_critic_summary, and prints issues with Rich.
+**Rationale:** Lazy imports inside _cmd_critic avoid circular imports; mirrors the pattern of other commands.
+**Findings:** Prints up to 5 issues or a green 'Ingen problemer' message; returns 1 if no checkpoint found.
+LESSONS: none
+**Files:** tournament_scheduler/cli/args.py (+11/-0), tournament_scheduler/cli/rvv_cli.py (+31/-0)
 **Commit:** [pending — fill after commit]

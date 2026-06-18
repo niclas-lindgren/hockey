@@ -434,6 +434,35 @@ def _cmd_review(args: argparse.Namespace) -> int:
     )
 
 
+def _cmd_critic(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt critic`` — print plan critic issues for existing Stage 3 checkpoint."""
+    from ..pipeline.state import PipelineState, StageName
+    from .plan_critic import generate_critic_summary
+
+    state = PipelineState(args.work_dir)
+    plan_checkpoint = state.read_stage(StageName.PLANNING)
+    if not plan_checkpoint:
+        _console.print(
+            f"[red]✗[/red] Ingen Stage 3-checkpoint funnet i '{args.work_dir}'. "
+            "Kjør ``rvv-miniputt run`` først."
+        )
+        return 1
+
+    season_plan = plan_checkpoint.get("plan") if isinstance(plan_checkpoint, dict) else None
+    if season_plan is None:
+        _console.print("[red]✗[/red] Stage 3-checkpoint mangler 'plan'-nøkkelen.")
+        return 1
+
+    issues = generate_critic_summary(season_plan)
+    if issues:
+        _console.print("[bold cyan]Plan critic — problemer funnet:[/bold cyan]")
+        for issue in issues:
+            _console.print(f"  [cyan]•[/cyan] {issue}")
+    else:
+        _console.print("[bold cyan]Plan critic:[/bold cyan] [green]Ingen problemer oppdaget.[/green]")
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -470,6 +499,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_recovery_targets(args)
     elif args.command == "recovery-inject":
         return _cmd_recovery_inject(args)
+    elif args.command == "critic":
+        return _cmd_critic(args)
     else:
         parser.print_help()
         return 0

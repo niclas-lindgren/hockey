@@ -388,4 +388,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Export output directory (default: export)",
     )
 
+    # critic
+    critic = sub.add_parser(
+        "critic",
+        help="Run the plan critic on an existing Stage 3 checkpoint and print issues",
+    )
+    critic.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
     return parser
