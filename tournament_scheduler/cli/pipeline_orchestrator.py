@@ -194,6 +194,19 @@ def _run_approval_gate(
     decision = verdict.decision.upper()
     log_fn(f"Approval gate verdict: {decision} — {verdict.rationale[:200]}")
 
+    # Persist verdict to the stage3 checkpoint so reruns can inspect the decision.
+    try:
+        from ..pipeline.state import StageName
+        state.write_approval(
+            StageName.PLANNING,
+            decision=decision,
+            rationale=verdict.rationale,
+            blockers=verdict.blockers,
+            proposed_changes=verdict.proposed_changes,
+        )
+    except Exception as exc:
+        log_fn(f"write_approval failed (non-fatal): {exc}")
+
     if decision == "GO":
         console.print(f"  [green]✓ GO[/green] — {verdict.rationale}")
         if verdict.proposed_changes:

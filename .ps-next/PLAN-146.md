@@ -22,7 +22,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/pipeline/manual_adjustment_workflow.py
   - Approach: When strict=False and the approval gate returns no-go, print the proposed changes then call into `manual_adjustment_workflow` to apply the LLM's proposed adjustments programmatically before proceeding to stage 4. Rebuild the fairness gate after any adjustments are applied.
 
-- [ ] Persist approval gate verdict to stage3 checkpoint
+- [x] Added write_approval() method to PipelineState that writes an llm_approval key to the stage3 checkpoint envelope (decision, rationale, blockers, proposed_changes, decided_at). Called from _run_approval_gate() in pipeline_orchestrator after verdict is received. — 2026-06-18
   - Files: tournament_scheduler/pipeline/state.py, tournament_scheduler/pipeline/stage3_helpers.py
   - Approach: After the approval gate runs, write the verdict (decision, rationale, blockers) into the stage3 checkpoint under an `llm_approval` key using the existing state persistence pattern so reruns can inspect what was decided.
 
@@ -67,4 +67,11 @@ LESSONS: none
 **Findings:** ManualAdjustmentWorkflow.apply() requires a SeasonPlan object, not a plan dict — must use _dict_to_plan from stage4_helpers to convert first. State parameter was added to _run_approval_gate signature.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+38/-2)
+**Commit:** 6ed6e9f (hockey)
+
+### 2026-06-18 — Added write_approval() method to PipelineState that writes an llm_approval key to the stage3 checkpoint envelope (decision, rationale, blockers, proposed_changes, decided_at). Called from _run_approval_gate() in pipeline_orchestrator after verdict is received.
+**Rationale:** Followed the exact pattern of write_judgment() — read_envelope, update key, write back. No changes to stage3_helpers needed since persistence is purely through PipelineState.
+**Findings:** none
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/state.py (+33), tournament_scheduler/cli/pipeline_orchestrator.py (+13)
 **Commit:** [pending — fill after commit]

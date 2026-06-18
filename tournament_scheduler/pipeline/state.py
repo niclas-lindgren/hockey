@@ -322,6 +322,39 @@ class PipelineState:
         path = self.checkpoint_path(stage)
         path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    def write_approval(
+        self,
+        stage: "StageName",
+        decision: str,
+        rationale: str = "",
+        blockers: "list[str] | None" = None,
+        proposed_changes: "list[str] | None" = None,
+    ) -> None:
+        """Persist an LLM approval gate verdict into the stage checkpoint envelope.
+
+        The verdict is stored under a top-level ``llm_approval`` key so it is
+        visible when inspecting ``.pipeline/stage*.json`` files.  The stage's
+        ``status`` and ``data`` fields are not modified.
+
+        Args:
+            stage:            The stage this approval verdict belongs to.
+            decision:         ``"GO"`` or ``"NO_GO"``.
+            rationale:        Short explanation from the LLM.
+            blockers:         List of blocker strings (if any) from the LLM.
+            proposed_changes: List of suggested change strings (if any) from the LLM.
+        """
+        envelope = self.read_envelope(stage)
+        envelope["llm_approval"] = {
+            "decision": decision,
+            "rationale": rationale,
+            "blockers": blockers or [],
+            "proposed_changes": proposed_changes or [],
+            "decided_at": datetime.now(tz=timezone.utc).isoformat(),
+        }
+        envelope["updated_at"] = datetime.now(tz=timezone.utc).isoformat()
+        path = self.checkpoint_path(stage)
+        path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+
     def _set_status(
         self,
         stage: StageName,
