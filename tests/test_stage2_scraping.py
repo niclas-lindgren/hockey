@@ -631,3 +631,113 @@ class TestEventsToDict:
         assert dicts[0]["name"] == "Practice"
         assert dicts[0]["duration_hours"] == 2.0
         assert "datetime" in dicts[0]
+
+
+class TestCheckpointDateRangeFields:
+    """Stage 2 checkpoint must expose start_date, end_date, and per-source fields."""
+
+    def test_checkpoint_has_start_and_end_date(self, tmp_path):
+        """start_date and end_date must appear at the top level of the checkpoint."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "HallA", "type": SOURCE_ICAL, "url": "https://example.com/cal"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[_make_event("Booking")],
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        assert result["start_date"] == "2025-09-01", (
+            f"Expected start_date='2025-09-01', got {result.get('start_date')!r}"
+        )
+        assert result["end_date"] == "2025-12-01", (
+            f"Expected end_date='2025-12-01', got {result.get('end_date')!r}"
+        )
+
+    def test_checkpoint_sources_have_event_count_and_blocked(self, tmp_path):
+        """Each source entry must include event_count and blocked fields."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "HallA", "type": SOURCE_ICAL, "url": "https://example.com/cal"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[_make_event("Booking"), _make_event("Cup")],
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        src = result["sources"][0]
+        assert "event_count" in src, "Source entry must include event_count"
+        assert src["event_count"] == 2, f"Expected event_count=2, got {src['event_count']}"
+        assert "blocked" in src, "Source entry must include blocked"
+        assert src["blocked"] is False, "Non-blocked source must have blocked=False"
+
+    def test_start_end_date_preserved_with_no_sources(self, tmp_path):
+        """Date range fields must appear in the checkpoint even when sources list is empty."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = {"start_date": "2026-01-01", "end_date": "2026-06-30", "teams": []}
+        result = run(
+            cfg, state,
+            datetime(2026, 1, 1), datetime(2026, 6, 30),
+            strict=False,
+        )
+        assert result["start_date"] == "2026-01-01"
+        assert result["end_date"] == "2026-06-30"
+
+
+class TestHarnessGate:
+    """_check_stage2_checkpoint must proceed without calling any LLM."""
+
+    def test_returns_true_when_one_source_has_events(self, tmp_path):
+        """Gate must return True when at least one source has events."""
+        from unittest.mock import MagicMock
+        from rich.console import Console
+        from tournament_scheduler.cli.pipeline_orchestrator import _check_stage2_checkpoint
+
+        checkpoint = {
+            "sources": [
+                {"name": "HallA", "event_count": 5, "blocked": False},
+                {"name": "HallB", "event_count": 0, "blocked": True},
+            ],
+            "blocked": ["HallB"],
+        }
+        console = Console(file=open("/dev/null", "w"))
+        log_fn = MagicMock()
+
+        result = _check_stage2_checkpoint(checkpoint, True, console, log_fn, harness_active=True)
+
+        assert result is True
+
+    def test_does_not_call_lm_studio_client(self, tmp_path):
+        """Gate must proceed deterministically without importing or calling any LLM client."""
+        from unittest.mock import MagicMock, patch
+        from rich.console import Console
+        from tournament_scheduler.cli.pipeline_orchestrator import _check_stage2_checkpoint
+
+        checkpoint = {
+            "sources": [{"name": "HallA", "event_count": 3, "blocked": False}],
+            "blocked": [],
+        }
+        console = Console(file=open("/dev/null", "w"))
+        log_fn = MagicMock()
+
+        # Patch the LMStudio client to raise if it is ever instantiated
+        with patch(
+            "tournament_scheduler.llm_judge.get_judge_if_headless",
+            side_effect=AssertionError("LLM client must not be called in gate"),
+        ):
+            # The gate function itself does not call get_judge_if_headless
+            result = _check_stage2_checkpoint(checkpoint, True, console, log_fn, harness_active=True)
+
+        assert result is True

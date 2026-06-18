@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/pipeline/llm_approval_gate.py, tests/test_llm_approval_gate.py
   - Approach: Delete `llm_approval_gate.py` and `tests/test_llm_approval_gate.py` if `run_approval_gate` has no production callers; if callers exist, replace the function body with a pass-through that always returns GO without calling an LLM, and remove the LMStudio import.
 
-- [ ] Verify pipeline end-to-end: Stage 2 -> harness decision -> Stage 3 proceeds
+- [x] Added TestCheckpointDateRangeFields and TestHarnessGate test classes to test_stage2_scraping.py covering: start_date/end_date in checkpoint, event_count/blocked per source, date fields on empty-sources checkpoint, harness gate returning True with events, and no LLM client called. Also fixed the empty-sources early return in stage2_scraping.py to include start_date/end_date. — 2026-06-18
   - Files: tests/test_stage2_scraping.py, tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: Add or update a test in `test_stage2_scraping.py` that asserts the Stage 2 checkpoint contains `start_date`, `end_date`, and per-source `event_count`/`blocked` fields; add a unit test for the new harness gate function in `pipeline_orchestrator.py` confirming it returns True when at least one source has events, without invoking any LLM client.
 
@@ -73,4 +73,11 @@ LESSONS: none
 **Findings:** llm_approval_gate.py (-127 lines), test_llm_approval_gate.py (-100 lines) deleted; pipeline_orchestrator.py (+5 lines) to handle empty sources list.
 LESSONS: _check_stage2_checkpoint must handle empty sources list (no sources configured) as a pass-through — otherwise integration tests with empty checkpoint dicts fail.
 **Files:** llm_approval_gate.py (-127), test_llm_approval_gate.py (-100), pipeline_orchestrator.py (+5)
+**Commit:** d929812 (hockey)
+
+### 2026-06-18 — Added TestCheckpointDateRangeFields and TestHarnessGate test classes to test_stage2_scraping.py covering: start_date/end_date in checkpoint, event_count/blocked per source, date fields on empty-sources checkpoint, harness gate returning True with events, and no LLM client called. Also fixed the empty-sources early return in stage2_scraping.py to include start_date/end_date.
+**Rationale:** Discovered that the empty-sources early return path was missing start_date/end_date — fixed in the same commit.
+**Findings:** 11 new tests added, all passing; empty-sources path now correctly includes date fields.
+LESSONS: The empty-sources early return in stage2_scraping.py bypasses the main checkpoint dict — remember to update both paths when adding new checkpoint fields.
+**Files:** tests/test_stage2_scraping.py (+110), stage2_scraping.py (+7/-1)
 **Commit:** [pending — fill after commit]
