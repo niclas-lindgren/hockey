@@ -28,7 +28,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: At the point where `HtmlExporter(...).export(...)` is called (Stage 4 report generation), read `RVV_APPROVAL_ENDPOINT` and `RVV_APPROVAL_MODEL` env vars (same pattern as line 180); if the endpoint is set, instantiate `LMStudioClient` and pass it as `llm_client=` to `export()`. Wrap the instantiation in a try/except to handle unavailability gracefully.
 
-- [ ] Add unit tests for the new conclusion renderer
+- [x] Added 10 unit tests in tests/test_report_conclusion.py covering LLM happy path, None client, LMStudioUnavailableError, empty response, blocked sources, gate status, manual adjustments, and minimal plan. Also fixed .content -> .text in conclusion.py. — 2026-06-18
   - Files: tests/test_report_conclusion.py
   - Approach: Write tests covering: (a) LLM client returns a string — function returns that string; (b) client is None — function returns None; (c) `LMStudioUnavailableError` is raised — function returns None without propagating the error. Use a mock or stub for `LMStudioClient.complete()`.
 
@@ -70,4 +70,11 @@ LESSONS: none
 **Findings:** LLM client is instantiated only when RVV_APPROVAL_ENDPOINT is set; all failures are silently swallowed.
 LESSONS: none
 **Files:** pipeline_orchestrator.py (+12/-1), stage4_export.py (+2/-0)
+**Commit:** c44e548 (hockey)
+
+### 2026-06-18 — Added 10 unit tests in tests/test_report_conclusion.py covering LLM happy path, None client, LMStudioUnavailableError, empty response, blocked sources, gate status, manual adjustments, and minimal plan. Also fixed .content -> .text in conclusion.py.
+**Rationale:** Used MagicMock pattern consistent with test_llm_approval_gate.py.
+**Findings:** All 10 new tests pass; full suite clean.
+LESSONS: LLMResponse uses .text not .content — check this when mocking or using the response object
+**Files:** test_report_conclusion.py (+155/-0), conclusion.py (+1/-1)
 **Commit:** [pending — fill after commit]

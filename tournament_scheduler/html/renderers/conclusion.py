@@ -62,7 +62,7 @@ def generate_report_conclusion(
 
     try:
         response = client.complete(system=_SYSTEM_PROMPT, user=user_prompt)
-        text = response.content.strip() if hasattr(response, "content") else str(response).strip()
+        text = response.text.strip() if hasattr(response, "text") else str(response).strip()
         return text if text else None
     except LMStudioUnavailableError:
         return None
