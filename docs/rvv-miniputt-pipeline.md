@@ -171,6 +171,41 @@ Typical recovery loop:
 3. if a JS source is still blocked, try `rvv-miniputt scrape-llm --club NAME`
 4. rebuild calendars with `rvv-miniputt calendars`
 
+## Headless / CI usage
+
+When the pipeline runs without an active harness session (for example in a cron job or CI
+pipeline), the in-session LLM judge is not available. A headless judge backend can be
+configured instead so that inter-stage judgment still happens.
+
+Set `RVV_JUDGE_BACKEND` before running the pipeline:
+
+```bash
+# Use the Anthropic Claude API as the judge
+export RVV_JUDGE_BACKEND=claude
+export ANTHROPIC_API_KEY=sk-ant-...
+scripts/rvv-miniputt run --input input.xlsx --export-dir export
+
+# Use the OpenAI API as the judge
+export RVV_JUDGE_BACKEND=openai
+export OPENAI_API_KEY=sk-...
+scripts/rvv-miniputt run --input input.xlsx --export-dir export
+
+# Use a locally-running LLM via LM Studio / llm-bridge (no API key required)
+export RVV_JUDGE_BACKEND=llm_bridge
+scripts/rvv-miniputt run --input input.xlsx --export-dir export
+```
+
+If `RVV_JUDGE_BACKEND` is not set and no harness session is detected, the pipeline
+skips inter-stage judgment and logs a warning instead of failing.
+
+### Required environment variables per backend
+
+| `RVV_JUDGE_BACKEND` | Required env var | Notes |
+|---------------------|-----------------|-------|
+| `claude`            | `ANTHROPIC_API_KEY` | Uses Anthropic Messages API |
+| `openai`            | `OPENAI_API_KEY`    | Uses OpenAI Chat Completions API |
+| `llm_bridge`        | — | Requires LM Studio running at `host.lima.internal:1234` |
+
 ## Notes
 
 - The scheduler is season-based, not a single-tournament planner.

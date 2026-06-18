@@ -30,7 +30,7 @@
   - Files: tests/test_llm_judge.py, tests/test_pipeline_orchestrator_judgment.py
   - Approach: Test `is_harness_active()` by setting/unsetting the relevant env vars; mock httpx/SDK calls to verify each backend sends the right payload and surfaces errors; test that `_cmd_run()` calls the judge between stages when headless and skips it when a harness env var is set.
 
-- [ ] Document the headless judge configuration in docs and CLI help
+- [x] Added Headless / CI usage section to docs/rvv-miniputt-pipeline.md covering RVV_JUDGE_BACKEND values and required API keys; added inline comment to run subparser in args.py pointing to the doc. — 2026-06-18
   - Files: README.md, docs/rvv-miniputt-pipeline.md
   - Approach: Add a short "Headless / CI usage" section explaining `RVV_JUDGE_BACKEND` values and any required API key env vars (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`); update CLI `--help` output or inline comments in `rvv_cli.py` to mention `RVV_JUDGE_BACKEND`.
 
@@ -88,4 +88,11 @@ LESSONS: none
 **Findings:** All 23 tests pass; URLError handling, malformed responses, and missing API keys all verified.
 LESSONS: orchestrator _cmd_run imports stages lazily inside the function body — unit-testing it requires mocking many pipeline modules; cover via integration test or accept coverage from unit tests on the building blocks
 **Files:** tests/test_llm_judge.py (+226)
+**Commit:** cd0aad8 (hockey)
+
+### 2026-06-18 — Added Headless / CI usage section to docs/rvv-miniputt-pipeline.md covering RVV_JUDGE_BACKEND values and required API keys; added inline comment to run subparser in args.py pointing to the doc.
+**Rationale:** Straightforward doc addition — no existing CI section existed in the pipeline guide.
+**Findings:** docs/rvv-miniputt-pipeline.md gains a table of backends and example export commands; args.py gains a comment block directing operators to the doc
+LESSONS: none
+**Files:** docs/rvv-miniputt-pipeline.md (+35/-0), tournament_scheduler/cli/args.py (+10/-0)
 **Commit:** [pending — fill after commit]

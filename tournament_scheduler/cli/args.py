@@ -77,10 +77,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Treat blocked sources as an operator-approved skip and keep partial results",
     )
     run.add_argument(
-        "--timestamped-export",
-        action="store_true",
-        help="Write exports to a timestamped subfolder (diffable between runs)",
+        "--no-timestamped-export",
+        dest="timestamped_export",
+        action="store_false",
+        help="Write exports flat into --export-dir instead of a timestamped subfolder",
     )
+    run.set_defaults(timestamped_export=True)
+    # Headless / CI judge backend: set RVV_JUDGE_BACKEND=claude|openai|llm_bridge
+    # plus the matching API key (ANTHROPIC_API_KEY / OPENAI_API_KEY) to enable
+    # inter-stage LLM judgment when no harness session is present.
+    # See docs/rvv-miniputt-pipeline.md §"Headless / CI usage" for details.
 
     # logs
     logs = sub.add_parser("logs", help="Show structured pipeline run logs")
