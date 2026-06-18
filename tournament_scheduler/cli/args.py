@@ -166,6 +166,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Save PNG screenshots at each navigation step to export/debug-screenshots/",
     )
 
+    # recovery-targets — list blocked/zero-event sources from Stage 2 checkpoint
+    recovery = sub.add_parser(
+        "recovery-targets",
+        help="List blocked or zero-event sources from the Stage 2 checkpoint as JSON",
+    )
+    recovery.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
     # cancel
     cancel = sub.add_parser("cancel", help="Cancel a tournament and suggest/reschedule makeup dates")
     cancel.add_argument(

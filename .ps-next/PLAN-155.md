@@ -10,7 +10,7 @@
   - Files: .claude/commands/rvv-miniputt/run.md, .agents/skills/rvv/SKILL.md
   - Approach: Insert a new section in the run.md command instructions that tells the agent, after `rvv-miniputt scrape` completes, to read `.pipeline/stage2_scraping.json` and inspect `blocked_sources` and `sources_with_zero_events` before invoking Stage 3.
 
-- [ ] Build a Python helper CLI command that reads the Stage 2 checkpoint and prints recovery targets as JSON
+- [x] Created recovery_cli.py with _cmd_recovery_targets(), added recovery-targets subparser to args.py, and wired the handler in rvv_cli.py. The command reads .pipeline/stage2_scraping.json and emits a JSON array of {name, url, reason, block_reason, llm_fallback} for each blocked or zero-event (non-skipped) source. — 2026-06-18
   - Files: tournament_scheduler/cli/recovery_cli.py, tournament_scheduler/cli/__init__.py, tournament_scheduler/cli/rvv_cli.py
   - Approach: Add a `rvv-miniputt recovery-targets` subcommand that reads `.pipeline/stage2_scraping.json`, merges `blocked_sources` and `sources_with_zero_events`, calls `_recovery_hint_for_source()` from `scraper_recovery.py` to get the URL per source, and prints a JSON array of `{name, url, reason}` objects the agent can consume.
 
@@ -56,4 +56,11 @@
 **Findings:** The stage2 checkpoint stores per-source data under data.sources (each entry has event_count, blocked, block_reason, llm_fallback). The top-level data.blocked list mirrors sources where blockedtrue. Zero-event sources are those with event_count0 and blockedfalse.
 LESSONS: none
 **Files:** .claude/commands/rvv-miniputt/run.md (+13/-0)
+**Commit:** abdde5e (hockey)
+
+### 2026-06-18 — Created recovery_cli.py with _cmd_recovery_targets(), added recovery-targets subparser to args.py, and wired the handler in rvv_cli.py. The command reads .pipeline/stage2_scraping.json and emits a JSON array of {name, url, reason, block_reason, llm_fallback} for each blocked or zero-event (non-skipped) source.
+**Rationale:** none
+**Findings:** The stage2 checkpoint wraps source data under data.sources (not top-level). Sources with skippedTrue are correctly excluded from recovery targets. Sandefjord currently has event_count0 but skippedTrue so it is not emitted.
+LESSONS: none
+**Files:** tournament_scheduler/cli/recovery_cli.py (+71), args.py (+11), rvv_cli.py (+3)
 **Commit:** [pending — fill after commit]
