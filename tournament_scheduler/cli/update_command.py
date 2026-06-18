@@ -225,6 +225,8 @@ class AdjustmentCommand:
 
         TournamentOutput.print_success("Manuelle justeringer brukt!")
         TournamentOutput.print_info(result.summary_nb)
+        for warning in result.post_patch_warnings:
+            TournamentOutput.print_warning(warning)
         TournamentOutput.print_info(f"Plan oppdatert: {work_path}/stage3_planning.json")
         if log_path:
             TournamentOutput.print_info(f"Logget til: {log_path}")

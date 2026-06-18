@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/pipeline/manual_adjustment_workflow.py
   - Approach: After `_refresh_plan_metadata()` completes inside `apply()`, call `_collect_post_patch_warnings()` and assign the result to `UpdateResult.post_patch_warnings`, ensuring the planner state is already fresh (it is, because `_prime_planner()` runs before `_refresh_plan_metadata()`).
 
-- [ ] Surface post-patch warnings in CLI/reporting output
+- [x] Added a loop in both update_command.py and review_command.py that calls TournamentOutput.print_warning(w) for each entry in result.post_patch_warnings, displayed between the summary line and the plan-path info line. — 2026-06-18
   - Files: tournament_scheduler/pipeline/manual_adjustment_workflow.py, tournament_scheduler/utils/rich_output.py
   - Approach: After `apply()` returns, check `result.post_patch_warnings` and print each warning using the Rich output helper (following the existing warning print pattern used in `season_command.py`), so organizers see the warnings without inspecting the returned dict directly.
 
@@ -61,4 +61,11 @@ LESSONS: none
 **Findings:** All 418 tests pass; post_patch_warnings is now populated on every apply() call.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/manual_adjustment_workflow.py (+2/-0)
+**Commit:** 8945ca5 (hockey)
+
+### 2026-06-18 — Added a loop in both update_command.py and review_command.py that calls TournamentOutput.print_warning(w) for each entry in result.post_patch_warnings, displayed between the summary line and the plan-path info line.
+**Rationale:** none
+**Findings:** All 418 tests pass; warnings now surface to the organizer immediately after manual adjustments are applied in both CLI paths.
+LESSONS: none
+**Files:** tournament_scheduler/cli/review_command.py (+2/-0), tournament_scheduler/cli/update_command.py (+2/-0)
 **Commit:** [pending — fill after commit]
