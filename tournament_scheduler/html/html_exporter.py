@@ -378,17 +378,6 @@ class HtmlExporter:
             "warn": "Prioriter varsler og klubbpunkter f\u00f8r du vurderer om planen er god nok.",
             "fail": "Rett kritiske punkter, kj\u00f8r planlegging/eksport p\u00e5 nytt og kontroller rapporten igjen.",
         }
-        judgment_tone = str(judgment.get("tone", "mixed"))
-        judgment_addendum = {
-            "strong": " Min egen vurdering: dette holder faktisk godt.",
-            "mixed": " Min egen vurdering: dette er brukbart, men litt mer skjørt enn tallene alene sier.",
-            "rough": " Min egen vurdering: dette er ikke klart ennå.",
-        }.get(judgment_tone, "")
-        judgment_note_addendum = {
-            "strong": " Jeg ville primært brukt denne som bekreftelse, ikke som advarsel.",
-            "mixed": " Jeg ville lest dette som et tegn på at den er nær, men ikke helt i mål.",
-            "rough": " Her bør du stole mer på den kritiske lesningen enn på det positive toppsjiktet.",
-        }.get(judgment_tone, "")
 
         active_tournaments = [t for t in plan.tournaments if not t.cancelled]
         active_tournaments.sort(key=lambda t: (t.date or plan.end_date, t.age_group, t.host_club or "", t.arena))
@@ -411,6 +400,9 @@ class HtmlExporter:
             return f"{club} (ingen lag i planen)" if club not in team_clubs else club
 
         metric_warnings = [m for m in gate.get("metrics", []) if isinstance(m, dict) and m.get("status") in {"warn", "fail"}]
+        status_priority = {"fail": 0, "warn": 1}
+        weakest_metric = sorted(metric_warnings, key=lambda m: (status_priority.get(str(m.get("status", "warn")), 1), m.get("score", 100)))[0] if metric_warnings else None
+        weakest_metric_name = str(weakest_metric.get("label", "")) if weakest_metric else None
         actions: list[tuple[str, str, str]] = []
         if gate_status in {"warn", "fail"}:
             actions.append((gate_status, "Ser planen jevn ut?", f"Samlet status er {status_labels.get(gate_status, gate_status).lower()} med score {gate.get('score', 0)}%."))
@@ -427,8 +419,17 @@ class HtmlExporter:
         if not actions:
             actions.append(("pass", "Ingen kritiske handlinger", "G\u00e5 videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
 
-        answer = answer_by_status.get(overall_status, answer_by_status["warn"]) + judgment_addendum
-        note = note_by_status.get(overall_status, note_by_status["warn"]) + judgment_note_addendum
+        _answer_base = answer_by_status.get(overall_status, answer_by_status["warn"])
+        _note_base = note_by_status.get(overall_status, note_by_status["warn"])
+        _detail_parts: list[str] = []
+        if weakest_metric_name:
+            _detail_parts.append(f"Svakeste metrikk: {weakest_metric_name}.")
+        if blocked:
+            _detail_parts.append(f"{len(blocked)} kilde(r) blokkert.")
+        if cancelled_count:
+            _detail_parts.append(f"{cancelled_count} turnering(er) avlyst.")
+        answer = _answer_base + (" " + " ".join(_detail_parts) if _detail_parts else "")
+        note = _note_base
 
         age_rows: list[str] = []
         for age_group in display_age_groups:

@@ -278,7 +278,7 @@ class TestRunStage4:
         assert 'id="reportOverview"' in report_html
         assert 'Kan planen brukes?' in report_html
         assert 'Hva må sjekkes eller endres?' in report_html
-        assert 'Min egen vurdering: dette er brukbart' in report_html or 'Min egen vurdering: dette holder faktisk godt.' in report_html
+        assert 'Ja, planen ser brukbar ut for klubbvis gjennomgang.' in report_html or 'Nesten, men punktene under' in report_html or 'Ikke ennå.' in report_html
         assert 'Hva skjer per aldersgruppe?' in report_html
         assert 'Hva må hver klubb vurdere?' in report_html
         assert 'Turneringer som skal gjennomgås' in report_html
@@ -291,7 +291,7 @@ class TestRunStage4:
         assert report_html.index('Hva må sjekkes eller endres?') < report_html.index('Detaljerte måltall og kontroller')
         assert report_html.index('Ser planen jevn ut?') < report_html.index('Detaljerte måltall og kontroller')
         assert report_html.index('id="opinionatedJudgment"') < report_html.index('id="detailedDiagnosticsIntro"')
-        assert report_html.index('id="reportOverview"') < report_html.index('Min egen vurdering')
+        assert report_html.index('id="reportOverview"') < report_html.index('Egen vurdering')
         assert old_gate_label not in report_html
         assert old_adjustment_label not in report_html
         assert 'Rådgivende kontroll' in report_html
@@ -533,3 +533,51 @@ class TestRunStage4:
         state = PipelineState(tmp_path / "pipeline")
         with pytest.raises(Stage4Error, match="Stage 3"):
             run({}, state, export_dir=str(tmp_path / "export"), strict=True)
+
+    def test_conclusion_injects_weakest_metric_name(self, tmp_path):
+        """Conclusion must include weakest metric label when metric_warnings exist."""
+        data = _make_plan_dict()
+        data["plan"]["fairness_gate"] = {
+            "status": "warn",
+            "score": 70,
+            "metrics": [
+                {"label": "Kampbalanse", "value": 3, "threshold": 2, "status": "warn", "score": 60, "unit": "", "detail": "Ujevn fordeling."},
+                {"label": "Hjemmebanebelastning", "value": 1.5, "threshold": 1, "status": "fail", "score": 40, "unit": "", "detail": "For stor belastning."},
+            ],
+        }
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(data, state, export_dir=str(tmp_path / "export"))
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        # Weakest metric is "Hjemmebanebelastning" (status=fail, score=40)
+        assert "Svakeste metrikk: Hjemmebanebelastning" in report_html
+
+    def test_conclusion_injects_blocked_count(self, tmp_path):
+        """Conclusion must include blocked source count when blocked sources exist."""
+        data = _make_plan_dict()
+        state = PipelineState(tmp_path / "pipeline")
+        # Write scraping stage with blocked sources so stage4 picks them up
+        state.write_stage(
+            StageName.SCRAPING,
+            {"sources": [], "blocked": ["Ringerike", "Tønsberg"]},
+        )
+        result = run(data, state, export_dir=str(tmp_path / "export"))
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        assert "2 kilde(r) blokkert." in report_html
+
+    def test_conclusion_injects_cancelled_count(self, tmp_path):
+        """Conclusion must include cancellation count when cancelled tournaments exist."""
+        data = _make_plan_dict()
+        # Add a cancelled tournament
+        data["plan"]["tournaments"].append({
+            "date": "2025-11-08",
+            "arena": "Kongsberghallen",
+            "age_group": "U10",
+            "host_club": "Kongsberg",
+            "teams": [],
+            "games": [],
+            "cancelled": True,
+        })
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(data, state, export_dir=str(tmp_path / "export"))
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        assert "1 turnering(er) avlyst." in report_html
