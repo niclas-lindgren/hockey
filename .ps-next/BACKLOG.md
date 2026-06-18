@@ -2,7 +2,56 @@
 
 ## Open
 
+- [149] [ ] Update PS:next skill and PS-auto-worker to support LLM-judge steps in task plans: currently PLAN.md tasks are purely deterministic (write code, run tests, commit). Add support for a 'judge' task type that invokes PS-llm-judge, captures structured findings, and branches — continue if verdict=pass, propose fixes and loop if verdict=warn, escalate to human if verdict=fail after N retries. Must work across Claude Code, Pi, ChatGPT, and OpenCode harnesses by delegating to the harness-agnostic judge interface.
+
+- [148] [ ] Implement PS-llm-judge agent type usable from PS-auto-worker and PS-plan-worker: a reusable agent that takes (artifact, criteria, output_schema) and returns structured evaluation results. Must work when invoked from Claude Code (via Agent tool), Pi (via extension), ChatGPT/OpenCode (via MCP or tool call), or standalone CLI (via scripts/rvv-miniputt). The agent should not contain harness-specific code — harness adapters live in the interface layer from the companion backlog item. Acceptance: the same judge logic runs identically whether the outer harness is Claude, Pi, or ChatGPT.
+
+- [146] [ ] Add LLM approval gate before Stage 4 export: after Stage 3 (and any adjustment loop), have an LLM make a go/no-go call on the plan with a short rationale. If go: proceed to export. If no-go: print the specific blockers and proposed changes, then wait for operator confirmation or auto-apply if --non-strict is set. This is the step that lets the pipeline run fully autonomously on the happy path without a human reviewing the report.
+
+- [145] [ ] Add scraping confidence assessment after Stage 2: before Stage 3 begins, pass the scraping summary (source names, event counts, date ranges covered, blocked sources) to an LLM and ask it to assess whether the data looks complete and trustworthy. Flag sources that look suspiciously sparse relative to their expected volume, or date ranges with unexplained gaps. Output surfaced as a Stage 2 warning in the CLI and report.
+
+- [144] [ ] Replace static report conclusion with LLM-generated narrative: instead of picking from 3 hardcoded strings based on fairness_gate.status, pass the plan metrics, score breakdown, blocked sources, and adjustment history to an LLM and ask it to write a short (3–5 sentence) run-specific assessment in Norwegian. This is the conclusion section in _report_overview_html. See also #136 for the data injection groundwork.
+
+- [143] [ ] Add LLM semantic config validation in Stage 1: schema validation catches typos but not infeasible plans. After parsing input.xlsx, pass the key constraints to an LLM and ask it to flag semantic issues — e.g. 'you have 9 tournaments for U7 but only 3 host clubs and 5 available weekends — this will likely fail or produce poor spread'. Emit these as pre-planning warnings so the operator can fix the config before Stage 3 runs.
+
+- [142] [ ] Add LLM-driven automated adjustment loop between Stage 3 and Stage 4: if the plan critic finds fixable issues, have the LLM propose specific moves (tournament, from-date, to-date, reason), execute them via the existing manual_adjustment_workflow, then re-evaluate with the critic. Iterate up to N times (configurable). Only escalate to human when issues remain after N iterations or when a move requires human knowledge (e.g. club preference). This is the core step that removes human review from the happy path.
+
+- [141] [ ] Add LLM plan critic step after Stage 3: after _pick_spread_dates completes, call an LLM with the full plan JSON + scoring breakdown and ask it to produce a ranked list of issues with specific fix proposals (e.g. 'club X hosts 3 out of 4 weekends in October — consider moving tournament Y to November'). Output goes into the plan checkpoint and surfaces in the CLI summary. Goal: operator reads 5 bullet points instead of a 147KB HTML report.
+
+- [140] [ ] Add subjective weight to planning stage: (1) add preferanse_vekt: float = 0.0 to the Tournament dataclass and parse it from the Excel input sheet; (2) add a new Datopreferanser sheet (fra, til, vekt columns) for global date-range penalties (e.g. Easter weekend); (3) inject both as an additive term in SeasonPlanner._score_candidate_date (positive=penalise, negative=reward); (4) cap weight magnitude and expose weight components in plan JSON and CLI summary. See .notes/improvements.md for full design sketch.
+
+- [139] [ ] Move the calendar heatmap immediately after the hero block in the report — it is the fastest way to see the season shape at a glance but currently appears well below the fold.
+
+- [138] [ ] Add issue count to the hero verdict pill in the report: the action list exists but its count is not summarised in the verdict block, forcing the reader to scroll to discover whether anything needs fixing.
+
+- [137] [ ] Restructure report layout: (1) move the judgment block ($JUDGMENT$) up to immediately follow the hero verdict instead of appearing after 8 data sections; (2) collapse the advisory review section (review.py) behind a <details> toggle by default — it duplicates content already shown as action items; (3) group numeric detail sections (scores, metrics, fairness adjustments, club dashboard, team stats, travel stats) under a single collapsible Detaljer accordion.
+
+- [136] [ ] Make the report's subjective conclusion dynamic: _report_overview_html currently has three static hardcoded string branches with no per-run data. Inject: tournament count + month span, the weakest named score metric + its value, most-travelling team and distance, number of blocked sources, and the specific fairness gate sub-metric that triggered warn/fail.
+
+- [135] [ ] Fix stage1_helpers.validate_config path resolution: currently checks Path(teams_val).exists() with no CWD anchor, so the check passes/fails based on the process launch directory rather than the location of input.xlsx. Resolve relative to input_path.
+
+- [134] [ ] Add duplicate label detection in stage1_helpers._validate_team_list — two teams with the same label cause silent collisions in stage3's _find_team lookup.
+
+- [133] [ ] Move hardcoded URL substring checks (baerumishall.no, bookup.no) from stage2_scraping._scrape_source dispatch block into scraper_strategies.py alongside get_strategy/needs_llm_agent — adding a new special-case source currently requires editing the core scraping loop.
+
+- [132] [ ] Remove dead _tournament_from_dict import in stage3_planning.py — the function is imported but never called anywhere in the pipeline.
+
+- [131] [ ] Remove stage2_helpers.py re-export facade — it adds no value over importing directly from the real sub-modules; update stage2_scraping.py to import from sub-modules directly.
+
+- [130] [ ] Rename stage1_helpers._load_json to _load_workbook_config — the function loads an Excel workbook, not JSON; the misname is an acknowledged lie in its own docstring. Add an import alias to preserve call sites.
+
+- [129] [ ] Add logging in stage3_helpers._build_events_by_club when malformed events are silently dropped — bare except/continue hides calendar conflicts from operators.
+
+- [128] [ ] Fix stage2_scraping._scrape_source credentialed fallback: only fall through to credentialed scrape when deterministic scrape succeeded but returned 0 events — not when it raised an exception (network timeout, parse crash).
+
+- [127] [ ] Raise on missing tournament date in stage4_helpers._dict_to_plan instead of silently defaulting to date.today() — a missing date should be a clear error, not a silent wrong value.
+
+- [126] [ ] Fix scrape_age always empty in stage4_export.py: updated_at is an envelope field but is read via read_stage (data payload only) — switch to state.read_envelope(StageName.SCRAPING) to get the real timestamp.
+
+- [125] [ ] Fix double _invalidate_downstream calls in all pipeline stages: write_stage(status=DONE/FAILED) and mark_done/mark_failed both call _invalidate_downstream — remove the redundant mark_done/mark_failed calls from stage1–4 run functions and make write_stage the single place that sets final status.
+
 ## Done
+- [147] [x] Design and implement a harness-agnostic LLM judge interface for the pipeline: define a thin adapter layer so the plan critic, approval gate, and scraping confidence checks can call any LLM backend — Claude (claude-code/API), Pi, ChatGPT (OpenAI API), OpenCode, or a local model via llm-bridge — without the pipeline caring which one is active. The interface should accept a structured prompt + artifact (JSON), return structured findings (issues[], verdict, rationale). Backend is selected by an env var or Innstillinger config key. All backends must produce the same output schema so pipeline logic is identical regardless of model. (2026-06-18)
 - [124] [x] Re-evaluate fairness warnings after manual adjustments: manual_adjustment_workflow.py currently patches the plan without re-running game count spread, hosting deviation, or month load checks — add a post-patch warnings pass (2026-06-18)
 - [123] [x] Add consecutive hosting warning in warnings.py: fire a warning when any club is assigned to host on two weekends within 7 days of each other (2026-06-17)
 - [122] [x] Prevent consecutive weekend hosting: change host_assignment.py sort key to use date-based recency instead of tournament index, so a club cannot be assigned to host two weekends in a row (2026-06-17)
