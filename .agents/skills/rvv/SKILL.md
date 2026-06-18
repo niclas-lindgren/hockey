@@ -223,6 +223,67 @@ The pipeline saves checkpoints in `.pipeline/`:
 
 Resume from any stage with `--resume-from N`.
 
+### Claude Code: stage-by-stage orchestration
+
+When running inside Claude Code (not Pi), invoke each stage individually and review its checkpoint before proceeding. This mirrors the inter-stage pause logic in Pi's `pipeline-runner.ts`.
+
+**Stage 1 — Config**
+
+```bash
+python3 -m tournament_scheduler.pipeline.stage1_config [--input input.xlsx] [--work-dir .pipeline]
+```
+
+Read `.pipeline/stage1_config.json` and verify before continuing:
+- `teams` is non-empty and contains all 9 RVV clubs
+- `age_groups` is populated
+- `parallel_games` config is present
+- `target_tournament_count` ≥ 1
+- `sources` list is non-empty
+
+**Stage 2 — Scraping**
+
+```bash
+python3 -m tournament_scheduler.pipeline.stage2_scraping [--work-dir .pipeline] [--force-refresh] [--non-strict] [--allow-missing-sources]
+```
+
+Read `.pipeline/stage2_scraping.json` and verify before continuing:
+- `sources` contains scraped events for the expected clubs
+- `blocked` list is empty (or user has approved the missing sources)
+- Note any `cached` sources that were not re-fetched
+
+**Stage 3 — Planning**
+
+```bash
+python3 -m tournament_scheduler.pipeline.stage3_planning [--work-dir .pipeline]
+```
+
+Read `.pipeline/stage3_planning.json` and verify before continuing:
+- `plan` is present and contains a non-empty list of tournaments
+- Each tournament has a date, host club, and age group
+- No two tournaments with overlapping player pools share a weekend
+- `rules_report` shows no critical violations
+
+**Stage 4 — Export**
+
+```bash
+python3 -m tournament_scheduler.pipeline.stage4_export [--work-dir .pipeline] [--export-dir export] [--no-timestamped-export]
+```
+
+Read `.pipeline/stage4_export.json` and report:
+- Files written under `export/` (or the timestamped subfolder)
+- Any `errors` in the checkpoint
+
+**Checkpoint review helper**
+
+Pretty-print any checkpoint in compact human-readable form:
+
+```bash
+python3 -m tournament_scheduler.cli.checkpoint_printer stage1
+python3 -m tournament_scheduler.cli.checkpoint_printer stage2
+python3 -m tournament_scheduler.cli.checkpoint_printer stage3
+python3 -m tournament_scheduler.cli.checkpoint_printer stage4
+```
+
 ## Output files
 
 After a successful run:

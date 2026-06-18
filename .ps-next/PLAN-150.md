@@ -13,7 +13,7 @@
   - Files: `.claude/commands/rvv-miniputt/run.md`
   - Approach: Replace the current black-box `scripts/rvv-miniputt run` call with step-by-step instructions that direct Claude to invoke each stage individually via `python -m tournament_scheduler.pipeline.stage1_config`, then read `.pipeline/stage1_config.json`, evaluate the output, and only proceed to the next stage if the data looks correct — mirroring the inter-stage pause logic in `pipeline_orchestrator.py`'s `_judge_stage`.
 
-- [ ] Add a Claude-native checkpoint reviewer helper to the skill documentation
+- [x] Added a 'Claude Code: stage-by-stage orchestration' section to SKILL.md with per-stage invocation commands, checkpoint verification criteria, and the checkpoint_printer helper. — 2026-06-18
   - Files: `.agents/skills/rvv/SKILL.md`
   - Approach: Document the stage-by-stage flow for Claude Code in SKILL.md — listing what each stage writes to `.pipeline/`, what Claude should look for in the checkpoint JSON before proceeding, and what commands to use to resume from a specific stage (`--resume-from N`).
 
@@ -50,4 +50,11 @@ When the pipeline is run, it does not call any subprocesses or external scripts 
 **Findings:** Checkpoint JSON paths and verification criteria documented for all 4 stages.
 LESSONS: none
 **Files:** .claude/commands/rvv-miniputt/run.md (+75/-11)
+**Commit:** b174df4 (hockey)
+
+### 2026-06-18 — Added a 'Claude Code: stage-by-stage orchestration' section to SKILL.md with per-stage invocation commands, checkpoint verification criteria, and the checkpoint_printer helper.
+**Rationale:** Section mirrors Pi's pipeline-runner.ts pause logic and documents what Claude should verify in each checkpoint JSON before proceeding.
+**Findings:** Per-stage verification criteria added for all 4 stages including blocked-source handling and rules_report check.
+LESSONS: none
+**Files:** .agents/skills/rvv/SKILL.md (+61/-0)
 **Commit:** [pending — fill after commit]
