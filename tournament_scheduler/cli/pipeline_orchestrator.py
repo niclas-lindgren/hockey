@@ -491,6 +491,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 end,
                 strict=strict,
                 allow_missing_sources=allow_missing_sources,
+                no_llm_scrape=getattr(args, "no_llm_scrape", False),
             )
             n = len(scraping.get("sources", []))
             blocked = scraping.get("blocked", [])

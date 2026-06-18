@@ -403,6 +403,10 @@ if __name__ == "__main__":  # pragma: no cover
         "--force-refresh", action="store_true",
         help="Ignore the unified scrape cache and re-scrape every source"
     )
+    parser.add_argument(
+        "--no-llm-scrape", action="store_true",
+        help="Skip LLM fallback scraping for blocked sources"
+    )
     cli_args = parser.parse_args()
 
     from .state import PipelineState, StageName  # noqa: E402
@@ -424,6 +428,7 @@ if __name__ == "__main__":  # pragma: no cover
             strict=not cli_args.non_strict,
             allow_missing_sources=cli_args.allow_missing_sources,
             force_refresh=cli_args.force_refresh,
+            no_llm_scrape=cli_args.no_llm_scrape,
         )
         n_sources = len(_result.get("sources", []))
         blocked = _result.get("blocked", [])

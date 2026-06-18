@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/pipeline/stage2_scraping.py, tournament_scheduler/pipeline/llm_scraper.py
   - Approach: Add `no_llm_scrape: bool = False` parameter to `run()`. After the ThreadPoolExecutor finishes (after the `for future in as_completed(...)` block), iterate over `source_results` for entries where `blocked=True` and `llm_fallback=True`. For each, when `no_llm_scrape=False`, instantiate `StrategyDrivenScraper` (from `llm_scraper.py`) and call `run(url, name, start_date, end_date, initial_navigation=..., month_selector=..., event_pattern=...)` using fields from `source_result["llm_strategy"]`. If it returns events, update the source_result in-place: set `blocked=False`, populate `events` and `event_count`, keep `llm_fallback=True`. Remove the source from `blocked` if it was added there. (`_scrape_source` already marks `llm_fallback=True` — no changes needed there.)
 
-- [ ] Add --no-llm-scrape CLI flag to pipeline_orchestrator.py and thread it to stage2_run()
+- [x] Added --no-llm-scrape to args.py run subparser, passed it via getattr to stage2_run() in pipeline_orchestrator.py, and added matching flag with pass-through in stage2_scraping.py __main__ block. — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Add `--no-llm-scrape` argparse argument to the `run` subparser in `pipeline_orchestrator.py` (add `parser_run.add_argument("--no-llm-scrape", action="store_true")`). Pass `no_llm_scrape=args.no_llm_scrape` to the `stage2_run()` call at line ~487. Also add `--no-llm-scrape` to the `__main__` CLI block in `stage2_scraping.py` so the module can be run standalone with this flag.
 
@@ -55,4 +55,11 @@ Key patterns:
 **Findings:** LLM fallback loop executes after main scraper loop; if StrategyDrivenScraper returns events, source is unblocked in-place and removed from blocked list.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (+31/-0)
+**Commit:** 6b5c25e (hockey)
+
+### 2026-06-18 — Added --no-llm-scrape to args.py run subparser, passed it via getattr to stage2_run() in pipeline_orchestrator.py, and added matching flag with pass-through in stage2_scraping.py __main__ block.
+**Rationale:** Used getattr(args, 'no_llm_scrape', False) for defensive access since args may come from different contexts.
+**Findings:** Flag wired through all three touch points; no_llm_scrape defaults to False so existing behavior is unchanged.
+LESSONS: none
+**Files:** args.py (+5/-0), pipeline_orchestrator.py (+1/-0), stage2_scraping.py (+5/-0)
 **Commit:** [pending — fill after commit]
