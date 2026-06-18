@@ -1,0 +1,62 @@
+"""LLM judge package — backend-agnostic interface for headless pipeline evaluation.
+
+Usage::
+
+    from tournament_scheduler.llm_judge import create_judge
+
+    judge = create_judge()          # reads RVV_JUDGE_BACKEND env var
+    response = judge.judge(prompt)
+
+Supported backends (value of RVV_JUDGE_BACKEND):
+    claude      — Anthropic Claude API (requires ANTHROPIC_API_KEY)
+    openai      — OpenAI Chat Completions API (requires OPENAI_API_KEY)
+    llm_bridge  — Local LM Studio / llm-bridge at localhost:1234
+"""
+
+import os
+
+from .backends import ClaudeJudgeBackend, LLMBridgeJudgeBackend, OpenAIJudgeBackend
+from .interface import LLMJudge
+
+_BACKENDS: dict[str, type[LLMJudge]] = {
+    "claude": ClaudeJudgeBackend,
+    "openai": OpenAIJudgeBackend,
+    "llm_bridge": LLMBridgeJudgeBackend,
+}
+
+
+def create_judge(backend: str | None = None) -> LLMJudge:
+    """Instantiate and return the appropriate LLM judge backend.
+
+    Args:
+        backend: One of ``"claude"``, ``"openai"``, or ``"llm_bridge"``.
+                 If *None*, the value of the ``RVV_JUDGE_BACKEND`` environment
+                 variable is used.
+
+    Returns:
+        A concrete :class:`LLMJudge` instance ready to call.
+
+    Raises:
+        ValueError: If *backend* is missing or not one of the known values.
+    """
+    backend = backend or os.environ.get("RVV_JUDGE_BACKEND", "")
+    if not backend:
+        raise ValueError(
+            "No judge backend specified. Set RVV_JUDGE_BACKEND to one of: "
+            + ", ".join(_BACKENDS)
+        )
+    if backend not in _BACKENDS:
+        raise ValueError(
+            f"Unknown judge backend {backend!r}. Valid values: "
+            + ", ".join(_BACKENDS)
+        )
+    return _BACKENDS[backend]()
+
+
+__all__ = [
+    "LLMJudge",
+    "ClaudeJudgeBackend",
+    "OpenAIJudgeBackend",
+    "LLMBridgeJudgeBackend",
+    "create_judge",
+]
