@@ -41,6 +41,19 @@ After success, read `.pipeline/stage2_scraping.json` and verify:
 - `blocked` list (sources that failed) is empty or explicitly approved by the user
 - `cached` sources are noted for transparency
 
+**Recovery check — blocked and empty sources:**
+Inspect `data.blocked` and `data.sources` from the checkpoint:
+1. **Blocked sources:** Any entry in `data.blocked`, or any source in `data.sources` where `blocked == true`. These failed entirely — no events were retrieved.
+2. **Zero-event sources:** Any source in `data.sources` where `event_count == 0` and `blocked == false`. These scraped successfully but returned no calendar events (may indicate a layout change, empty season, or wrong URL).
+
+For each blocked or zero-event source, report:
+- Source name and URL
+- `block_reason` (if blocked)
+- Whether `llm_fallback` was attempted
+- Suggested recovery: try `--force-refresh` for a transient failure; if the issue persists, check the source URL manually or add an LLM-assisted scraper for that source
+
+Do **not** proceed to Stage 3 if any sources are blocked and `--non-strict` was not passed. For zero-event sources, ask the user whether to continue or investigate further.
+
 If any sources are blocked and `--non-strict` was not passed, stop and report which sources failed before continuing.
 
 ### Stage 3 — Planning
