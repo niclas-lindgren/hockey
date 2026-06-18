@@ -17,7 +17,7 @@
   - Files: `.agents/skills/rvv/SKILL.md`
   - Approach: Document the stage-by-stage flow for Claude Code in SKILL.md — listing what each stage writes to `.pipeline/`, what Claude should look for in the checkpoint JSON before proceeding, and what commands to use to resume from a specific stage (`--resume-from N`).
 
-- [ ] Create a ChatGPT harness orchestration command file
+- [x] Created .chatgpt/commands/rvv-miniputt/run.md mirroring the Claude run.md structure with per-stage invocations and checkpoint review steps. — 2026-06-18
   - Files: `.chatgpt/commands/rvv-miniputt/run.md`
   - Approach: Create a harness-specific command file for ChatGPT that mirrors the Claude run.md structure — calling stages individually with pauses for the ChatGPT session's native intelligence to review checkpoints — using the same stage module invocations and checkpoint paths.
 
@@ -57,4 +57,11 @@ LESSONS: none
 **Findings:** Per-stage verification criteria added for all 4 stages including blocked-source handling and rules_report check.
 LESSONS: none
 **Files:** .agents/skills/rvv/SKILL.md (+61/-0)
+**Commit:** ab3bc48 (hockey)
+
+### 2026-06-18 — Created .chatgpt/commands/rvv-miniputt/run.md mirroring the Claude run.md structure with per-stage invocations and checkpoint review steps.
+**Rationale:** Follows the same stage module invocations and checkpoint verification criteria as the Claude version.
+**Findings:** none
+LESSONS: none
+**Files:** .chatgpt/commands/rvv-miniputt/run.md (+84/-0)
 **Commit:** [pending — fill after commit]
