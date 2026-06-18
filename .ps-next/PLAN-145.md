@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: In `_cmd_run`, after reading the Stage 2 scraping checkpoint and before calling `stage3_run`, call `run_confidence_assessment(scraping, cfg, lm_client)` and store the verdict; if the LLM client is unavailable, skip silently and log a debug message consistent with how other optional LLM steps are guarded.
 
-- [ ] Persist confidence assessment verdict to Stage 2 checkpoint
+- [x] After computing the confidence verdict in _cmd_run, serialise ScrapingConfidenceVerdict to a dict under 'confidence' key in the scraping dict, then call state.write_stage(StageName.SCRAPING, scraping, statusStageStatus.DONE) to persist it. — 2026-06-18
   - Files: tournament_scheduler/pipeline/stage2_scraping.py, tournament_scheduler/pipeline/state.py
   - Approach: After running the confidence assessment, write the `ScrapingConfidenceVerdict` (serialized to dict) into the stage2 checkpoint under a `"confidence"` key using the existing `state.write_*` or checkpoint-update pattern, so downstream stages and reports can read it.
 
@@ -63,4 +63,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: cfg in _cmd_run is a dict, not an object with .start_date — pass a simple _DateRange wrapper class or use start.date()/end.date() directly when calling run_confidence_assessment
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+34/-0)
+**Commit:** 0a976c1 (hockey)
+
+### 2026-06-18 — After computing the confidence verdict in _cmd_run, serialise ScrapingConfidenceVerdict to a dict under 'confidence' key in the scraping dict, then call state.write_stage(StageName.SCRAPING, scraping, statusStageStatus.DONE) to persist it.
+**Rationale:** No update-key method exists on state — must rewrite the full checkpoint. Added StageStatus import to _cmd_run local imports.
+**Findings:** none
+LESSONS: StageStatus must be imported explicitly — it is not included in the PipelineState/StageName import on line 284
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+9/-1)
 **Commit:** [pending — fill after commit]

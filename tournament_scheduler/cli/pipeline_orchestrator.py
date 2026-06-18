@@ -281,7 +281,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     from ..pipeline.stage2_scraping import run as stage2_run
     from ..pipeline.stage3_planning import run as stage3_run
     from ..pipeline.stage4_export import run as stage4_run
-    from ..pipeline.state import PipelineState, StageName
+    from ..pipeline.state import PipelineState, StageName, StageStatus
 
     strict = not args.non_strict
     resume_from = _resolve_resume_stage(getattr(args, "resume_from", None))
@@ -528,6 +528,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
                     f"  [green]✓[/green] Skrapekvalitet: OK — {_conf_verdict.overall_assessment}"
                 )
                 _log("Scraping confidence OK")
+            # Persist verdict into Stage 2 checkpoint so reports can read it
+            scraping["confidence"] = {
+                "verdict": _conf_verdict.verdict,
+                "suspicious_sources": _conf_verdict.suspicious_sources,
+                "gaps": _conf_verdict.gaps,
+                "overall_assessment": _conf_verdict.overall_assessment,
+            }
+            state.write_stage(StageName.SCRAPING, scraping, status=StageStatus.DONE)
         except Exception as _conf_exc:
             _log(f"Scraping confidence assessment failed (non-fatal): {_conf_exc}")
             _console.print(f"  [dim]Skrapevurdering hoppet over: {_conf_exc}[/dim]")
