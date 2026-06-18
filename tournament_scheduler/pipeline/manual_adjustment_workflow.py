@@ -160,6 +160,7 @@ class ManualAdjustmentWorkflow:
         self._prime_planner(planner, plan)
         self._refresh_plan_metadata(planner, plan)
 
+        post_patch_warnings = self._collect_post_patch_warnings(planner, plan)
         conflict_report = self._collect_conflicts(plan)
         success = not conflict_report
 
@@ -184,6 +185,7 @@ class ManualAdjustmentWorkflow:
                 "conflict_count": len(conflict_report),
             },
             conflicts=conflict_report,
+            post_patch_warnings=post_patch_warnings,
             success=success,
         )
 

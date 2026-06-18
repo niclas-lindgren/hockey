@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/pipeline/manual_adjustment_workflow.py, tournament_scheduler/warnings.py
   - Approach: Add a private method that calls `scan_game_count_warnings(planner, ...)`, `scan_hosting_warnings(planner, plan)`, `scan_month_load_warnings(planner, expected_per_month, ...)`, and `scan_arena_day_collision_warnings(plan)` using the already-primed planner and updated plan; collect and deduplicate the returned warning strings.
 
-- [ ] Wire the post-patch warnings pass into `apply()`
+- [x] Called _collect_post_patch_warnings(planner, plan) in apply() after _refresh_plan_metadata() and passed the result as post_patch_warnings on the returned UpdateResult. — 2026-06-18
   - Files: tournament_scheduler/pipeline/manual_adjustment_workflow.py
   - Approach: After `_refresh_plan_metadata()` completes inside `apply()`, call `_collect_post_patch_warnings()` and assign the result to `UpdateResult.post_patch_warnings`, ensuring the planner state is already fresh (it is, because `_prime_planner()` runs before `_refresh_plan_metadata()`).
 
@@ -54,4 +54,11 @@ LESSONS: none
 **Findings:** All 418 tests pass; method returns list[str] ready for wiring into apply() in the next task.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/manual_adjustment_workflow.py (+66/-0)
+**Commit:** c278ff4 (hockey)
+
+### 2026-06-18 — Called _collect_post_patch_warnings(planner, plan) in apply() after _refresh_plan_metadata() and passed the result as post_patch_warnings on the returned UpdateResult.
+**Rationale:** none
+**Findings:** All 418 tests pass; post_patch_warnings is now populated on every apply() call.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/manual_adjustment_workflow.py (+2/-0)
 **Commit:** [pending — fill after commit]
