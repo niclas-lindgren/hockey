@@ -30,7 +30,7 @@
   - Files: .claude/commands/rvv-miniputt/run.md
   - Approach: After the recovery loop, the command instructs the agent to call `rvv-miniputt status` (or re-read the checkpoint) to confirm how many sources remain blocked or empty, then decide: if all critical sources are recovered proceed to Stage 3; if some remain blocked but `--allow-missing-sources` is acceptable, proceed with a warning; otherwise abort and report which sources still need manual intervention.
 
-- [ ] Write unit tests for recovery_injector and recovery-targets command
+- [x] Created tests/test_recovery_injector.py with 14 pytest tests covering inject_recovered_events (updates entry, preserves url, creates new entry, sets blockedFalse, updates meta timestamp, handles empty list) and _cmd_recovery_targets (returns blocked/zero-event sources, excludes skipped/good, validates field schema, handles missing checkpoint). All 14 tests pass. — 2026-06-18
   - Files: tests/test_recovery_injector.py
   - Approach: Add pytest tests that create a minimal fake stage2 checkpoint, call `inject_recovered_events()` with synthetic event dicts, and assert that the cache entry is updated and readable; also test the `recovery-targets` JSON output structure against a fixture checkpoint.
 
@@ -84,11 +84,18 @@ LESSONS: none
 **Findings:** none
 LESSONS: none
 **Files:** .claude/commands/rvv-miniputt/run.md (+31/-0)
-**Commit:** [pending — fill after commit]
+**Commit:** edc9ed9 (hockey)
 
 ### 2026-06-18 — Added a 'Proceed/abort decision after the recovery loop' section to Stage 2 in run.md: re-check recovery-targets after the loop; if empty proceed; if some remain and --allow-missing-sources is acceptable proceed with warning; otherwise abort and list unrecovered sources.
 **Rationale:** Included in same edit as task 5 since both additions are in the same Stage 2 block of run.md.
 **Findings:** none
 LESSONS: none
 **Files:** .claude/commands/rvv-miniputt/run.md (already staged)
+**Commit:** edc9ed9 (hockey)
+
+### 2026-06-18 — Created tests/test_recovery_injector.py with 14 pytest tests covering inject_recovered_events (updates entry, preserves url, creates new entry, sets blockedFalse, updates meta timestamp, handles empty list) and _cmd_recovery_targets (returns blocked/zero-event sources, excludes skipped/good, validates field schema, handles missing checkpoint). All 14 tests pass.
+**Rationale:** none
+**Findings:** The recovery-targets command prints JSON to stdout; tests capture stdout using io.StringIO. The stage2 checkpoint wraps data under the 'data' key — tests must write data in that format.
+LESSONS: none
+**Files:** tests/test_recovery_injector.py (+298/-0)
 **Commit:** [pending — fill after commit]
