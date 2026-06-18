@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: When `_scrape_source` sets `llm_fallback=True` on a successful LLM result, add a dict with at least `{name, url, event_count, fallback_reason}` to the `llm_fallback` list in the checkpoint; update the per-source result dict to include `llm_fallback_used: True` so downstream readers can distinguish it from both normal success and true blocks.
 
-- [ ] Update scraping_confidence.py to weight LLM-scraped sources distinctly
+- [x] Added llm_scraped_sources field to the confidence summary dict (cross-referenced from the llm_fallback checkpoint list) and updated the LLM prompt to treat LLM-scraped sources with lower confidence and flag them as suspicious when event counts look unusual. — 2026-06-18
   - Files: tournament_scheduler/pipeline/scraping_confidence.py
   - Approach: Read the `llm_fallback` list from the checkpoint and cross-reference it against `sources[].name`; pass a count of LLM-scraped sources to the LLM confidence prompt as an additional field (e.g. `llm_scraped_sources`) so the model can apply lower confidence weight to those sources in its verdict.
 
@@ -69,4 +69,11 @@ LESSONS: none
 **Findings:** LLM-scraped sources are now distinguishable in the checkpoint with event_count and fallback_reason metadata.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (+8/-0)
+**Commit:** 3d1117b (hockey)
+
+### 2026-06-18 — Added llm_scraped_sources field to the confidence summary dict (cross-referenced from the llm_fallback checkpoint list) and updated the LLM prompt to treat LLM-scraped sources with lower confidence and flag them as suspicious when event counts look unusual.
+**Rationale:** none
+**Findings:** llm_scraped_sources list passed to the LLM; prompt instructs model to apply lower confidence weight to those sources.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/scraping_confidence.py (+16/-1)
 **Commit:** [pending — fill after commit]

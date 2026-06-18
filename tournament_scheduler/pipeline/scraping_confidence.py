@@ -57,6 +57,16 @@ def run_confidence_assessment(
         if s.get("blocked", False)
     ]
 
+    # LLM-fallback sources: scraped by the LLM agent after the normal scraper failed
+    llm_fallback_entries: list[dict[str, Any]] = scraping_checkpoint.get("llm_fallback", [])
+    # Cross-reference: only count entries that actually succeeded (have event_count from the
+    # checkpoint list, which is only populated when LLM scraping returned events)
+    llm_scraped_source_names: list[str] = [
+        entry["name"]
+        for entry in llm_fallback_entries
+        if entry.get("event_count", 0) > 0
+    ]
+
     sources_with_zero_events = [
         s["name"]
         for s in sources
@@ -82,6 +92,7 @@ def run_confidence_assessment(
         "sources_with_zero_events": sources_with_zero_events,
         "per_source_event_counts": per_source_event_counts,
         "events_per_week_by_source": events_per_week_by_source,
+        "llm_scraped_sources": llm_scraped_source_names,
     }
 
     # ── Compose prompts ────────────────────────────────────────────────────────
@@ -104,7 +115,11 @@ def run_confidence_assessment(
         "- Sources with zero events (not blocked) are suspicious: either the hall is "
         "genuinely empty (unlikely for a full season) or scraping silently failed.\n"
         "- Date range gaps: if the season spans many weeks but event counts are very "
-        "low for a source, flag as a possible gap.\n\n"
+        "low for a source, flag as a possible gap.\n"
+        "- LLM-scraped sources (listed in `llm_scraped_sources`) were recovered by an "
+        "AI browser agent after the normal scraper failed. Treat these with lower "
+        "confidence than deterministically scraped sources — flag them as suspicious "
+        "if their event counts look unusually low or high.\n\n"
         "Respond with a JSON object and nothing else. Required keys:\n"
         '  "verdict"              — "OK" or "WARN"\n'
         '  "suspicious_sources"   — list of source names that look unreliable '
