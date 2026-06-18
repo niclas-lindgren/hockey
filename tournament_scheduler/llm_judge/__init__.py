@@ -2,8 +2,14 @@
 
 Usage::
 
-    from tournament_scheduler.llm_judge import create_judge
+    from tournament_scheduler.llm_judge import create_judge, get_judge_if_headless
 
+    # In pipeline stages — only creates a judge when no harness is orchestrating:
+    judge = get_judge_if_headless()
+    if judge is not None:
+        verdict = judge.judge(prompt)
+
+    # Direct creation (always instantiates):
     judge = create_judge()          # reads RVV_JUDGE_BACKEND env var
     response = judge.judge(prompt)
 
@@ -16,6 +22,7 @@ Supported backends (value of RVV_JUDGE_BACKEND):
 import os
 
 from .backends import ClaudeJudgeBackend, LLMBridgeJudgeBackend, OpenAIJudgeBackend
+from .harness import get_judge_if_headless, is_harness_active
 from .interface import LLMJudge
 
 _BACKENDS: dict[str, type[LLMJudge]] = {
@@ -59,4 +66,6 @@ __all__ = [
     "OpenAIJudgeBackend",
     "LLMBridgeJudgeBackend",
     "create_judge",
+    "is_harness_active",
+    "get_judge_if_headless",
 ]

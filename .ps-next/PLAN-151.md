@@ -10,7 +10,7 @@
   - Files: tournament_scheduler/llm_judge/__init__.py, tournament_scheduler/llm_judge/interface.py, tournament_scheduler/llm_judge/backends.py
   - Approach: Define a `LLMJudge` abstract base class with a single `judge(prompt: str) -> str` method, then implement `ClaudeJudgeBackend` (Anthropic SDK or httpx), `OpenAIJudgeBackend` (openai SDK or httpx), and `LLMBridgeJudgeBackend` (httpx to localhost:1234). A `create_judge(backend: str) -> LLMJudge` factory reads `RVV_JUDGE_BACKEND` and raises `ValueError` on unknown/missing values.
 
-- [ ] Add harness-presence detection so the judge is only instantiated in headless runs
+- [x] Created harness.py with is_harness_active() and get_judge_if_headless(); exported both from __init__.py. — 2026-06-18
   - Files: tournament_scheduler/llm_judge/harness.py, tournament_scheduler/llm_judge/__init__.py
   - Approach: Implement `is_harness_active() -> bool` that checks for well-known harness indicators (e.g. `PI_SESSION_ID`, `CLAUDE_CODE_SESSION_ID`, `OPENCODE_SESSION_ID` env vars, or a `RVV_HARNESS` override). Export `get_judge_if_headless() -> LLMJudge | None` which returns `None` when a harness is active, so callers can skip judgment without duplicating the detection logic.
 
@@ -53,4 +53,11 @@ The harness-driven judgment path (Claude Code, Pi, ChatGPT, OpenCode) must remai
 **Findings:** Package imports cleanly; ValueError raised correctly for empty and unknown backend values; LLMBridgeJudgeBackend instantiates without credentials.
 LESSONS: none
 **Files:** tournament_scheduler/llm_judge/__init__.py (+62), backends.py (+154), interface.py (+26)
+**Commit:** 4b18bc8 (hockey)
+
+### 2026-06-18 — Created harness.py with is_harness_active() and get_judge_if_headless(); exported both from __init__.py.
+**Rationale:** Checked PI_SESSION_ID, CLAUDE_CODE_SESSION_ID, OPENCODE_SESSION_ID, and RVV_HARNESS override; circular import avoided via local import inside get_judge_if_headless.
+**Findings:** All assertions pass: harness detection works correctly for each env var; returns None when harness active and LLMBridgeJudgeBackend in headless mode.
+LESSONS: none
+**Files:** tournament_scheduler/llm_judge/harness.py (+67), __init__.py (+11/-1)
 **Commit:** [pending — fill after commit]
