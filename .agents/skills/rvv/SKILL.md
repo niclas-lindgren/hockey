@@ -233,7 +233,30 @@ When running inside Claude Code (not Pi), invoke each stage individually and rev
 python3 -m tournament_scheduler.pipeline.stage1_config [--input input.xlsx] [--work-dir .pipeline]
 ```
 
-Read `.pipeline/stage1_config.json` and verify before continuing:
+After Stage 1 completes, read the checkpoint and the full merged config before continuing:
+
+```bash
+# Human-readable summary of the checkpoint
+python3 -m tournament_scheduler.cli.checkpoint_printer stage1
+
+# Full merged config including fields from input.xlsx that are not stored in the checkpoint
+python3 -c "
+from tournament_scheduler.pipeline.stage1_config import load_effective_config
+import json, pprint
+pprint.pprint(load_effective_config('.pipeline'))
+"
+```
+
+`load_effective_config` returns the merged view with these fields relevant to semantic checks:
+- `start_date` — season start (from input.xlsx)
+- `end_date` — season end (from input.xlsx)
+- `teams` — list of `{club, label, age_group}` dicts
+- `age_groups` — list of active age group strings
+- `parallel_games` — dict of age group → simultaneous games per time slot
+- `target_tournament_count` — desired tournaments per team (integer or `null`)
+- `sources` — list of calendar sources to scrape
+
+Verify the checkpoint before continuing:
 - `teams` is non-empty and contains all 9 RVV clubs
 - `age_groups` is populated
 - `parallel_games` config is present
