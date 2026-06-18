@@ -10,7 +10,7 @@
   - Files: tournament_scheduler/pipeline/llm_approval_gate.py
   - Approach: Create a new module with a `run_approval_gate(plan_checkpoint: dict, client: LMStudioClient) -> ApprovalVerdict` function that formats a prompt from the stage3 checkpoint fields (fairness_gate, diversity_score, game_count_spread, month_balance_score, skipped_age_groups, arena_day_collisions) and calls `client.complete()`, then parses the LLM response into a structured `ApprovalVerdict(decision: str, rationale: str, blockers: list[str], proposed_changes: list[str])` dataclass.
 
-- [ ] Wire approval gate into pipeline_orchestrator between stage 3 and stage 4
+- [x] Added _run_approval_gate() helper to pipeline_orchestrator.py that is called between stage3_run() and stage4_run(). Gate is opt-in via RVV_APPROVAL_ENDPOINT env var; returns False (halt) on NO_GO in strict mode, prints blockers/proposed changes, and writes the run log before returning 1. — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: After `stage3_run()` succeeds and before `stage4_run()` is called, invoke `run_approval_gate()` using the same `LMStudioClient` already configured for `_judge_stage`. If the verdict is "go", proceed to stage 4. If "no-go", print blockers and proposed changes via Rich and either halt (strict) or continue after auto-apply (non-strict).
 
@@ -46,4 +46,11 @@
 **Findings:** Plan checkpoint has plan.tournaments (list of tournament dicts with host/age_group/date) and rules_report (list of dicts with regel/forklaring/kategori). No fairness_gate/diversity_score top-level fields exist — those appear only inside rules_report entries.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/llm_approval_gate.py (+127)
+**Commit:** 5bcf5ed (hockey)
+
+### 2026-06-18 — Added _run_approval_gate() helper to pipeline_orchestrator.py that is called between stage3_run() and stage4_run(). Gate is opt-in via RVV_APPROVAL_ENDPOINT env var; returns False (halt) on NO_GO in strict mode, prints blockers/proposed changes, and writes the run log before returning 1.
+**Rationale:** No LMStudioClient was already available in the orchestrator context — used env vars RVV_APPROVAL_ENDPOINT / RVV_APPROVAL_MODEL with a sensible default to create one on-demand, matching the pattern used by the scraper command.
+**Findings:** The llm judge system uses judge() not complete() — had to create LMStudioClient directly for the approval gate rather than reusing the headless judge.
+LESSONS: The pipeline orchestrator uses LLMJudge with judge() for stage gates but the approval gate module requires LMStudioClient with complete(). Wire separately via env vars.
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+75)
 **Commit:** [pending — fill after commit]

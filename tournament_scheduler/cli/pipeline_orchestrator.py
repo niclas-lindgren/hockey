@@ -144,6 +144,74 @@ def _force_refresh_stage2_inputs(work_dir: str) -> None:
     ScrapedDataCache(work_dir=work_dir).force_refresh()
 
 
+_DEFAULT_APPROVAL_ENDPOINT = "http://host.lima.internal:1234"
+_DEFAULT_APPROVAL_MODEL = "local-model"
+
+
+def _run_approval_gate(
+    args: argparse.Namespace,
+    plan_checkpoint: "dict[str, Any]",
+    strict: bool,
+    console: "Console",
+    log_fn: "Any",
+) -> bool:
+    """Run the LLM approval gate between Stage 3 and Stage 4 (opt-in via env var).
+
+    Reads ``RVV_APPROVAL_ENDPOINT`` from the environment.  If not set, the gate is
+    skipped silently and ``True`` (proceed) is returned so non-LLM deployments are
+    unaffected.  ``RVV_APPROVAL_MODEL`` sets the model name (default ``local-model``).
+
+    Returns:
+        ``True`` if the pipeline should proceed to Stage 4, ``False`` if it should
+        halt (only possible in strict mode with a NO_GO verdict).
+    """
+    import os as _os
+
+    endpoint = _os.environ.get("RVV_APPROVAL_ENDPOINT", "")
+    if not endpoint:
+        return True  # gate disabled
+
+    model = _os.environ.get("RVV_APPROVAL_MODEL", _DEFAULT_APPROVAL_MODEL)
+
+    from ..llm.lm_studio_client import LMStudioClient
+    from ..pipeline.llm_approval_gate import run_approval_gate
+
+    console.print("[bold]Godkjenningsport (LLM):[/bold] Vurderer plan...")
+    try:
+        client = LMStudioClient(base_url=endpoint, model=model)
+        verdict = run_approval_gate(plan_checkpoint, client)
+    except Exception as exc:
+        log_fn(f"Approval gate failed (non-fatal): {exc}")
+        console.print(f"  [yellow]⚠[/yellow] Godkjenningsport feilet: {exc} — fortsetter")
+        return True  # non-fatal: proceed
+
+    decision = verdict.decision.upper()
+    log_fn(f"Approval gate verdict: {decision} — {verdict.rationale[:200]}")
+
+    if decision == "GO":
+        console.print(f"  [green]✓ GO[/green] — {verdict.rationale}")
+        if verdict.proposed_changes:
+            for change in verdict.proposed_changes:
+                console.print(f"    [dim]→ {change}[/dim]")
+        return True
+
+    # NO_GO path
+    console.print(f"  [red]✗ NO_GO[/red] — {verdict.rationale}")
+    if verdict.blockers:
+        console.print("  [bold]Blokkere:[/bold]")
+        for blocker in verdict.blockers:
+            console.print(f"    [red]•[/red] {blocker}")
+    if verdict.proposed_changes:
+        console.print("  [bold]Foreslåtte endringer:[/bold]")
+        for change in verdict.proposed_changes:
+            console.print(f"    [yellow]→[/yellow] {change}")
+
+    if strict:
+        return False  # caller will halt
+    console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+    return True
+
+
 
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
@@ -401,6 +469,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
             return 1
         _console.print("[bold]Stage 3:[/bold] Hoppet over (gjenopptatt)")
         _log("Stage 3 skipped via --resume-from")
+
+    # ── LLM approval gate (between Stage 3 and Stage 4) ──────────────────────
+    # Only runs when RVV_APPROVAL_ENDPOINT is set (opt-in).  If not configured
+    # the gate is skipped silently so non-LLM deployments are unaffected.
+    if not _run_approval_gate(args, plan, strict, _console, _log):
+        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        return 1
 
     if resume_from <= 4:
         _console.print("[bold]Stage 4:[/bold] Eksport...")
