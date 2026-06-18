@@ -207,7 +207,18 @@ def _run_approval_gate(
             console.print(f"    [yellow]→[/yellow] {change}")
 
     if strict:
+        # Prompt the operator for manual override before halting.
+        try:
+            answer = input("\n  Vil du fortsette til eksport likevel? (j/n): ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            answer = "n"
+        log_fn(f"Operator confirmation answer: {answer!r}")
+        if answer in ("j", "y", "ja", "yes"):
+            console.print("  [yellow]⚠[/yellow] Operatør har overstyrt NO_GO — fortsetter")
+            log_fn("Approval gate NO_GO overridden by operator")
+            return True
         return False  # caller will halt
+
     console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
     return True
 

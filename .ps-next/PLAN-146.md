@@ -14,7 +14,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: After `stage3_run()` succeeds and before `stage4_run()` is called, invoke `run_approval_gate()` using the same `LMStudioClient` already configured for `_judge_stage`. If the verdict is "go", proceed to stage 4. If "no-go", print blockers and proposed changes via Rich and either halt (strict) or continue after auto-apply (non-strict).
 
-- [ ] Implement operator confirmation flow for no-go verdicts in strict mode
+- [x] In _run_approval_gate(), when strictTrue and verdict is NO_GO, prompt the operator with 'Vil du fortsette likevel? (j/n)'. On j/y/ja/yes, log the override and return True (proceed); on any other answer return False (halt). — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: When the approval gate returns no-go and strict=True, print the blockers and proposed changes with Rich formatting and prompt the operator for confirmation (y/n). If the operator declines, exit with code 1. If the operator confirms, proceed to stage 4 unchanged (letting the operator take responsibility).
 
@@ -53,4 +53,11 @@ LESSONS: none
 **Findings:** The llm judge system uses judge() not complete() — had to create LMStudioClient directly for the approval gate rather than reusing the headless judge.
 LESSONS: The pipeline orchestrator uses LLMJudge with judge() for stage gates but the approval gate module requires LMStudioClient with complete(). Wire separately via env vars.
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+75)
+**Commit:** adf311d (hockey)
+
+### 2026-06-18 — In _run_approval_gate(), when strictTrue and verdict is NO_GO, prompt the operator with 'Vil du fortsette likevel? (j/n)'. On j/y/ja/yes, log the override and return True (proceed); on any other answer return False (halt).
+**Rationale:** none
+**Findings:** none
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+11)
 **Commit:** [pending — fill after commit]
