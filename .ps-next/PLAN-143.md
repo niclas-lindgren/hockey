@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/utils/rich_output.py, tournament_scheduler/pipeline/stage1_config.py
   - Approach: Add a `print_semantic_warnings(warnings: list[str])` helper to `rich_output.py` that renders a labelled Rich panel with amber styling (consistent with existing warning panels), then call it from `stage1_config.run()` immediately after LLM parsing, before returning to the orchestrator.
 
-- [ ] Write unit tests for semantic validation module and Stage 1 integration
+- [x] Added tests/test_semantic_validation.py with 15 tests covering build_semantic_prompt, parse_semantic_warnings, and stage1_config.run() LLM integration. All pass. — 2026-06-18
   - Files: tests/test_semantic_validation.py, tests/test_stage1_config.py
   - Approach: Add pytest tests that verify `build_semantic_prompt` includes expected constraint fields, `parse_semantic_warnings` returns a list from a sample LLM reply, and `stage1_config.run()` calls `llm_client.complete()` exactly once and stores warnings in the checkpoint. Use `unittest.mock.MagicMock` for `llm_client` to avoid external LLM calls.
 
@@ -68,4 +68,11 @@ LESSONS: none
 **Findings:** The original print_rules_report() was missing its final console.print(table) call — this was a pre-existing bug that got exposed by the edit and was fixed as part of this task.
 LESSONS: When editing rich_output.py, the existing print_rules_report() was missing its closing console.print(table) line — check for truncated loop bodies before appending to this file.
 **Files:** tournament_scheduler/utils/rich_output.py (+34/-1), tournament_scheduler/pipeline/stage1_config.py (+2/-0)
+**Commit:** c1f2612 (hockey)
+
+### 2026-06-18 — Added tests/test_semantic_validation.py with 15 tests covering build_semantic_prompt, parse_semantic_warnings, and stage1_config.run() LLM integration. All pass.
+**Rationale:** Used real PipelineState with tmp_path (no mocking of state), MagicMock for llm_client — mirrors existing test_stage1_config.py patterns.
+**Findings:** none
+LESSONS: none
+**Files:** tests/test_semantic_validation.py (+225/-0)
 **Commit:** [pending — fill after commit]
