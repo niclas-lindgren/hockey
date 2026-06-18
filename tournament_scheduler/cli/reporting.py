@@ -100,6 +100,18 @@ def _build_status_text(work_dir: Path) -> str:
             blocked = data.get("blocked") or []
             if blocked:
                 lines.append(f"    Blokkerte kilder: {', '.join(blocked)}")
+        if label.startswith("Stage 3"):
+            plan_dict = data.get("plan") if isinstance(data, dict) else None
+            if isinstance(plan_dict, dict):
+                try:
+                    from .plan_critic import count_critic_issues_from_dict
+                    n = count_critic_issues_from_dict(plan_dict)
+                    if n:
+                        lines.append(f"    Critic: {n} issue(s) found — run 'rvv-miniputt critic' for details")
+                    else:
+                        lines.append("    Critic: no issues")
+                except Exception:
+                    pass
         if label.startswith("Stage 4"):
             output_files = data.get("output_files") or {}
             for key, path in output_files.items():

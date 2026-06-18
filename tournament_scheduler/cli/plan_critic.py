@@ -127,5 +127,57 @@ def generate_critic_summary(plan: "SeasonPlan") -> List[str]:
     return all_issues[:5]
 
 
+def count_critic_issues_from_dict(plan_dict: dict) -> int:
+    """Count critic issues from a serialised Stage 3 plan dict (no SeasonPlan needed).
+
+    This is the lightweight variant used by ``rvv-miniputt status`` to show a
+    one-line summary without reconstructing the full SeasonPlan object.  The
+    logic mirrors ``generate_critic_summary`` but operates on the JSON-safe dict
+    produced by ``_plan_to_dict``.
+    """
+    count = 0
+
+    # Fairness gate failures/warnings
+    fairness_gate = plan_dict.get("fairness_gate") or {}
+    if fairness_gate.get("status") in ("warn", "fail"):
+        for metric in fairness_gate.get("metrics", []):
+            if metric.get("status") in ("fail", "warn"):
+                count += 1
+
+    # Arena-day collisions
+    if plan_dict.get("arena_day_collisions"):
+        count += 1
+
+    # Game count outlier
+    spread = plan_dict.get("game_count_spread") or 0
+    if spread > 4:
+        count += 1
+
+    # Hosting clumps
+    host_month_counts: dict = defaultdict(int)
+    for t in plan_dict.get("tournaments") or []:
+        if t.get("cancelled"):
+            continue
+        host_club = t.get("host_club")
+        date_str = t.get("date")
+        if host_club and date_str:
+            try:
+                from datetime import date as _date
+                d = _date.fromisoformat(date_str)
+                host_month_counts[(host_club, d.year, d.month)] += 1
+            except (ValueError, TypeError):
+                pass
+    for cnt in host_month_counts.values():
+        if cnt > 2:
+            count += 1
+
+    # Low month balance
+    balance = plan_dict.get("month_balance_score") or 1.0
+    if balance < 0.6:
+        count += 1
+
+    return min(count, 5)
+
+
 if __name__ == "__main__":
     pass

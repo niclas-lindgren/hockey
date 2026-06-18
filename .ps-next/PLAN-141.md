@@ -34,7 +34,7 @@ none
   - Files: `tests/test_plan_critic.py`
   - Approach: Construct minimal plan dicts in-memory (no file I/O) for each scenario, assert the returned list contains the expected issue string, and assert the list never exceeds 5 items.
 
-- [ ] Extend `reporting.py` / `checkpoint_printer.py` so that `rvv-miniputt status` includes a one-line critic summary when a valid Stage 3 checkpoint is present.
+- [x] Added count_critic_issues_from_dict to plan_critic.py and wired it into _build_status_text in reporting.py to show a one-line critic summary under the Stage 3 status line. — 2026-06-18
   - Files: `tournament_scheduler/cli/reporting.py`, `tournament_scheduler/cli/checkpoint_printer.py`
   - Approach: Call `generate_critic_summary` inside `_build_status_text` when `stage3` checkpoint data is available, and append a "Critic: N issues found" line to the status panel — keep it short (single line) so it does not clutter the status view.
 
@@ -74,4 +74,11 @@ LESSONS: none
 **Findings:** All 15 tests pass.
 LESSONS: none
 **Files:** tests/test_plan_critic.py (+279/-0)
+**Commit:** dc97157 (hockey)
+
+### 2026-06-18 — Added count_critic_issues_from_dict to plan_critic.py and wired it into _build_status_text in reporting.py to show a one-line critic summary under the Stage 3 status line.
+**Rationale:** SeasonPlan is serialized as a dict in the checkpoint; a separate dict-based counter avoids the need to reconstruct the full object.
+**Findings:** One-liner 'Critic: N issue(s) found' or 'Critic: no issues' shown in status output; silently skipped if checkpoint is malformed.
+LESSONS: plan_critic stores serialized plan as dict under checkpoint['data']['plan'] — use count_critic_issues_from_dict for dict-based access, not generate_critic_summary which requires a SeasonPlan object
+**Files:** tournament_scheduler/cli/plan_critic.py (+52/-0), tournament_scheduler/cli/reporting.py (+12/-0)
 **Commit:** [pending — fill after commit]
