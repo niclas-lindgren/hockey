@@ -156,62 +156,92 @@ def _run_approval_gate(
     return True
 
 
-def _run_confidence_gate(
-    conf_verdict: "Any",
+def _check_stage2_checkpoint(
+    scraping_checkpoint: "dict[str, Any]",
     strict: bool,
     console: "Console",
     log_fn: "Any",
+    *,
+    harness_active: bool = False,
 ) -> bool:
-    """Run the scraping-confidence gate between Stage 2 and Stage 3.
+    """Deterministic Stage 2 gate: inspect checkpoint fields directly.
 
-    Called only when the confidence assessment returns ``WARN``.  In strict mode
-    the operator is prompted to confirm whether to proceed to planning despite the
-    warning.  In non-strict mode the WARN is logged and ``True`` is returned
-    automatically so the pipeline continues uninterrupted.
+    Reads ``sources[].event_count``, ``sources[].blocked``, and ``blocked[]``
+    from *scraping_checkpoint* to decide whether the pipeline should proceed
+    to Stage 3.
+
+    When *harness_active* is True the gate auto-proceeds if at least one
+    source returned events (threshold check), avoiding any interactive prompt.
+    When *harness_active* is False and strict mode is on, the operator is
+    prompted to confirm before proceeding despite warnings.
 
     Args:
-        conf_verdict: A ``ScrapingConfidenceVerdict`` instance (duck-typed to avoid
-            a hard import here).
+        scraping_checkpoint: Stage 2 checkpoint dict written by stage2_scraping.run().
         strict: Whether the pipeline is running in strict mode.
         console: Rich ``Console`` for interactive output.
         log_fn: Callable that appends a message to the run log.
+        harness_active: True when running headless under a harness (no LLM judge
+            configured) — skips interactive prompts and uses threshold logic only.
 
     Returns:
         ``True`` if the pipeline should proceed to Stage 3, ``False`` if it should
-        halt (only possible in strict mode when the operator declines to continue).
+        halt.
     """
-    console.print(
-        f"  [yellow]⚠[/yellow] Skrapekvalitet: [bold yellow]WARN[/bold yellow] — "
-        f"{conf_verdict.overall_assessment}"
+    sources: list[dict[str, Any]] = scraping_checkpoint.get("sources", [])
+    blocked_names: list[str] = scraping_checkpoint.get("blocked", [])
+
+    total_events = sum(s.get("event_count", 0) for s in sources if not s.get("blocked"))
+    sources_with_events = sum(
+        1 for s in sources if not s.get("blocked") and s.get("event_count", 0) > 0
     )
-    if conf_verdict.suspicious_sources:
-        console.print(
-            "    [yellow]Mistenkelige kilder:[/yellow] "
-            + ", ".join(conf_verdict.suspicious_sources)
-        )
-    for gap in conf_verdict.gaps:
-        console.print(f"    [dim]→ {gap}[/dim]")
+    blocked_count = len(blocked_names)
 
     log_fn(
-        f"Scraping confidence WARN: {conf_verdict.overall_assessment} "
-        f"(suspicious: {conf_verdict.suspicious_sources}; gaps: {conf_verdict.gaps})"
+        f"Stage 2 checkpoint check: {sources_with_events} sources with events, "
+        f"{total_events} total events, {blocked_count} blocked"
     )
 
-    if not strict:
-        console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
-        return True
+    if sources_with_events == 0:
+        console.print(
+            "  [red]✗[/red] Stage 2-sjekkpunkt: ingen kilder returnerte hendelser"
+        )
+        log_fn("Stage 2 gate FAIL: zero sources with events")
+        if not strict:
+            console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+            return True
+        return False
 
-    # strict mode — ask the operator whether to proceed
-    try:
-        answer = input("\n  Vil du fortsette til planlegging likevel? (j/n): ").strip().lower()
-    except (EOFError, KeyboardInterrupt):
-        answer = "n"
-    log_fn(f"Operator confirmation answer (confidence gate): {answer!r}")
-    if answer in ("j", "y", "ja", "yes"):
-        console.print("  [yellow]⚠[/yellow] Operatør har overstyrt WARN — fortsetter")
-        log_fn("Confidence gate WARN overridden by operator")
-        return True
-    return False  # caller will halt
+    if blocked_count > 0:
+        console.print(
+            f"  [yellow]⚠[/yellow] Stage 2-sjekkpunkt: {blocked_count} kilde(r) blokkert, "
+            f"men {sources_with_events} kilde(r) returnerte hendelser"
+        )
+        log_fn(f"Stage 2 gate WARN: {blocked_count} blocked sources")
+
+        if harness_active:
+            # Harness mode: threshold met (at least one source with events) — auto-proceed
+            log_fn("Stage 2 gate: harness active, threshold met — auto-proceeding")
+            return True
+
+        if not strict:
+            console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+            return True
+
+        # strict + interactive: ask the operator
+        try:
+            answer = input("\n  Vil du fortsette til planlegging likevel? (j/n): ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            answer = "n"
+        log_fn(f"Operator confirmation answer (stage2 gate): {answer!r}")
+        if answer in ("j", "y", "ja", "yes"):
+            console.print("  [yellow]⚠[/yellow] Operatør har overstyrt advarsel — fortsetter")
+            log_fn("Stage 2 gate WARN overridden by operator")
+            return True
+        return False
+
+    # All sources OK
+    log_fn("Stage 2 gate PASS: all sources returned events")
+    return True
 
 
 def _cmd_run(args: argparse.Namespace) -> int:
@@ -395,6 +425,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "blocked": blocked,
             }
             if not _judge_stage(2, stage2_summary, stage_name=StageName.SCRAPING):
+                _write_run_log(args.work_dir, log_start, log_lines, success=False)
+                return 1
+            # Deterministic checkpoint inspection — runs regardless of judge backend.
+            try:
+                _harness_active = get_judge_if_headless() is None
+            except ValueError:
+                _harness_active = True  # no backend configured — treat as harness
+            if not _check_stage2_checkpoint(
+                scraping, strict, _console, _log, harness_active=_harness_active
+            ):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
         except Exception as exc:

@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: In the checkpoint dict written by `run` at the end of Stage 2, add top-level `start_date` and `end_date` fields (already available from the scraping config/date range logic in the same module), so downstream consumers and the harness can read the scrape window without digging into per-source metadata.
 
-- [ ] Replace _run_confidence_gate with deterministic harness-readable checkpoint inspection
+- [x] Replaced the dead _run_confidence_gate function (which accepted a ScrapingConfidenceVerdict) with _check_stage2_checkpoint that reads sources[].event_count, sources[].blocked, and blocked[] directly from the Stage 2 checkpoint dict. Added harness_active parameter to auto-proceed without prompting when running headless. Updated two test files to use the new function. — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: Remove the `ScrapingConfidenceVerdict`-based `_run_confidence_gate` function and replace it with a lightweight function that reads `sources[].event_count`, `sources[].blocked`, and `blocked[]` directly from the Stage 2 checkpoint dict; when the harness is active (`get_judge_if_headless()` returns None) auto-proceed based on a simple threshold (e.g. at least one source returned events), otherwise prompt the operator as before.
 
@@ -52,4 +52,11 @@ Key context:
 **Findings:** Checkpoint now includes start_date and end_date at the top level alongside sources, blocked, and cached.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (+2/-0)
+**Commit:** fda37e1 (hockey)
+
+### 2026-06-18 — Replaced the dead _run_confidence_gate function (which accepted a ScrapingConfidenceVerdict) with _check_stage2_checkpoint that reads sources[].event_count, sources[].blocked, and blocked[] directly from the Stage 2 checkpoint dict. Added harness_active parameter to auto-proceed without prompting when running headless. Updated two test files to use the new function.
+**Rationale:** ScrapingConfidenceVerdict-based gate was never called in the orchestrator; replacing with direct checkpoint inspection makes the gate deterministic and harness-compatible.
+**Findings:** Two test files updated; _run_confidence_gate removed; _check_stage2_checkpoint now called in _cmd_run after _judge_stage(2, ...).
+LESSONS: The old test files imported _run_confidence_gate directly — always update both test files when renaming gate functions.
+**Files:** pipeline_orchestrator.py (+112/-57), test_confidence_gate.py (+193/-117), test_pipeline_orchestrator_judgment.py (+40/-30)
 **Commit:** [pending — fill after commit]

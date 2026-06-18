@@ -1,125 +1,196 @@
-"""Unit tests for _run_confidence_gate in pipeline_orchestrator."""
+"""Unit tests for _check_stage2_checkpoint in pipeline_orchestrator."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 from rich.console import Console
 
-from tournament_scheduler.cli.pipeline_orchestrator import _run_confidence_gate
+from tournament_scheduler.cli.pipeline_orchestrator import _check_stage2_checkpoint
 
 
-def make_verdict(sources=None, gaps=None, assessment="low coverage"):
-    """Return a mock ScrapingConfidenceVerdict."""
-    v = MagicMock()
-    v.overall_assessment = assessment
-    v.suspicious_sources = sources or []
-    v.gaps = gaps or []
-    v.verdict = "WARN"
-    return v
+def _console() -> Console:
+    return Console(file=open("/dev/null", "w"))
+
+
+def _make_checkpoint(
+    *,
+    sources: list[dict] | None = None,
+    blocked: list[str] | None = None,
+) -> dict:
+    """Return a minimal Stage 2 checkpoint dict."""
+    if sources is None:
+        sources = [{"name": "source_a", "event_count": 5, "blocked": False}]
+    return {
+        "sources": sources,
+        "blocked": blocked if blocked is not None else [],
+    }
 
 
 # ---------------------------------------------------------------------------
-# Non-strict mode
+# Happy path — all sources OK
 # ---------------------------------------------------------------------------
 
 
-def test_non_strict_returns_true_without_prompting():
-    """In non-strict mode the gate must return True without calling input()."""
-    console = Console(file=open("/dev/null", "w"))  # suppress output
+def test_all_sources_ok_returns_true():
+    """When all sources have events and none are blocked, gate must return True."""
+    console = _console()
     log_fn = MagicMock()
-    verdict = make_verdict()
-
-    with patch("builtins.input", side_effect=AssertionError("input must not be called in non-strict mode")):
-        result = _run_confidence_gate(verdict, False, console, log_fn)
-
+    chk = _make_checkpoint(
+        sources=[
+            {"name": "a", "event_count": 3, "blocked": False},
+            {"name": "b", "event_count": 7, "blocked": False},
+        ]
+    )
+    result = _check_stage2_checkpoint(chk, True, console, log_fn)
     assert result is True
 
 
-def test_non_strict_calls_log_fn():
-    """In non-strict mode the WARN details must be logged."""
-    console = Console(file=open("/dev/null", "w"))
+# ---------------------------------------------------------------------------
+# Zero events — should fail in strict mode
+# ---------------------------------------------------------------------------
+
+
+def test_zero_events_strict_returns_false():
+    """When no source has events, strict mode must return False."""
+    console = _console()
     log_fn = MagicMock()
-    verdict = make_verdict(sources=["source_a"], assessment="sparse events")
+    chk = _make_checkpoint(
+        sources=[{"name": "a", "event_count": 0, "blocked": False}]
+    )
+    with patch("builtins.input", side_effect=AssertionError("input must not be called")):
+        result = _check_stage2_checkpoint(chk, True, console, log_fn)
+    assert result is False
 
-    _run_confidence_gate(verdict, False, console, log_fn)
 
-    log_fn.assert_called()
-    # At least one call should mention WARN
-    calls_text = " ".join(str(c) for c in log_fn.call_args_list)
-    assert "WARN" in calls_text
+def test_zero_events_non_strict_returns_true():
+    """When no source has events, non-strict mode must return True."""
+    console = _console()
+    log_fn = MagicMock()
+    chk = _make_checkpoint(
+        sources=[{"name": "a", "event_count": 0, "blocked": False}]
+    )
+    result = _check_stage2_checkpoint(chk, False, console, log_fn)
+    assert result is True
 
 
 # ---------------------------------------------------------------------------
-# Strict mode — operator approves
+# Blocked sources — with events from at least one source
+# ---------------------------------------------------------------------------
+
+
+def test_blocked_with_events_harness_returns_true():
+    """When harness active and at least one source has events, must auto-proceed."""
+    console = _console()
+    log_fn = MagicMock()
+    chk = _make_checkpoint(
+        sources=[
+            {"name": "a", "event_count": 4, "blocked": False},
+            {"name": "b", "event_count": 0, "blocked": True},
+        ],
+        blocked=["b"],
+    )
+    with patch("builtins.input", side_effect=AssertionError("input must not be called in harness mode")):
+        result = _check_stage2_checkpoint(chk, True, console, log_fn, harness_active=True)
+    assert result is True
+
+
+def test_blocked_with_events_non_strict_returns_true():
+    """Blocked sources + non-strict: must return True without prompting."""
+    console = _console()
+    log_fn = MagicMock()
+    chk = _make_checkpoint(
+        sources=[
+            {"name": "a", "event_count": 2, "blocked": False},
+            {"name": "b", "event_count": 0, "blocked": True},
+        ],
+        blocked=["b"],
+    )
+    with patch("builtins.input", side_effect=AssertionError("input must not be called in non-strict mode")):
+        result = _check_stage2_checkpoint(chk, False, console, log_fn)
+    assert result is True
+
+
+# ---------------------------------------------------------------------------
+# Strict + interactive — operator approves or declines
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("answer", ["j", "y", "ja", "yes"])
 def test_strict_operator_approves_returns_true(answer: str):
     """All accepted Norwegian/English approval answers must result in True."""
-    console = Console(file=open("/dev/null", "w"))
+    console = _console()
     log_fn = MagicMock()
-    verdict = make_verdict()
-
+    chk = _make_checkpoint(
+        sources=[
+            {"name": "a", "event_count": 3, "blocked": False},
+            {"name": "b", "event_count": 0, "blocked": True},
+        ],
+        blocked=["b"],
+    )
     with patch("builtins.input", return_value=answer):
-        result = _run_confidence_gate(verdict, True, console, log_fn)
-
+        result = _check_stage2_checkpoint(chk, True, console, log_fn, harness_active=False)
     assert result is True
-
-
-# ---------------------------------------------------------------------------
-# Strict mode — operator declines
-# ---------------------------------------------------------------------------
 
 
 def test_strict_operator_declines_returns_false():
     """'n' answer in strict mode must return False."""
-    console = Console(file=open("/dev/null", "w"))
+    console = _console()
     log_fn = MagicMock()
-    verdict = make_verdict()
-
+    chk = _make_checkpoint(
+        sources=[
+            {"name": "a", "event_count": 3, "blocked": False},
+            {"name": "b", "event_count": 0, "blocked": True},
+        ],
+        blocked=["b"],
+    )
     with patch("builtins.input", return_value="n"):
-        result = _run_confidence_gate(verdict, True, console, log_fn)
-
+        result = _check_stage2_checkpoint(chk, True, console, log_fn, harness_active=False)
     assert result is False
 
 
 def test_strict_empty_answer_returns_false():
     """An empty answer in strict mode must return False."""
-    console = Console(file=open("/dev/null", "w"))
+    console = _console()
     log_fn = MagicMock()
-    verdict = make_verdict()
-
+    chk = _make_checkpoint(
+        sources=[
+            {"name": "a", "event_count": 3, "blocked": False},
+            {"name": "b", "event_count": 0, "blocked": True},
+        ],
+        blocked=["b"],
+    )
     with patch("builtins.input", return_value=""):
-        result = _run_confidence_gate(verdict, True, console, log_fn)
-
+        result = _check_stage2_checkpoint(chk, True, console, log_fn, harness_active=False)
     assert result is False
-
-
-# ---------------------------------------------------------------------------
-# Strict mode — input() raises
-# ---------------------------------------------------------------------------
 
 
 def test_strict_eof_returns_false():
     """EOFError from input() in strict mode must be treated as 'n'."""
-    console = Console(file=open("/dev/null", "w"))
+    console = _console()
     log_fn = MagicMock()
-    verdict = make_verdict()
-
+    chk = _make_checkpoint(
+        sources=[
+            {"name": "a", "event_count": 3, "blocked": False},
+            {"name": "b", "event_count": 0, "blocked": True},
+        ],
+        blocked=["b"],
+    )
     with patch("builtins.input", side_effect=EOFError):
-        result = _run_confidence_gate(verdict, True, console, log_fn)
-
+        result = _check_stage2_checkpoint(chk, True, console, log_fn, harness_active=False)
     assert result is False
 
 
 def test_strict_keyboard_interrupt_returns_false():
     """KeyboardInterrupt from input() in strict mode must be treated as 'n'."""
-    console = Console(file=open("/dev/null", "w"))
+    console = _console()
     log_fn = MagicMock()
-    verdict = make_verdict()
-
+    chk = _make_checkpoint(
+        sources=[
+            {"name": "a", "event_count": 3, "blocked": False},
+            {"name": "b", "event_count": 0, "blocked": True},
+        ],
+        blocked=["b"],
+    )
     with patch("builtins.input", side_effect=KeyboardInterrupt):
-        result = _run_confidence_gate(verdict, True, console, log_fn)
-
+        result = _check_stage2_checkpoint(chk, True, console, log_fn, harness_active=False)
     assert result is False
