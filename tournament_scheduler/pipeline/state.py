@@ -290,6 +290,38 @@ class PipelineState:
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def write_judgment(
+        self,
+        stage: StageName,
+        verdict: str,
+        reasoning: str = "",
+        backend: str = "",
+    ) -> None:
+        """Persist a headless judge verdict into the stage checkpoint envelope.
+
+        The judgment is stored under a top-level ``judgment`` key so it is
+        visible when inspecting ``.pipeline/stage*.json`` files.  The stage's
+        ``status`` and ``data`` fields are not modified.
+
+        Args:
+            stage:     The stage this judgment belongs to.
+            verdict:   ``"PROCEED"`` or ``"ABORT"`` (or the full first line of
+                       the judge's response).
+            reasoning: Optional explanation from the judge (remainder of the
+                       response after the verdict keyword).
+            backend:   The backend identifier used (e.g. ``"llm_bridge"``).
+        """
+        envelope = self.read_envelope(stage)
+        envelope["judgment"] = {
+            "verdict": verdict,
+            "reasoning": reasoning,
+            "backend": backend,
+            "judged_at": datetime.now(tz=timezone.utc).isoformat(),
+        }
+        envelope["updated_at"] = datetime.now(tz=timezone.utc).isoformat()
+        path = self.checkpoint_path(stage)
+        path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+
     def _set_status(
         self,
         stage: StageName,

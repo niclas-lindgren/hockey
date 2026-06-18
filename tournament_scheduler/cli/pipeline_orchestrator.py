@@ -169,13 +169,22 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     _STAGE_NAMES = {1: "stage1", 2: "stage2", 3: "stage3"}
 
-    def _judge_stage(stage_num: int, checkpoint_summary: dict[str, Any]) -> bool:
+    def _judge_stage(
+        stage_num: int,
+        checkpoint_summary: dict[str, Any],
+        stage_name: "StageName | None" = None,
+    ) -> bool:
         """Ask the headless judge whether to proceed after a stage.
 
         Returns True if the pipeline should continue, False if it should abort.
         When no judge is present (harness active or RVV_JUDGE_BACKEND unset)
         always returns True so the pipeline continues unchanged.
+
+        The verdict is persisted into the stage checkpoint via
+        ``state.write_judgment`` so it appears in ``.pipeline/stage*.json``.
         """
+        import os as _os
+
         try:
             judge = get_judge_if_headless()
         except ValueError:
@@ -185,6 +194,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if judge is None:
             return True  # harness is active — it will judge interactively
 
+        backend_name = _os.environ.get("RVV_JUDGE_BACKEND", "unknown")
         stage_key = _STAGE_NAMES.get(stage_num, f"stage{stage_num}")
         try:
             prompt = build_stage_prompt(stage_key, checkpoint_summary)
@@ -196,15 +206,38 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "Respond PROCEED or ABORT."
             )
         try:
-            verdict = judge.judge(prompt).strip()
+            verdict_raw = judge.judge(prompt).strip()
         except RuntimeError as exc:
             _log(f"Stage {stage_num} judge call failed: {exc}")
             _console.print(f"  [yellow]⚠[/yellow] Dommerkall feilet: {exc} — fortsetter")
+            if stage_name is not None:
+                try:
+                    state.write_judgment(stage_name, "ERROR", reasoning=str(exc), backend=backend_name)
+                except Exception:
+                    pass
             return True
 
-        _log(f"Stage {stage_num} judge verdict: {verdict[:200]}")
-        if verdict.upper().startswith("ABORT"):
-            _console.print(f"  [red]✗ Headless dommer avbrøt etter Stage {stage_num}:[/red] {verdict}")
+        # Split verdict keyword from any trailing reasoning text.
+        lines = verdict_raw.splitlines()
+        verdict_keyword = lines[0].strip() if lines else verdict_raw
+        reasoning = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+
+        _log(f"Stage {stage_num} judge verdict: {verdict_raw[:200]}")
+        _log(f"Stage {stage_num} judge backend: {backend_name}")
+
+        if stage_name is not None:
+            try:
+                state.write_judgment(
+                    stage_name,
+                    verdict=verdict_keyword,
+                    reasoning=reasoning,
+                    backend=backend_name,
+                )
+            except Exception as exc:
+                _log(f"Stage {stage_num} write_judgment failed: {exc}")
+
+        if verdict_keyword.upper().startswith("ABORT"):
+            _console.print(f"  [red]✗ Headless dommer avbrøt etter Stage {stage_num}:[/red] {verdict_raw}")
             return False
         return True
 
@@ -234,7 +267,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "age_groups": cfg.get("age_groups", []),
                 "clubs": cfg.get("clubs", []),
             }
-            if not _judge_stage(1, stage1_summary):
+            if not _judge_stage(1, stage1_summary, stage_name=StageName.CONFIG):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
         except Exception as exc:
@@ -303,7 +336,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "blocked": blocked,
                 "llm_fallback": llm_fallback,
             }
-            if not _judge_stage(2, stage2_summary):
+            if not _judge_stage(2, stage2_summary, stage_name=StageName.SCRAPING):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
         except Exception as exc:
@@ -348,7 +381,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "tournaments_planned": n_tournaments,
                 "warnings": plan.get("warnings", []),
             }
-            if not _judge_stage(3, stage3_summary):
+            if not _judge_stage(3, stage3_summary, stage_name=StageName.PLANNING):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
         except Exception as exc:

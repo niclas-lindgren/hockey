@@ -22,7 +22,7 @@
   - Files: tournament_scheduler/llm_judge/prompts.py
   - Approach: Create `build_stage_prompt(stage_name: str, checkpoint_summary: dict) -> str` that produces a concise Norwegian or English prompt describing what the stage produced and asking whether the pipeline should continue. Each stage (config, scraping, planning) gets a tailored template that includes key metrics from the checkpoint JSON.
 
-- [ ] Persist judgment results into the pipeline log and checkpoint state
+- [x] Added write_judgment() to PipelineState storing verdict, reasoning, backend, and timestamp in checkpoint envelope; orchestrator now calls it after each judge verdict and also logs backend name. — 2026-06-18
   - Files: tournament_scheduler/pipeline/state.py, tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: Extend `PipelineState` with an optional `judgment` field on each stage checkpoint (verdict, reasoning, backend used, timestamp). The orchestrator writes this via a new `write_judgment(stage, judgment_result)` helper on `PipelineState` so results are visible in `.pipeline/stage*.json` files and in per-run logs already written by `_write_run_log`.
 
@@ -74,4 +74,11 @@ LESSONS: none
 **Findings:** Syntax valid; prompts produce structured PROCEED/ABORT instructions tailored to each stage's key metrics.
 LESSONS: none
 **Files:** tournament_scheduler/llm_judge/prompts.py (+160), __init__.py (+2), pipeline_orchestrator.py (+52/-22)
+**Commit:** 99f5d55 (hockey)
+
+### 2026-06-18 — Added write_judgment() to PipelineState storing verdict, reasoning, backend, and timestamp in checkpoint envelope; orchestrator now calls it after each judge verdict and also logs backend name.
+**Rationale:** Verdict split into keyword + reasoning at first newline; error cases write 'ERROR' verdict so failures are also traceable.
+**Findings:** Syntax valid; write_judgment is non-destructive (does not touch status or data fields); judgment field visible in .pipeline/stage*.json.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/state.py (+32), pipeline_orchestrator.py (+49/-8)
 **Commit:** [pending — fill after commit]
