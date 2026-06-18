@@ -287,6 +287,12 @@ For each age group:
 - Count `teams_in_age_group`.
 - Flag if `teams_in_age_group < 2` — a tournament requires at least 2 teams to be meaningful.
 
+**Check: age groups with zero teams**
+
+- List all age group strings from the `age_groups` field of the effective config.
+- For each age group in that list, check whether at least one entry in `teams` has a matching `age_group` value.
+- Flag any age group that appears in `age_groups` but has no corresponding team records — this is a semantic error that will cause planning to produce an empty schedule for that age group.
+
 **Stage 2 — Scraping**
 
 ```bash

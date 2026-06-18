@@ -17,7 +17,7 @@
   - Files: .agents/skills/rvv/SKILL.md
   - Approach: Within the same "## Semantic validation (Stage 1)" section, add a check that parallel_games for each age group is ≤ the number of distinct clubs in that age group, and that each age group has at least 2 teams — both expressed as explicit reasoning steps the LLM should perform before advancing to Stage 2.
 
-- [ ] Add harness check for age groups with zero teams
+- [x] Added a 'Check: age groups with zero teams' step to the semantic validation section — instructs the harness to cross-reference age_groups list against teams records and flag any age group with no team entries. — 2026-06-18
   - Files: .agents/skills/rvv/SKILL.md
   - Approach: Add a reasoning step in the semantic-validation section that lists the age groups from the effective config and verifies each one has at least one team in the `teams` array; flag any age group declared in `age_groups` but absent from team records as a semantic error.
 
@@ -58,4 +58,11 @@ LESSONS: none
 **Findings:** Both checks appended to the existing semantic validation section as named sub-checks.
 LESSONS: none
 **Files:** .agents/skills/rvv/SKILL.md (+12/-0)
+**Commit:** deb4c44 (hockey)
+
+### 2026-06-18 — Added a 'Check: age groups with zero teams' step to the semantic validation section — instructs the harness to cross-reference age_groups list against teams records and flag any age group with no team entries.
+**Rationale:** none
+**Findings:** Check appended after the minimum team count check in the same section.
+LESSONS: none
+**Files:** .agents/skills/rvv/SKILL.md (+6/-0)
 **Commit:** [pending — fill after commit]
