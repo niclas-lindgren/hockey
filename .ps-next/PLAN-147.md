@@ -17,7 +17,7 @@
   - After the confidence assessment block (~line 552) and before the `if resume_from <= 3:` Stage 3 check (~line 553), call `_run_confidence_gate(_conf_verdict, strict, console, log_fn)`; if it returns False, abort the pipeline (return early or raise) mirroring how `_run_approval_gate` False result is handled before Stage 4.
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`
 
-- [ ] Add unit tests for `_run_confidence_gate` covering strict-block and non-strict-proceed paths
+- [x] Added 4 test cases to tests/test_pipeline_orchestrator_judgment.py covering: WARN+strict with decline (abort), WARN+strict with 'j' (proceed), WARN+non-strict (proceed without prompt), and OK verdict integration test via _cmd_run. — 2026-06-18
   - In `tests/test_pipeline_orchestrator_judgment.py`, add test cases: WARN+strict=True with operator answering "n" (expects abort), WARN+strict=True with operator answering "j" (expects proceed), WARN+strict=False (expects proceed without prompt), OK+strict=True (expects proceed without prompt); mock `input()` and Rich console.
   - Files: `tests/test_pipeline_orchestrator_judgment.py`
 
@@ -48,4 +48,11 @@ LESSONS: none
 **Findings:** _run_confidence_gate is called at line 577; if it returns False, pipeline halts with return 1.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (already committed)
+**Commit:** 6b2998d (hockey)
+
+### 2026-06-18 — Added 4 test cases to tests/test_pipeline_orchestrator_judgment.py covering: WARN+strict with decline (abort), WARN+strict with 'j' (proceed), WARN+non-strict (proceed without prompt), and OK verdict integration test via _cmd_run.
+**Rationale:** Added tests to the specified file as the plan required; the OK-verdict case is an integration test via _cmd_run since the gate is not called for OK verdicts.
+**Findings:** All 12 tests in test_pipeline_orchestrator_judgment.py pass.
+LESSONS: none
+**Files:** tests/test_pipeline_orchestrator_judgment.py (+81)
 **Commit:** [pending — fill after commit]

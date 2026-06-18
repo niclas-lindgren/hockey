@@ -235,3 +235,84 @@ def test_judge_called_three_times_when_all_proceed(tmp_path: Path) -> None:
 
     assert result == 0
     assert judge_mock.judge.call_count == 3
+
+
+# ---------------------------------------------------------------------------
+# _run_confidence_gate unit tests
+# ---------------------------------------------------------------------------
+
+from tournament_scheduler.cli.pipeline_orchestrator import _run_confidence_gate  # noqa: E402
+
+
+def _make_warn_verdict(sources=None, gaps=None, assessment="low coverage"):
+    """Return a mock ScrapingConfidenceVerdict with WARN verdict."""
+    from unittest.mock import MagicMock as _MM
+    v = _MM()
+    v.verdict = "WARN"
+    v.overall_assessment = assessment
+    v.suspicious_sources = sources or []
+    v.gaps = gaps or []
+    return v
+
+
+def test_confidence_gate_warn_strict_decline_aborts() -> None:
+    """WARN + strict=True, operator answers 'n' — gate returns False (abort)."""
+    console = MagicMock()
+    log_fn = MagicMock()
+    verdict = _make_warn_verdict()
+
+    with patch("builtins.input", return_value="n"):
+        result = _run_confidence_gate(verdict, True, console, log_fn)
+
+    assert result is False
+
+
+def test_confidence_gate_warn_strict_approve_proceeds() -> None:
+    """WARN + strict=True, operator answers 'j' — gate returns True (proceed)."""
+    console = MagicMock()
+    log_fn = MagicMock()
+    verdict = _make_warn_verdict()
+
+    with patch("builtins.input", return_value="j"):
+        result = _run_confidence_gate(verdict, True, console, log_fn)
+
+    assert result is True
+
+
+def test_confidence_gate_warn_non_strict_proceeds_without_prompt() -> None:
+    """WARN + strict=False — gate returns True without calling input()."""
+    console = MagicMock()
+    log_fn = MagicMock()
+    verdict = _make_warn_verdict()
+
+    with patch("builtins.input", side_effect=AssertionError("must not prompt in non-strict")):
+        result = _run_confidence_gate(verdict, False, console, log_fn)
+
+    assert result is True
+
+
+def test_confidence_gate_ok_verdict_skips_gate(tmp_path: Path) -> None:
+    """OK confidence verdict — _run_confidence_gate is not called (pipeline proceeds normally)."""
+    # Integration: run _cmd_run with a mocked confidence assessment returning OK;
+    # verify the pipeline completes with return code 0.
+    args = _make_args(tmp_path)
+    args.non_strict = False  # strict mode
+
+    from unittest.mock import MagicMock as _MM
+    ok_verdict = _MM()
+    ok_verdict.verdict = "OK"
+    ok_verdict.overall_assessment = "all sources healthy"
+    ok_verdict.suspicious_sources = []
+    ok_verdict.gaps = []
+
+    patches = _all_stage_patches()
+    with patch.dict(os.environ, {**_HARNESS_CLEAN, "RVV_APPROVAL_ENDPOINT": "http://localhost:1234"}):
+        with patch(
+            "tournament_scheduler.pipeline.scraping_confidence.run_confidence_assessment",
+            return_value=ok_verdict,
+        ):
+            with patch("tournament_scheduler.llm.lm_studio_client.LMStudioClient"):
+                with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+                    result = _cmd_run(args)
+
+    assert result == 0
