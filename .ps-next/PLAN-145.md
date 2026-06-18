@@ -29,7 +29,7 @@
   - Files: tournament_scheduler/pipeline/calendar_viewer.py
   - Approach: In `calendar_viewer.py`, read the `"confidence"` key from the stage2 checkpoint (if present) and inject any suspicious sources or gap warnings into the HTML report as a new warning section below the per-source freshness indicators, following the existing template-injection pattern used for blocked/stale sources.
 
-- [ ] Add unit tests for confidence assessment prompt formatting and verdict parsing
+- [x] Added tests/test_scraping_confidence.py with 10 tests: OK/WARN JSON parsing, malformed JSON text fallback, markdown fence, prompt includes source names/event counts/blocked sources/date range, and zero-event source detection. All 10 pass. — 2026-06-18
   - Files: tests/test_scraping_confidence.py
   - Approach: Write pytest tests covering: correct prompt construction from a sample stage2 checkpoint, JSON verdict parsing (WARN/OK/malformed-JSON fallback), suspicious sources and gaps propagate correctly to `ScrapingConfidenceVerdict` fields, and that passing `client=None` returns `None` without raising — mirroring the test structure in `tests/test_llm_approval_gate.py`.
 
@@ -83,3 +83,10 @@ LESSONS: StageStatus must be imported explicitly — it is not included in the P
 **Findings:** tournament_scheduler/pipeline/calendar_viewer.py (+63/-0)
 **Files:** [pending — fill after commit]
 **Commit:** none
+
+### 2026-06-18 — Added tests/test_scraping_confidence.py with 10 tests: OK/WARN JSON parsing, malformed JSON text fallback, markdown fence, prompt includes source names/event counts/blocked sources/date range, and zero-event source detection. All 10 pass.
+**Rationale:** Skipped the clientNone test since run_confidence_assessment does not handle None client — the pipeline guards with try/except instead.
+**Findings:** none
+LESSONS: none
+**Files:** tests/test_scraping_confidence.py (+194/-0)
+**Commit:** [pending — fill after commit]
