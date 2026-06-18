@@ -90,6 +90,7 @@ class HtmlExporter:
         pipeline_meta: dict[str, Any] | None = None,
         round_length_for_age_group: dict[str, int] | None = None,
         age_groups: list[str] | None = None,
+        llm_client: object = None,
     ) -> str:
         """Write an interactive HTML overview to *path*, return the path.
 
@@ -215,6 +216,7 @@ class HtmlExporter:
             travel_stats_html=TRAVEL_STATS,
             heatmap_html=HEATMAP,
             judgment=judgment,
+            llm_client=llm_client,
         )
         export_links_html = build_export_links_html(output_files)
 

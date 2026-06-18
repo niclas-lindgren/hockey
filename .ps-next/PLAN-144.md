@@ -20,7 +20,7 @@
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Add an optional `llm_client` keyword argument to `_report_overview_html`; after computing `overall_status`, call `generate_report_conclusion(plan, blocked, llm_client)` and, if it returns a non-empty string, use it as `answer` instead of `answer_by_status[overall_status]`. The `note` string (navigation guidance) stays deterministic and is not replaced by LLM output, keeping the UI stable.
 
-- [ ] Thread the LLM client through `HtmlExporter.export()` to `_report_overview_html`
+- [x] Added llm_client parameter to HtmlExporter.export() and forwarded it to _report_overview_html(). — 2026-06-18
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Add an optional `llm_client` parameter to `HtmlExporter.export()` and forward it to the `_report_overview_html(...)` call at line ~200. No other call sites are affected since they do not pass the parameter.
 
@@ -56,4 +56,11 @@ LESSONS: none
 **Findings:** LLM conclusion replaces static answer only when non-empty; note stays deterministic.
 LESSONS: none
 **Files:** html_exporter.py (+7/-1)
+**Commit:** a756dc6 (hockey)
+
+### 2026-06-18 — Added llm_client parameter to HtmlExporter.export() and forwarded it to _report_overview_html().
+**Rationale:** none
+**Findings:** Straightforward parameter threading; no callers affected as default is None.
+LESSONS: none
+**Files:** html_exporter.py (+2/-0)
 **Commit:** [pending — fill after commit]
