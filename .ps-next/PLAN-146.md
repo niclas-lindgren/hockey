@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Add `--no-llm-scrape` argparse argument to the `run` subparser in `pipeline_orchestrator.py` (add `parser_run.add_argument("--no-llm-scrape", action="store_true")`). Pass `no_llm_scrape=args.no_llm_scrape` to the `stage2_run()` call at line ~487. Also add `--no-llm-scrape` to the `__main__` CLI block in `stage2_scraping.py` so the module can be run standalone with this flag.
 
-- [ ] Ensure the Stage 2 checkpoint records LLM-scraped sources with sufficient metadata
+- [x] When LLM fallback succeeds, sets llm_fallback_usedTrue on the source_result and appends a rich metadata dict {name, url, event_count, fallback_reason} to the llm_fallback checkpoint list. — 2026-06-18
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: When `_scrape_source` sets `llm_fallback=True` on a successful LLM result, add a dict with at least `{name, url, event_count, fallback_reason}` to the `llm_fallback` list in the checkpoint; update the per-source result dict to include `llm_fallback_used: True` so downstream readers can distinguish it from both normal success and true blocks.
 
@@ -62,4 +62,11 @@ LESSONS: none
 **Findings:** Flag wired through all three touch points; no_llm_scrape defaults to False so existing behavior is unchanged.
 LESSONS: none
 **Files:** args.py (+5/-0), pipeline_orchestrator.py (+1/-0), stage2_scraping.py (+5/-0)
+**Commit:** 50be495 (hockey)
+
+### 2026-06-18 — When LLM fallback succeeds, sets llm_fallback_usedTrue on the source_result and appends a rich metadata dict {name, url, event_count, fallback_reason} to the llm_fallback checkpoint list.
+**Rationale:** none
+**Findings:** LLM-scraped sources are now distinguishable in the checkpoint with event_count and fallback_reason metadata.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage2_scraping.py (+8/-0)
 **Commit:** [pending — fill after commit]

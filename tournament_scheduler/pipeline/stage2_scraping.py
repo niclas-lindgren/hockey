@@ -243,6 +243,14 @@ def run(
                 source_result["events"] = _events_to_dicts(events)
                 source_result["event_count"] = len(events)
                 source_result["llm_fallback"] = True
+                source_result["llm_fallback_used"] = True
+                # Add rich metadata to the llm_fallback checkpoint list
+                llm_fallback.append({
+                    "name": source_result["name"],
+                    "url": source_result.get("url", ""),
+                    "event_count": len(events),
+                    "fallback_reason": source_result.get("block_reason", "normal scraper returned no events"),
+                })
                 # Remove from blocked list
                 blocked[:] = [b for b in blocked if b["name"] != source_result["name"]]
 
