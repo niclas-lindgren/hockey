@@ -21,7 +21,7 @@
   - Files: `.chatgpt/commands/rvv-miniputt/run.md`
   - Approach: Create a harness-specific command file for ChatGPT that mirrors the Claude run.md structure — calling stages individually with pauses for the ChatGPT session's native intelligence to review checkpoints — using the same stage module invocations and checkpoint paths.
 
-- [ ] Create an OpenCode harness orchestration command file
+- [x] Rewrote .opencode/commands/rvv-miniputt/run.md to use stage-by-stage invocations with checkpoint review steps instead of the black-box runner. — 2026-06-18
   - Files: `.opencode/commands/rvv-miniputt/run.md`
   - Approach: Create a harness-specific command file for OpenCode following the same pattern as the Claude and ChatGPT versions — thin wrapper that calls each stage individually and pauses for review between stages, reusing the same `PipelineState` checkpoint files.
 
@@ -64,4 +64,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: none
 **Files:** .chatgpt/commands/rvv-miniputt/run.md (+84/-0)
+**Commit:** e08d944 (hockey)
+
+### 2026-06-18 — Rewrote .opencode/commands/rvv-miniputt/run.md to use stage-by-stage invocations with checkpoint review steps instead of the black-box runner.
+**Rationale:** Existing file had the black-box pattern; replaced with the same per-stage structure used in the Claude and ChatGPT versions.
+**Findings:** none
+LESSONS: The OpenCode run.md already existed — this was a rewrite, not a new file creation.
+**Files:** .opencode/commands/rvv-miniputt/run.md (+52/-19)
 **Commit:** [pending — fill after commit]
