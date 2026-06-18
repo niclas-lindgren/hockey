@@ -1,4 +1,4 @@
-"""CLI command for inspecting Stage 2 blocked and zero-event sources."""
+"""CLI commands for inspecting and recovering Stage 2 blocked/zero-event sources."""
 
 from __future__ import annotations
 
@@ -68,4 +68,50 @@ def _cmd_recovery_targets(args: argparse.Namespace) -> int:
             })
 
     print(json.dumps(targets, ensure_ascii=False, indent=2))
+    return 0
+
+
+def _cmd_recovery_inject(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt recovery-inject``.
+
+    Reads a JSON event list from stdin and injects it into the unified cache
+    for the named source, so that subsequent Stage 2 re-runs or Stage 3
+    invocations pick up the recovered data without re-scraping.
+
+    Example::
+
+        echo '[{"title": "...", "start": "2025-01-04"}]' | \\
+            rvv-miniputt recovery-inject --source "Sandefjord"
+    """
+    from ..pipeline.recovery_injector import inject_recovered_events
+
+    try:
+        raw = sys.stdin.read()
+        events = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        print(
+            json.dumps({"error": f"Invalid JSON on stdin: {exc}"}),
+            file=sys.stderr,
+        )
+        return 1
+
+    if not isinstance(events, list):
+        print(
+            json.dumps({"error": "stdin must be a JSON array of event objects"}),
+            file=sys.stderr,
+        )
+        return 1
+
+    inject_recovered_events(
+        source_name=args.source,
+        events=events,
+        work_dir=args.work_dir,
+    )
+
+    print(
+        json.dumps(
+            {"injected": len(events), "source": args.source, "work_dir": args.work_dir},
+            ensure_ascii=False,
+        )
+    )
     return 0

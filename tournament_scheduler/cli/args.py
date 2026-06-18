@@ -177,6 +177,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline work directory (default: .pipeline)",
     )
 
+    # recovery-inject — inject recovered events into the unified cache from stdin
+    recovery_inject = sub.add_parser(
+        "recovery-inject",
+        help="Inject a JSON event list from stdin into the cache for a given source",
+    )
+    recovery_inject.add_argument(
+        "--source",
+        required=True,
+        help="Source name to patch (e.g. 'Sandefjord', 'Tønsberg')",
+    )
+    recovery_inject.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
     # cancel
     cancel = sub.add_parser("cancel", help="Cancel a tournament and suggest/reschedule makeup dates")
     cancel.add_argument(

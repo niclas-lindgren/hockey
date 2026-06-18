@@ -18,7 +18,7 @@
   - Files: tournament_scheduler/pipeline/recovery_injector.py, tournament_scheduler/pipeline/cache_manager.py
   - Approach: Create `recovery_injector.py` with a `inject_recovered_events(source_name, events, work_dir)` function that patches the cache entry for the given source using `ScrapedDataCache` so that a subsequent Stage 2 re-run (or Stage 3 direct invocation) picks up the recovered data without re-scraping.
 
-- [ ] Add a `rvv-miniputt recovery-inject` CLI subcommand to write recovered events from stdin
+- [x] Added _cmd_recovery_inject() to recovery_cli.py that reads a JSON event list from stdin and calls inject_recovered_events(). Registered recovery-inject subparser in args.py (--source required, --work-dir optional) and wired handler in rvv_cli.py. — 2026-06-18
   - Files: tournament_scheduler/cli/recovery_cli.py, tournament_scheduler/cli/rvv_cli.py
   - Approach: Expose `recovery_injector.inject_recovered_events()` as a CLI subcommand (`recovery-inject --source NAME`) that reads a JSON event list from stdin, so the harness can pipe WebFetch-extracted events directly into the cache without writing intermediate files.
 
@@ -70,4 +70,11 @@ LESSONS: none
 **Findings:** ScrapedDataCache stores sources under data['sources'][name] with event_count, blocked, events, scrape_timestamp fields. The injector merges into existing source entry to preserve any extra fields (e.g. url).
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/recovery_injector.py (+67/-0)
+**Commit:** 79265ed (hockey)
+
+### 2026-06-18 — Added _cmd_recovery_inject() to recovery_cli.py that reads a JSON event list from stdin and calls inject_recovered_events(). Registered recovery-inject subparser in args.py (--source required, --work-dir optional) and wired handler in rvv_cli.py.
+**Rationale:** none
+**Findings:** Command tested: piping a JSON array through stdin produces {injected, source, work_dir} JSON confirmation and exit 0.
+LESSONS: none
+**Files:** recovery_cli.py (+48/-1), args.py (+16), rvv_cli.py (+2/-1)
 **Commit:** [pending — fill after commit]

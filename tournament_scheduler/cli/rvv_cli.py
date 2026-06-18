@@ -24,7 +24,7 @@ from rich.console import Console
 
 from .args import build_parser as _build_parser
 from .pipeline_orchestrator import _cmd_calendars, _cmd_run, _cmd_scrape, _cmd_scrape_llm
-from .recovery_cli import _cmd_recovery_targets
+from .recovery_cli import _cmd_recovery_inject, _cmd_recovery_targets
 from .reporting import _cmd_logs, _cmd_status
 
 _console = Console()
@@ -468,6 +468,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_scrape_llm(args)
     elif args.command == "recovery-targets":
         return _cmd_recovery_targets(args)
+    elif args.command == "recovery-inject":
+        return _cmd_recovery_inject(args)
     else:
         parser.print_help()
         return 0
