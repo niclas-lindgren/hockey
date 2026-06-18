@@ -2,6 +2,10 @@
 
 ## Open
 
+- [147] [ ] Act on scraping confidence WARN verdict: in strict mode (default), block Stage 3 and require operator confirmation when the confidence assessment returns WARN; in non-strict mode (--non-strict flag), log the warning and proceed automatically. Reuse the same --non-strict flag and confirmation prompt pattern already used by the LLM approval gate before Stage 4.
+
+- [146] [ ] Add LLM fallback scraper for Stage 2: if the normal scraping script fails or returns zero events for a source, attempt to scrape that source using the LLM (via web_fetch or computer-use style prompting) before marking it as blocked. The LLM scraper should produce the same event-list format as the normal scraper so downstream stages see no difference. Integrate as a per-source fallback inside the Stage 2 loop, with a flag to disable it (--no-llm-scrape). Surface LLM-scraped sources distinctly in the CLI output and Stage 2 checkpoint so the confidence assessment can weight them appropriately.
+
 - [144] [ ] Replace static report conclusion with LLM-generated narrative: instead of picking from 3 hardcoded strings based on fairness_gate.status, pass the plan metrics, score breakdown, blocked sources, and adjustment history to an LLM and ask it to write a short (3–5 sentence) run-specific assessment in Norwegian. This is the conclusion section in _report_overview_html. See also #136 for the data injection groundwork.
 
 - [143] [ ] Add LLM semantic config validation in Stage 1: schema validation catches typos but not infeasible plans. After parsing input.xlsx, pass the key constraints to an LLM and ask it to flag semantic issues — e.g. 'you have 9 tournaments for U7 but only 3 host clubs and 5 available weekends — this will likely fail or produce poor spread'. Emit these as pre-planning warnings so the operator can fix the config before Stage 3 runs.
