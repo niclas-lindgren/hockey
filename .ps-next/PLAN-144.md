@@ -16,7 +16,7 @@
   - Files: tournament_scheduler/html/renderers/conclusion.py, tournament_scheduler/html/renderers/__init__.py
   - Approach: Create a new renderer module that accepts `plan`, `blocked`, and an optional `LMStudioClient` instance; it builds a system prompt instructing the LLM to write 3–5 Norwegian sentences, constructs a user prompt with gate status/score, per-metric breakdown, blocked source count, and manual_adjustments summary, calls `client.complete()`, and returns the text string. When no client is provided or `LMStudioUnavailableError` is raised, return `None` so the caller can fall back.
 
-- [ ] Update `_report_overview_html` to accept an optional LLM client and use the new renderer
+- [x] Added llm_client parameter to _report_overview_html and wired in generate_report_conclusion; falls back to static answer if LLM returns None. — 2026-06-18
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Add an optional `llm_client` keyword argument to `_report_overview_html`; after computing `overall_status`, call `generate_report_conclusion(plan, blocked, llm_client)` and, if it returns a non-empty string, use it as `answer` instead of `answer_by_status[overall_status]`. The `note` string (navigation guidance) stays deterministic and is not replaced by LLM output, keeping the UI stable.
 
@@ -49,4 +49,11 @@
 **Findings:** New module conclusion.py created with full prompt construction and graceful LMStudio fallback.
 LESSONS: none
 **Files:** conclusion.py (+125/-0), __init__.py (+2/-0)
+**Commit:** 72380e1 (hockey)
+
+### 2026-06-18 — Added llm_client parameter to _report_overview_html and wired in generate_report_conclusion; falls back to static answer if LLM returns None.
+**Rationale:** none
+**Findings:** LLM conclusion replaces static answer only when non-empty; note stays deterministic.
+LESSONS: none
+**Files:** html_exporter.py (+7/-1)
 **Commit:** [pending — fill after commit]

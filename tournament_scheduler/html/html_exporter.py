@@ -355,6 +355,7 @@ class HtmlExporter:
         travel_stats_html: str,
         heatmap_html: str,
         judgment: dict[str, object],
+        llm_client: object = None,
     ) -> str:
         """Render the organizer-first report overview above raw diagnostics."""
         gate = plan.fairness_gate if isinstance(plan.fairness_gate, dict) else {}
@@ -427,7 +428,12 @@ class HtmlExporter:
         if not actions:
             actions.append(("pass", "Ingen kritiske handlinger", "G\u00e5 videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
 
-        answer = answer_by_status.get(overall_status, answer_by_status["warn"]) + judgment_addendum
+        from tournament_scheduler.html.renderers.conclusion import generate_report_conclusion
+        llm_conclusion = generate_report_conclusion(plan, blocked, llm_client)
+        if llm_conclusion:
+            answer = llm_conclusion
+        else:
+            answer = answer_by_status.get(overall_status, answer_by_status["warn"]) + judgment_addendum
         note = note_by_status.get(overall_status, note_by_status["warn"]) + judgment_note_addendum
 
         age_rows: list[str] = []
