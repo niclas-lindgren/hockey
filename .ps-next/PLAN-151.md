@@ -34,6 +34,8 @@
   - Files: README.md, docs/rvv-miniputt-pipeline.md
   - Approach: Add a short "Headless / CI usage" section explaining `RVV_JUDGE_BACKEND` values and any required API key env vars (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`); update CLI `--help` output or inline comments in `rvv_cli.py` to mention `RVV_JUDGE_BACKEND`.
 
+- [x] Created tests/test_pipeline_orchestrator_judgment.py with 8 tests covering _judge_stage() behavior via _cmd_run() integration; all 31 tests in test_llm_judge.py and test_pipeline_orchestrator_judgment.py pass. — 2026-06-18
+
 ## Notes
 The harness-driven judgment path (Claude Code, Pi, ChatGPT, OpenCode) must remain completely unaffected. All new code is conditional on `get_judge_if_headless()` returning non-None. The llm-bridge backend connects to localhost:1234 matching the same host used by existing LLM Bridge MCP tooling in this repo.
 
@@ -45,6 +47,8 @@ The harness-driven judgment path (Claude Code, Pi, ChatGPT, OpenCode) must remai
 - [ ] `grep:docs/rvv-miniputt-pipeline.md contains RVV_JUDGE_BACKEND`
 
 ## Log
+- 2026-06-18 Auto-verify attempt 1 found 1 failing criterion — added remediation task
+
 
 <!-- pi-next appends entries here after each task -->
 
@@ -95,4 +99,29 @@ LESSONS: orchestrator _cmd_run imports stages lazily inside the function body �
 **Findings:** docs/rvv-miniputt-pipeline.md gains a table of backends and example export commands; args.py gains a comment block directing operators to the doc
 LESSONS: none
 **Files:** docs/rvv-miniputt-pipeline.md (+35/-0), tournament_scheduler/cli/args.py (+10/-0)
+**Commit:** 5b06a81 (hockey)
+
+## Verification Report
+**Date:** 2026-06-18
+
+| Criterion | Verdict | Notes |
+|-----------|---------|-------|
+| run:python3 -m pytest -q tests/test_llm_judge.py tests/test_pipeline_orchestrator_judgment.py | FAIL | tests/test_pipeline_orchestrator_judgment.py does not exist; 23/23 tests pass in test_llm_judge.py |
+| grep:tournament_scheduler/llm_judge/interface.py contains class LLMJudge | PASS | class LLMJudge found in interface.py |
+| grep:tournament_scheduler/llm_judge/harness.py contains is_harness_active | PASS | is_harness_active found in harness.py |
+| grep:tournament_scheduler/cli/pipeline_orchestrator.py contains get_judge_if_headless | PASS | get_judge_if_headless found in pipeline_orchestrator.py |
+| grep:docs/rvv-miniputt-pipeline.md contains RVV_JUDGE_BACKEND | PASS | RVV_JUDGE_BACKEND found in pipeline doc |
+
+**Shell checks (ps-verify-plan):** all passed
+```
+no embedded shell checks found
+```
+**Git history:** 6 tasks with matching commits / 6 tasks total
+**Tests:** 23 passed / 0 failed (test_pipeline_orchestrator_judgment.py missing)
+
+### 2026-06-18 — Created tests/test_pipeline_orchestrator_judgment.py with 8 tests covering _judge_stage() behavior via _cmd_run() integration; all 31 tests in test_llm_judge.py and test_pipeline_orchestrator_judgment.py pass.
+**Rationale:** Stage runner mocks avoid full pipeline execution; patches target tournament_scheduler.llm_judge.get_judge_if_headless and build_stage_prompt to intercept the lazy imports inside _cmd_run(). PipelineState is pre-seeded in the write_judgment test to give write_judgment an envelope to update.
+**Findings:** All 8 new tests pass; 31 total across both test files pass.
+LESSONS: _judge_stage() is a closure inside _cmd_run() — patch tournament_scheduler.llm_judge.get_judge_if_headless (not pipeline_orchestrator's local binding) since the from-import re-fetches from the module at each _cmd_run() call; always call _all_stage_patches() without args to avoid resetting judge_mock return_value.
+**Files:** tests/test_pipeline_orchestrator_judgment.py (+237)
 **Commit:** [pending — fill after commit]
