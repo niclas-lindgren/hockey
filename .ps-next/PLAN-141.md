@@ -22,7 +22,7 @@ none
   - Files: `tournament_scheduler/cli/plan_critic.py`
   - Approach: Implement pure-Python analysis with no LLM call: detect hosting clumps per month (>2 tournaments at same club in same month), game-count outliers, fairness-gate failures, and arena-day collisions; rank by severity and format each as a single actionable Norwegian or English sentence.
 
-- [ ] Replace the `_run_approval_gate` placeholder in `pipeline_orchestrator.py` with a call to `generate_critic_summary`, print the summary to the Rich console, and continue to Stage 4.
+- [x] Replaced the _run_approval_gate placeholder with a call to generate_critic_summary; issues are printed to the Rich console and Stage 4 is never blocked. — 2026-06-18
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`
   - Approach: Import `generate_critic_summary` from `plan_critic`, call it with `plan_checkpoint["plan"]` after Stage 3 completes, and print each bullet using `_console.print` with a `[bold cyan]` prefix; the gate still always returns `True` so Stage 4 is not blocked.
 
@@ -53,4 +53,11 @@ Running `rvv-miniputt critic` against a completed Stage 3 checkpoint prints the 
 **Findings:** Module imports cleanly, all existing tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/cli/plan_critic.py (+131/-0)
+**Commit:** 5f132e2 (hockey)
+
+### 2026-06-18 — Replaced the _run_approval_gate placeholder with a call to generate_critic_summary; issues are printed to the Rich console and Stage 4 is never blocked.
+**Rationale:** Lazy import of plan_critic inside the function avoids circular imports; plan_checkpoint["plan"] is the SeasonPlan object.
+**Findings:** Prints up to 5 ranked issues or a clean 'Ingen problemer' message; gate always returns True.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+15/-1)
 **Commit:** [pending — fill after commit]

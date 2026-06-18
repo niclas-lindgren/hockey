@@ -152,7 +152,21 @@ def _run_approval_gate(
     console: "Console",
     log_fn: "Any",
 ) -> bool:
-    """Approval gate placeholder — always proceeds (LLM gate removed)."""
+    """Run the plan critic and print any issues; always returns True (non-blocking)."""
+    from .plan_critic import generate_critic_summary
+
+    season_plan = plan_checkpoint.get("plan") if isinstance(plan_checkpoint, dict) else None
+    if season_plan is not None:
+        try:
+            issues = generate_critic_summary(season_plan)
+            if issues:
+                console.print("[bold cyan]Plan critic:[/bold cyan]")
+                for issue in issues:
+                    console.print(f"  [cyan]•[/cyan] {issue}")
+            else:
+                console.print("[bold cyan]Plan critic:[/bold cyan] Ingen problemer oppdaget.")
+        except Exception as exc:
+            console.print(f"  [yellow]⚠[/yellow] Plan critic feilet: {exc}")
     return True
 
 
