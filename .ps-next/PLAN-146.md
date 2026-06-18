@@ -18,7 +18,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: When the approval gate returns no-go and strict=True, print the blockers and proposed changes with Rich formatting and prompt the operator for confirmation (y/n). If the operator declines, exit with code 1. If the operator confirms, proceed to stage 4 unchanged (letting the operator take responsibility).
 
-- [ ] Implement auto-apply path for no-go verdicts in non-strict mode
+- [x] In _run_approval_gate(), when strictFalse and verdict is NO_GO, attempt to auto-apply adjustments by calling ManualAdjustmentWorkflow(state).apply(season_plan) after converting plan_checkpoint via _dict_to_plan. Prints changes or warnings, then continues to Stage 4. — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/pipeline/manual_adjustment_workflow.py
   - Approach: When strict=False and the approval gate returns no-go, print the proposed changes then call into `manual_adjustment_workflow` to apply the LLM's proposed adjustments programmatically before proceeding to stage 4. Rebuild the fairness gate after any adjustments are applied.
 
@@ -60,4 +60,11 @@ LESSONS: The pipeline orchestrator uses LLMJudge with judge() for stage gates bu
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+11)
+**Commit:** 2713934 (hockey)
+
+### 2026-06-18 — In _run_approval_gate(), when strictFalse and verdict is NO_GO, attempt to auto-apply adjustments by calling ManualAdjustmentWorkflow(state).apply(season_plan) after converting plan_checkpoint via _dict_to_plan. Prints changes or warnings, then continues to Stage 4.
+**Rationale:** The proposed_changes from the LLM are free-text strings — not directly mappable to the workflow's structured adjustment dict. The auto-apply re-runs the workflow with existing manual_adjustments from the plan, which rebuilds fairness scoring and applies any previously configured adjustments.
+**Findings:** ManualAdjustmentWorkflow.apply() requires a SeasonPlan object, not a plan dict — must use _dict_to_plan from stage4_helpers to convert first. State parameter was added to _run_approval_gate signature.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+38/-2)
 **Commit:** [pending — fill after commit]

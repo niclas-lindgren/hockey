@@ -151,6 +151,7 @@ _DEFAULT_APPROVAL_MODEL = "local-model"
 def _run_approval_gate(
     args: argparse.Namespace,
     plan_checkpoint: "dict[str, Any]",
+    state: "Any",
     strict: bool,
     console: "Console",
     log_fn: "Any",
@@ -161,9 +162,14 @@ def _run_approval_gate(
     skipped silently and ``True`` (proceed) is returned so non-LLM deployments are
     unaffected.  ``RVV_APPROVAL_MODEL`` sets the model name (default ``local-model``).
 
+    In non-strict mode with a NO_GO verdict, prints the proposed changes and attempts
+    to apply any existing manual_adjustments via :class:`ManualAdjustmentWorkflow`
+    before proceeding to Stage 4.
+
     Returns:
         ``True`` if the pipeline should proceed to Stage 4, ``False`` if it should
-        halt (only possible in strict mode with a NO_GO verdict).
+        halt (only possible in strict mode with a NO_GO verdict that the operator
+        declines to override).
     """
     import os as _os
 
@@ -219,6 +225,36 @@ def _run_approval_gate(
             return True
         return False  # caller will halt
 
+    # non-strict: attempt auto-apply of existing manual_adjustments via workflow,
+    # then re-check fairness before proceeding to Stage 4.
+    console.print("  [yellow]⚠[/yellow] Forsøker automatisk justeringsgjennomgang...")
+    try:
+        from ..pipeline.manual_adjustment_workflow import ManualAdjustmentWorkflow
+        from ..pipeline.stage4_helpers import _dict_to_plan
+
+        plan_dict = plan_checkpoint.get("plan", {})
+        season_plan = _dict_to_plan(plan_dict)
+        result = ManualAdjustmentWorkflow(state).apply(season_plan)
+        if result.success:
+            log_fn(f"Auto-adjustment succeeded: {len(result.changes)} changes applied")
+            console.print(
+                f"  [green]✓[/green] Automatiske justeringer anvendt "
+                f"({len(result.changes)} endringer)"
+            )
+            for change in result.changes:
+                console.print(f"    [dim]→ {change}[/dim]")
+        else:
+            log_fn(f"Auto-adjustment completed with warnings: {result.warnings}")
+            console.print(
+                "  [yellow]⚠[/yellow] Justeringer gjennomført med advarsler"
+            )
+            for warning in result.warnings:
+                console.print(f"    [yellow]⚠[/yellow] {warning}")
+    except Exception as exc:
+        log_fn(f"Auto-adjustment failed (non-fatal): {exc}")
+        console.print(
+            f"  [yellow]⚠[/yellow] Automatisk justering feilet: {exc} — fortsetter"
+        )
     console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
     return True
 
@@ -484,7 +520,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # ── LLM approval gate (between Stage 3 and Stage 4) ──────────────────────
     # Only runs when RVV_APPROVAL_ENDPOINT is set (opt-in).  If not configured
     # the gate is skipped silently so non-LLM deployments are unaffected.
-    if not _run_approval_gate(args, plan, strict, _console, _log):
+    if not _run_approval_gate(args, plan, state, strict, _console, _log):
         _write_run_log(args.work_dir, log_start, log_lines, success=False)
         return 1
 
