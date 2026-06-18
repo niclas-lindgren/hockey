@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/pipeline/stage2_scraping.py, tournament_scheduler/pipeline/state.py
   - Approach: After running the confidence assessment, write the `ScrapingConfidenceVerdict` (serialized to dict) into the stage2 checkpoint under a `"confidence"` key using the existing `state.write_*` or checkpoint-update pattern, so downstream stages and reports can read it.
 
-- [ ] Surface confidence assessment warnings in CLI output
+- [x] Enhanced WARN output in _cmd_run to list suspicious sources on a dedicated line with Norwegian label 'Mistenkelige kilder:' and included suspicious_sources in the run log entry. OK verdict now shows overall_assessment when available. — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/utils/rich_output.py
   - Approach: After the confidence assessment runs, use `_console.print()` with Rich formatting (Panel or warning-styled text) to list any suspicious sources and gaps identified by the LLM, displayed immediately after the existing blocked/fallback source warnings in `_cmd_run`, keeping Norwegian-language wording consistent with other Stage 2 output.
 
@@ -70,4 +70,10 @@ LESSONS: cfg in _cmd_run is a dict, not an object with .start_date — pass a si
 **Findings:** none
 LESSONS: StageStatus must be imported explicitly — it is not included in the PipelineState/StageName import on line 284
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+9/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** f546336 (hockey)
+
+### 2026-06-18 — Enhanced WARN output in _cmd_run to list suspicious sources on a dedicated line with Norwegian label 'Mistenkelige kilder:' and included suspicious_sources in the run log entry. OK verdict now shows overall_assessment when available.
+**Rationale:** none
+**Findings:** tournament_scheduler/cli/pipeline_orchestrator.py (+13/-3)
+**Files:** [pending — fill after commit]
+**Commit:** none

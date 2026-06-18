@@ -518,14 +518,24 @@ def _cmd_run(args: argparse.Namespace) -> int:
             _conf_verdict = run_confidence_assessment(scraping, _DateRange(start, end), _conf_client)
             if _conf_verdict.verdict == "WARN":
                 _console.print(
-                    f"  [yellow]⚠[/yellow] Skrapekvalitet: WARN — {_conf_verdict.overall_assessment}"
+                    f"  [yellow]⚠[/yellow] Skrapekvalitet: [bold yellow]WARN[/bold yellow] — "
+                    f"{_conf_verdict.overall_assessment}"
                 )
+                if _conf_verdict.suspicious_sources:
+                    _console.print(
+                        "    [yellow]Mistenkelige kilder:[/yellow] "
+                        + ", ".join(_conf_verdict.suspicious_sources)
+                    )
                 for _gap in _conf_verdict.gaps:
                     _console.print(f"    [dim]→ {_gap}[/dim]")
-                _log(f"Scraping confidence WARN: {_conf_verdict.overall_assessment}")
+                _log(
+                    f"Scraping confidence WARN: {_conf_verdict.overall_assessment} "
+                    f"(suspicious: {_conf_verdict.suspicious_sources}; gaps: {_conf_verdict.gaps})"
+                )
             else:
                 _console.print(
-                    f"  [green]✓[/green] Skrapekvalitet: OK — {_conf_verdict.overall_assessment}"
+                    f"  [green]✓[/green] Skrapekvalitet: [bold green]OK[/bold green]"
+                    + (f" — {_conf_verdict.overall_assessment}" if _conf_verdict.overall_assessment else "")
                 )
                 _log("Scraping confidence OK")
             # Persist verdict into Stage 2 checkpoint so reports can read it
