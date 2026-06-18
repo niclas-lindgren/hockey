@@ -14,7 +14,7 @@
   - Files: tournament_scheduler/cli/recovery_cli.py, tournament_scheduler/cli/__init__.py, tournament_scheduler/cli/rvv_cli.py
   - Approach: Add a `rvv-miniputt recovery-targets` subcommand that reads `.pipeline/stage2_scraping.json`, merges `blocked_sources` and `sources_with_zero_events`, calls `_recovery_hint_for_source()` from `scraper_recovery.py` to get the URL per source, and prints a JSON array of `{name, url, reason}` objects the agent can consume.
 
-- [ ] Implement a recovery event injector that writes fetched events into the unified cache
+- [x] Created recovery_injector.py with inject_recovered_events(source_name, events, work_dir) that uses ScrapedDataCache.read()/write() to patch a source entry with recovered events, setting blockedFalse and updating timestamps so subsequent Stage 2 or Stage 3 runs use the injected data. — 2026-06-18
   - Files: tournament_scheduler/pipeline/recovery_injector.py, tournament_scheduler/pipeline/cache_manager.py
   - Approach: Create `recovery_injector.py` with a `inject_recovered_events(source_name, events, work_dir)` function that patches the cache entry for the given source using `ScrapedDataCache` so that a subsequent Stage 2 re-run (or Stage 3 direct invocation) picks up the recovered data without re-scraping.
 
@@ -63,4 +63,11 @@ LESSONS: none
 **Findings:** The stage2 checkpoint wraps source data under data.sources (not top-level). Sources with skippedTrue are correctly excluded from recovery targets. Sandefjord currently has event_count0 but skippedTrue so it is not emitted.
 LESSONS: none
 **Files:** tournament_scheduler/cli/recovery_cli.py (+71), args.py (+11), rvv_cli.py (+3)
+**Commit:** a7892d6 (hockey)
+
+### 2026-06-18 — Created recovery_injector.py with inject_recovered_events(source_name, events, work_dir) that uses ScrapedDataCache.read()/write() to patch a source entry with recovered events, setting blockedFalse and updating timestamps so subsequent Stage 2 or Stage 3 runs use the injected data.
+**Rationale:** none
+**Findings:** ScrapedDataCache stores sources under data['sources'][name] with event_count, blocked, events, scrape_timestamp fields. The injector merges into existing source entry to preserve any extra fields (e.g. url).
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/recovery_injector.py (+67/-0)
 **Commit:** [pending — fill after commit]
