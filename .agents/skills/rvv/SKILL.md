@@ -293,6 +293,20 @@ For each age group:
 - For each age group in that list, check whether at least one entry in `teams` has a matching `age_group` value.
 - Flag any age group that appears in `age_groups` but has no corresponding team records — this is a semantic error that will cause planning to produce an empty schedule for that age group.
 
+**Escalation: semantic failures block Stage 2**
+
+If any of the above checks flag an issue, **do not proceed to Stage 2**. Instead:
+
+1. Print a plain-language summary of each issue in Norwegian. Examples:
+   - `Aldergruppe JU10: 24 turneringer kreves men bare 18 helger tilgjengelig (start: 2025-09-01, slutt: 2026-04-30)`
+   - `Aldergruppe U7: parallel_games=5 men bare 4 klubber er representert`
+   - `Aldergruppe U12: minst 2 lag kreves, men bare 1 lag er registrert`
+   - `Aldergruppe JU11: oppført i age_groups men ingen lag er registrert`
+2. Instruct the user to correct `input.xlsx` and re-run Stage 1 (`python3 -m tournament_scheduler.pipeline.stage1_config`).
+3. Stop — do not invoke any Stage 2 commands.
+
+If all checks pass, proceed to Stage 2 as normal.
+
 **Stage 2 — Scraping**
 
 ```bash

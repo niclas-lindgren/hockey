@@ -21,7 +21,7 @@
   - Files: .agents/skills/rvv/SKILL.md
   - Approach: Add a reasoning step in the semantic-validation section that lists the age groups from the effective config and verifies each one has at least one team in the `teams` array; flag any age group declared in `age_groups` but absent from team records as a semantic error.
 
-- [ ] Add harness escalation path for semantic failures — block Stage 2 advance
+- [x] Added an 'Escalation: semantic failures block Stage 2' subsection with Norwegian-language error message examples, instruction to fix input.xlsx and re-run Stage 1, and explicit stop — do not invoke Stage 2 commands. — 2026-06-18
   - Files: .agents/skills/rvv/SKILL.md
   - Approach: Document that when any semantic check fails the harness should print a Norwegian-language summary of each issue (e.g. "Aldergruppe JU10: 24 turneringer kreves men bare 18 helger tilgjengelig") and stop before running Stage 2, instructing the user to update input.xlsx and re-run Stage 1.
 
@@ -65,4 +65,11 @@ LESSONS: none
 **Findings:** Check appended after the minimum team count check in the same section.
 LESSONS: none
 **Files:** .agents/skills/rvv/SKILL.md (+6/-0)
+**Commit:** 7f32b0e (hockey)
+
+### 2026-06-18 — Added an 'Escalation: semantic failures block Stage 2' subsection with Norwegian-language error message examples, instruction to fix input.xlsx and re-run Stage 1, and explicit stop — do not invoke Stage 2 commands.
+**Rationale:** none
+**Findings:** Escalation block appended at end of semantic validation section, before the Stage 2 orchestration block.
+LESSONS: none
+**Files:** .agents/skills/rvv/SKILL.md (+14/-0)
 **Commit:** [pending — fill after commit]
