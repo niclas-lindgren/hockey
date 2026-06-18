@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: Remove the `ScrapingConfidenceVerdict`-based `_run_confidence_gate` function and replace it with a lightweight function that reads `sources[].event_count`, `sources[].blocked`, and `blocked[]` directly from the Stage 2 checkpoint dict; when the harness is active (`get_judge_if_headless()` returns None) auto-proceed based on a simple threshold (e.g. at least one source returned events), otherwise prompt the operator as before.
 
-- [ ] Remove scraping_confidence.py and its tests
+- [x] Deleted scraping_confidence.py and tests/test_scraping_confidence.py after confirming no production callers exist in the codebase. — 2026-06-18
   - Files: tournament_scheduler/pipeline/scraping_confidence.py, tests/test_scraping_confidence.py
   - Approach: Delete `scraping_confidence.py` entirely since `run_confidence_assessment` has no production callers; delete `tests/test_scraping_confidence.py` as it tests only the removed module; verify no other file imports from this module before deletion.
 
@@ -59,4 +59,11 @@ LESSONS: none
 **Findings:** Two test files updated; _run_confidence_gate removed; _check_stage2_checkpoint now called in _cmd_run after _judge_stage(2, ...).
 LESSONS: The old test files imported _run_confidence_gate directly — always update both test files when renaming gate functions.
 **Files:** pipeline_orchestrator.py (+112/-57), test_confidence_gate.py (+193/-117), test_pipeline_orchestrator_judgment.py (+40/-30)
+**Commit:** eb1545e (hockey)
+
+### 2026-06-18 — Deleted scraping_confidence.py and tests/test_scraping_confidence.py after confirming no production callers exist in the codebase.
+**Rationale:** Verified no imports before deleting — safe removal of dead module.
+**Findings:** No production code imported scraping_confidence; both files deleted cleanly and all tests pass.
+LESSONS: none
+**Files:** scraping_confidence.py (-177), test_scraping_confidence.py (-194)
 **Commit:** [pending — fill after commit]
