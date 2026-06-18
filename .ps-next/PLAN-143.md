@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/pipeline/semantic_validation.py
   - Approach: Create a new module with a `build_semantic_prompt(config: dict) -> tuple[str, str]` function that extracts key constraints (age groups, team counts per age group, host club counts, available weekends derived from start/end dates, target_tournament_count, parallel_games) and formats them as a structured system+user prompt. Add a `parse_semantic_warnings(response_text: str) -> list[str]` function that splits the LLM reply into a list of warning strings (one per line or bullet).
 
-- [ ] Extend `stage1_config.run()` to accept and invoke LLM client for semantic validation
+- [x] Added optional llm_client parameter to stage1_config.run(); calls semantic_validation after successful schema validation and stores warnings in checkpoint. — 2026-06-18
   - Files: tournament_scheduler/pipeline/stage1_config.py, tournament_scheduler/pipeline/stage1_helpers.py
   - Approach: Add an optional `llm_client` parameter to `stage1_config.run()`. After successful schema validation, call `semantic_validation.build_semantic_prompt(effective_config)`, invoke `llm_client.complete(system, user)`, and collect warnings via `semantic_validation.parse_semantic_warnings(response.text)`. Store warnings in the returned checkpoint dict under a `semantic_warnings` key, and surface them via Rich console using the existing `rich_output.py` pattern (yellow/amber warning panel), gracefully skipping if `llm_client` is None or raises `LMStudioUnavailableError`.
 
@@ -47,4 +47,11 @@ Stage 4 already passes an `llm_client` to `stage4_run` — same pattern applies 
 **Findings:** Module builds a structured system+user prompt from merged config constraints and parses numbered/bullet LLM responses into a list of warnings; smoke-tested successfully.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/semantic_validation.py (+165/-0)
+**Commit:** 641d4b2 (hockey)
+
+### 2026-06-18 — Added optional llm_client parameter to stage1_config.run(); calls semantic_validation after successful schema validation and stores warnings in checkpoint.
+**Rationale:** Broad except clause used to catch both LMStudioUnavailableError and any other transient LLM errors gracefully.
+**Findings:** Semantic warnings stored under 'semantic_warnings' key in checkpoint; run() signature extended with keyword-only llm_client param defaulting to None.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage1_config.py (+36/-2)
 **Commit:** [pending — fill after commit]

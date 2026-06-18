@@ -46,6 +46,7 @@ from ..season_config import (
 )
 from .state import PipelineState, StageName, StageStatus
 from .stage1_helpers import _load_json, _parse_config, validate_config
+from .semantic_validation import build_semantic_prompt, parse_semantic_warnings
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -114,6 +115,7 @@ def run(
     state: PipelineState,
     *,
     strict: bool = True,
+    llm_client: Any = None,
 ) -> dict[str, Any]:
     """Parse and validate *input_path*, write the Stage 1 checkpoint.
 
@@ -133,12 +135,20 @@ def run(
         If ``True`` (default), raise :class:`Stage1Error` on any validation
         error and write the checkpoint with ``status=failed``.  If ``False``,
         continue with warnings logged but not raised.
+    llm_client:
+        Optional LLM client instance with a ``complete(system, user,
+        temperature)`` method returning an object with a ``.text`` attribute.
+        When provided, semantic feasibility checks are run after schema
+        validation and any warnings are stored in the checkpoint under the
+        ``semantic_warnings`` key.  When ``None`` (default) or when the
+        client raises ``LMStudioUnavailableError``, semantic validation is
+        silently skipped.
 
     Returns
     -------
     dict
-        The computed config dict (teams, round_length_minutes, input_path)
-        that was written to the checkpoint.
+        The computed config dict (teams, round_length_minutes, input_path,
+        optionally semantic_warnings) that was written to the checkpoint.
 
     Raises
     ------
@@ -164,6 +174,30 @@ def run(
     # Parse validated config into structured objects
     state.write_stage(StageName.CONFIG, {}, status=StageStatus.RUNNING)
     config = _parse_config(raw, input_path)
+
+    # Semantic (LLM) feasibility check — optional, skip gracefully if unavailable
+    semantic_warnings: list[str] = []
+    if llm_client is not None:
+        try:
+            # Build effective config for the prompt (merge raw fields with parsed config)
+            effective = dict(config)
+            effective.setdefault("start_date", raw.get("start_date", ""))
+            effective.setdefault("end_date", raw.get("end_date", ""))
+            effective.setdefault("age_groups", raw.get("age_groups", []))
+            effective.setdefault("parallel_games", raw.get("parallel_games", {}))
+            effective.setdefault("target_tournament_count",
+                                 raw.get("deltakelser_per_lag",
+                                         raw.get("target_tournament_count")))
+
+            sys_p, usr_p = build_semantic_prompt(effective)
+            response = llm_client.complete(sys_p, usr_p, temperature=0.1)
+            semantic_warnings = parse_semantic_warnings(response.text)
+        except Exception:  # noqa: BLE001
+            # Includes LMStudioUnavailableError and any other transient errors
+            pass
+
+    if semantic_warnings:
+        config["semantic_warnings"] = semantic_warnings
 
     state.write_stage(StageName.CONFIG, config, status=StageStatus.DONE)
     state.mark_done(StageName.CONFIG)
