@@ -651,7 +651,17 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if resume_from <= 4:
         _console.print("[bold]Stage 4:[/bold] Eksport...")
         try:
-            export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", False))
+            import os as _os_stage4
+            _stage4_endpoint = _os_stage4.environ.get("RVV_APPROVAL_ENDPOINT", "")
+            _stage4_llm_client = None
+            if _stage4_endpoint:
+                try:
+                    from tournament_scheduler.llm.lm_studio_client import LMStudioClient as _LMStudioClientStage4, LMStudioUnavailableError as _LMStudioUnavailableErrorStage4
+                    _stage4_model = _os_stage4.environ.get("RVV_APPROVAL_MODEL", _DEFAULT_APPROVAL_MODEL)
+                    _stage4_llm_client = _LMStudioClientStage4(base_url=_stage4_endpoint, model=_stage4_model)
+                except Exception:
+                    pass
+            export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", False), llm_client=_stage4_llm_client)
             files = export.get("output_files", {})
             _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")
             for label, file_path in files.items():

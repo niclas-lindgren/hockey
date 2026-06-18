@@ -24,7 +24,7 @@
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Add an optional `llm_client` parameter to `HtmlExporter.export()` and forward it to the `_report_overview_html(...)` call at line ~200. No other call sites are affected since they do not pass the parameter.
 
-- [ ] Instantiate and inject the LLM client in `pipeline_orchestrator.py` report export call
+- [x] Added llm_client instantiation from RVV_APPROVAL_ENDPOINT/MODEL env vars in pipeline_orchestrator.py Stage 4 block; threaded through stage4_export.run() and HtmlExporter.export(). — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: At the point where `HtmlExporter(...).export(...)` is called (Stage 4 report generation), read `RVV_APPROVAL_ENDPOINT` and `RVV_APPROVAL_MODEL` env vars (same pattern as line 180); if the endpoint is set, instantiate `LMStudioClient` and pass it as `llm_client=` to `export()`. Wrap the instantiation in a try/except to handle unavailability gracefully.
 
@@ -63,4 +63,11 @@ LESSONS: none
 **Findings:** Straightforward parameter threading; no callers affected as default is None.
 LESSONS: none
 **Files:** html_exporter.py (+2/-0)
+**Commit:** 1cce3a1 (hockey)
+
+### 2026-06-18 — Added llm_client instantiation from RVV_APPROVAL_ENDPOINT/MODEL env vars in pipeline_orchestrator.py Stage 4 block; threaded through stage4_export.run() and HtmlExporter.export().
+**Rationale:** Also added llm_client param to stage4_export.run() to complete the threading chain.
+**Findings:** LLM client is instantiated only when RVV_APPROVAL_ENDPOINT is set; all failures are silently swallowed.
+LESSONS: none
+**Files:** pipeline_orchestrator.py (+12/-1), stage4_export.py (+2/-0)
 **Commit:** [pending — fill after commit]
