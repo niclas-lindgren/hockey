@@ -10,4 +10,6 @@ judgment
     Render the separate opinionated end-of-report synthesis.
 heatmap
     Build club color maps for the calendar heatmap visualisation.
+conclusion
+    LLM-generated narrative conclusion for the report overview section.
 """
