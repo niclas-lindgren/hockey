@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/pipeline/scraping_confidence.py, tournament_scheduler/pipeline/__init__.py
   - Approach: Create a new module `scraping_confidence.py` mirroring the structure of `llm_approval_gate.py` — define a `ScrapingConfidenceVerdict` dataclass (suspicious_sources list, gaps list, overall_assessment str, verdict "OK"/"WARN") and a `run_confidence_assessment(scraping_checkpoint, cfg, client)` function that formats the Stage 2 checkpoint fields (source names, event counts, blocked sources) plus config date range into an LLM prompt and parses the structured JSON response.
 
-- [ ] Add LLM prompt and response parsing for confidence assessment
+- [x] Enhanced the prompt in scraping_confidence.py with explicit evaluation criteria: event density (events/week), blocked source thresholds, zero-event source detection, and date range gap detection. Added season_weeks and events_per_week_by_source fields to the summary dict passed to the LLM. — 2026-06-18
   - Files: tournament_scheduler/pipeline/scraping_confidence.py
   - Approach: Implement the prompt template inside `scraping_confidence.py`, instructing the LLM to evaluate each source's event count relative to the season length and expected booking volume, flag blocked sources, and identify date range gaps; parse the JSON response into `ScrapingConfidenceVerdict` with a fallback for malformed JSON, following the same error-handling pattern used in `llm_approval_gate.py`.
 
@@ -49,4 +49,11 @@
 **Findings:** Module imports cleanly; per_source_event_counts uses event_count field from source dicts; sources_with_zero_events excludes already-blocked sources.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/scraping_confidence.py (+142/-0)
+**Commit:** 883a964 (hockey)
+
+### 2026-06-18 — Enhanced the prompt in scraping_confidence.py with explicit evaluation criteria: event density (events/week), blocked source thresholds, zero-event source detection, and date range gap detection. Added season_weeks and events_per_week_by_source fields to the summary dict passed to the LLM.
+**Rationale:** Added density metric to help LLM judge whether event counts are plausible for an active ice hall (3-15 events/week expected).
+**Findings:** none
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/scraping_confidence.py (+20/-0)
 **Commit:** [pending — fill after commit]
