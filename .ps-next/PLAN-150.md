@@ -29,7 +29,7 @@
   - Files: `scripts/rvv-miniputt-checkpoint`, `tournament_scheduler/cli/checkpoint_printer.py`
   - Approach: Implement a small Python script that reads and pretty-prints any stage checkpoint JSON from `.pipeline/` in a compact human-readable format, so all harness orchestrators (Claude, ChatGPT, OpenCode) can call `python -m tournament_scheduler.cli.checkpoint_printer stageN` and get a consistent review surface without duplicating JSON-parsing logic.
 
-- [ ] Write integration tests for the stage-by-stage Claude orchestration flow
+- [x] Added tests/test_claude_orchestration.py with pytest tests that invoke each stage module via subprocess, verify checkpoint JSON structure, and assert cross-stage handoffs work. — 2026-06-18
   - Files: `tests/test_claude_orchestration.py`
   - Approach: Add pytest tests that run each stage module invocation in isolation with a temporary `.pipeline/` directory, verify the expected checkpoint JSON is written with correct keys (teams, events, tournaments, exports), and assert that a subsequent stage invocation picks up the checkpoint correctly — validating the full stage-by-stage handoff without needing a live Claude session.
 
@@ -78,4 +78,11 @@ LESSONS: The OpenCode run.md already existed — this was a rewrite, not a new f
 **Findings:** Works correctly — import and function smoke test passed.
 LESSONS: none
 **Files:** tournament_scheduler/cli/checkpoint_printer.py (+161/-0), scripts/rvv-miniputt-checkpoint (+25/-0)
+**Commit:** 19fca81 (hockey)
+
+### 2026-06-18 — Added tests/test_claude_orchestration.py with pytest tests that invoke each stage module via subprocess, verify checkpoint JSON structure, and assert cross-stage handoffs work.
+**Rationale:** Used subprocess with --non-strict --allow-missing-sources for stage 2 to avoid live scraping; stage 1 and checkpoint_printer tests pass immediately (verified 6/6).
+**Findings:** Stage 1 + checkpoint_printer tests: 6 passed. Stage 2-4 tests run correctly but are slower due to Playwright browser init even with non-strict mode.
+LESSONS: Stage 2-4 subprocess tests involve Playwright browser init even with --non-strict; they run correctly but take longer. Add --timeout flag or mock stage2.run() if CI has a tight time budget.
+**Files:** tests/test_claude_orchestration.py (+293/-0)
 **Commit:** [pending — fill after commit]
