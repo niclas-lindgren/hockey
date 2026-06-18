@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/pipeline/scraping_confidence.py
   - Approach: Read the `llm_fallback` list from the checkpoint and cross-reference it against `sources[].name`; pass a count of LLM-scraped sources to the LLM confidence prompt as an additional field (e.g. `llm_scraped_sources`) so the model can apply lower confidence weight to those sources in its verdict.
 
-- [ ] Surface LLM-scraped sources distinctly in Stage 2 CLI output
+- [x] Updated pipeline_orchestrator.py to separate recovered (event_count>0) vs pending LLM fallback sources; shows [LLM] badge with event count for recovered sources and adds count to the completion banner. — 2026-06-18
   - Files: tournament_scheduler/utils/rich_output.py, tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: After the scraping loop, collect sources where `llm_fallback=True` and pass them to a Rich output helper that prints them with a yellow/amber label (e.g. "[LLM]") distinct from the green normal-success and red blocked styles already used; also add a summary line like "N source(s) recovered via LLM fallback" in the Stage 2 completion banner.
 
@@ -76,4 +76,11 @@ LESSONS: none
 **Findings:** llm_scraped_sources list passed to the LLM; prompt instructs model to apply lower confidence weight to those sources.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/scraping_confidence.py (+16/-1)
+**Commit:** 3d14091 (hockey)
+
+### 2026-06-18 — Updated pipeline_orchestrator.py to separate recovered (event_count>0) vs pending LLM fallback sources; shows [LLM] badge with event count for recovered sources and adds count to the completion banner.
+**Rationale:** The rich_output.py helper approach was skipped since the CLI printing is all inline in pipeline_orchestrator.py; added output directly there for consistency.
+**Findings:** LLM-recovered sources now print with [LLM] badge and event count; banner shows N recovered via LLM.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+18/-5)
 **Commit:** [pending — fill after commit]

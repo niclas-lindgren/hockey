@@ -496,8 +496,21 @@ def _cmd_run(args: argparse.Namespace) -> int:
             n = len(scraping.get("sources", []))
             blocked = scraping.get("blocked", [])
             llm_fallback = scraping.get("llm_fallback", [])
-            _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
-            _log(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked, {len(llm_fallback)} llm fallback")
+            # Separate recovered-by-LLM sources from pending ones
+            llm_recovered = [f for f in llm_fallback if f.get("event_count", 0) > 0]
+            llm_pending = [f for f in llm_fallback if f.get("event_count", 0) == 0]
+            banner = f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert"
+            if llm_recovered:
+                banner += f", [yellow]{len(llm_recovered)} gjenopprettet via LLM[/yellow]"
+            _console.print(banner)
+            _log(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked, {len(llm_recovered)} llm recovered, {len(llm_pending)} llm pending")
+            if llm_recovered:
+                for rec in llm_recovered:
+                    _console.print(
+                        f"    [yellow bold][LLM][/yellow bold] {rec['name']} — "
+                        f"{rec['event_count']} hendelser (LLM fallback)"
+                    )
+                    _log(f"  LLM-recovered: {rec['name']} ({rec['event_count']} events)")
             if blocked:
                 for blocked_name in blocked:
                     _console.print(f"    [yellow]⚠[/yellow] {blocked_name}")
@@ -508,9 +521,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
                     _console.print("  [green]✓[/green] Delvise resultater er lagret og pipeline fortsetter med godkjente mangler.")
                 else:
                     _console.print("  [dim]Delvise resultater er lagret; kjør [bold]rvv-miniputt run --allow-missing-sources[/bold] for å fortsette med slike mangler neste gang.[/dim]")
-            if llm_fallback:
-                _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
-                for fallback in llm_fallback:
+            if llm_pending:
+                _console.print(f"\n  [bold cyan]🤖 {len(llm_pending)} kilde(r) kan skrapes med LLM:[/bold cyan]")
+                for fallback in llm_pending:
                     strategy = fallback.get("llm_strategy", {})
                     engine = strategy.get("engine", "?")
                     creds = strategy.get("credential_env_vars", [])
