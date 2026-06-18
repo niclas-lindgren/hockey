@@ -24,6 +24,7 @@ import os
 from .backends import ClaudeJudgeBackend, LLMBridgeJudgeBackend, OpenAIJudgeBackend
 from .harness import get_judge_if_headless, is_harness_active
 from .interface import LLMJudge
+from .prompts import build_stage_prompt
 
 _BACKENDS: dict[str, type[LLMJudge]] = {
     "claude": ClaudeJudgeBackend,
@@ -68,4 +69,5 @@ __all__ = [
     "create_judge",
     "is_harness_active",
     "get_judge_if_headless",
+    "build_stage_prompt",
 ]

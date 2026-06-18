@@ -147,7 +147,7 @@ def _force_refresh_stage2_inputs(work_dir: str) -> None:
 
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
-    from ..llm_judge import get_judge_if_headless
+    from ..llm_judge import build_stage_prompt, get_judge_if_headless
     from ..pipeline.calendar_viewer import generate_html as generate_calendars
     from ..pipeline.stage1_config import load_effective_config, run as stage1_run
     from ..pipeline.stage2_scraping import run as stage2_run
@@ -167,7 +167,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
         ts = datetime.now().strftime("%H:%M:%S")
         log_lines.append(f"[{ts}] {msg}")
 
-    def _judge_stage(stage_num: int, summary: str) -> bool:
+    _STAGE_NAMES = {1: "stage1", 2: "stage2", 3: "stage3"}
+
+    def _judge_stage(stage_num: int, checkpoint_summary: dict[str, Any]) -> bool:
         """Ask the headless judge whether to proceed after a stage.
 
         Returns True if the pipeline should continue, False if it should abort.
@@ -183,15 +185,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if judge is None:
             return True  # harness is active — it will judge interactively
 
-        prompt = (
-            f"You are evaluating the output of stage {stage_num} of the RVV Miniputt "
-            f"season-planning pipeline.\n\n"
-            f"Stage {stage_num} summary:\n{summary}\n\n"
-            "Respond with exactly one of:\n"
-            "  PROCEED — the output looks correct and the pipeline should continue\n"
-            "  ABORT   — there is a problem; explain briefly after the keyword\n\n"
-            "Your response must start with PROCEED or ABORT."
-        )
+        stage_key = _STAGE_NAMES.get(stage_num, f"stage{stage_num}")
+        try:
+            prompt = build_stage_prompt(stage_key, checkpoint_summary)
+        except ValueError:
+            # Unknown stage — fall back to a generic prompt.
+            prompt = (
+                f"Pipeline stage {stage_num} completed. "
+                f"Summary: {checkpoint_summary}. "
+                "Respond PROCEED or ABORT."
+            )
         try:
             verdict = judge.judge(prompt).strip()
         except RuntimeError as exc:
@@ -224,10 +227,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
             cfg = load_effective_config(state, input_path=args.input)
             _console.print(f"  [green]✓[/green] {len(cfg.get('sources', []))} kilder, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
             _log(f"Stage 1 OK: {cfg.get('source_count', 0)} sources, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
-            stage1_summary = (
-                f"Sources configured: {len(cfg.get('sources', []))}\n"
-                f"Date range: {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}"
-            )
+            stage1_summary = {
+                "sources": len(cfg.get("sources", [])),
+                "start_date": cfg.get("start_date", "?"),
+                "end_date": cfg.get("end_date", "?"),
+                "age_groups": cfg.get("age_groups", []),
+                "clubs": cfg.get("clubs", []),
+            }
             if not _judge_stage(1, stage1_summary):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
@@ -292,12 +298,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
                     cred_hint = f" (credentials: {', '.join(creds)})" if creds else ""
                     _console.print(f"    [cyan]→[/cyan] {fallback['name']} — {engine}{cred_hint}")
                 _console.print("\n  [dim]Kjør [bold]rvv-miniputt scrape-llm[/bold] for å skrape disse kildene interaktivt.[/dim]")
-            stage2_summary = (
-                f"Sources scanned: {n}\n"
-                f"Blocked: {len(blocked)}\n"
-                f"LLM fallback needed: {len(llm_fallback)}\n"
-                + (f"Blocked sources: {', '.join(str(b) for b in blocked)}\n" if blocked else "")
-            )
+            stage2_summary = {
+                "sources_scanned": n,
+                "blocked": blocked,
+                "llm_fallback": llm_fallback,
+            }
             if not _judge_stage(2, stage2_summary):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
@@ -339,7 +344,10 @@ def _cmd_run(args: argparse.Namespace) -> int:
             n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
             _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
             _log(f"Stage 3 OK: {n_tournaments} tournaments planned")
-            stage3_summary = f"Tournaments planned: {n_tournaments}"
+            stage3_summary = {
+                "tournaments_planned": n_tournaments,
+                "warnings": plan.get("warnings", []),
+            }
             if not _judge_stage(3, stage3_summary):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1

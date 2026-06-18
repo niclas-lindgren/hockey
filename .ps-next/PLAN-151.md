@@ -18,7 +18,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: In `_cmd_run()`, after each stage checkpoint is written as `done`, call `get_judge_if_headless()` and if a judge is returned, send a structured prompt summarising the stage output and requesting a proceed/abort decision. On an `abort` verdict, log the judge's reasoning and exit with a non-zero code; on `proceed` or when no judge is present, continue to the next stage.
 
-- [ ] Add stage-specific prompt builders for each inter-stage judgment point
+- [x] Created prompts.py with build_stage_prompt() covering config/stage1, scraping/stage2, and planning/stage3; exported from __init__.py; orchestrator now uses dict summaries and build_stage_prompt. — 2026-06-18
   - Files: tournament_scheduler/llm_judge/prompts.py
   - Approach: Create `build_stage_prompt(stage_name: str, checkpoint_summary: dict) -> str` that produces a concise Norwegian or English prompt describing what the stage produced and asking whether the pipeline should continue. Each stage (config, scraping, planning) gets a tailored template that includes key metrics from the checkpoint JSON.
 
@@ -67,4 +67,11 @@ LESSONS: none
 **Findings:** Syntax valid; judge hook fires only in headless runs due to get_judge_if_headless(); abort path returns non-zero exit code as required.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+59)
+**Commit:** d041b59 (hockey)
+
+### 2026-06-18 — Created prompts.py with build_stage_prompt() covering config/stage1, scraping/stage2, and planning/stage3; exported from __init__.py; orchestrator now uses dict summaries and build_stage_prompt.
+**Rationale:** Each builder uses best-effort key access so missing keys degrade gracefully; both canonical ('stage1') and descriptive ('config') names accepted.
+**Findings:** Syntax valid; prompts produce structured PROCEED/ABORT instructions tailored to each stage's key metrics.
+LESSONS: none
+**Files:** tournament_scheduler/llm_judge/prompts.py (+160), __init__.py (+2), pipeline_orchestrator.py (+52/-22)
 **Commit:** [pending — fill after commit]
