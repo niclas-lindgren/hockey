@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/pipeline/manual_adjustment_workflow.py, tournament_scheduler/utils/rich_output.py
   - Approach: After `apply()` returns, check `result.post_patch_warnings` and print each warning using the Rich output helper (following the existing warning print pattern used in `season_command.py`), so organizers see the warnings without inspecting the returned dict directly.
 
-- [ ] Add regression tests for post-patch warning scanning
+- [x] Added three regression tests: post_patch_warnings_is_list (verifies always a list), post_patch_warnings_reports_game_count_spread_violation (spread3 triggers 'spredning' warning), and post_patch_warnings_deduplicated (no duplicates). — 2026-06-18
   - Files: tests/test_manual_adjustment_workflow.py
   - Approach: Write tests that apply a manual adjustment that introduces a game count spread or hosting deviation violation, then assert that `UpdateResult.post_patch_warnings` is non-empty and contains the expected warning string; also assert that the no-violation case returns an empty list.
 
@@ -68,4 +68,11 @@ LESSONS: none
 **Findings:** All 418 tests pass; warnings now surface to the organizer immediately after manual adjustments are applied in both CLI paths.
 LESSONS: none
 **Files:** tournament_scheduler/cli/review_command.py (+2/-0), tournament_scheduler/cli/update_command.py (+2/-0)
+**Commit:** d486785 (hockey)
+
+### 2026-06-18 — Added three regression tests: post_patch_warnings_is_list (verifies always a list), post_patch_warnings_reports_game_count_spread_violation (spread3 triggers 'spredning' warning), and post_patch_warnings_deduplicated (no duplicates).
+**Rationale:** Created a second helper plan with Jar playing 4 games vs Skien's 1 to reliably trigger a game-count spread > 2.
+**Findings:** All 421 tests pass; tests cover violation detection, type contract, and deduplication.
+LESSONS: none
+**Files:** tests/test_manual_adjustment_workflow.py (+125/-0)
 **Commit:** [pending — fill after commit]
