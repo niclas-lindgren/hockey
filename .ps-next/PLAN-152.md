@@ -9,7 +9,7 @@
   - Files: .agents/skills/rvv/SKILL.md
   - Approach: Expand the existing "Stage 1 — Config" block in the "Claude Code: stage-by-stage orchestration" section to instruct the harness to run `python3 -m tournament_scheduler.cli.checkpoint_printer stage1` and then run `python3 -c "from tournament_scheduler.pipeline.stage1_config import load_effective_config; import json, pprint; pprint.pprint(load_effective_config('.pipeline'))"` to obtain the merged config (teams, start_date, end_date, age_groups, parallel_games, target_tournament_count) before performing semantic checks.
 
-- [ ] Add a harness semantic-validation checklist for tournament count vs available weekends
+- [x] Added '## Semantic validation (Stage 1)' section to SKILL.md with a 5-step checklist: count available weekends, count teams per age group, estimate teams per tournament, compute required tournaments, and flag overcommitment. — 2026-06-18
   - Files: .agents/skills/rvv/SKILL.md
   - Approach: Add a new "## Semantic validation (Stage 1)" section in SKILL.md with a step-by-step reasoning checklist: count available weekends between start_date and end_date, compute required tournaments per age group from target_tournament_count × number-of-teams ÷ teams-per-tournament, and instruct the harness to flag when required tournaments exceed available weekends per age group.
 
@@ -44,4 +44,11 @@ No pipeline Python code changes needed. All logic lives in the SKILL.md instruct
 **Findings:** SKILL.md Stage 1 block now shows both checkpoint_printer and load_effective_config commands with field descriptions.
 LESSONS: none
 **Files:** .agents/skills/rvv/SKILL.md (+24/-1)
+**Commit:** d4161c4 (hockey)
+
+### 2026-06-18 — Added '## Semantic validation (Stage 1)' section to SKILL.md with a 5-step checklist: count available weekends, count teams per age group, estimate teams per tournament, compute required tournaments, and flag overcommitment.
+**Rationale:** none
+**Findings:** New section positioned between Stage 1 and Stage 2 orchestration blocks in SKILL.md.
+LESSONS: none
+**Files:** .agents/skills/rvv/SKILL.md (+12/-0)
 **Commit:** [pending — fill after commit]

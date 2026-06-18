@@ -263,6 +263,18 @@ Verify the checkpoint before continuing:
 - `target_tournament_count` ≥ 1
 - `sources` list is non-empty
 
+## Semantic validation (Stage 1)
+
+After reading the effective configuration, perform semantic validation to ensure tournament feasibility before advancing to Stage 2. For each age group in the configuration:
+
+1. **Count available weekends** — iterate every Saturday from `start_date` to `end_date` (inclusive) and subtract any that fall on Norwegian public holidays. This gives the pool of usable tournament weekends.
+2. **Count teams per age group** — filter the `teams` list by `age_group` and count the entries.
+3. **Estimate teams per tournament** — use `parallel_games[age_group] × 2` as a lower bound (each simultaneous game needs 2 teams; actual tournament size may be larger).
+4. **Compute required tournaments** — `ceil(target_tournament_count × teams_in_age_group / teams_per_tournament)`.
+5. **Flag overcommitment** — if `required_tournaments > available_weekends` for an age group, that is a semantic error.
+
+The harness should reason through these calculations inline using the actual values from `load_effective_config`, performing weekend counting and arithmetic directly before deciding whether to proceed.
+
 **Stage 2 — Scraping**
 
 ```bash
