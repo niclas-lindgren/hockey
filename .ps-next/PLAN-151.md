@@ -14,7 +14,7 @@
   - Files: tournament_scheduler/llm_judge/harness.py, tournament_scheduler/llm_judge/__init__.py
   - Approach: Implement `is_harness_active() -> bool` that checks for well-known harness indicators (e.g. `PI_SESSION_ID`, `CLAUDE_CODE_SESSION_ID`, `OPENCODE_SESSION_ID` env vars, or a `RVV_HARNESS` override). Export `get_judge_if_headless() -> LLMJudge | None` which returns `None` when a harness is active, so callers can skip judgment without duplicating the detection logic.
 
-- [ ] Wire judgment calls into the pipeline orchestrator between stages
+- [x] Added _judge_stage() helper inside _cmd_run() and wired it after Stage 1, 2, and 3 success paths; returns 1 on ABORT verdict, continues otherwise. — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: In `_cmd_run()`, after each stage checkpoint is written as `done`, call `get_judge_if_headless()` and if a judge is returned, send a structured prompt summarising the stage output and requesting a proceed/abort decision. On an `abort` verdict, log the judge's reasoning and exit with a non-zero code; on `proceed` or when no judge is present, continue to the next stage.
 
@@ -60,4 +60,11 @@ LESSONS: none
 **Findings:** All assertions pass: harness detection works correctly for each env var; returns None when harness active and LLMBridgeJudgeBackend in headless mode.
 LESSONS: none
 **Files:** tournament_scheduler/llm_judge/harness.py (+67), __init__.py (+11/-1)
+**Commit:** 39008f2 (hockey)
+
+### 2026-06-18 — Added _judge_stage() helper inside _cmd_run() and wired it after Stage 1, 2, and 3 success paths; returns 1 on ABORT verdict, continues otherwise.
+**Rationale:** Gracefully handles missing RVV_JUDGE_BACKEND (returns True/proceed) and judge call failures (logs warning, continues) so existing workflows are not broken.
+**Findings:** Syntax valid; judge hook fires only in headless runs due to get_judge_if_headless(); abort path returns non-zero exit code as required.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+59)
 **Commit:** [pending — fill after commit]
