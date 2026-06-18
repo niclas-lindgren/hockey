@@ -25,7 +25,7 @@
   - Files: `.opencode/commands/rvv-miniputt/run.md`
   - Approach: Create a harness-specific command file for OpenCode following the same pattern as the Claude and ChatGPT versions — thin wrapper that calls each stage individually and pauses for review between stages, reusing the same `PipelineState` checkpoint files.
 
-- [ ] Add a shared checkpoint-reading helper script for harness-agnostic stage review
+- [x] Implemented tournament_scheduler/cli/checkpoint_printer.py as a python -m module and scripts/rvv-miniputt-checkpoint as a shell launcher, both pretty-printing stage checkpoints from .pipeline/ in compact human-readable form. — 2026-06-18
   - Files: `scripts/rvv-miniputt-checkpoint`, `tournament_scheduler/cli/checkpoint_printer.py`
   - Approach: Implement a small Python script that reads and pretty-prints any stage checkpoint JSON from `.pipeline/` in a compact human-readable format, so all harness orchestrators (Claude, ChatGPT, OpenCode) can call `python -m tournament_scheduler.cli.checkpoint_printer stageN` and get a consistent review surface without duplicating JSON-parsing logic.
 
@@ -71,4 +71,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: The OpenCode run.md already existed — this was a rewrite, not a new file creation.
 **Files:** .opencode/commands/rvv-miniputt/run.md (+52/-19)
+**Commit:** 52a84f5 (hockey)
+
+### 2026-06-18 — Implemented tournament_scheduler/cli/checkpoint_printer.py as a python -m module and scripts/rvv-miniputt-checkpoint as a shell launcher, both pretty-printing stage checkpoints from .pipeline/ in compact human-readable form.
+**Rationale:** Supports stage aliases (1-4, stage1-4, config/scraping/planning/export); shows status, updated_at, and per-stage summary keys with compact list/dict rendering.
+**Findings:** Works correctly — import and function smoke test passed.
+LESSONS: none
+**Files:** tournament_scheduler/cli/checkpoint_printer.py (+161/-0), scripts/rvv-miniputt-checkpoint (+25/-0)
 **Commit:** [pending — fill after commit]
