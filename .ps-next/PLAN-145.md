@@ -25,7 +25,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/utils/rich_output.py
   - Approach: After the confidence assessment runs, use `_console.print()` with Rich formatting (Panel or warning-styled text) to list any suspicious sources and gaps identified by the LLM, displayed immediately after the existing blocked/fallback source warnings in `_cmd_run`, keeping Norwegian-language wording consistent with other Stage 2 output.
 
-- [ ] Show confidence assessment in the calendars.html report
+- [x] Added confidence warning section to generate_html in calendar_viewer.py: reads 'confidence' key from Stage 2 checkpoint via PipelineState, builds WARN/OK HTML banner with suspicious sources and gap list, injects it between meta div and calendars div. Added CSS for .confidence-banner warn/ok styles. — 2026-06-18
   - Files: tournament_scheduler/pipeline/calendar_viewer.py
   - Approach: In `calendar_viewer.py`, read the `"confidence"` key from the stage2 checkpoint (if present) and inject any suspicious sources or gap warnings into the HTML report as a new warning section below the per-source freshness indicators, following the existing template-injection pattern used for blocked/stale sources.
 
@@ -75,5 +75,11 @@ LESSONS: StageStatus must be imported explicitly — it is not included in the P
 ### 2026-06-18 — Enhanced WARN output in _cmd_run to list suspicious sources on a dedicated line with Norwegian label 'Mistenkelige kilder:' and included suspicious_sources in the run log entry. OK verdict now shows overall_assessment when available.
 **Rationale:** none
 **Findings:** tournament_scheduler/cli/pipeline_orchestrator.py (+13/-3)
+**Files:** [pending — fill after commit]
+**Commit:** none
+
+### 2026-06-18 — Added confidence warning section to generate_html in calendar_viewer.py: reads 'confidence' key from Stage 2 checkpoint via PipelineState, builds WARN/OK HTML banner with suspicious sources and gap list, injects it between meta div and calendars div. Added CSS for .confidence-banner warn/ok styles.
+**Rationale:** none
+**Findings:** tournament_scheduler/pipeline/calendar_viewer.py (+63/-0)
 **Files:** [pending — fill after commit]
 **Commit:** none

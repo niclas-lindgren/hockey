@@ -283,6 +283,49 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
     season_plan_path = Path(export_dir) / "season_plan.html"
     has_season_plan = season_plan_path.exists()
 
+    # Read scraping confidence assessment from Stage 2 checkpoint (if available)
+    confidence_html = ""
+    try:
+        from .state import PipelineState, StageName
+        _state = PipelineState(work_dir)
+        _scraping_cp = _state.read_stage(StageName.SCRAPING)
+        _conf = _scraping_cp.get("confidence") if _scraping_cp else None
+        if _conf:
+            _verdict = _conf.get("verdict", "OK")
+            _assessment = _escape_html(_conf.get("overall_assessment", ""))
+            _suspicious = _conf.get("suspicious_sources", [])
+            _gaps = _conf.get("gaps", [])
+            if _verdict == "WARN":
+                _susp_html = (
+                    f'<div class="conf-row"><span class="conf-label">Mistenkelige kilder:</span> '
+                    + _escape_html(", ".join(_suspicious))
+                    + "</div>"
+                    if _suspicious else ""
+                )
+                _gaps_html = "".join(
+                    f'<div class="conf-row conf-gap">→ {_escape_html(g)}</div>'
+                    for g in _gaps
+                )
+                confidence_html = (
+                    f'<div class="confidence-banner warn">'
+                    f'<span class="conf-icon">⚠</span>'
+                    f'<div class="conf-body">'
+                    f'<strong>Skrapekvalitet: WARN</strong> — {_assessment}'
+                    f'{_susp_html}{_gaps_html}'
+                    f'</div></div>'
+                )
+            else:
+                confidence_html = (
+                    f'<div class="confidence-banner ok">'
+                    f'<span class="conf-icon">✓</span>'
+                    f'<div class="conf-body">'
+                    f'<strong>Skrapekvalitet: OK</strong>'
+                    + (f' — {_assessment}' if _assessment else '')
+                    + f'</div></div>'
+                )
+    except Exception:
+        pass  # Confidence section is optional — never block report generation
+
     html = f"""<!DOCTYPE html>
 <html lang="nb">
 <head>
@@ -496,6 +539,25 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
   .meta-icon {{ display: inline-flex; align-items: center; opacity: .45; }}
   .meta-icon svg {{ display: block; width: 12px; height: 12px; }}
 
+  .confidence-banner {{
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 14px; border-radius: var(--radius);
+    margin-bottom: 16px; font-size: 13px;
+  }}
+  .confidence-banner.warn {{
+    background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.3);
+    color: #ca8a04;
+  }}
+  .confidence-banner.ok {{
+    background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.2);
+    color: #16a34a;
+  }}
+  .conf-icon {{ font-size: 16px; line-height: 1.4; flex-shrink: 0; }}
+  .conf-body {{ flex: 1; line-height: 1.6; }}
+  .conf-row {{ margin-top: 4px; font-size: 12px; color: var(--text-secondary); }}
+  .conf-label {{ font-weight: 600; }}
+  .conf-gap {{ color: var(--text-muted); }}
+
   .month {{ margin-bottom: 32px; }}
   .month-title {{
     font-size: 14px; font-weight: 600; margin-bottom: 8px;
@@ -601,6 +663,7 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
       <span><span class="meta-icon">{_ICON_SEARCH}</span> {total_events} hendelser</span>
       <span><span class="meta-icon">{_ICON_CLOCK}</span> {age_all}</span>
     </div>
+    {confidence_html}
     <div id="calendars">{''.join(months_html)}</div>
   </div>
 </div>
