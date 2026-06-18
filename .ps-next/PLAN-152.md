@@ -13,7 +13,7 @@
   - Files: .agents/skills/rvv/SKILL.md
   - Approach: Add a new "## Semantic validation (Stage 1)" section in SKILL.md with a step-by-step reasoning checklist: count available weekends between start_date and end_date, compute required tournaments per age group from target_tournament_count × number-of-teams ÷ teams-per-tournament, and instruct the harness to flag when required tournaments exceed available weekends per age group.
 
-- [ ] Add harness checks for parallel_games feasibility and minimum team count
+- [x] Added two more reasoning steps to the semantic validation section: parallel_games feasibility (flag if parallel_games > distinct clubs per age group) and minimum team count (flag if fewer than 2 teams in an age group). — 2026-06-18
   - Files: .agents/skills/rvv/SKILL.md
   - Approach: Within the same "## Semantic validation (Stage 1)" section, add a check that parallel_games for each age group is ≤ the number of distinct clubs in that age group, and that each age group has at least 2 teams — both expressed as explicit reasoning steps the LLM should perform before advancing to Stage 2.
 
@@ -49,6 +49,13 @@ LESSONS: none
 ### 2026-06-18 — Added '## Semantic validation (Stage 1)' section to SKILL.md with a 5-step checklist: count available weekends, count teams per age group, estimate teams per tournament, compute required tournaments, and flag overcommitment.
 **Rationale:** none
 **Findings:** New section positioned between Stage 1 and Stage 2 orchestration blocks in SKILL.md.
+LESSONS: none
+**Files:** .agents/skills/rvv/SKILL.md (+12/-0)
+**Commit:** 79d7ade (hockey)
+
+### 2026-06-18 — Added two more reasoning steps to the semantic validation section: parallel_games feasibility (flag if parallel_games > distinct clubs per age group) and minimum team count (flag if fewer than 2 teams in an age group).
+**Rationale:** none
+**Findings:** Both checks appended to the existing semantic validation section as named sub-checks.
 LESSONS: none
 **Files:** .agents/skills/rvv/SKILL.md (+12/-0)
 **Commit:** [pending — fill after commit]

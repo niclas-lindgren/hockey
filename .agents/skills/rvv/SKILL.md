@@ -275,6 +275,18 @@ After reading the effective configuration, perform semantic validation to ensure
 
 The harness should reason through these calculations inline using the actual values from `load_effective_config`, performing weekend counting and arithmetic directly before deciding whether to proceed.
 
+**Check: parallel_games feasibility**
+
+For each age group:
+- Count the number of distinct clubs represented in `teams` for that age group.
+- Flag if `parallel_games[age_group] > distinct_clubs_in_age_group` — you cannot run more simultaneous games than there are clubs available to field teams.
+
+**Check: minimum team count**
+
+For each age group:
+- Count `teams_in_age_group`.
+- Flag if `teams_in_age_group < 2` — a tournament requires at least 2 teams to be meaningful.
+
 **Stage 2 — Scraping**
 
 ```bash
