@@ -440,8 +440,19 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     if resume_from <= 1:
         _console.print("[bold]Stage 1:[/bold] Konfigurasjon...")
+        # Semantic validation via LLM (opt-in via RVV_APPROVAL_ENDPOINT)
+        import os as _os_stage1
+        _stage1_llm_client = None
+        _stage1_endpoint = _os_stage1.environ.get("RVV_APPROVAL_ENDPOINT", "")
+        if _stage1_endpoint:
+            try:
+                from ..llm.lm_studio_client import LMStudioClient as _LMStudioClientStage1, LMStudioUnavailableError as _LMStudioUnavailableErrorStage1  # noqa: F401
+                _stage1_model = _os_stage1.environ.get("RVV_APPROVAL_MODEL", _DEFAULT_APPROVAL_MODEL)
+                _stage1_llm_client = _LMStudioClientStage1(base_url=_stage1_endpoint, model=_stage1_model)
+            except Exception:
+                _console.print("[dim]  Semantisk validering ikke tilgjengelig (LLM utilgjengelig)[/dim]")
         try:
-            stage1_run(args.input, state, strict=strict)
+            stage1_run(args.input, state, strict=strict, llm_client=_stage1_llm_client)
             cfg = load_effective_config(state, input_path=args.input)
             _console.print(f"  [green]✓[/green] {len(cfg.get('sources', []))} kilder, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
             _log(f"Stage 1 OK: {cfg.get('source_count', 0)} sources, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")

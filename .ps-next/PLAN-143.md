@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/pipeline/stage1_config.py, tournament_scheduler/pipeline/stage1_helpers.py
   - Approach: Add an optional `llm_client` parameter to `stage1_config.run()`. After successful schema validation, call `semantic_validation.build_semantic_prompt(effective_config)`, invoke `llm_client.complete(system, user)`, and collect warnings via `semantic_validation.parse_semantic_warnings(response.text)`. Store warnings in the returned checkpoint dict under a `semantic_warnings` key, and surface them via Rich console using the existing `rich_output.py` pattern (yellow/amber warning panel), gracefully skipping if `llm_client` is None or raises `LMStudioUnavailableError`.
 
-- [ ] Thread `llm_client` through pipeline_orchestrator to Stage 1
+- [x] Instantiates LMStudioClient before stage1_run in _cmd_run; passes it as llm_client to stage1_run; silently skips with a Norwegian notice when endpoint unavailable. — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: In `_cmd_run`, instantiate `LMStudioClient` before calling `stage1_config.run()` (same pattern as the Stage 4 client at line 656–661) and pass it as `llm_client=`. Catch `LMStudioUnavailableError` and log a one-line notice that semantic validation is skipped, without aborting the pipeline.
 
@@ -54,4 +54,11 @@ LESSONS: none
 **Findings:** Semantic warnings stored under 'semantic_warnings' key in checkpoint; run() signature extended with keyword-only llm_client param defaulting to None.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage1_config.py (+36/-2)
+**Commit:** f48c7ab (hockey)
+
+### 2026-06-18 — Instantiates LMStudioClient before stage1_run in _cmd_run; passes it as llm_client to stage1_run; silently skips with a Norwegian notice when endpoint unavailable.
+**Rationale:** Matched existing Stage 4 LLM client instantiation pattern using inline os import and try/except.
+**Findings:** none
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+12/-1)
 **Commit:** [pending — fill after commit]
