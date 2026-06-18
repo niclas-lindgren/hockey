@@ -75,4 +75,4 @@ LESSONS: none
 **Findings:** All 421 tests pass; tests cover violation detection, type contract, and deduplication.
 LESSONS: none
 **Files:** tests/test_manual_adjustment_workflow.py (+125/-0)
-**Commit:** [pending — fill after commit]
+**Commit:** c22b277 (hockey)

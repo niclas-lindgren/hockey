@@ -181,8 +181,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if resume_from <= 1:
         _console.print("[bold]Stage 1:[/bold] Konfigurasjon...")
         try:
-            cfg = stage1_run(args.input, state, strict=strict)
-            _console.print(f"  [green]✓[/green] {cfg.get('source_count', 0)} kilder, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
+            stage1_run(args.input, state, strict=strict)
+            cfg = load_effective_config(state, input_path=args.input)
+            _console.print(f"  [green]✓[/green] {len(cfg.get('sources', []))} kilder, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
             _log(f"Stage 1 OK: {cfg.get('source_count', 0)} sources, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
         except Exception as exc:
             _console.print(f"  [red]✗[/red] {exc}")
@@ -595,7 +596,7 @@ def _cmd_scrape_llm(args: argparse.Namespace) -> int:
         _console.print(f"[red]✗[/red] Strategi-drevet skraping feilet: {exc}")
         _console.print(
             "\n[dim]Sjekk at LM Studio (eller en OpenAI-kompatibel server) kjører på "
-            f"{'args.endpoint' if args.endpoint else 'http://host.lima.internal:1234'}.[/dim]"
+            f"{args.endpoint if args.endpoint else 'http://host.lima.internal:1234'}.[/dim]"
         )
         return 1
     except Exception as exc:
