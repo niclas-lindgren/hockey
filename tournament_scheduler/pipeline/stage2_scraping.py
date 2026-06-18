@@ -43,6 +43,7 @@ from .scraper_constants import (
     _BROWSER_SOURCE_TYPES, _ICAL_SOURCE_TYPES,
 )
 from .stage2_helpers import (_blocked_sources_warning, _cached_source_result, _credentialed_scrape_months, _events_to_dicts, _group_events_by_club, _recovery_hint_for_source, _run_bookup_scraper, _run_credentialed_bookup_or_outlook, _run_ical_scraper, _run_outlook_scraper, _run_styledcalendar_scraper, _try_credentialed_scrape, _bookup_navigate_to_date, _parse_bookup_timegrid, _parse_date_param_calendar, _parse_outlook_calendar)
+from .llm_scraper import StrategyDrivenScraper
 
 # ---------------------------------------------------------------------------
 # Errors
@@ -73,6 +74,7 @@ def run(
     allow_missing_sources: bool = False,
     max_workers: int = 4,
     force_refresh: bool = False,
+    no_llm_scrape: bool = False,
 ) -> dict[str, Any]:
     """Run Stage 2 scraping for all sources listed in *config*.
 
@@ -214,6 +216,35 @@ def run(
                     "url": source_result.get("url", ""),
                     "llm_strategy": source_result.get("llm_strategy", {}),
                 })
+
+    # --- LLM fallback: retry blocked sources that have an LLM strategy ---
+    if not no_llm_scrape:
+        for source_result in source_results:
+            if not source_result.get("blocked") or not source_result.get("llm_fallback"):
+                continue
+            llm_strategy = source_result.get("llm_strategy", {})
+            if not llm_strategy:
+                continue
+            try:
+                scraper = StrategyDrivenScraper()
+                events = scraper.run(
+                    url=llm_strategy.get("url", source_result.get("url", "")),
+                    name=source_result["name"],
+                    start_date=start_date,
+                    end_date=end_date,
+                    initial_navigation=llm_strategy.get("initial_navigation"),
+                    month_selector=llm_strategy.get("month_selector", ""),
+                    event_pattern=llm_strategy.get("event_pattern", ""),
+                )
+            except Exception:
+                events = []
+            if events:
+                source_result["blocked"] = False
+                source_result["events"] = _events_to_dicts(events)
+                source_result["event_count"] = len(events)
+                source_result["llm_fallback"] = True
+                # Remove from blocked list
+                blocked[:] = [b for b in blocked if b["name"] != source_result["name"]]
 
     checkpoint: dict[str, Any] = {
         "sources": source_results,
