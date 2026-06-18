@@ -21,7 +21,7 @@
   - In `tests/test_pipeline_orchestrator_judgment.py`, add test cases: WARN+strict=True with operator answering "n" (expects abort), WARN+strict=True with operator answering "j" (expects proceed), WARN+strict=False (expects proceed without prompt), OK+strict=True (expects proceed without prompt); mock `input()` and Rich console.
   - Files: `tests/test_pipeline_orchestrator_judgment.py`
 
-- [ ] Verify scraping_confidence.py requires no changes; update `tests/test_scraping_confidence.py` only if helpers move
+- [x] Confirmed: scraping_confidence.py contains only LLM interaction and verdict-parsing logic (ScrapingConfidenceVerdict dataclass + run_confidence_assessment function); no gate/input/flow logic was moved or added. All 10 tests in test_scraping_confidence.py continue to pass unchanged. — 2026-06-18
   - Confirm all gate logic lives in pipeline_orchestrator.py; if any helper is moved from scraping_confidence.py, update its tests accordingly; otherwise add a passing no-op note confirming no API change.
   - Files: `tournament_scheduler/pipeline/scraping_confidence.py`, `tests/test_scraping_confidence.py`
 
@@ -55,4 +55,11 @@ LESSONS: none
 **Findings:** All 12 tests in test_pipeline_orchestrator_judgment.py pass.
 LESSONS: none
 **Files:** tests/test_pipeline_orchestrator_judgment.py (+81)
+**Commit:** a46e77a (hockey)
+
+### 2026-06-18 — Confirmed: scraping_confidence.py contains only LLM interaction and verdict-parsing logic (ScrapingConfidenceVerdict dataclass + run_confidence_assessment function); no gate/input/flow logic was moved or added. All 10 tests in test_scraping_confidence.py continue to pass unchanged.
+**Rationale:** No code changes needed; this was a verification task only.
+**Findings:** scraping_confidence.py API unchanged; all 10 existing tests pass.
+LESSONS: none
+**Files:** no files changed
 **Commit:** [pending — fill after commit]
