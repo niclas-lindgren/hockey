@@ -25,7 +25,7 @@
   - Files: tournament_scheduler/utils/rich_output.py, tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: After the scraping loop, collect sources where `llm_fallback=True` and pass them to a Rich output helper that prints them with a yellow/amber label (e.g. "[LLM]") distinct from the green normal-success and red blocked styles already used; also add a summary line like "N source(s) recovered via LLM fallback" in the Stage 2 completion banner.
 
-- [ ] Add unit tests for LLM fallback path, --no-llm-scrape flag, and checkpoint metadata
+- [x] Added TestLLMFallback class with 3 tests: (1) LLM recovers a blocked source — asserts unblocked, event_count, llm_fallback_used, checkpoint metadata; (2) no_llm_scrapeTrue skips LLM; (3) LLM returns zero events — source stays blocked. Also refactored llm_fallback list building to avoid duplicate entries. — 2026-06-18
   - Files: tests/test_stage2_scraping.py
   - Approach: Add three test cases to `test_stage2_scraping.py`: (1) mock `StrategyDrivenScraper.run` to return events and assert `llm_fallback=True` in the source result and checkpoint `llm_fallback` list; (2) pass `llm_fallback=False` and assert the LLM scraper is never called; (3) mock the LLM scraper to return zero events and assert the source remains blocked in the checkpoint.
 
@@ -83,4 +83,11 @@ LESSONS: none
 **Findings:** LLM-recovered sources now print with [LLM] badge and event count; banner shows N recovered via LLM.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+18/-5)
+**Commit:** 8ed0a90 (hockey)
+
+### 2026-06-18 — Added TestLLMFallback class with 3 tests: (1) LLM recovers a blocked source — asserts unblocked, event_count, llm_fallback_used, checkpoint metadata; (2) no_llm_scrapeTrue skips LLM; (3) LLM returns zero events — source stays blocked. Also refactored llm_fallback list building to avoid duplicate entries.
+**Rationale:** Discovered that the as_completed loop and the fallback loop were both appending to llm_fallback, causing duplicate entries. Fixed by using a _llm_planned staging list and only building the final llm_fallback list after the fallback loop.
+**Findings:** All 24 tests in test_stage2_scraping.py pass; llm_fallback checkpoint entries are now unique and consistently structured.
+LESSONS: The as_completed loop must not directly append to llm_fallback — use a staging list and merge after the fallback loop to avoid duplicates.
+**Files:** tests/test_stage2_scraping.py (+120/-0), stage2_scraping.py (+23/-3)
 **Commit:** [pending — fill after commit]

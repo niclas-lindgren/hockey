@@ -179,7 +179,8 @@ def run(
             sources_to_scrape.append(source_cfg)
 
     blocked: list[dict[str, Any]] = []
-    llm_fallback: list[dict[str, Any]] = []
+    # Tracks sources that _scrape_source flagged as needing LLM (before fallback runs)
+    _llm_planned: list[dict[str, Any]] = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_source = {
@@ -211,13 +212,18 @@ def run(
             if source_result.get("blocked"):
                 blocked.append({"name": source_cfg.get("name", "?"), **source_result})
             if source_result.get("llm_fallback"):
-                llm_fallback.append({
+                _llm_planned.append({
                     "name": source_result["name"],
                     "url": source_result.get("url", ""),
                     "llm_strategy": source_result.get("llm_strategy", {}),
                 })
 
     # --- LLM fallback: retry blocked sources that have an LLM strategy ---
+    # llm_fallback in the checkpoint tracks sources that were *recovered* by the LLM agent
+    # (event_count > 0) plus any that were planned but could not be recovered (event_count=0).
+    llm_fallback: list[dict[str, Any]] = []
+    _llm_recovered_names: set[str] = set()
+
     if not no_llm_scrape:
         for source_result in source_results:
             if not source_result.get("blocked") or not source_result.get("llm_fallback"):
@@ -244,15 +250,26 @@ def run(
                 source_result["event_count"] = len(events)
                 source_result["llm_fallback"] = True
                 source_result["llm_fallback_used"] = True
-                # Add rich metadata to the llm_fallback checkpoint list
+                # Record recovery with rich metadata
                 llm_fallback.append({
                     "name": source_result["name"],
                     "url": source_result.get("url", ""),
                     "event_count": len(events),
                     "fallback_reason": source_result.get("block_reason", "normal scraper returned no events"),
                 })
+                _llm_recovered_names.add(source_result["name"])
                 # Remove from blocked list
                 blocked[:] = [b for b in blocked if b["name"] != source_result["name"]]
+
+    # Append planned-but-unrecovered LLM sources so the CLI can still hint about them
+    for planned in _llm_planned:
+        if planned["name"] not in _llm_recovered_names:
+            llm_fallback.append({
+                "name": planned["name"],
+                "url": planned.get("url", ""),
+                "event_count": 0,
+                "llm_strategy": planned.get("llm_strategy", {}),
+            })
 
     checkpoint: dict[str, Any] = {
         "sources": source_results,
