@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: In `_cmd_run`, instantiate `LMStudioClient` before calling `stage1_config.run()` (same pattern as the Stage 4 client at line 656–661) and pass it as `llm_client=`. Catch `LMStudioUnavailableError` and log a one-line notice that semantic validation is skipped, without aborting the pipeline.
 
-- [ ] Surface semantic warnings in the Stage 1 console output section
+- [x] Added print_semantic_warnings() to rich_output.py with amber Panel styling; called from stage1_config.run() after LLM parsing. — 2026-06-18
   - Files: tournament_scheduler/utils/rich_output.py, tournament_scheduler/pipeline/stage1_config.py
   - Approach: Add a `print_semantic_warnings(warnings: list[str])` helper to `rich_output.py` that renders a labelled Rich panel with amber styling (consistent with existing warning panels), then call it from `stage1_config.run()` immediately after LLM parsing, before returning to the orchestrator.
 
@@ -61,4 +61,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+12/-1)
+**Commit:** f7f8b90 (hockey)
+
+### 2026-06-18 — Added print_semantic_warnings() to rich_output.py with amber Panel styling; called from stage1_config.run() after LLM parsing.
+**Rationale:** Amber/yellow Panel with ROUNDED box is consistent with existing warning styling; fixed a misplaced console.print(table) line in print_rules_report that was missing from original file.
+**Findings:** The original print_rules_report() was missing its final console.print(table) call — this was a pre-existing bug that got exposed by the edit and was fixed as part of this task.
+LESSONS: When editing rich_output.py, the existing print_rules_report() was missing its closing console.print(table) line — check for truncated loop bodies before appending to this file.
+**Files:** tournament_scheduler/utils/rich_output.py (+34/-1), tournament_scheduler/pipeline/stage1_config.py (+2/-0)
 **Commit:** [pending — fill after commit]

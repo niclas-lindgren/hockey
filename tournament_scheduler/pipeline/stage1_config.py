@@ -47,6 +47,7 @@ from ..season_config import (
 from .state import PipelineState, StageName, StageStatus
 from .stage1_helpers import _load_json, _parse_config, validate_config
 from .semantic_validation import build_semantic_prompt, parse_semantic_warnings
+from ..utils.rich_output import print_semantic_warnings
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -198,6 +199,7 @@ def run(
 
     if semantic_warnings:
         config["semantic_warnings"] = semantic_warnings
+        print_semantic_warnings(semantic_warnings)
 
     state.write_stage(StageName.CONFIG, config, status=StageStatus.DONE)
     state.mark_done(StageName.CONFIG)
