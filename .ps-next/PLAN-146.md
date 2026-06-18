@@ -26,7 +26,7 @@
   - Files: tournament_scheduler/pipeline/state.py, tournament_scheduler/pipeline/stage3_helpers.py
   - Approach: After the approval gate runs, write the verdict (decision, rationale, blockers) into the stage3 checkpoint under an `llm_approval` key using the existing state persistence pattern so reruns can inspect what was decided.
 
-- [ ] Add unit tests for approval gate prompt formatting and verdict parsing
+- [x] Created tests/test_llm_approval_gate.py with 7 tests covering GO verdict, NO_GO verdict with blockers, text-only GO/NO_GO fallback, completely unparseable fallback (defaults to GO), JSON in markdown fence, and plan summary content verification. All 7 pass. — 2026-06-18
   - Files: tests/test_llm_approval_gate.py
   - Approach: Write tests that cover the happy path (go verdict), no-go verdict with blockers, and malformed LLM response fallback. Mock `LMStudioClient.complete()` to return controlled JSON/text responses and assert on the returned `ApprovalVerdict` fields.
 
@@ -74,4 +74,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/state.py (+33), tournament_scheduler/cli/pipeline_orchestrator.py (+13)
+**Commit:** 61cc8ab (hockey)
+
+### 2026-06-18 — Created tests/test_llm_approval_gate.py with 7 tests covering GO verdict, NO_GO verdict with blockers, text-only GO/NO_GO fallback, completely unparseable fallback (defaults to GO), JSON in markdown fence, and plan summary content verification. All 7 pass.
+**Rationale:** none
+**Findings:** none
+LESSONS: none
+**Files:** tests/test_llm_approval_gate.py (+100)
 **Commit:** [pending — fill after commit]
