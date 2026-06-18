@@ -13,7 +13,7 @@
   - Mirror the `_run_approval_gate` signature pattern (strict: bool, console, log_fn); accept `_conf_verdict` (ScrapingConfidenceVerdict); in strict mode, show Rich warning with suspicious_sources/gaps/overall_assessment and prompt "Vil du fortsette til planlegging likevel? (j/n):" accepting j/y/ja/yes; in non-strict mode, log the WARN and return True automatically.
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`
 
-- [ ] Call `_run_confidence_gate` from `_cmd_run` between confidence assessment and Stage 3
+- [x] Already implemented as part of previous task: _run_confidence_gate is called at line 577 within the WARN branch, with halt-on-decline wired to _write_run_log + return 1 mirroring the approval gate pattern. — 2026-06-18
   - After the confidence assessment block (~line 552) and before the `if resume_from <= 3:` Stage 3 check (~line 553), call `_run_confidence_gate(_conf_verdict, strict, console, log_fn)`; if it returns False, abort the pipeline (return early or raise) mirroring how `_run_approval_gate` False result is handled before Stage 4.
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`
 
@@ -41,4 +41,11 @@ The unit tests in tests/test_pipeline_orchestrator_judgment.py pass for all four
 **Findings:** 10 unit tests pass; pipeline_orchestrator.py now blocks Stage 3 when operator declines in strict mode.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+75/-15), tests/test_confidence_gate.py (+125)
+**Commit:** 7175611 (hockey)
+
+### 2026-06-18 — Already implemented as part of previous task: _run_confidence_gate is called at line 577 within the WARN branch, with halt-on-decline wired to _write_run_log + return 1 mirroring the approval gate pattern.
+**Rationale:** Implemented atomically with the helper function definition in the previous task to avoid partial state.
+**Findings:** _run_confidence_gate is called at line 577; if it returns False, pipeline halts with return 1.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (already committed)
 **Commit:** [pending — fill after commit]
