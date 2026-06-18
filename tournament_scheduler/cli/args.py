@@ -77,11 +77,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Treat blocked sources as an operator-approved skip and keep partial results",
     )
     run.add_argument(
-        "--no-llm-scrape",
-        action="store_true",
-        help="Skip LLM fallback scraping for blocked sources (faster, but may leave more sources blocked)",
-    )
-    run.add_argument(
         "--no-timestamped-export",
         dest="timestamped_export",
         action="store_false",

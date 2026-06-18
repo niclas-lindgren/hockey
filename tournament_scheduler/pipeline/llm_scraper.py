@@ -250,13 +250,6 @@ def _build_selector_for(locator: Any) -> str:
 # Strategy-driven scraper
 # ===========================================================================
 
-# LLM client – optional dependency
-try:
-    from ..llm.lm_studio_client import LMStudioClient, LMStudioUnavailableError
-    _LLM_AVAILABLE = True
-except ImportError:
-    _LLM_AVAILABLE = False
-    LMStudioUnavailableError = RuntimeError
 
 
 class StrategyDrivenScraper:
@@ -442,14 +435,7 @@ class StrategyDrivenScraper:
                     logger.debug("Month %d: %d events via DOM extraction", month_idx + 1, len(month_events))
                     events.extend(month_events)
                 else:
-                    # DOM extraction found nothing — try LLM text fallback
-                    logger.debug("Month %d: DOM extraction empty, trying LLM fallback", month_idx + 1)
-                    fallback = _extract_events_via_llm(self, page, name, start_date, end_date)
-                    if fallback:
-                        events.extend(fallback)
-                    else:
-                        # No events this month and LLM fallback also empty
-                        break  # assume we've passed the calendar data
+                    break  # DOM extraction empty — assume we've passed the calendar data
 
                 # Try clicking "next month"
                 clicked = False
@@ -839,86 +825,3 @@ def _parse_event_text(text: str) -> list[CalendarEvent]:
     )]
 
 
-# ===========================================================================
-# LLM fallback for text extraction
-# ===========================================================================
-
-
-def _extract_events_via_llm(
-    scraper: StrategyDrivenScraper,
-    page: Any,
-    name: str,
-    start_date: datetime,
-    end_date: datetime,
-) -> list[CalendarEvent]:
-    """Last-resort: send page visible text to LLM for event extraction."""
-    if not _LLM_AVAILABLE:
-        logger.debug("LLM not available — skipping text fallback for '%s'", name)
-        return []
-
-    try:
-        snapshot = capture_dom_snapshot(page)
-        visible = _redact_credential_values(snapshot.get("visible_text", ""))
-        if not visible or len(visible) < 50:
-            return []
-    except Exception:
-        return []
-
-    system = (
-        "Du er en parser som trekker ut ishall-bookinger fra rå tekst.\n"
-        "Returner KUN et JSON-array med objekter, hvert objekt har:\n"
-        '  "date": "DD.MM.ÅÅÅÅ", "name": "beskrivelse", "duration_hours": 1.5\n'
-        "Eksempel:\n"
-        '  [{"date": "01.09.2026", "name": "Kongsberg trening", "duration_hours": 1.5}]\n'
-        "Hvis du ikke finner noen bookinger, returner []."
-    )
-
-    prompt_start = start_date.strftime("%d.%m.%Y")
-    prompt_end = end_date.strftime("%d.%m.%Y")
-    user = (
-        f"Kilde: {name}\n"
-        f"Periode: {prompt_start} til {prompt_end}\n\n"
-        f"Synlig tekst fra kalender-siden:\n{visible[:6000]}"
-    )
-
-    try:
-        client = LMStudioClient(base_url=scraper.llm_endpoint, model=scraper.llm_model)
-        resp = client.complete(system=system, user=user, temperature=0.1)
-        raw = resp.text.strip()
-
-        # Extract JSON array
-        start = raw.find("[")
-        end = raw.rfind("]")
-        if start != -1 and end != -1 and end > start:
-            raw = raw[start:end + 1]
-
-        data = json.loads(raw)
-        if not isinstance(data, list):
-            return []
-
-        events: list[CalendarEvent] = []
-        for item in data:
-            if not isinstance(item, dict):
-                continue
-            date_str = item.get("date", "")
-            ev_name = item.get("name", "")
-            dur = float(item.get("duration_hours", 1.0))
-            if not date_str or not ev_name:
-                continue
-            try:
-                dt = datetime.strptime(date_str, "%d.%m.%Y")
-            except ValueError:
-                try:
-                    dt = datetime.fromisoformat(date_str)
-                except (ValueError, TypeError):
-                    continue
-            events.append(CalendarEvent(
-                date=dt.strftime("%d.%m.%Y"),
-                name=ev_name[:120],
-                datetime=dt,
-                duration_hours=round(dur, 2),
-            ))
-        return events
-    except Exception as exc:
-        logger.debug("LLM fallback extraction failed for '%s': %s", name, exc)
-        return []

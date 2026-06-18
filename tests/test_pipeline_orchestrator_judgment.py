@@ -307,12 +307,7 @@ def test_confidence_gate_ok_verdict_skips_gate(tmp_path: Path) -> None:
 
     patches = _all_stage_patches()
     with patch.dict(os.environ, {**_HARNESS_CLEAN, "RVV_APPROVAL_ENDPOINT": "http://localhost:1234"}):
-        with patch(
-            "tournament_scheduler.pipeline.scraping_confidence.run_confidence_assessment",
-            return_value=ok_verdict,
-        ):
-            with patch("tournament_scheduler.llm.lm_studio_client.LMStudioClient"):
-                with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
-                    result = _cmd_run(args)
+        with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5]:
+            result = _cmd_run(args)
 
     assert result == 0

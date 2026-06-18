@@ -144,10 +144,6 @@ def _force_refresh_stage2_inputs(work_dir: str) -> None:
     ScrapedDataCache(work_dir=work_dir).force_refresh()
 
 
-_DEFAULT_APPROVAL_ENDPOINT = "http://host.lima.internal:1234"
-_DEFAULT_APPROVAL_MODEL = "local-model"
-
-
 def _run_approval_gate(
     args: argparse.Namespace,
     plan_checkpoint: "dict[str, Any]",
@@ -156,119 +152,7 @@ def _run_approval_gate(
     console: "Console",
     log_fn: "Any",
 ) -> bool:
-    """Run the LLM approval gate between Stage 3 and Stage 4 (opt-in via env var).
-
-    Reads ``RVV_APPROVAL_ENDPOINT`` from the environment.  If not set, the gate is
-    skipped silently and ``True`` (proceed) is returned so non-LLM deployments are
-    unaffected.  ``RVV_APPROVAL_MODEL`` sets the model name (default ``local-model``).
-
-    In non-strict mode with a NO_GO verdict, prints the proposed changes and attempts
-    to apply any existing manual_adjustments via :class:`ManualAdjustmentWorkflow`
-    before proceeding to Stage 4.
-
-    Returns:
-        ``True`` if the pipeline should proceed to Stage 4, ``False`` if it should
-        halt (only possible in strict mode with a NO_GO verdict that the operator
-        declines to override).
-    """
-    import os as _os
-
-    endpoint = _os.environ.get("RVV_APPROVAL_ENDPOINT", "")
-    if not endpoint:
-        return True  # gate disabled
-
-    model = _os.environ.get("RVV_APPROVAL_MODEL", _DEFAULT_APPROVAL_MODEL)
-
-    from ..llm.lm_studio_client import LMStudioClient
-    from ..pipeline.llm_approval_gate import run_approval_gate
-
-    console.print("[bold]Godkjenningsport (LLM):[/bold] Vurderer plan...")
-    try:
-        client = LMStudioClient(base_url=endpoint, model=model)
-        verdict = run_approval_gate(plan_checkpoint, client)
-    except Exception as exc:
-        log_fn(f"Approval gate failed (non-fatal): {exc}")
-        console.print(f"  [yellow]⚠[/yellow] Godkjenningsport feilet: {exc} — fortsetter")
-        return True  # non-fatal: proceed
-
-    decision = verdict.decision.upper()
-    log_fn(f"Approval gate verdict: {decision} — {verdict.rationale[:200]}")
-
-    # Persist verdict to the stage3 checkpoint so reruns can inspect the decision.
-    try:
-        from ..pipeline.state import StageName
-        state.write_approval(
-            StageName.PLANNING,
-            decision=decision,
-            rationale=verdict.rationale,
-            blockers=verdict.blockers,
-            proposed_changes=verdict.proposed_changes,
-        )
-    except Exception as exc:
-        log_fn(f"write_approval failed (non-fatal): {exc}")
-
-    if decision == "GO":
-        console.print(f"  [green]✓ GO[/green] — {verdict.rationale}")
-        if verdict.proposed_changes:
-            for change in verdict.proposed_changes:
-                console.print(f"    [dim]→ {change}[/dim]")
-        return True
-
-    # NO_GO path
-    console.print(f"  [red]✗ NO_GO[/red] — {verdict.rationale}")
-    if verdict.blockers:
-        console.print("  [bold]Blokkere:[/bold]")
-        for blocker in verdict.blockers:
-            console.print(f"    [red]•[/red] {blocker}")
-    if verdict.proposed_changes:
-        console.print("  [bold]Foreslåtte endringer:[/bold]")
-        for change in verdict.proposed_changes:
-            console.print(f"    [yellow]→[/yellow] {change}")
-
-    if strict:
-        # Prompt the operator for manual override before halting.
-        try:
-            answer = input("\n  Vil du fortsette til eksport likevel? (j/n): ").strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            answer = "n"
-        log_fn(f"Operator confirmation answer: {answer!r}")
-        if answer in ("j", "y", "ja", "yes"):
-            console.print("  [yellow]⚠[/yellow] Operatør har overstyrt NO_GO — fortsetter")
-            log_fn("Approval gate NO_GO overridden by operator")
-            return True
-        return False  # caller will halt
-
-    # non-strict: attempt auto-apply of existing manual_adjustments via workflow,
-    # then re-check fairness before proceeding to Stage 4.
-    console.print("  [yellow]⚠[/yellow] Forsøker automatisk justeringsgjennomgang...")
-    try:
-        from ..pipeline.manual_adjustment_workflow import ManualAdjustmentWorkflow
-        from ..pipeline.stage4_helpers import _dict_to_plan
-
-        plan_dict = plan_checkpoint.get("plan", {})
-        season_plan = _dict_to_plan(plan_dict)
-        result = ManualAdjustmentWorkflow(state).apply(season_plan)
-        if result.success:
-            log_fn(f"Auto-adjustment succeeded: {len(result.changes)} changes applied")
-            console.print(
-                f"  [green]✓[/green] Automatiske justeringer anvendt "
-                f"({len(result.changes)} endringer)"
-            )
-            for change in result.changes:
-                console.print(f"    [dim]→ {change}[/dim]")
-        else:
-            log_fn(f"Auto-adjustment completed with warnings: {result.warnings}")
-            console.print(
-                "  [yellow]⚠[/yellow] Justeringer gjennomført med advarsler"
-            )
-            for warning in result.warnings:
-                console.print(f"    [yellow]⚠[/yellow] {warning}")
-    except Exception as exc:
-        log_fn(f"Auto-adjustment failed (non-fatal): {exc}")
-        console.print(
-            f"  [yellow]⚠[/yellow] Automatisk justering feilet: {exc} — fortsetter"
-        )
-    console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+    """Approval gate placeholder — always proceeds (LLM gate removed)."""
     return True
 
 
@@ -440,19 +324,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     if resume_from <= 1:
         _console.print("[bold]Stage 1:[/bold] Konfigurasjon...")
-        # Semantic validation via LLM (opt-in via RVV_APPROVAL_ENDPOINT)
-        import os as _os_stage1
-        _stage1_llm_client = None
-        _stage1_endpoint = _os_stage1.environ.get("RVV_APPROVAL_ENDPOINT", "")
-        if _stage1_endpoint:
-            try:
-                from ..llm.lm_studio_client import LMStudioClient as _LMStudioClientStage1, LMStudioUnavailableError as _LMStudioUnavailableErrorStage1  # noqa: F401
-                _stage1_model = _os_stage1.environ.get("RVV_APPROVAL_MODEL", _DEFAULT_APPROVAL_MODEL)
-                _stage1_llm_client = _LMStudioClientStage1(base_url=_stage1_endpoint, model=_stage1_model)
-            except Exception:
-                _console.print("[dim]  Semantisk validering ikke tilgjengelig (LLM utilgjengelig)[/dim]")
         try:
-            stage1_run(args.input, state, strict=strict, llm_client=_stage1_llm_client)
+            stage1_run(args.input, state, strict=strict)
             cfg = load_effective_config(state, input_path=args.input)
             _console.print(f"  [green]✓[/green] {len(cfg.get('sources', []))} kilder, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
             _log(f"Stage 1 OK: {cfg.get('source_count', 0)} sources, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
@@ -502,26 +375,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 end,
                 strict=strict,
                 allow_missing_sources=allow_missing_sources,
-                no_llm_scrape=getattr(args, "no_llm_scrape", False),
             )
             n = len(scraping.get("sources", []))
             blocked = scraping.get("blocked", [])
-            llm_fallback = scraping.get("llm_fallback", [])
-            # Separate recovered-by-LLM sources from pending ones
-            llm_recovered = [f for f in llm_fallback if f.get("event_count", 0) > 0]
-            llm_pending = [f for f in llm_fallback if f.get("event_count", 0) == 0]
-            banner = f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert"
-            if llm_recovered:
-                banner += f", [yellow]{len(llm_recovered)} gjenopprettet via LLM[/yellow]"
-            _console.print(banner)
-            _log(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked, {len(llm_recovered)} llm recovered, {len(llm_pending)} llm pending")
-            if llm_recovered:
-                for rec in llm_recovered:
-                    _console.print(
-                        f"    [yellow bold][LLM][/yellow bold] {rec['name']} — "
-                        f"{rec['event_count']} hendelser (LLM fallback)"
-                    )
-                    _log(f"  LLM-recovered: {rec['name']} ({rec['event_count']} events)")
+            _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
+            _log(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked")
             if blocked:
                 for blocked_name in blocked:
                     _console.print(f"    [yellow]⚠[/yellow] {blocked_name}")
@@ -532,19 +390,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
                     _console.print("  [green]✓[/green] Delvise resultater er lagret og pipeline fortsetter med godkjente mangler.")
                 else:
                     _console.print("  [dim]Delvise resultater er lagret; kjør [bold]rvv-miniputt run --allow-missing-sources[/bold] for å fortsette med slike mangler neste gang.[/dim]")
-            if llm_pending:
-                _console.print(f"\n  [bold cyan]🤖 {len(llm_pending)} kilde(r) kan skrapes med LLM:[/bold cyan]")
-                for fallback in llm_pending:
-                    strategy = fallback.get("llm_strategy", {})
-                    engine = strategy.get("engine", "?")
-                    creds = strategy.get("credential_env_vars", [])
-                    cred_hint = f" (credentials: {', '.join(creds)})" if creds else ""
-                    _console.print(f"    [cyan]→[/cyan] {fallback['name']} — {engine}{cred_hint}")
-                _console.print("\n  [dim]Kjør [bold]rvv-miniputt scrape-llm[/bold] for å skrape disse kildene interaktivt.[/dim]")
             stage2_summary = {
                 "sources_scanned": n,
                 "blocked": blocked,
-                "llm_fallback": llm_fallback,
             }
             if not _judge_stage(2, stage2_summary, stage_name=StageName.SCRAPING):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
@@ -552,20 +400,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
         except Exception as exc:
             _console.print(f"  [red]✗[/red] {exc}")
             _log(f"Stage 2 FAILED: {exc}")
-            scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": [], "llm_fallback": []}
+            scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": []}
             if scraping.get("warning"):
                 _console.print(f"  [dim]{scraping['warning']}[/dim]")
-            llm_fallback = scraping.get("llm_fallback", [])
-            if llm_fallback:
-                _console.print(f"\n  [bold cyan]🤖 {len(llm_fallback)} kilde(r) kan skrapes med LLM:[/bold cyan]")
-                for fallback in llm_fallback:
-                    strategy = fallback.get("llm_strategy", {})
-                    engine = strategy.get("engine", "?")
-                    creds = strategy.get("credential_env_vars", [])
-                    cred_hint = f" (credentials: {', '.join(creds)})" if creds else ""
-                    _console.print(f"    [cyan]→[/cyan] {fallback['name']} — {engine}{cred_hint}")
-                    _log(f"  LLM fallback: {fallback['name']} ({engine})")
-                _console.print("\n  [dim]Kjør [bold]rvv-miniputt scrape-llm[/bold] for å skrape disse kildene interaktivt.[/dim]")
             if strict:
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
@@ -579,46 +416,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
             return 1
         _console.print("[bold]Stage 2:[/bold] Hoppet over (gjenopptatt)")
         _log("Stage 2 skipped via --resume-from")
-
-    # ── Scraping confidence assessment (opt-in via RVV_APPROVAL_ENDPOINT) ──
-    import os as _os_conf
-    _conf_endpoint = _os_conf.environ.get("RVV_APPROVAL_ENDPOINT", "")
-    if _conf_endpoint and scraping:
-        try:
-            from ..llm.lm_studio_client import LMStudioClient
-            from ..pipeline.scraping_confidence import run_confidence_assessment
-
-            class _DateRange:
-                def __init__(self, s: "datetime", e: "datetime") -> None:
-                    self.start_date = s.date()
-                    self.end_date = e.date()
-
-            _conf_client = LMStudioClient(
-                base_url=_conf_endpoint,
-                model=_os_conf.environ.get("RVV_APPROVAL_MODEL", _DEFAULT_APPROVAL_MODEL),
-            )
-            _conf_verdict = run_confidence_assessment(scraping, _DateRange(start, end), _conf_client)
-            if _conf_verdict.verdict == "WARN":
-                if not _run_confidence_gate(_conf_verdict, strict, _console, _log):
-                    _write_run_log(args.work_dir, log_start, log_lines, success=False)
-                    return 1
-            else:
-                _console.print(
-                    f"  [green]✓[/green] Skrapekvalitet: [bold green]OK[/bold green]"
-                    + (f" — {_conf_verdict.overall_assessment}" if _conf_verdict.overall_assessment else "")
-                )
-                _log("Scraping confidence OK")
-            # Persist verdict into Stage 2 checkpoint so reports can read it
-            scraping["confidence"] = {
-                "verdict": _conf_verdict.verdict,
-                "suspicious_sources": _conf_verdict.suspicious_sources,
-                "gaps": _conf_verdict.gaps,
-                "overall_assessment": _conf_verdict.overall_assessment,
-            }
-            state.write_stage(StageName.SCRAPING, scraping, status=StageStatus.DONE)
-        except Exception as _conf_exc:
-            _log(f"Scraping confidence assessment failed (non-fatal): {_conf_exc}")
-            _console.print(f"  [dim]Skrapevurdering hoppet over: {_conf_exc}[/dim]")
 
     if resume_from <= 3:
         _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
@@ -662,17 +459,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if resume_from <= 4:
         _console.print("[bold]Stage 4:[/bold] Eksport...")
         try:
-            import os as _os_stage4
-            _stage4_endpoint = _os_stage4.environ.get("RVV_APPROVAL_ENDPOINT", "")
-            _stage4_llm_client = None
-            if _stage4_endpoint:
-                try:
-                    from tournament_scheduler.llm.lm_studio_client import LMStudioClient as _LMStudioClientStage4, LMStudioUnavailableError as _LMStudioUnavailableErrorStage4
-                    _stage4_model = _os_stage4.environ.get("RVV_APPROVAL_MODEL", _DEFAULT_APPROVAL_MODEL)
-                    _stage4_llm_client = _LMStudioClientStage4(base_url=_stage4_endpoint, model=_stage4_model)
-                except Exception:
-                    pass
-            export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", False), llm_client=_stage4_llm_client)
+            export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", False))
             files = export.get("output_files", {})
             _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")
             for label, file_path in files.items():

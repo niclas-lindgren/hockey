@@ -2,6 +2,12 @@
 
 ## Open
 
+- [152] [ ] Restructure semantic config validation for harness-driven flow: Stage 1 checkpoint already contains all parsed config fields (age groups, team counts, host clubs, date range). The harness (Claude/Codex/OpenCode) should read the Stage 1 JSON and flag semantic issues — e.g. more tournaments than available weekends — using its own LLM reasoning. No pipeline code change needed; add harness-skill logic to inspect the Stage 1 checkpoint after it runs.
+
+- [153] [ ] Restructure scraping confidence for harness-driven flow: Stage 2 checkpoint contains per-source event counts, blocked status, and the date range. The harness should inspect this after Stage 2 and decide whether to proceed to Stage 3 — replacing the removed `run_confidence_assessment` LMStudio call. Remove or simplify `scraping_confidence.py` and `llm_approval_gate.py` since the harness now owns this decision.
+
+- [154] [ ] Revert report conclusion to a data-driven static template: `_report_overview_html` already computes `gate_status`, `blocked`, `cancelled_count`, and `metric_warnings`. Replace the removed LLM narrative with a template that injects the weakest metric name, blocked source count, and cancellation count as concrete values — satisfying backlog item 136 without needing an LLM call from the pipeline.
+
 - [142] [ ] Add LLM-driven automated adjustment loop between Stage 3 and Stage 4: if the plan critic finds fixable issues, have the LLM propose specific moves (tournament, from-date, to-date, reason), execute them via the existing manual_adjustment_workflow, then re-evaluate with the critic. Iterate up to N times (configurable). Only escalate to human when issues remain after N iterations or when a move requires human knowledge (e.g. club preference). This is the core step that removes human review from the happy path.
 
 - [141] [ ] Add LLM plan critic step after Stage 3: after _pick_spread_dates completes, call an LLM with the full plan JSON + scoring breakdown and ask it to produce a ranked list of issues with specific fix proposals (e.g. 'club X hosts 3 out of 4 weekends in October — consider moving tournament Y to November'). Output goes into the plan checkpoint and surfaces in the CLI summary. Goal: operator reads 5 bullet points instead of a 147KB HTML report.

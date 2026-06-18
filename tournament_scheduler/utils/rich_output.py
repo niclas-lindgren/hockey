@@ -551,34 +551,3 @@ class TournamentOutput:
             console.print(table)
 
 
-def print_semantic_warnings(warnings: list[str]) -> None:
-    """Render LLM semantic feasibility warnings in an amber-styled panel.
-
-    Displays a numbered list of warning strings produced by the semantic
-    validation step.  If *warnings* is empty the function returns without
-    printing anything.
-
-    Parameters
-    ----------
-    warnings:
-        List of warning strings returned by
-        :func:`~tournament_scheduler.pipeline.semantic_validation.parse_semantic_warnings`.
-    """
-    if not warnings:
-        return
-
-    content = Text()
-    for i, warning in enumerate(warnings, start=1):
-        if i > 1:
-            content.append("\n")
-        content.append(f"{i}. ", style="bold yellow")
-        content.append(warning, style="yellow")
-
-    console.print(
-        Panel(
-            content,
-            title="[bold yellow]Semantiske advarsler[/bold yellow]",
-            border_style="yellow",
-            box=box.ROUNDED,
-        )
-    )

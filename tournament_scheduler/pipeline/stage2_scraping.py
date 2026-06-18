@@ -43,7 +43,6 @@ from .scraper_constants import (
     _BROWSER_SOURCE_TYPES, _ICAL_SOURCE_TYPES,
 )
 from .stage2_helpers import (_blocked_sources_warning, _cached_source_result, _credentialed_scrape_months, _events_to_dicts, _group_events_by_club, _recovery_hint_for_source, _run_bookup_scraper, _run_credentialed_bookup_or_outlook, _run_ical_scraper, _run_outlook_scraper, _run_styledcalendar_scraper, _try_credentialed_scrape, _bookup_navigate_to_date, _parse_bookup_timegrid, _parse_date_param_calendar, _parse_outlook_calendar)
-from .llm_scraper import StrategyDrivenScraper
 
 # ---------------------------------------------------------------------------
 # Errors
@@ -74,7 +73,6 @@ def run(
     allow_missing_sources: bool = False,
     max_workers: int = 4,
     force_refresh: bool = False,
-    no_llm_scrape: bool = False,
 ) -> dict[str, Any]:
     """Run Stage 2 scraping for all sources listed in *config*.
 
@@ -179,8 +177,6 @@ def run(
             sources_to_scrape.append(source_cfg)
 
     blocked: list[dict[str, Any]] = []
-    # Tracks sources that _scrape_source flagged as needing LLM (before fallback runs)
-    _llm_planned: list[dict[str, Any]] = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_source = {
@@ -211,72 +207,12 @@ def run(
             source_results.append(source_result)
             if source_result.get("blocked"):
                 blocked.append({"name": source_cfg.get("name", "?"), **source_result})
-            if source_result.get("llm_fallback"):
-                _llm_planned.append({
-                    "name": source_result["name"],
-                    "url": source_result.get("url", ""),
-                    "llm_strategy": source_result.get("llm_strategy", {}),
-                })
-
-    # --- LLM fallback: retry blocked sources that have an LLM strategy ---
-    # llm_fallback in the checkpoint tracks sources that were *recovered* by the LLM agent
-    # (event_count > 0) plus any that were planned but could not be recovered (event_count=0).
-    llm_fallback: list[dict[str, Any]] = []
-    _llm_recovered_names: set[str] = set()
-
-    if not no_llm_scrape:
-        for source_result in source_results:
-            if not source_result.get("blocked") or not source_result.get("llm_fallback"):
-                continue
-            llm_strategy = source_result.get("llm_strategy", {})
-            if not llm_strategy:
-                continue
-            try:
-                scraper = StrategyDrivenScraper()
-                events = scraper.run(
-                    url=llm_strategy.get("url", source_result.get("url", "")),
-                    name=source_result["name"],
-                    start_date=start_date,
-                    end_date=end_date,
-                    initial_navigation=llm_strategy.get("initial_navigation"),
-                    month_selector=llm_strategy.get("month_selector", ""),
-                    event_pattern=llm_strategy.get("event_pattern", ""),
-                )
-            except Exception:
-                events = []
-            if events:
-                source_result["blocked"] = False
-                source_result["events"] = _events_to_dicts(events)
-                source_result["event_count"] = len(events)
-                source_result["llm_fallback"] = True
-                source_result["llm_fallback_used"] = True
-                # Record recovery with rich metadata
-                llm_fallback.append({
-                    "name": source_result["name"],
-                    "url": source_result.get("url", ""),
-                    "event_count": len(events),
-                    "fallback_reason": source_result.get("block_reason", "normal scraper returned no events"),
-                })
-                _llm_recovered_names.add(source_result["name"])
-                # Remove from blocked list
-                blocked[:] = [b for b in blocked if b["name"] != source_result["name"]]
-
-    # Append planned-but-unrecovered LLM sources so the CLI can still hint about them
-    for planned in _llm_planned:
-        if planned["name"] not in _llm_recovered_names:
-            llm_fallback.append({
-                "name": planned["name"],
-                "url": planned.get("url", ""),
-                "event_count": 0,
-                "llm_strategy": planned.get("llm_strategy", {}),
-            })
 
     checkpoint: dict[str, Any] = {
         "sources": source_results,
         "events_by_club": _group_events_by_club(source_results),
         "blocked": [b["name"] for b in blocked],
         "cached": cached_names,
-        "llm_fallback": llm_fallback,
     }
 
     status = StageStatus.DONE if (not blocked or allow_missing_sources) else StageStatus.FAILED
@@ -428,10 +364,6 @@ if __name__ == "__main__":  # pragma: no cover
         "--force-refresh", action="store_true",
         help="Ignore the unified scrape cache and re-scrape every source"
     )
-    parser.add_argument(
-        "--no-llm-scrape", action="store_true",
-        help="Skip LLM fallback scraping for blocked sources"
-    )
     cli_args = parser.parse_args()
 
     from .state import PipelineState, StageName  # noqa: E402
@@ -453,7 +385,6 @@ if __name__ == "__main__":  # pragma: no cover
             strict=not cli_args.non_strict,
             allow_missing_sources=cli_args.allow_missing_sources,
             force_refresh=cli_args.force_refresh,
-            no_llm_scrape=cli_args.no_llm_scrape,
         )
         n_sources = len(_result.get("sources", []))
         blocked = _result.get("blocked", [])

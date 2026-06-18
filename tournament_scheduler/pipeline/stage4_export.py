@@ -61,7 +61,6 @@ def run(
     basename: str = DEFAULT_BASENAME,
     strict: bool = True,
     timestamped_export: bool = False,
-    llm_client: object = None,
 ) -> dict[str, Any]:
     """Export the Stage 3 plan to Excel, iCal, and CSV.
 
@@ -193,7 +192,6 @@ def run(
             output_files=output_files,
             pipeline_meta=pipeline_meta,
             age_groups=configured_age_groups,
-            llm_client=llm_client,
         )
         output_files["html"] = html_path
         output_files["html_report"] = str(Path(html_path).with_name(f"{Path(html_path).stem}_report{Path(html_path).suffix}"))
