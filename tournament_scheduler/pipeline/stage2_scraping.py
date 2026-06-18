@@ -213,6 +213,8 @@ def run(
         "events_by_club": _group_events_by_club(source_results),
         "blocked": [b["name"] for b in blocked],
         "cached": cached_names,
+        "start_date": start_date.strftime("%Y-%m-%d"),
+        "end_date": end_date.strftime("%Y-%m-%d"),
     }
 
     status = StageStatus.DONE if (not blocked or allow_missing_sources) else StageStatus.FAILED
