@@ -272,6 +272,63 @@ def _run_approval_gate(
     return True
 
 
+def _run_confidence_gate(
+    conf_verdict: "Any",
+    strict: bool,
+    console: "Console",
+    log_fn: "Any",
+) -> bool:
+    """Run the scraping-confidence gate between Stage 2 and Stage 3.
+
+    Called only when the confidence assessment returns ``WARN``.  In strict mode
+    the operator is prompted to confirm whether to proceed to planning despite the
+    warning.  In non-strict mode the WARN is logged and ``True`` is returned
+    automatically so the pipeline continues uninterrupted.
+
+    Args:
+        conf_verdict: A ``ScrapingConfidenceVerdict`` instance (duck-typed to avoid
+            a hard import here).
+        strict: Whether the pipeline is running in strict mode.
+        console: Rich ``Console`` for interactive output.
+        log_fn: Callable that appends a message to the run log.
+
+    Returns:
+        ``True`` if the pipeline should proceed to Stage 3, ``False`` if it should
+        halt (only possible in strict mode when the operator declines to continue).
+    """
+    console.print(
+        f"  [yellow]⚠[/yellow] Skrapekvalitet: [bold yellow]WARN[/bold yellow] — "
+        f"{conf_verdict.overall_assessment}"
+    )
+    if conf_verdict.suspicious_sources:
+        console.print(
+            "    [yellow]Mistenkelige kilder:[/yellow] "
+            + ", ".join(conf_verdict.suspicious_sources)
+        )
+    for gap in conf_verdict.gaps:
+        console.print(f"    [dim]→ {gap}[/dim]")
+
+    log_fn(
+        f"Scraping confidence WARN: {conf_verdict.overall_assessment} "
+        f"(suspicious: {conf_verdict.suspicious_sources}; gaps: {conf_verdict.gaps})"
+    )
+
+    if not strict:
+        console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+        return True
+
+    # strict mode — ask the operator whether to proceed
+    try:
+        answer = input("\n  Vil du fortsette til planlegging likevel? (j/n): ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        answer = "n"
+    log_fn(f"Operator confirmation answer (confidence gate): {answer!r}")
+    if answer in ("j", "y", "ja", "yes"):
+        console.print("  [yellow]⚠[/yellow] Operatør har overstyrt WARN — fortsetter")
+        log_fn("Confidence gate WARN overridden by operator")
+        return True
+    return False  # caller will halt
+
 
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
@@ -517,21 +574,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
             )
             _conf_verdict = run_confidence_assessment(scraping, _DateRange(start, end), _conf_client)
             if _conf_verdict.verdict == "WARN":
-                _console.print(
-                    f"  [yellow]⚠[/yellow] Skrapekvalitet: [bold yellow]WARN[/bold yellow] — "
-                    f"{_conf_verdict.overall_assessment}"
-                )
-                if _conf_verdict.suspicious_sources:
-                    _console.print(
-                        "    [yellow]Mistenkelige kilder:[/yellow] "
-                        + ", ".join(_conf_verdict.suspicious_sources)
-                    )
-                for _gap in _conf_verdict.gaps:
-                    _console.print(f"    [dim]→ {_gap}[/dim]")
-                _log(
-                    f"Scraping confidence WARN: {_conf_verdict.overall_assessment} "
-                    f"(suspicious: {_conf_verdict.suspicious_sources}; gaps: {_conf_verdict.gaps})"
-                )
+                if not _run_confidence_gate(_conf_verdict, strict, _console, _log):
+                    _write_run_log(args.work_dir, log_start, log_lines, success=False)
+                    return 1
             else:
                 _console.print(
                     f"  [green]✓[/green] Skrapekvalitet: [bold green]OK[/bold green]"
