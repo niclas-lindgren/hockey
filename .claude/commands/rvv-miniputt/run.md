@@ -54,6 +54,37 @@ For each blocked or zero-event source, report:
 
 Do **not** proceed to Stage 3 if any sources are blocked and `--non-strict` was not passed. For zero-event sources, ask the user whether to continue or investigate further.
 
+**Recovery loop — attempt to fetch events for each problem source:**
+For each source returned by `rvv-miniputt recovery-targets`:
+
+```bash
+python3 -m tournament_scheduler.cli.rvv_cli recovery-targets [--work-dir .pipeline]
+```
+
+Attempt recovery in this order:
+1. Use WebFetch (or the browser tool) to retrieve the source's `url`.
+2. Extract a list of calendar event objects from the HTML. Each object should have at minimum `title`, `start` (ISO 8601 date or datetime), and optionally `end`, `location`, `description`.
+3. If events were extracted, inject them into the cache:
+   ```bash
+   echo '<JSON-array>' | python3 -m tournament_scheduler.cli.rvv_cli recovery-inject --source "SOURCE_NAME" [--work-dir .pipeline]
+   ```
+   On success (exit 0), the command prints `{"injected": N, "source": "...", "work_dir": "..."}` — mark this source as recovered.
+4. If WebFetch returns no usable content or event extraction fails, log a warning for this source and continue with the next one. Do **not** abort the entire recovery loop on a single-source failure.
+
+If any sources are blocked and `--non-strict` was not passed, stop and report which sources failed before continuing.
+
+**Proceed/abort decision after the recovery loop:**
+After attempting recovery for all problem sources:
+
+1. Re-check recovery targets:
+   ```bash
+   python3 -m tournament_scheduler.cli.rvv_cli recovery-targets [--work-dir .pipeline]
+   ```
+2. Count remaining blocked/zero-event sources in the output:
+   - **All recovered (empty array):** Proceed to Stage 3.
+   - **Some still blocked/empty, but `--allow-missing-sources` is acceptable:** Proceed to Stage 3 with a warning listing the unrecovered sources and their URLs.
+   - **Some still blocked/empty, and strict mode is required:** Abort. Report each unrecovered source by name and URL, state the reason (`blocked` or `zero_events`), and tell the user to check the URL manually or wait for the source to become available before re-running Stage 2.
+
 If any sources are blocked and `--non-strict` was not passed, stop and report which sources failed before continuing.
 
 ### Stage 3 — Planning

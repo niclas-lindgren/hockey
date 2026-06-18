@@ -22,11 +22,11 @@
   - Files: tournament_scheduler/cli/recovery_cli.py, tournament_scheduler/cli/rvv_cli.py
   - Approach: Expose `recovery_injector.inject_recovered_events()` as a CLI subcommand (`recovery-inject --source NAME`) that reads a JSON event list from stdin, so the harness can pipe WebFetch-extracted events directly into the cache without writing intermediate files.
 
-- [ ] Extend the run command with per-source recovery loop instructions
+- [x] Added a 'Recovery loop' section to Stage 2 in run.md instructing the agent to call recovery-targets, then for each problem source: use WebFetch to retrieve the URL, extract events, and pipe them to recovery-inject --source NAME. Single-source failures log a warning and continue. — 2026-06-18
   - Files: .claude/commands/rvv-miniputt/run.md
   - Approach: For each source returned by `recovery-targets`, the command instructs the agent to use WebFetch (or browser tool) to retrieve the source URL, extract events from the HTML, and pipe them via `recovery-inject --source NAME`; on success, the agent marks the source recovered and continues; on failure, it logs a warning and moves on.
 
-- [ ] Write the proceed/abort decision logic into the run command
+- [x] Added a 'Proceed/abort decision after the recovery loop' section to Stage 2 in run.md: re-check recovery-targets after the loop; if empty proceed; if some remain and --allow-missing-sources is acceptable proceed with warning; otherwise abort and list unrecovered sources. — 2026-06-18
   - Files: .claude/commands/rvv-miniputt/run.md
   - Approach: After the recovery loop, the command instructs the agent to call `rvv-miniputt status` (or re-read the checkpoint) to confirm how many sources remain blocked or empty, then decide: if all critical sources are recovered proceed to Stage 3; if some remain blocked but `--allow-missing-sources` is acceptable, proceed with a warning; otherwise abort and report which sources still need manual intervention.
 
@@ -77,4 +77,18 @@ LESSONS: none
 **Findings:** Command tested: piping a JSON array through stdin produces {injected, source, work_dir} JSON confirmation and exit 0.
 LESSONS: none
 **Files:** recovery_cli.py (+48/-1), args.py (+16), rvv_cli.py (+2/-1)
+**Commit:** 3cf7b3f (hockey)
+
+### 2026-06-18 — Added a 'Recovery loop' section to Stage 2 in run.md instructing the agent to call recovery-targets, then for each problem source: use WebFetch to retrieve the URL, extract events, and pipe them to recovery-inject --source NAME. Single-source failures log a warning and continue.
+**Rationale:** Combined with task 6 (proceed/abort decision) into a single edit for cohesion; both are pure documentation additions to the same file.
+**Findings:** none
+LESSONS: none
+**Files:** .claude/commands/rvv-miniputt/run.md (+31/-0)
+**Commit:** [pending — fill after commit]
+
+### 2026-06-18 — Added a 'Proceed/abort decision after the recovery loop' section to Stage 2 in run.md: re-check recovery-targets after the loop; if empty proceed; if some remain and --allow-missing-sources is acceptable proceed with warning; otherwise abort and list unrecovered sources.
+**Rationale:** Included in same edit as task 5 since both additions are in the same Stage 2 block of run.md.
+**Findings:** none
+LESSONS: none
+**Files:** .claude/commands/rvv-miniputt/run.md (already staged)
 **Commit:** [pending — fill after commit]
