@@ -498,6 +498,40 @@ def _cmd_run(args: argparse.Namespace) -> int:
         _console.print("[bold]Stage 2:[/bold] Hoppet over (gjenopptatt)")
         _log("Stage 2 skipped via --resume-from")
 
+    # ── Scraping confidence assessment (opt-in via RVV_APPROVAL_ENDPOINT) ──
+    import os as _os_conf
+    _conf_endpoint = _os_conf.environ.get("RVV_APPROVAL_ENDPOINT", "")
+    if _conf_endpoint and scraping:
+        try:
+            from ..llm.lm_studio_client import LMStudioClient
+            from ..pipeline.scraping_confidence import run_confidence_assessment
+
+            class _DateRange:
+                def __init__(self, s: "datetime", e: "datetime") -> None:
+                    self.start_date = s.date()
+                    self.end_date = e.date()
+
+            _conf_client = LMStudioClient(
+                base_url=_conf_endpoint,
+                model=_os_conf.environ.get("RVV_APPROVAL_MODEL", _DEFAULT_APPROVAL_MODEL),
+            )
+            _conf_verdict = run_confidence_assessment(scraping, _DateRange(start, end), _conf_client)
+            if _conf_verdict.verdict == "WARN":
+                _console.print(
+                    f"  [yellow]⚠[/yellow] Skrapekvalitet: WARN — {_conf_verdict.overall_assessment}"
+                )
+                for _gap in _conf_verdict.gaps:
+                    _console.print(f"    [dim]→ {_gap}[/dim]")
+                _log(f"Scraping confidence WARN: {_conf_verdict.overall_assessment}")
+            else:
+                _console.print(
+                    f"  [green]✓[/green] Skrapekvalitet: OK — {_conf_verdict.overall_assessment}"
+                )
+                _log("Scraping confidence OK")
+        except Exception as _conf_exc:
+            _log(f"Scraping confidence assessment failed (non-fatal): {_conf_exc}")
+            _console.print(f"  [dim]Skrapevurdering hoppet over: {_conf_exc}[/dim]")
+
     if resume_from <= 3:
         _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
         try:

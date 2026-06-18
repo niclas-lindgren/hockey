@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/pipeline/scraping_confidence.py
   - Approach: Implement the prompt template inside `scraping_confidence.py`, instructing the LLM to evaluate each source's event count relative to the season length and expected booking volume, flag blocked sources, and identify date range gaps; parse the JSON response into `ScrapingConfidenceVerdict` with a fallback for malformed JSON, following the same error-handling pattern used in `llm_approval_gate.py`.
 
-- [ ] Wire confidence assessment into the pipeline orchestrator between Stage 2 and Stage 3
+- [x] Inserted scraping confidence assessment call in _cmd_run between Stage 2 and Stage 3. Gated on RVV_APPROVAL_ENDPOINT env var (same as approval gate); logs WARN/OK verdict and gaps to console and run log. Falls back silently on exception. — 2026-06-18
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: In `_cmd_run`, after reading the Stage 2 scraping checkpoint and before calling `stage3_run`, call `run_confidence_assessment(scraping, cfg, lm_client)` and store the verdict; if the LLM client is unavailable, skip silently and log a debug message consistent with how other optional LLM steps are guarded.
 
@@ -56,4 +56,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/scraping_confidence.py (+20/-0)
+**Commit:** 89e0451 (hockey)
+
+### 2026-06-18 — Inserted scraping confidence assessment call in _cmd_run between Stage 2 and Stage 3. Gated on RVV_APPROVAL_ENDPOINT env var (same as approval gate); logs WARN/OK verdict and gaps to console and run log. Falls back silently on exception.
+**Rationale:** Reused RVV_APPROVAL_ENDPOINT and _DEFAULT_APPROVAL_MODEL to avoid new env vars. cfg is a dict so passed a _DateRange helper class to match start_date/end_date attribute interface.
+**Findings:** none
+LESSONS: cfg in _cmd_run is a dict, not an object with .start_date — pass a simple _DateRange wrapper class or use start.date()/end.date() directly when calling run_confidence_assessment
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+34/-0)
 **Commit:** [pending — fill after commit]
