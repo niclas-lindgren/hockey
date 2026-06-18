@@ -30,7 +30,7 @@ none
   - Files: `tournament_scheduler/cli/rvv_cli.py`, `tournament_scheduler/cli/args.py`
   - Approach: Register a `critic` subcommand in `args.py` that accepts `--work-dir` (default `.pipeline`), then in `rvv_cli.py` load `stage3_planning.json` via `state.py`, call `generate_critic_summary`, and print with Rich — mirrors the pattern used by `rvv-miniputt status`.
 
-- [ ] Write unit tests for `generate_critic_summary` covering: hosting clump detection, game-count outlier detection, fairness-gate failure, arena-day collision, and the happy-path (no issues returns empty or minimal list).
+- [x] Added 15 unit tests in tests/test_plan_critic.py covering all 5 detectors plus the happy-path and the 5-item cap. — 2026-06-18
   - Files: `tests/test_plan_critic.py`
   - Approach: Construct minimal plan dicts in-memory (no file I/O) for each scenario, assert the returned list contains the expected issue string, and assert the list never exceeds 5 items.
 
@@ -67,4 +67,11 @@ LESSONS: none
 **Findings:** Prints up to 5 issues or a green 'Ingen problemer' message; returns 1 if no checkpoint found.
 LESSONS: none
 **Files:** tournament_scheduler/cli/args.py (+11/-0), tournament_scheduler/cli/rvv_cli.py (+31/-0)
+**Commit:** 839ed8a (hockey)
+
+### 2026-06-18 — Added 15 unit tests in tests/test_plan_critic.py covering all 5 detectors plus the happy-path and the 5-item cap.
+**Rationale:** Constructed minimal SeasonPlan/Tournament objects in-memory; no file I/O needed.
+**Findings:** All 15 tests pass.
+LESSONS: none
+**Files:** tests/test_plan_critic.py (+279/-0)
 **Commit:** [pending — fill after commit]
