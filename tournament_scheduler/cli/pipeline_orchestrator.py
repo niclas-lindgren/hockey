@@ -201,6 +201,11 @@ def _check_stage2_checkpoint(
         f"{total_events} total events, {blocked_count} blocked"
     )
 
+    # No sources configured — nothing to validate; let the pipeline proceed.
+    if not sources:
+        log_fn("Stage 2 gate: no sources configured — skipping threshold check")
+        return True
+
     if sources_with_events == 0:
         console.print(
             "  [red]✗[/red] Stage 2-sjekkpunkt: ingen kilder returnerte hendelser"
