@@ -38,7 +38,9 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
                 )
 
         date_str = t_dict.get("date", "")
-        tournament_date = date.fromisoformat(date_str) if date_str else date.today()
+        if not date_str:
+            raise ValueError("Tournament date is required but missing or empty")
+        tournament_date = date.fromisoformat(date_str)
 
         tournaments.append(
             Tournament(
