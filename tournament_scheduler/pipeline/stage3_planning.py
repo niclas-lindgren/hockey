@@ -109,7 +109,7 @@ def run(
 
     if plan is None or not plan.tournaments:
         reason = "Klarte ikke å generere noen plan."
-        state.mark_failed(StageName.PLANNING, error=reason)
+        state.write_stage(StageName.PLANNING, {}, status=StageStatus.FAILED)
         if strict:
             raise Stage3Error(reason)
         return {}
@@ -125,7 +125,6 @@ def run(
     }
 
     state.write_stage(StageName.PLANNING, checkpoint, status=StageStatus.DONE)
-    state.mark_done(StageName.PLANNING)
     return checkpoint
 
 

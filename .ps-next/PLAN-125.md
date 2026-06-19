@@ -17,11 +17,11 @@
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`
   - Approach: Remove three redundant calls — mark_failed(SCRAPING) after write_stage(FAILED) at line 132, mark_done(SCRAPING) after write_stage(DONE) at line 142, and mark_done(SCRAPING) after write_stage(checkpoint, status=status) at line 244; all three follow an immediately preceding write_stage call that already handles status and invalidation.
 
-- [ ] Replace standalone mark_failed with write_stage in stage3_planning.py
+- [x] Replaced standalone mark_failed(PLANNING, errorreason) with write_stage(PLANNING, {}, statusFAILED) so that status setting and downstream invalidation go through the single canonical path. — 2026-06-19
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: At line 112, the standalone mark_failed(PLANNING, error=reason) is not preceded by a write_stage(FAILED) call; replace it with write_stage(StageName.PLANNING, {}, status=StageStatus.FAILED) so that status is set and _invalidate_downstream is triggered consistently through write_stage.
 
-- [ ] Remove redundant mark_done call after write_stage in stage3_planning.py
+- [x] Removed the redundant mark_done(PLANNING) call that immediately followed write_stage(PLANNING, checkpoint, statusDONE); done as part of the same stage3_planning.py change. — 2026-06-19
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: Remove the mark_done(PLANNING) call on line 128 that immediately follows write_stage(PLANNING, checkpoint, status=DONE) on line 127; write_stage already handles the final status transition.
 
@@ -61,4 +61,18 @@ LESSONS: none
 **Findings:** Removed 3 redundant status calls; write_stage now sole status setter in stage2_scraping.py.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (+0/-4)
+**Commit:** a48e2df (hockey)
+
+### 2026-06-19 — Replaced standalone mark_failed(PLANNING, errorreason) with write_stage(PLANNING, {}, statusFAILED) so that status setting and downstream invalidation go through the single canonical path.
+**Rationale:** Direct replacement: mark_failed -> write_stage with FAILED status.
+**Findings:** Standalone mark_failed replaced by write_stage(FAILED) in stage3_planning.py.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage3_planning.py (+1/-1)
+**Commit:** [pending — fill after commit]
+
+### 2026-06-19 — Removed the redundant mark_done(PLANNING) call that immediately followed write_stage(PLANNING, checkpoint, statusDONE); done as part of the same stage3_planning.py change.
+**Rationale:** Combined with replace-mark_failed task in the same commit.
+**Findings:** Redundant mark_done removed from stage3_planning.py.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage3_planning.py (in prior commit)
 **Commit:** [pending — fill after commit]
