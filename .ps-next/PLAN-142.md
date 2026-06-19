@@ -18,7 +18,7 @@
   - Files: tournament_scheduler/cli/rvv_cli.py
   - Approach: Inside `_cmd_auto_adjust`, loop up to `max_iterations` times: after each call to `_cmd_replan`, reload the checkpoint, re-run `generate_critic_summary`, and break early when `count_critic_issues_from_dict` returns 0. Track iteration count and pass it to the escalation step.
 
-- [ ] Implement escalation path and Rich console feedback
+- [x] Added _print_escalation_table helper that renders a Rich Panel+Table listing unresolved issues, their suggested manual action, and auto-fixability; _cmd_auto_adjust reloads the checkpoint after the loop to detect any remaining issues and routes them to the escalation table. — 2026-06-19
   - Files: tournament_scheduler/cli/rvv_cli.py
   - Approach: When the loop ends with remaining issues (either max iterations reached or all remaining moves have `can_auto_fix=False`), print a Rich-formatted escalation table listing each unresolved issue, the reason the harness could not fix it, and the suggested next manual step. Use the existing Rich console pattern from `tournament_scheduler/utils/rich_output.py`.
 
@@ -56,4 +56,11 @@ LESSONS: none
 **Findings:** The _plan_to_dict converter lives in pipeline.stage3_helpers, not on SeasonPlanner; import it from there for the dict-based issue count gate.
 LESSONS: _plan_to_dict is in pipeline/stage3_helpers.py — import from there, not from season_planner
 **Files:** tournament_scheduler/cli/rvv_cli.py (+91/-50)
+**Commit:** 284cf75 (hockey)
+
+### 2026-06-19 — Added _print_escalation_table helper that renders a Rich Panel+Table listing unresolved issues, their suggested manual action, and auto-fixability; _cmd_auto_adjust reloads the checkpoint after the loop to detect any remaining issues and routes them to the escalation table.
+**Rationale:** Collected manual_issues during the loop are merged with post-loop remaining_issues, deduplicated by issue string, so the escalation table never shows duplicates even when the same metric recurs across iterations.
+**Findings:** none
+LESSONS: none
+**Files:** tournament_scheduler/cli/rvv_cli.py (+84/-7)
 **Commit:** [pending — fill after commit]

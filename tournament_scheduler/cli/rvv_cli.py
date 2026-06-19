@@ -611,15 +611,92 @@ def _cmd_auto_adjust(args: argparse.Namespace) -> int:
         f"over {iteration} iterasjon(er)."
     )
 
-    if manual_issues:
-        _console.print(
-            "\n[bold yellow]Problemer som krever manuell gjennomgang:[/bold yellow]"
-        )
-        for mi in manual_issues:
-            _console.print(f"  [yellow]•[/yellow] {mi['issue']}")
-            _console.print(f"    [dim]{mi['reason']}[/dim]")
+    # Collect any remaining unresolved issues after the loop
+    _, remaining_issues = _load_critic_state(state, args.work_dir)
+    if remaining_issues:
+        remaining_moves = []
+        if remaining_issues:
+            # We need a plan object for suggest_moves — reload once more
+            from ..pipeline.state import StageName as _SN
+            _chk = state.read_stage(_SN.PLANNING)
+            _sp = _chk.get("plan") if isinstance(_chk, dict) else None
+            if _sp is not None:
+                from .plan_critic import suggest_moves as _sm
+                remaining_moves = _sm(_sp, remaining_issues)
+
+        _print_escalation_table(remaining_issues, remaining_moves, manual_issues)
+
+    elif manual_issues:
+        # No remaining auto-fixable issues but there are known manual ones
+        _print_escalation_table([], [], manual_issues)
 
     return 0
+
+
+def _print_escalation_table(
+    remaining_issues: list,
+    remaining_moves: list,
+    manual_issues: list,
+) -> None:
+    """Print a Rich-formatted escalation table for issues that could not be auto-fixed.
+
+    ``remaining_issues`` are issues still present after the loop.
+    ``remaining_moves`` are the move proposals for those issues (may be empty).
+    ``manual_issues`` are issues collected during the loop that were flagged as
+    non-auto-fixable from the start.
+    """
+    from rich import box
+    from rich.panel import Panel
+    from rich.table import Table
+
+    # Merge remaining + manual, deduplicated by issue string
+    seen: set = set()
+    rows: list = []
+
+    move_by_issue: dict = {m["issue"]: m for m in remaining_moves}
+
+    for issue in remaining_issues:
+        if issue not in seen:
+            seen.add(issue)
+            m = move_by_issue.get(issue)
+            rows.append(
+                (
+                    issue,
+                    m["reason"] if m else "Ikke analysert",
+                    "Ja" if (m and m["can_auto_fix"]) else "Nei",
+                )
+            )
+
+    for mi in manual_issues:
+        if mi["issue"] not in seen:
+            seen.add(mi["issue"])
+            rows.append((mi["issue"], mi["reason"], "Nei"))
+
+    if not rows:
+        return
+
+    table = Table(
+        title="Uløste problemer — manuell gjennomgang nødvendig",
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold yellow",
+        expand=True,
+    )
+    table.add_column("Problem", style="yellow", ratio=4)
+    table.add_column("Foreslått tiltak", style="dim", ratio=5)
+    table.add_column("Auto-fikserbar?", style="cyan", ratio=1, justify="center")
+
+    for problem, action, auto in rows:
+        table.add_row(problem, action, auto)
+
+    panel = Panel(
+        table,
+        title="[bold red]Eskalering — disse problemene krever manuell handling[/bold red]",
+        border_style="red",
+        box=box.ROUNDED,
+    )
+    _console.print()
+    _console.print(panel)
 
 
 # ---------------------------------------------------------------------------
