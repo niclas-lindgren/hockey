@@ -2,8 +2,6 @@
 
 ## Open
 
-- [133] [ ] Move hardcoded URL substring checks (baerumishall.no, bookup.no) from stage2_scraping._scrape_source dispatch block into scraper_strategies.py alongside get_strategy/needs_llm_agent — adding a new special-case source currently requires editing the core scraping loop.
-
 - [132] [ ] Remove dead _tournament_from_dict import in stage3_planning.py — the function is imported but never called anywhere in the pipeline.
 
 - [131] [ ] Remove stage2_helpers.py re-export facade — it adds no value over importing directly from the real sub-modules; update stage2_scraping.py to import from sub-modules directly.
@@ -21,6 +19,7 @@
 - [125] [ ] Fix double _invalidate_downstream calls in all pipeline stages: write_stage(status=DONE/FAILED) and mark_done/mark_failed both call _invalidate_downstream — remove the redundant mark_done/mark_failed calls from stage1–4 run functions and make write_stage the single place that sets final status.
 
 ## Done
+- [133] [x] Move hardcoded URL substring checks (baerumishall.no, bookup.no) from stage2_scraping._scrape_source dispatch block into scraper_strategies.py alongside get_strategy/needs_llm_agent — adding a new special-case source currently requires editing the core scraping loop. (2026-06-19)
 - [134] [x] Add duplicate label detection in stage1_helpers._validate_team_list — two teams with the same label cause silent collisions in stage3's _find_team lookup. (2026-06-19)
 - [135] [x] Fix stage1_helpers.validate_config path resolution: currently checks Path(teams_val).exists() with no CWD anchor, so the check passes/fails based on the process launch directory rather than the location of input.xlsx. Resolve relative to input_path. (2026-06-19)
 - [136] [x] Make the report's subjective conclusion dynamic: _report_overview_html currently has three static hardcoded string branches with no per-run data. Inject: tournament count + month span, the weakest named score metric + its value, most-travelling team and distance, number of blocked sources, and the specific fairness gate sub-metric that triggered warn/fail. (2026-06-19)
