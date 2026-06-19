@@ -2,8 +2,6 @@
 
 ## Open
 
-- [128] [ ] Fix stage2_scraping._scrape_source credentialed fallback: only fall through to credentialed scrape when deterministic scrape succeeded but returned 0 events — not when it raised an exception (network timeout, parse crash).
-
 - [127] [ ] Raise on missing tournament date in stage4_helpers._dict_to_plan instead of silently defaulting to date.today() — a missing date should be a clear error, not a silent wrong value.
 
 - [126] [ ] Fix scrape_age always empty in stage4_export.py: updated_at is an envelope field but is read via read_stage (data payload only) — switch to state.read_envelope(StageName.SCRAPING) to get the real timestamp.
@@ -11,6 +9,7 @@
 - [125] [ ] Fix double _invalidate_downstream calls in all pipeline stages: write_stage(status=DONE/FAILED) and mark_done/mark_failed both call _invalidate_downstream — remove the redundant mark_done/mark_failed calls from stage1–4 run functions and make write_stage the single place that sets final status.
 
 ## Done
+- [128] [x] Fix stage2_scraping._scrape_source credentialed fallback: only fall through to credentialed scrape when deterministic scrape succeeded but returned 0 events — not when it raised an exception (network timeout, parse crash). (2026-06-19)
 - [129] [x] Add logging in stage3_helpers._build_events_by_club when malformed events are silently dropped — bare except/continue hides calendar conflicts from operators. (2026-06-19)
 - [130] [x] Rename stage1_helpers._load_json to _load_workbook_config — the function loads an Excel workbook, not JSON; the misname is an acknowledged lie in its own docstring. Add an import alias to preserve call sites. (2026-06-19)
 - [131] [x] Remove stage2_helpers.py re-export facade — it adds no value over importing directly from the real sub-modules; update stage2_scraping.py to import from sub-modules directly. (2026-06-19)
