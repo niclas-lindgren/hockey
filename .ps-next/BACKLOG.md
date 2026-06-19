@@ -2,9 +2,8 @@
 
 ## Open
 
-- [125] [ ] Fix double _invalidate_downstream calls in all pipeline stages: write_stage(status=DONE/FAILED) and mark_done/mark_failed both call _invalidate_downstream — remove the redundant mark_done/mark_failed calls from stage1–4 run functions and make write_stage the single place that sets final status.
-
 ## Done
+- [125] [x] Fix double _invalidate_downstream calls in all pipeline stages: write_stage(status=DONE/FAILED) and mark_done/mark_failed both call _invalidate_downstream — remove the redundant mark_done/mark_failed calls from stage1–4 run functions and make write_stage the single place that sets final status. (2026-06-19)
 - [126] [x] Fix scrape_age always empty in stage4_export.py: updated_at is an envelope field but is read via read_stage (data payload only) — switch to state.read_envelope(StageName.SCRAPING) to get the real timestamp. (2026-06-19)
 - [127] [x] Raise on missing tournament date in stage4_helpers._dict_to_plan instead of silently defaulting to date.today() — a missing date should be a clear error, not a silent wrong value. (2026-06-19)
 - [128] [x] Fix stage2_scraping._scrape_source credentialed fallback: only fall through to credentialed scrape when deterministic scrape succeeded but returned 0 events — not when it raised an exception (network timeout, parse crash). (2026-06-19)
