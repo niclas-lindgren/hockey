@@ -156,6 +156,7 @@ class Tournament:
     cancelled: bool = False
     cancellation_reason: Optional[str] = None
     start_time: Optional[str] = None  # HH:MM string, e.g. "09:00"
+    preferanse_vekt: float = 0.0  # subjective preference weight (0.0 = neutral, >0 preferred, <0 avoid)
 
     def duration_minutes(self, round_length: int) -> int:
         """Return the total tournament play time in minutes.
