@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from ..club_registry import CLUB_REGISTRY
 from ..models import CalendarEvent, Game, Roster, SeasonPlan, Team, Tournament
