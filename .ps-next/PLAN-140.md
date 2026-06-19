@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/pipeline/input_workbook.py
   - Approach: In `load_workbook_config`, detect an optional `preferanse_vekt` column in the Turneringer (or Aldersgrupper) sheet and map it to a float, defaulting to 0.0 when absent; follow the existing optional-column pattern used for `region` and `skill_level` in the Lag sheet.
 
-- [ ] Parse Datopreferanser sheet from Excel input workbook
+- [x] Added DatePreference dataclass to models.py and _parse_datopreferanser helper in input_workbook.py; Datopreferanser sheet is now read and surfaced as 'datopreferanser' list in the raw config dict. — 2026-06-19
   - Files: tournament_scheduler/pipeline/input_workbook.py, tournament_scheduler/models.py
   - Approach: Add a new `DatePreference` datatype (fra: date, til: date, vekt: float) to models.py and add a `_parse_datopreferanser` helper in input_workbook.py that reads the new sheet's rows and returns a list of DatePreference objects; surface the list through the return value of `load_workbook_config`.
 
@@ -63,4 +63,11 @@ LESSONS: none
 **Findings:** All 529 tests pass; the new key only appears in raw config when at least one row has a non-empty preferanse_vekt value.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/input_workbook.py (+11/-4)
+**Commit:** fd11ef6 (hockey)
+
+### 2026-06-19 — Added DatePreference dataclass to models.py and _parse_datopreferanser helper in input_workbook.py; Datopreferanser sheet is now read and surfaced as 'datopreferanser' list in the raw config dict.
+**Rationale:** Added _to_date helper to normalise openpyxl cell values (datetime, date, or string) to Python date. Missing fra/til rows are skipped; vekt defaults to 0.0.
+**Findings:** All 529 tests pass; DatePreference objects are created correctly for all three date formats.
+LESSONS: none
+**Files:** tournament_scheduler/models.py (+14/-0), tournament_scheduler/pipeline/input_workbook.py (+47/-0)
 **Commit:** [pending — fill after commit]

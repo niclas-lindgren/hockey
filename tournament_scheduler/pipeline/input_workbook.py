@@ -14,6 +14,8 @@ from typing import Any, Iterable
 import openpyxl
 from openpyxl.worksheet.worksheet import Worksheet
 
+from ..models import DatePreference
+
 
 class WorkbookInputError(ValueError):
     """Raised when a workbook cannot be mapped to the pipeline input schema."""
@@ -33,6 +35,8 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
       ``round_length_minutes``, optional ``preferanse_vekt`` (float, default 0.0).
     - ``Lag``: columns ``club``, ``label``, ``age_group``.
     - ``Kilder``: columns ``name``, ``type``, ``url``.
+    - ``Datopreferanser``: columns ``fra``, ``til``, ``vekt`` for global
+      date-range scoring adjustments (positive = penalise, negative = reward).
     """
     workbook_path = Path(path)
     try:
@@ -74,7 +78,50 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
         if sources:
             raw["sources"] = sources
 
+    if "Datopreferanser" in wb.sheetnames:
+        date_prefs = _parse_datopreferanser(wb["Datopreferanser"])
+        if date_prefs:
+            raw["datopreferanser"] = date_prefs
+
     return raw
+
+
+def _parse_datopreferanser(ws: Worksheet) -> list[DatePreference]:
+    """Parse the ``Datopreferanser`` sheet into a list of :class:`DatePreference`.
+
+    Expected columns: ``fra`` (date), ``til`` (date), ``vekt`` (float).
+    Rows missing ``fra`` or ``til`` are skipped; ``vekt`` defaults to 0.0.
+    """
+    prefs: list[DatePreference] = []
+    for row in _rows_as_dicts(ws):
+        fra_raw = row.get("fra")
+        til_raw = row.get("til")
+        if fra_raw in (None, "") or til_raw in (None, ""):
+            continue
+        # Normalise to date objects — openpyxl may return datetime or date-string
+        fra_val = _to_date(fra_raw)
+        til_val = _to_date(til_raw)
+        if fra_val is None or til_val is None:
+            continue
+        vekt_raw = row.get("vekt")
+        vekt = float(vekt_raw) if vekt_raw not in (None, "") else 0.0
+        prefs.append(DatePreference(fra=fra_val, til=til_val, vekt=vekt))
+    return prefs
+
+
+def _to_date(value: Any) -> date | None:
+    """Convert a cell value to a :class:`datetime.date`, or return ``None``."""
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(value.strip(), fmt).date()
+            except ValueError:
+                continue
+    return None
 
 
 def _read_settings(ws: Worksheet) -> dict[str, Any]:

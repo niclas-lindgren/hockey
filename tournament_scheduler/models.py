@@ -289,3 +289,17 @@ AGE_GROUP_OVERLAP: Dict[str, List[str]] = {
 def overlapping_age_groups(age_group: str) -> List[str]:
     """Return the list of age groups whose player pools overlap with the given one."""
     return AGE_GROUP_OVERLAP.get(age_group, [])
+
+
+@dataclass
+class DatePreference:
+    """A global date-range scoring preference from the Datopreferanser sheet.
+
+    Positive ``vekt`` penalises dates within the range (e.g. Easter weekend);
+    negative ``vekt`` rewards them (e.g. a preferred hosting window).
+    Ranges are inclusive on both ends.
+    """
+
+    fra: date   # range start (inclusive)
+    til: date   # range end (inclusive)
+    vekt: float = 0.0  # preference weight: >0 penalise, <0 reward, 0 neutral
