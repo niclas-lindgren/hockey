@@ -33,7 +33,7 @@
   - Files: `tournament_scheduler/pipeline/stage4_export.py`
   - Approach: Remove mark_failed(EXPORT) on line 256 (follows write_stage(FAILED) on line 255) and mark_done(EXPORT) on line 262 (follows write_stage(checkpoint, status=status) on line 260); both are redundant given the preceding write_stage calls.
 
-- [ ] Verify no remaining bare mark_done/mark_failed calls exist in run functions and tests pass
+- [x] Confirmed zero remaining mark_done/mark_failed calls in all 4 stage files. 555 tests pass with no regressions (2 pre-existing failures excluded). — 2026-06-19
   - Files: `tournament_scheduler/pipeline/stage1_config.py`, `tournament_scheduler/pipeline/stage2_scraping.py`, `tournament_scheduler/pipeline/stage3_planning.py`, `tournament_scheduler/pipeline/stage4_export.py`, `tests/`
   - Approach: Run `grep -n "mark_done\|mark_failed" stage1_config.py stage2_scraping.py stage3_planning.py stage4_export.py` to confirm no redundant calls remain, then run `pytest` to verify no regressions.
 
@@ -82,11 +82,18 @@ LESSONS: none
 **Findings:** Standalone mark_failed replaced by write_stage(FAILED) in stage4_export.py.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage4_export.py (+1/-4)
-**Commit:** [pending — fill after commit]
+**Commit:** 56c6aab (hockey)
 
 ### 2026-06-19 — Removed mark_failed(EXPORT) after write_stage(FAILED) at line 256 and mark_done(EXPORT) after write_stage at line 262 — done as part of the same stage4_export.py change.
 **Rationale:** Combined in same commit.
 **Findings:** Removed 2 redundant post-write_stage calls from stage4_export.py.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage4_export.py (in same commit)
+**Commit:** 56c6aab (hockey)
+
+### 2026-06-19 — Confirmed zero remaining mark_done/mark_failed calls in all 4 stage files. 555 tests pass with no regressions (2 pre-existing failures excluded).
+**Rationale:** Grep confirmed no matches; full pytest run confirmed no regressions.
+**Findings:** Zero bare mark_done/mark_failed calls remain; 555 tests pass.
+LESSONS: none
+**Files:** no files changed
 **Commit:** [pending — fill after commit]
