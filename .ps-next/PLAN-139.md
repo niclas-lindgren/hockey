@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: In `html_exporter.py`, split the `diagnostics_html` concatenation (line ~535) so `heatmap_html` is assigned its own `parts` key (e.g. `$REPORT_HEATMAP$`) instead of being bundled inside `REPORT_DIAGNOSTICS` alongside `team_stats_html` and `travel_stats_html`.
 
-- [ ] Add $REPORT_HEATMAP$ placeholder to report_overview.html immediately after the hero block
+- [x] Already completed as part of task 1 — $REPORT_HEATMAP$ was inserted on line 13 of report_overview.html immediately after the hero block closing tag. — 2026-06-19
   - Files: tournament_scheduler/html/templates/report_overview.html
   - Approach: Insert `$REPORT_HEATMAP$` as a new section directly after the closing tag of the hero block (before `$REPORT_STATUS_CARDS$`), so the heatmap renders first in the visual flow without scrolling.
 
@@ -45,4 +45,11 @@ Codebase context:
 **Findings:** Heatmap now has its own template placeholder and appears right after the hero block; diagnostics section only contains team_stats and travel_stats.
 LESSONS: none
 **Files:** html_exporter.py (+3/-1), report_overview.html (+2/-0)
+**Commit:** b6d77b7 (hockey)
+
+### 2026-06-19 — Already completed as part of task 1 — $REPORT_HEATMAP$ was inserted on line 13 of report_overview.html immediately after the hero block closing tag.
+**Rationale:** Task was performed atomically with the preceding extraction task.
+**Findings:** Placeholder confirmed at line 13 of report_overview.html, between hero block and card-grid.
+LESSONS: none
+**Files:** tournament_scheduler/html/templates/report_overview.html (already staged in prior commit)
 **Commit:** [pending — fill after commit]
