@@ -11,7 +11,7 @@
 - [x] Add two tests asserting ValueError is raised when tournament date is missing or empty — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tests/test_stage4_export.py
   - Approach: Add a new test that calls `_dict_to_plan` with a tournament dict where the `"date"` key is absent or empty, and asserts `pytest.raises(ValueError)` with a message containing "date".
-- [ ] Audit existing tests that call _dict_to_plan and fix any that omit the date field
+- [x] Audited all _dict_to_plan call sites in tests — no fixes needed — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tests/test_stage4_export.py, /Users/niclasl/src/hockey/tests/test_review_packets.py
   - Approach: Search for all `_dict_to_plan` call sites in existing tests (lines 144, 168, 447 in test_stage4_export.py and line 149 in test_review_packets.py) and ensure every tournament dict passed includes a valid `"date"` field in ISO format.
 
@@ -42,4 +42,11 @@ LESSONS: none
 **Findings:** Added test_raises_on_missing_tournament_date and test_raises_on_empty_tournament_date to TestDictToPlan; all 5 tests in class pass
 LESSONS: none
 **Files:** tests/test_stage4_export.py (+12/-0)
+**Commit:** f191dac (hockey)
+
+### 2026-06-19 — Audited all _dict_to_plan call sites in tests — no fixes needed
+**Rationale:** All existing call sites use _make_plan_dict() or _plan_to_dict(_make_plan()) which always include valid date fields
+**Findings:** 6 call sites found; all already supply valid ISO date strings; no changes required to existing tests
+LESSONS: none
+**Files:** none
 **Commit:** [pending — fill after commit]
