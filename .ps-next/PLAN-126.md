@@ -8,7 +8,7 @@
 - [x] Replaced read_stage(StageName.SCRAPING) with read_envelope(StageName.SCRAPING) and extracted data from the envelope wrapper; updated_at is now read from the envelope top level. — 2026-06-19
   - Files: tournament_scheduler/pipeline/stage4_export.py
   - Approach: On line 156, replace `state.read_stage(StageName.SCRAPING)` with `state.read_envelope(StageName.SCRAPING)`. The envelope dict contains updated_at at the top level, so the existing `.get("updated_at", "")` on line 167 will now resolve correctly.
-- [ ] Fix any downstream accesses to scraping data payload fields after switching to read_envelope
+- [x] Audited all scraping_ckpt usages in stage4_export.py; confirmed task 1 already correctly separates scraping_ckpt (data payload) from scraping_envelope (wrapper) so sources and blocked go through the data dict and updated_at goes through the envelope. — 2026-06-19
   - Files: tournament_scheduler/pipeline/stage4_export.py
   - Approach: Audit all usages of `scraping_ckpt` in stage4_export.py; any access to data payload fields (e.g. events list) must be redirected to `scraping_ckpt["data"]` since read_envelope returns the full envelope, not the payload directly.
 - [ ] Add or update tests to cover scrape_age population from envelope updated_at
@@ -41,4 +41,11 @@ Key files:
 **Findings:** scrape_age now resolves correctly because updated_at is accessible from the envelope wrapper
 LESSONS: updated_at lives in the envelope wrapper, not the data payload; always use read_envelope when you need metadata fields like updated_at
 **Files:** stage4_export.py (+4/-3)
+**Commit:** 4852389 (hockey)
+
+### 2026-06-19 — Audited all scraping_ckpt usages in stage4_export.py; confirmed task 1 already correctly separates scraping_ckpt (data payload) from scraping_envelope (wrapper) so sources and blocked go through the data dict and updated_at goes through the envelope.
+**Rationale:** Task 1 implementation was complete and correct; scraping_ckpt already points to envelope['data'] for payload fields
+**Findings:** All downstream accesses to data payload fields (sources, blocked) correctly use scraping_ckpt; updated_at correctly uses scraping_envelope
+LESSONS: none
+**Files:** no files changed (audit only)
 **Commit:** [pending — fill after commit]
