@@ -153,9 +153,10 @@ def run(
         # Collect pipeline metadata for metrics section
         pipeline_meta: dict[str, Any] = {}
         try:
-            scraping_ckpt = state.read_stage(StageName.SCRAPING)
+            scraping_envelope = state.read_envelope(StageName.SCRAPING)
+            scraping_ckpt = scraping_envelope.get("data", {}) if scraping_envelope else None
             if scraping_ckpt and isinstance(scraping_ckpt, dict):
-                # read_stage() returns the data dict directly (no wrapper)
+                # read_envelope() returns the full wrapper so updated_at is accessible at top level
                 sources = scraping_ckpt.get("sources", [])
                 pipeline_meta["source_count"] = len(sources)
                 pipeline_meta["total_events"] = sum(s.get("event_count", 0) for s in sources)
@@ -164,7 +165,7 @@ def run(
                     f"{effective_config.get('start_date', '')} &ndash; {effective_config.get('end_date', '')}"
                 )
                 pipeline_meta["age_groups"] = configured_age_groups
-                updated = scraping_ckpt.get("updated_at", "")
+                updated = scraping_envelope.get("updated_at", "") if scraping_envelope else ""
                 if updated:
                     from datetime import datetime as _dt
                     try:
