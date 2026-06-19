@@ -9,7 +9,7 @@
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage3_helpers.py
   - Approach: Import the `logging` module and add `logger = logging.getLogger(__name__)` at the module level, following the pattern used in llm_scraper.py and cancellation_workflow.py.
 
-- [ ] Replace bare except/continue with logged warning in _build_events_by_club
+- [x] Replaced bare except/continue in _build_events_by_club with except (KeyError, ValueError) as exc: followed by a logger.warning call including club name, exception, and raw event dict. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage3_helpers.py
   - Approach: Bind the caught exception to a variable (`except (KeyError, ValueError) as exc:`) and call `logger.warning("Dropped malformed event for club %r: %s — raw: %s", club_name, exc, e)` before `continue`, giving operators the club name, error, and raw event dict.
 
@@ -37,4 +37,11 @@ The bare `except (KeyError, ValueError): continue` block is at lines 153-154 of 
 **Findings:** Logger is now available for use in _build_events_by_club and other helpers.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage3_helpers.py (+3/-0)
+**Commit:** 29c5a6c (hockey)
+
+### 2026-06-19 — Replaced bare except/continue in _build_events_by_club with except (KeyError, ValueError) as exc: followed by a logger.warning call including club name, exception, and raw event dict.
+**Rationale:** Follows the approach specified in the plan — bind exception variable and emit structured warning before continue.
+**Findings:** 541 unit tests pass; logger.warning now emits club name, error, and raw event on malformed event.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage3_helpers.py (+7/-1)
 **Commit:** [pending — fill after commit]

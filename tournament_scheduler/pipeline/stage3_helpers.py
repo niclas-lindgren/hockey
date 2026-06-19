@@ -153,7 +153,13 @@ def _build_events_by_club(scraping_result: dict[str, Any] | None) -> dict[str, l
                         duration_hours=e.get("duration_hours", 0.0),
                     )
                 )
-            except (KeyError, ValueError):
+            except (KeyError, ValueError) as exc:
+                logger.warning(
+                    "Dropped malformed event for club %r: %s — raw: %s",
+                    club_name,
+                    exc,
+                    e,
+                )
                 continue
         result[club_name] = club_events
     return result
