@@ -11,7 +11,7 @@
 - [x] Already implemented in the previous task: (input_path.parent / teams_val).resolve() is used to anchor relative team-file paths to the workbook directory. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage1_helpers.py
   - Approach: Replace `Path(teams_val).exists()` with `(Path(input_path).parent / teams_val).exists()` so relative paths are resolved relative to the input file location, not CWD. Absolute paths should remain unaffected (Path division with an absolute right-hand side keeps the absolute path).
-- [ ] Update call sites in stage1_config.py to pass input_path to validate_config
+- [x] Already implemented in task 1: the single call site at line 151 was updated to pass Path(input_path) as the second argument. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage1_config.py
   - Approach: Update both calls to `validate_config` (at lines ~48 and ~151) in stage1_config.py to include the `input_path` argument, which is already in scope at each call site.
 - [ ] Update existing tests and add path-resolution test cases in test_stage1_config.py
@@ -43,6 +43,13 @@ LESSONS: none
 ### 2026-06-19 — Already implemented in the previous task: (input_path.parent / teams_val).resolve() is used to anchor relative team-file paths to the workbook directory.
 **Rationale:** This task was subsumed by the signature-change task which was implemented together.
 **Findings:** Path resolution already in place from prior task; absolute paths unaffected because Path division with an absolute RHS preserves the absolute path.
+LESSONS: none
+**Files:** no additional files changed
+**Commit:** f02d7f3 (hockey)
+
+### 2026-06-19 — Already implemented in task 1: the single call site at line 151 was updated to pass Path(input_path) as the second argument.
+**Rationale:** Line 48 in the plan note is the import statement, not a second call site; there is only one call.
+**Findings:** Only one call site exists; already updated in prior task.
 LESSONS: none
 **Files:** no additional files changed
 **Commit:** [pending — fill after commit]
