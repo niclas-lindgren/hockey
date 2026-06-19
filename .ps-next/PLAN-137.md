@@ -13,7 +13,7 @@
   - Files: `tournament_scheduler/html/templates/report_overview.html`, `tournament_scheduler/html/html_exporter.py`
   - Approach: Insert `$REPORT_JUDGMENT$` directly after the closing `</div>` of the `report-hero` div in report_overview.html. In `_report_overview_html`, add `"$REPORT_JUDGMENT$": judgment_html` to the replacements dict. Remove `judgment_html` from `advisory_html` so it no longer appears in the advisory section.
 
-- [ ] Wrap the advisory review section ($REPORT_ADVISORY$) in a collapsed <details> toggle in report_overview.html
+- [x] Converted #advisoryChecks section from open <section> to a <details class'report-section report-section--collapsible'> with <summary class'section-head'>, matching the #ruleTransparency pattern. Defaults closed. — 2026-06-19
   - Files: `tournament_scheduler/html/templates/report_overview.html`
   - Approach: Change the `#advisoryChecks` section from an open `<section>` to a `<details class="report-section report-section--collapsible">` element (without the `open` attribute so it defaults to closed), with `<summary class="section-head">` wrapping the heading, matching the existing pattern used for `#ruleTransparency`.
 
@@ -45,4 +45,11 @@ When the report layout is restructured, the rule transparency section should con
 **Findings:** judgment_html now renders immediately after the hero verdict; advisory section shows only review_summary_html.
 LESSONS: none
 **Files:** html_exporter.py (+3/-1), report_overview.html (+2/-0)
+**Commit:** 59b3b34 (hockey)
+
+### 2026-06-19 — Converted #advisoryChecks section from open <section> to a <details class'report-section report-section--collapsible'> with <summary class'section-head'>, matching the #ruleTransparency pattern. Defaults closed.
+**Rationale:** Straightforward pattern match to existing ruleTransparency collapsible — no alternatives considered.
+**Findings:** Advisory section now collapses by default using same details/summary pattern as ruleTransparency.
+LESSONS: none
+**Files:** report_overview.html (+4/-4)
 **Commit:** [pending — fill after commit]
