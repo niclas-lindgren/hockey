@@ -30,7 +30,7 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
       Tournament-participation target can be set as ``deltakelser_per_lag``
       (preferred) or the legacy ``target_tournament_count``.
     - ``Aldersgrupper``: columns ``age_group``, ``parallel_games``, optional
-      ``round_length_minutes``.
+      ``round_length_minutes``, optional ``preferanse_vekt`` (float, default 0.0).
     - ``Lag``: columns ``club``, ``label``, ``age_group``.
     - ``Kilder``: columns ``name``, ``type``, ``url``.
     """
@@ -50,13 +50,15 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
     raw.update(_read_settings(wb["Innstillinger"]))
 
     if "Aldersgrupper" in wb.sheetnames:
-        age_groups, parallel_games, round_lengths = _read_age_groups(wb["Aldersgrupper"])
+        age_groups, parallel_games, round_lengths, pref_weights = _read_age_groups(wb["Aldersgrupper"])
         if age_groups:
             raw["age_groups"] = age_groups
         if parallel_games:
             raw["parallel_games"] = parallel_games
         if round_lengths:
             raw["round_length_minutes"] = round_lengths
+        if pref_weights:
+            raw["preferanse_vekt"] = pref_weights
 
     raw["teams"] = _read_table(
         wb["Lag"],
@@ -89,10 +91,13 @@ def _read_settings(ws: Worksheet) -> dict[str, Any]:
     return result
 
 
-def _read_age_groups(ws: Worksheet) -> tuple[list[str], dict[str, int], dict[str, int]]:
+def _read_age_groups(
+    ws: Worksheet,
+) -> tuple[list[str], dict[str, int], dict[str, int], dict[str, float]]:
     age_groups: list[str] = []
     parallel_games: dict[str, int] = {}
     round_lengths: dict[str, int] = {}
+    preferanse_vekt: dict[str, float] = {}
     for row in _rows_as_dicts(ws):
         age_group = str(row.get("age_group") or "").strip()
         if not age_group:
@@ -102,7 +107,9 @@ def _read_age_groups(ws: Worksheet) -> tuple[list[str], dict[str, int], dict[str
             parallel_games[age_group] = int(row["parallel_games"])
         if row.get("round_length_minutes") not in (None, ""):
             round_lengths[age_group] = int(row["round_length_minutes"])
-    return age_groups, parallel_games, round_lengths
+        if row.get("preferanse_vekt") not in (None, ""):
+            preferanse_vekt[age_group] = float(row["preferanse_vekt"])
+    return age_groups, parallel_games, round_lengths, preferanse_vekt
 
 
 def _read_table(

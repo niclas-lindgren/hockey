@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/models.py
   - Approach: Add `preferanse_vekt: float = 0.0` as a typed field with default to the existing Tournament dataclass, following the same pattern as `cancelled: bool = False` and `start_time: Optional[str] = None`.
 
-- [ ] Parse preferanse_vekt from Excel input workbook
+- [x] Added optional preferanse_vekt column parsing in _read_age_groups (Aldersgrupper sheet); surfaced as preferanse_vekt dict in the raw config output of load_workbook_config. — 2026-06-19
   - Files: tournament_scheduler/pipeline/input_workbook.py
   - Approach: In `load_workbook_config`, detect an optional `preferanse_vekt` column in the Turneringer (or Aldersgrupper) sheet and map it to a float, defaulting to 0.0 when absent; follow the existing optional-column pattern used for `region` and `skill_level` in the Lag sheet.
 
@@ -56,4 +56,11 @@ The weight cap should be computed relative to the organic penalties already pres
 **Findings:** Field added successfully; all tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/models.py (+1/-0)
+**Commit:** 528503d (hockey)
+
+### 2026-06-19 — Added optional preferanse_vekt column parsing in _read_age_groups (Aldersgrupper sheet); surfaced as preferanse_vekt dict in the raw config output of load_workbook_config.
+**Rationale:** Extended _read_age_groups to return a 4-tuple adding a per-age-group float dict; absent column defaults to empty dict (0.0 effective). No alternatives needed.
+**Findings:** All 529 tests pass; the new key only appears in raw config when at least one row has a non-empty preferanse_vekt value.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/input_workbook.py (+11/-4)
 **Commit:** [pending — fill after commit]
