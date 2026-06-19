@@ -23,7 +23,8 @@ from tournament_scheduler.pipeline.cancellation_workflow import (
     CancelResult,
     MakeupSuggestion,
 )
-from tournament_scheduler.pipeline.stage3_planning import _plan_to_dict, _tournament_from_dict
+from tournament_scheduler.pipeline.stage3_planning import _plan_to_dict
+from tournament_scheduler.pipeline.stage3_helpers import _tournament_from_dict
 from tournament_scheduler.season_planner import SeasonPlanner
 
 

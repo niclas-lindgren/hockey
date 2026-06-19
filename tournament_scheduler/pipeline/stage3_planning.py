@@ -27,7 +27,7 @@ from ..season_planner import SeasonPlanner
 from ..roster_loader import RosterLoader
 from ..club_registry import CLUB_REGISTRY
 from .state import PipelineState, StageName, StageStatus
-from .stage3_helpers import (_build_club_arenas, _build_events_by_club, _build_parallel_games, _build_roster, _build_round_length, _find_team, _make_planner, _plan_to_dict, _tournament_from_dict)
+from .stage3_helpers import (_build_club_arenas, _build_events_by_club, _build_parallel_games, _build_roster, _build_round_length, _find_team, _make_planner, _plan_to_dict)
 # ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------

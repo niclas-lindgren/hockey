@@ -27,7 +27,8 @@ from ..models import Game, Roster, SeasonPlan, Team, Tournament
 from ..scheduler import TournamentScheduler
 from ..season_planner import SeasonPlanner
 from .state import PipelineState, StageName, StageStatus
-from .stage3_planning import _plan_to_dict, _tournament_from_dict
+from .stage3_planning import _plan_to_dict
+from .stage3_helpers import _tournament_from_dict
 
 logger = logging.getLogger(__name__)
 
