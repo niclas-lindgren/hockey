@@ -423,6 +423,36 @@ class TournamentOutput:
         else:
             summary_text.append("✓ Ingen arena-/dagskollisjoner\n", style="green")
 
+        # Global date-range preferences (Datopreferanser)
+        date_pref_weights = getattr(plan, "date_preference_weights", []) or []
+        if date_pref_weights:
+            summary_text.append("\nDatopreferanser (aktive under planlegging):\n", style="bold")
+            for entry in date_pref_weights:
+                vekt = entry.get("vekt", 0.0)
+                style = "red" if vekt > 0 else "green"
+                direction = "straff" if vekt > 0 else "belønning"
+                summary_text.append(
+                    f"  • {entry.get('fra')}–{entry.get('til')}: vekt={vekt:+.2f} ({direction})\n",
+                    style=style,
+                )
+
+        # Per-tournament preference weight terms (non-zero only)
+        weighted_tournaments = [
+            t for t in plan.tournaments
+            if getattr(t, "scoring_weight_term", 0.0) != 0.0
+        ]
+        if weighted_tournaments:
+            summary_text.append("\nTurneringer med justeringsvekt:\n", style="bold")
+            for t in weighted_tournaments:
+                wt = getattr(t, "scoring_weight_term", 0.0)
+                style = "red" if wt > 0 else "green"
+                direction = "straff" if wt > 0 else "belønning"
+                summary_text.append(
+                    f"  • {t.date.isoformat()} {t.age_group} ({t.arena}): "
+                    f"vekt={wt:+.2f} ({direction})\n",
+                    style=style,
+                )
+
         console.print(Panel(
             summary_text,
             title="Mangfold og fordeling",

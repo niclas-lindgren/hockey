@@ -29,7 +29,7 @@
   - Files: tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/models.py
   - Approach: Add `date_preference_weights: List[Dict]` to SeasonPlan and a `scoring_weight_term: float` field to Tournament; populate both during planning, then serialize them in `_plan_to_dict` alongside the existing `diversity_score` and `month_balance_score` fields.
 
-- [ ] Show weight components in CLI summary
+- [x] Added two new sections to print_diversity_summary: global date-range preferences from plan.date_preference_weights and per-tournament weight terms for non-zero scoring_weight_term values. — 2026-06-19
   - Files: tournament_scheduler/utils/rich_output.py
   - Approach: In `TournamentOutput.print_diversity_summary`, add a new section to the existing Rich Panel that lists any active global date-range penalties from `plan.date_preference_weights` and the per-tournament weight terms, following the style used for arena counts and arena/day collisions.
 
@@ -91,4 +91,11 @@ LESSONS: vekt_cap is popped from the raw config dict to prevent it from leaking 
 **Findings:** All 88 targeted tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/models.py (+5/-0), tournament_scheduler/pipeline/stage3_helpers.py (+8/-0), tournament_scheduler/season_planner.py (+11/-0)
+**Commit:** 319179f (hockey)
+
+### 2026-06-19 — Added two new sections to print_diversity_summary: global date-range preferences from plan.date_preference_weights and per-tournament weight terms for non-zero scoring_weight_term values.
+**Rationale:** Positive weights shown in red (straff/penalty), negative in green (belønning/reward), following existing collision styling conventions.
+**Findings:** All 88 targeted tests pass.
+LESSONS: none
+**Files:** tournament_scheduler/utils/rich_output.py (+30/-0)
 **Commit:** [pending — fill after commit]
