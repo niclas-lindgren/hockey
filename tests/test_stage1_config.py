@@ -123,6 +123,22 @@ class TestValidateConfig:
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("U99" in e for e in errors)
 
+    def test_duplicate_label_produces_norwegian_error(self):
+        raw = _make_valid_raw()
+        # Give both teams the same label to trigger duplicate detection
+        raw["teams"][0]["label"] = "Kongsberg U10A"
+        raw["teams"][1]["label"] = "Kongsberg U10A"
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
+        assert errors, "Expected at least one error for duplicate team label"
+        assert any("duplikat" in e and "Kongsberg U10A" in e for e in errors), (
+            f"Expected Norwegian duplicate-label error containing 'duplikat' and the label name; got: {errors}"
+        )
+
+    def test_unique_labels_no_extra_errors(self):
+        """A valid config with all unique labels produces no errors."""
+        raw = _make_valid_raw()
+        assert validate_config(raw, _DUMMY_INPUT_PATH) == []
+
     def test_invalid_parallel_games_type(self):
         raw = _make_valid_raw()
         raw["parallel_games"] = "lots"

@@ -8,7 +8,7 @@
 - [x] Added duplicate label detection to _validate_team_list — after the per-team loop, collects labels from valid dict teams, detects duplicates via a dict, and appends a Norwegian error message naming the duplicate label and conflicting team indices. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage1_helpers.py
   - Approach: After the per-team loop, collect all label values (skipping teams that failed the `isinstance` check), use a `Counter` or `seen` set to detect duplicates, and append a Norwegian-language error for each duplicate label in the same pattern as existing errors (e.g., "duplikat 'label': Lag #1 og Lag #3 har samme etikett.").
-- [ ] Add pytest test for duplicate label rejection via `validate_config`
+- [x] Added two tests to TestValidateConfig: test_duplicate_label_produces_norwegian_error (verifies a Norwegian 'duplikat' error is present when two teams share a label) and test_unique_labels_no_extra_errors (confirms the baseline valid config still returns no errors). — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tests/test_stage1_config.py
   - Approach: Add a test in `TestValidateConfig` that calls `validate_config(_make_valid_raw_with_duplicate_labels(), _DUMMY_INPUT_PATH)` and asserts the returned errors list is non-empty and contains a Norwegian string indicating a duplicate label; follow the same assert pattern as `test_unknown_age_group_in_team`.
 
@@ -32,4 +32,11 @@
 **Findings:** Duplicate labels now produce a Norwegian error before reaching stage3.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage1_helpers.py (+14/-0)
+**Commit:** e202edc (hockey)
+
+### 2026-06-19 — Added two tests to TestValidateConfig: test_duplicate_label_produces_norwegian_error (verifies a Norwegian 'duplikat' error is present when two teams share a label) and test_unique_labels_no_extra_errors (confirms the baseline valid config still returns no errors).
+**Rationale:** Following same assert pattern as test_unknown_age_group_in_team.
+**Findings:** 30 tests pass; both new tests verify the acceptance criteria.
+LESSONS: none
+**Files:** tests/test_stage1_config.py (+16/-0)
 **Commit:** [pending — fill after commit]
