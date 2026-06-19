@@ -27,7 +27,11 @@
       "Bash(echo \"VALIDATE_EXIT=$?\")",
       "Bash(~/.claude/bin/ps-plan-critique-context *)",
       "Bash(rtk git *)",
-      "Bash(~/.claude/bin/ps-mark-task-done *)"
+      "Bash(~/.claude/bin/ps-mark-task-done *)",
+      "Bash(~/.claude/bin/ps-build-verify-report *)",
+      "Bash(~/.claude/bin/ps-archive-plan-with-backlog-ref *)",
+      "Bash(~/.claude/bin/ps-next-plan-validate \"/Users/niclasl/src/hockey/.ps-next/PLAN-151.md\")",
+      "Bash(echo \"EXIT=$?\")"
     ]
   }
 }
