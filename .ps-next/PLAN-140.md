@@ -33,7 +33,7 @@
   - Files: tournament_scheduler/utils/rich_output.py
   - Approach: In `TournamentOutput.print_diversity_summary`, add a new section to the existing Rich Panel that lists any active global date-range penalties from `plan.date_preference_weights` and the per-tournament weight terms, following the style used for arena counts and arena/day collisions.
 
-- [ ] Add unit tests for weight injection and capping
+- [x] Added 5 new test cases to TestSeasonPlanner for _score_candidate_date: positive weight increases score, negative weight decreases score, runaway weight is clamped to cap, out-of-range DatePreference has no effect, in-range DatePreference adjusts score. — 2026-06-19
   - Files: tests/test_season_planner.py
   - Approach: Add test cases to the existing `_score_candidate_date` test suite that verify: a positive tournament weight increases the returned score, a negative weight decreases it, a weight exceeding the cap is clamped, and a DatePreference whose range does not contain the candidate date has no effect.
 
@@ -98,4 +98,11 @@ LESSONS: none
 **Findings:** All 88 targeted tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/utils/rich_output.py (+30/-0)
+**Commit:** 2514213 (hockey)
+
+### 2026-06-19 — Added 5 new test cases to TestSeasonPlanner for _score_candidate_date: positive weight increases score, negative weight decreases score, runaway weight is clamped to cap, out-of-range DatePreference has no effect, in-range DatePreference adjusts score.
+**Rationale:** Tests use the existing planner_and_plan fixture; DatePreference imported from models.
+**Findings:** All 81 season_planner tests pass (76 existing + 5 new).
+LESSONS: none
+**Files:** tests/test_season_planner.py (+105/-0)
 **Commit:** [pending — fill after commit]

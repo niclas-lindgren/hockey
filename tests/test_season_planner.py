@@ -10,6 +10,7 @@ import pytest
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
     CalendarEvent,
+    DatePreference,
     Game,
     Roster,
     SeasonPlan,
@@ -486,6 +487,110 @@ class TestOpponentHistoryTrackingAndScoring:
         )
 
         assert score_without_repeats < score_with_repeats
+
+    def test_score_candidate_date_positive_tournament_weight_increases_score(self, planner_and_plan):
+        """A positive tournament_weight should increase the returned score."""
+        planner, plan, roster, *_ = planner_and_plan
+        teams = roster.by_age_group("U10")
+        candidate_date = date(2026, 10, 3)
+        planner._opponent_history = {}
+
+        base_score = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 1.0, tournament_weight=0.0
+        )
+        weighted_score = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 1.0, tournament_weight=0.5
+        )
+        assert weighted_score > base_score
+
+    def test_score_candidate_date_negative_tournament_weight_decreases_score(self, planner_and_plan):
+        """A negative tournament_weight should decrease the returned score."""
+        planner, plan, roster, *_ = planner_and_plan
+        teams = roster.by_age_group("U10")
+        candidate_date = date(2026, 10, 3)
+        # Seed repeat history so organic penalties are non-zero (enables capping logic).
+        pair = frozenset((teams[0].label, teams[1].label))
+        planner._opponent_history = {pair: 4}
+
+        base_score = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 1.0, tournament_weight=0.0
+        )
+        weighted_score = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 1.0, tournament_weight=-0.5
+        )
+        assert weighted_score < base_score
+
+    def test_score_candidate_date_weight_exceeding_cap_is_clamped(self, planner_and_plan):
+        """A weight larger than 2x the organic penalty should be clamped to the cap."""
+        planner, plan, roster, *_ = planner_and_plan
+        teams = roster.by_age_group("U10")
+        candidate_date = date(2026, 10, 3)
+        pair = frozenset((teams[0].label, teams[1].label))
+        planner._opponent_history = {pair: 1}
+
+        # Obtain repeat_penalty for this state.
+        repeat_only_score = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 0.0  # zero expected → month_penalty = 0
+        )
+        cap = repeat_only_score * 2  # cap = 2 * repeat_penalty
+
+        # A weight much larger than the cap should be clamped, so two calls
+        # with different runaway weights should return the same result.
+        score_big_weight = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 0.0, tournament_weight=999.0
+        )
+        score_exact_cap = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 0.0, tournament_weight=cap
+        )
+        assert score_big_weight == pytest.approx(score_exact_cap)
+
+    def test_score_candidate_date_date_preference_outside_range_has_no_effect(self, planner_and_plan):
+        """A DatePreference whose fra–til range does not contain candidate_date has no effect."""
+        planner, plan, roster, *_ = planner_and_plan
+        teams = roster.by_age_group("U10")
+        candidate_date = date(2026, 10, 3)
+        planner._opponent_history = {}
+
+        # Preference covers a range that does not include candidate_date.
+        out_of_range_pref = DatePreference(
+            fra=date(2026, 11, 1),
+            til=date(2026, 11, 30),
+            vekt=5.0,
+        )
+
+        base_score = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 1.0
+        )
+        score_with_pref = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 1.0,
+            date_preferences=[out_of_range_pref]
+        )
+        assert base_score == pytest.approx(score_with_pref)
+
+    def test_score_candidate_date_date_preference_inside_range_affects_score(self, planner_and_plan):
+        """A DatePreference whose range contains candidate_date adjusts the score."""
+        planner, plan, roster, *_ = planner_and_plan
+        teams = roster.by_age_group("U10")
+        candidate_date = date(2026, 10, 3)
+        # Seed history so organic penalty is non-zero (ensures cap > 0).
+        pair = frozenset((teams[0].label, teams[1].label))
+        planner._opponent_history = {pair: 2}
+
+        in_range_pref = DatePreference(
+            fra=date(2026, 10, 1),
+            til=date(2026, 10, 31),
+            vekt=0.5,
+        )
+
+        base_score = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 1.0
+        )
+        score_with_pref = planner._score_candidate_date(
+            candidate_date, "U10", teams[:2], 1.0,
+            date_preferences=[in_range_pref]
+        )
+        # Positive vekt should increase the score.
+        assert score_with_pref > base_score
 
     def test_pick_least_recently_grouped_prefers_subset_with_fewer_repeat_matchups(self, planner_and_plan):
         planner, plan, roster, *_ = planner_and_plan
