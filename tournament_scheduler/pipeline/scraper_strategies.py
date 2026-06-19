@@ -223,6 +223,37 @@ def needs_llm_agent(strategy: ScraperStrategy) -> bool:
     return not has_direct_scraper(strategy)
 
 
+def get_deterministic_scraper_type(strategy: ScraperStrategy) -> str | None:
+    """Return a string identifier for the direct (non-LLM) scraper type, or None.
+
+    Maps ``strategy.engine`` to the scraper type string used by the pipeline
+    dispatch layer:
+
+    * ``STYLED_CALENDAR``          → ``"styledcalendar"``
+    * ``BOOKUP_SPA``               → ``"bookup"``
+    * ``OUTLOOK_IFRAME``           → ``"browser"``
+    * ``DATE_PARAM``               → ``"browser"``
+    * ``FORUMBOOKING``             → ``"browser"``
+    * ``SPORTELLO``                → ``"browser"``
+    * ``TEAMUP_ICAL``              → ``"ical"``
+    * ``GENERIC_ICAL``             → ``"ical"``
+
+    Returns ``None`` for engines that have no direct scraper (i.e. those that
+    require the LLM agent).
+    """
+    _MAP: dict[CalendarEngine, str] = {
+        CalendarEngine.STYLED_CALENDAR: "styledcalendar",
+        CalendarEngine.BOOKUP_SPA: "bookup",
+        CalendarEngine.OUTLOOK_IFRAME: "browser",
+        CalendarEngine.DATE_PARAM: "browser",
+        CalendarEngine.FORUMBOOKING: "browser",
+        CalendarEngine.SPORTELLO: "browser",
+        CalendarEngine.TEAMUP_ICAL: "ical",
+        CalendarEngine.GENERIC_ICAL: "ical",
+    }
+    return _MAP.get(strategy.engine)
+
+
 def strategy_to_dict(strategy: ScraperStrategy) -> dict[str, Any]:
     """Serialize a :class:`ScraperStrategy` to a JSON-safe dict.
 
