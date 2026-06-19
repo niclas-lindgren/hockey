@@ -31,6 +31,7 @@ from ..spond.spond_exporter import SpondExporter
 from .stage1_config import load_effective_config
 from .state import PipelineState, StageName, StageStatus
 from .stage4_helpers import _dict_to_plan
+from .calendar_viewer import generate_html as _generate_calendars_html
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
@@ -231,6 +232,16 @@ def run(
         output_files["review_packets"] = str(review_dir)
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Review-pakker feilet: {exc}")
+
+    # --- Calendar viewer (calendars.html) ---
+    try:
+        _generate_calendars_html(
+            work_dir=str(state.work_dir),
+            export_dir=str(primary_export_path),
+        )
+        output_files["calendars_html"] = str(primary_export_path / "calendars.html")
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"Kalendervisning feilet: {exc}")
 
     checkpoint: dict[str, Any] = {
         "output_files": output_files,
