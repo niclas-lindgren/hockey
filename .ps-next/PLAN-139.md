@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/html/templates/report_overview.html
   - Approach: Insert `$REPORT_HEATMAP$` as a new section directly after the closing tag of the hero block (before `$REPORT_STATUS_CARDS$`), so the heatmap renders first in the visual flow without scrolling.
 
-- [ ] Wire the new placeholder in html_exporter.py parts dict
+- [x] Added $REPORT_HEATMAP$: "" to the parts dict in _render_page as a defensive guard so any stray placeholder references produce an empty string rather than a raw literal. — 2026-06-19
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Add `"$REPORT_HEATMAP$": heatmap_html` to the `parts` dict in `_render_page` (or equivalent assembly point) and verify `heatmap_html` is still passed through correctly when `include_diagnostics` is False (render empty string).
 
@@ -52,4 +52,11 @@ LESSONS: none
 **Findings:** Placeholder confirmed at line 13 of report_overview.html, between hero block and card-grid.
 LESSONS: none
 **Files:** tournament_scheduler/html/templates/report_overview.html (already staged in prior commit)
+**Commit:** 3c1bc45 (hockey)
+
+### 2026-06-19 — Added $REPORT_HEATMAP$: "" to the parts dict in _render_page as a defensive guard so any stray placeholder references produce an empty string rather than a raw literal.
+**Rationale:** The placeholder is already resolved inside _report_overview_html before _render_page runs, but the guard ensures no leftover marker leaks into the final page.
+**Findings:** Guard entry added to _render_page parts dict; tests still pass.
+LESSONS: none
+**Files:** tournament_scheduler/html/html_exporter.py (+1/-0)
 **Commit:** [pending — fill after commit]

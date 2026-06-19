@@ -238,6 +238,7 @@ class HtmlExporter:
                 "$TEAM_STATS$": "",
                 "$TRAVEL_STATS$": "",
                 "$HEATMAP$": "",
+                "$REPORT_HEATMAP$": "",
                 "$JUDGMENT$": "",
                 "$FILTERS$": FILTERS if include_timeline else "",
                 "$COUNT_BAR$": COUNT_BAR if include_timeline else "",
