@@ -417,6 +417,7 @@ class HtmlExporter:
             actions.append(("warn", "Hjemmeturneringer", f"Ingen hjemmeturnering registrert for: {', '.join(_missing_host_label(club) for club in missing_hosts)}."))
         if cancelled_count:
             actions.append(("warn", "Avlyst/hoppet over", f"{cancelled_count} turnering(er) er markert som avlyst eller hoppet over."))
+        issue_count = len(actions)
         if not actions:
             actions.append(("pass", "Ingen kritiske handlinger", "G\u00e5 videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
 
@@ -538,6 +539,7 @@ class HtmlExporter:
         replacements = {
             "$REPORT_STATUS$": overall_status,
             "$REPORT_STATUS_LABEL$": status_labels.get(overall_status, "STATUS"),
+            "$REPORT_ACTION_COUNT$": str(issue_count),
             "$REPORT_ANSWER$": answer,
             "$REPORT_NOTE$": note,
             "$REPORT_STATUS_CARDS$": status_cards,
