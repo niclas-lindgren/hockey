@@ -253,10 +253,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Export output directory (default: export)",
     )
     replan.add_argument(
-        "--timestamped-export",
-        action="store_true",
-        help="Write exports to a timestamped subfolder (diffable between runs)",
+        "--no-timestamped-export",
+        dest="timestamped_export",
+        action="store_false",
+        help="Write exports flat into --export-dir instead of a timestamped subfolder",
     )
+    replan.set_defaults(timestamped_export=True)
 
     # adjust — manual organizer loop for the final plan
     adjust = sub.add_parser(
@@ -304,10 +306,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Export output directory (default: export)",
     )
     adjust.add_argument(
-        "--timestamped-export",
-        action="store_true",
-        help="Write exports to a timestamped subfolder (diffable between runs)",
+        "--no-timestamped-export",
+        dest="timestamped_export",
+        action="store_false",
+        help="Write exports flat into --export-dir instead of a timestamped subfolder",
     )
+    adjust.set_defaults(timestamped_export=True)
 
     # review — apply club responses from review packets
     review = sub.add_parser(
@@ -331,10 +335,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Export output directory (default: export)",
     )
     review.add_argument(
-        "--timestamped-export",
-        action="store_true",
-        help="Write exports to a timestamped subfolder (diffable between runs)",
+        "--no-timestamped-export",
+        dest="timestamped_export",
+        action="store_false",
+        help="Write exports flat into --export-dir instead of a timestamped subfolder",
     )
+    review.set_defaults(timestamped_export=True)
 
     # tournament — add/remove/list/cancel tournaments
     t_sub = sub.add_parser("tournament", help="Manage tournaments: list, add, remove, cancel")
@@ -424,10 +430,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum number of adjustment iterations (default: 3)",
     )
     auto_adjust.add_argument(
-        "--timestamped-export",
-        action="store_true",
-        default=False,
-        help="Add timestamp suffix to export filenames",
+        "--no-timestamped-export",
+        dest="timestamped_export",
+        action="store_false",
+        help="Write exports flat into --export-dir instead of a timestamped subfolder",
     )
+    auto_adjust.set_defaults(timestamped_export=True)
 
     return parser

@@ -15,7 +15,7 @@
   - **Files:** `tournament_scheduler/pipeline/stage4_export.py`
   - **Approach:** Change the default value of the `timestamped_export` parameter in `run()` from `False` to `True` (line 64). This makes the function's own default consistent with the desired behavior without requiring the caller to pass the flag explicitly.
 
-- [ ] Fix CLI argument defaults for replan, adjust, review, and auto_adjust subcommands
+- [x] Updated replan, adjust, review, and auto_adjust subcommands to use --no-timestamped-export with store_false and set_defaults(timestamped_exportTrue), matching the run subcommand pattern. — 2026-06-19
   - **Files:** `tournament_scheduler/cli/args.py`
   - **Approach:** For the `replan`, `adjust`, `review`, and `auto_adjust` subcommands, change `--timestamped-export` from `action=store_true` (default False) to `--no-timestamped-export` with `action=store_false, dest=timestamped_export` and call `<subparser>.set_defaults(timestamped_export=True)` — mirroring the pattern already used for the `run` subcommand at line 80-85.
 
@@ -48,4 +48,11 @@ The replan, adjust, review, and auto_adjust subcommands write exports to a times
 **Findings:** All existing stage4_export tests pass with the new default.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage4_export.py (+1/-1)
+**Commit:** 8aab93a (hockey)
+
+### 2026-06-19 — Updated replan, adjust, review, and auto_adjust subcommands to use --no-timestamped-export with store_false and set_defaults(timestamped_exportTrue), matching the run subcommand pattern.
+**Rationale:** Mirrored the run subcommand pattern exactly.
+**Findings:** All tests pass.
+LESSONS: none
+**Files:** tournament_scheduler/cli/args.py (+20/-13)
 **Commit:** [pending — fill after commit]
