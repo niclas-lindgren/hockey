@@ -732,3 +732,38 @@ class TestRunStage4:
         result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
         assert "1 turnering(er) avlyst." in report_html
+
+    def test_scrape_age_populated_from_scraping_envelope_updated_at(self, tmp_path):
+        """Report HTML must show a non-empty scrape_age when the SCRAPING envelope has an updated_at field.
+
+        This test verifies the fix for the bug where read_stage() silently dropped the
+        updated_at envelope field, making scrape_age always empty in the exported report.
+        The fix switches to read_envelope() so updated_at is accessible at the top level.
+
+        Note: scrape_age renders in the metrics section of the diagnostics report page
+        (html_report), not the schedule page (html), because the metrics template is only
+        included when include_diagnostics=True.
+        """
+        state = PipelineState(tmp_path / "pipeline")
+        # Write a scraping checkpoint — write_stage auto-populates updated_at in the envelope.
+        state.write_stage(
+            StageName.SCRAPING,
+            {
+                "sources": [{"name": "Kongsberg", "event_count": 5}],
+                "blocked": [],
+            },
+            status=StageStatus.DONE,
+        )
+        result = run(
+            _make_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
+        )
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        # scrape_age should be rendered in the report — any of the three time-bucket formats is valid.
+        assert re.search(r"\d+[mdt] siden", report_html), (
+            "Expected a scrape_age string (e.g. '5m siden', '2t siden', '1d siden') "
+            "in the exported report HTML, but none was found. "
+            "Check that stage4_export.py uses read_envelope (not read_stage) for the SCRAPING stage "
+            "and that datetime comparison uses timezone-aware datetimes."
+        )

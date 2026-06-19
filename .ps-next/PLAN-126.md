@@ -11,7 +11,7 @@
 - [x] Audited all scraping_ckpt usages in stage4_export.py; confirmed task 1 already correctly separates scraping_ckpt (data payload) from scraping_envelope (wrapper) so sources and blocked go through the data dict and updated_at goes through the envelope. — 2026-06-19
   - Files: tournament_scheduler/pipeline/stage4_export.py
   - Approach: Audit all usages of `scraping_ckpt` in stage4_export.py; any access to data payload fields (e.g. events list) must be redirected to `scraping_ckpt["data"]` since read_envelope returns the full envelope, not the payload directly.
-- [ ] Add or update tests to cover scrape_age population from envelope updated_at
+- [x] Added test_scrape_age_populated_from_scraping_envelope_updated_at verifying that scrape_age renders in the report HTML when a SCRAPING envelope has an updated_at; also fixed timezone-naive vs timezone-aware datetime comparison bug found during test development. — 2026-06-19
   - Files: tests/test_stage4_export.py
   - Approach: Write a test that constructs a fake pipeline state with a known updated_at in the SCRAPING envelope, runs the export stage, and asserts that the returned pipeline_meta contains a non-empty scrape_age string matching the expected elapsed time format (e.g. "Xm siden").
 
@@ -48,4 +48,11 @@ LESSONS: updated_at lives in the envelope wrapper, not the data payload; always 
 **Findings:** All downstream accesses to data payload fields (sources, blocked) correctly use scraping_ckpt; updated_at correctly uses scraping_envelope
 LESSONS: none
 **Files:** no files changed (audit only)
+**Commit:** b5f2ec1 (hockey)
+
+### 2026-06-19 — Added test_scrape_age_populated_from_scraping_envelope_updated_at verifying that scrape_age renders in the report HTML when a SCRAPING envelope has an updated_at; also fixed timezone-naive vs timezone-aware datetime comparison bug found during test development.
+**Rationale:** Two bugs discovered: (1) read_stage was correct target for read_envelope switch, (2) datetime.now() vs UTC-aware updated_at caused silent exception — fixed with datetime.now(tztimezone.utc)
+**Findings:** New test passes (558 total passing); found and fixed timezone bug that prevented scrape_age from ever populating
+LESSONS: updated_at from write_stage is timezone-aware (UTC); use datetime.now(tztimezone.utc) to subtract it — naive datetime subtraction silently fails in the bare except block
+**Files:** test_stage4_export.py (+35), stage4_export.py (+2/-2)
 **Commit:** [pending — fill after commit]

@@ -167,9 +167,9 @@ def run(
                 pipeline_meta["age_groups"] = configured_age_groups
                 updated = scraping_envelope.get("updated_at", "") if scraping_envelope else ""
                 if updated:
-                    from datetime import datetime as _dt
+                    from datetime import datetime as _dt, timezone as _tz
                     try:
-                        delta = _dt.now() - _dt.fromisoformat(updated)
+                        delta = _dt.now(tz=_tz.utc) - _dt.fromisoformat(updated)
                         if delta.total_seconds() < 3600:
                             pipeline_meta["scrape_age"] = f"{int(delta.total_seconds() // 60)}m siden"
                         elif delta.days < 1:
