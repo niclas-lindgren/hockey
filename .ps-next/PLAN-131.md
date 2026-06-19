@@ -8,7 +8,7 @@
 - [x] Replaced single bulk import from stage2_helpers with 8 direct sub-module imports grouped by module in stage2_scraping.py. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Remove the single import statement on line 45 that pulls all 16 symbols from .stage2_helpers and replace it with separate import statements grouped by sub-module: scraper_bookup (3 symbols), scraper_cache (1), scraper_credentialed (3), scraper_event_helpers (2), scraper_ical (1), scraper_outlook (3), scraper_recovery (2), scraper_styledcalendar (1).
-- [ ] Delete stage2_helpers.py
+- [x] Deleted stage2_helpers.py — the re-export facade is now fully removed, 54 lines eliminated. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage2_helpers.py
   - Approach: Delete the file entirely using shell rm; it is now unreferenced since the only consumer (stage2_scraping.py) has been updated to import directly from the sub-modules.
 - [ ] Confirm no regressions after removing the facade
@@ -35,4 +35,11 @@ No other file in the package or tests imports from stage2_helpers — only stage
 **Findings:** Import verified successful via python3 module import check; pre-existing test failure in test_claude_orchestration.py unrelated to this change.
 LESSONS: none
 **Files:** stage2_scraping.py (+8/-1)
+**Commit:** a72cc75 (hockey)
+
+### 2026-06-19 — Deleted stage2_helpers.py — the re-export facade is now fully removed, 54 lines eliminated.
+**Rationale:** No alternatives — file has no remaining references in live code.
+**Findings:** Import of stage2_scraping still succeeds after deletion; only log/plan files reference the name.
+LESSONS: none
+**Files:** stage2_helpers.py (-54)
 **Commit:** [pending — fill after commit]
