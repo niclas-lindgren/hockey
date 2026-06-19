@@ -2,8 +2,6 @@
 
 ## Open
 
-- [138] [ ] Add issue count to the hero verdict pill in the report: the action list exists but its count is not summarised in the verdict block, forcing the reader to scroll to discover whether anything needs fixing.
-
 - [137] [ ] Restructure report layout: (1) move the judgment block ($JUDGMENT$) up to immediately follow the hero verdict instead of appearing after 8 data sections; (2) collapse the advisory review section (review.py) behind a <details> toggle by default — it duplicates content already shown as action items; (3) group numeric detail sections (scores, metrics, fairness adjustments, club dashboard, team stats, travel stats) under a single collapsible Detaljer accordion.
 
 - [136] [ ] Make the report's subjective conclusion dynamic: _report_overview_html currently has three static hardcoded string branches with no per-run data. Inject: tournament count + month span, the weakest named score metric + its value, most-travelling team and distance, number of blocked sources, and the specific fairness gate sub-metric that triggered warn/fail.
@@ -31,6 +29,7 @@
 - [125] [ ] Fix double _invalidate_downstream calls in all pipeline stages: write_stage(status=DONE/FAILED) and mark_done/mark_failed both call _invalidate_downstream — remove the redundant mark_done/mark_failed calls from stage1–4 run functions and make write_stage the single place that sets final status.
 
 ## Done
+- [138] [x] Add issue count to the hero verdict pill in the report: the action list exists but its count is not summarised in the verdict block, forcing the reader to scroll to discover whether anything needs fixing. (2026-06-19)
 - [139] [x] Move the calendar heatmap immediately after the hero block in the report — it is the fastest way to see the season shape at a glance but currently appears well below the fold. (2026-06-19)
 - [140] [x] Add subjective weight to planning stage: (1) add preferanse_vekt: float = 0.0 to the Tournament dataclass and parse it from the Excel input sheet; (2) add a new Datopreferanser sheet (fra, til, vekt columns) for global date-range penalties (e.g. Easter weekend); (3) inject both as an additive term in SeasonPlanner._score_candidate_date (positive=penalise, negative=reward); (4) cap weight magnitude and expose weight components in plan JSON and CLI summary. See .notes/improvements.md for full design sketch. (2026-06-19)
 - [142] [x] Harness-driven automated adjustment loop between Stage 3 and Stage 4: when the harness plan critic (see [141]) finds fixable issues, the harness should propose specific moves (tournament, from-date, to-date, reason) and apply them via the existing manual_adjustment_workflow CLI, then re-run Stage 3 and re-evaluate. Iterate up to N times (configurable). Escalate to the human operator only when issues remain after N iterations or when a move requires knowledge the harness cannot infer (e.g. explicit club preference). This is harness orchestration logic — no new pipeline code needed beyond the existing manual_adjustment_workflow CLI entrypoint. (2026-06-19)
