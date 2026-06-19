@@ -495,6 +495,25 @@ class TestRunStage4:
         assert list((tmp_path / "export").glob("*.ics")) == []
         assert list((tmp_path / "export").glob("*.html")) == []
 
+    def test_default_run_produces_timestamped_subfolder(self, tmp_path):
+        """run() with no explicit timestamped_export should default to True and write into a timestamped subfolder."""
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+        )
+        files = result.get("output_files", {})
+
+        excel_path = Path(files["excel"])
+        export_dir = tmp_path / "export"
+        # The file must be inside a subfolder of export/, not directly in export/
+        assert excel_path.parent != export_dir, "Expected a timestamped subfolder, not flat export"
+        assert excel_path.parent.parent == export_dir
+        # Subfolder name must match YYYY-MM-DDTHHMM pattern
+        assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{4}$", excel_path.parent.name), (
+            f"Expected timestamped subfolder name like 2025-10-05T0900, got {excel_path.parent.name!r}"
+        )
+
     def test_stage4_spond_export_uses_tournament_rows(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         state.write_stage(StageName.CONFIG, {"round_length_minutes": {"U10": 15}}, status=StageStatus.DONE)

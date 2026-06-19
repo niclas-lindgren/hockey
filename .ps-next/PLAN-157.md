@@ -27,7 +27,7 @@
   - **Files:** `tests/test_stage4_export.py`
   - **Approach:** Find all `run(...)` calls in `test_stage4_export.py` that do not pass `timestamped_export` and are asserting flat export paths (files directly under `export/`). Add `timestamped_export=False` to each so they continue testing flat export without being affected by the new default. Ensure the existing test at line 468-474 that tests `timestamped_export=True` remains unchanged.
 
-- [ ] Add a test asserting that `run()` with default arguments produces a timestamped subfolder
+- [x] Added test_default_run_produces_timestamped_subfolder which calls run() with no explicit timestamped_export and asserts the output file is in a subfolder matching YYYY-MM-DDTHHMM. — 2026-06-19
   - **Files:** `tests/test_stage4_export.py`
   - **Approach:** Add a new test that calls `run(_make_plan_dict(), state, export_dir=str(tmp_path / "export"))` with no explicit `timestamped_export` argument and asserts that the exported files land under a subdirectory of `export/` matching the pattern `YYYY-MM-DDTHHMM`.
 
@@ -69,4 +69,11 @@ LESSONS: none
 **Findings:** All tests pass.
 LESSONS: none
 **Files:** tests/test_stage4_export.py (+16/-5)
+**Commit:** 3a47823 (hockey)
+
+### 2026-06-19 — Added test_default_run_produces_timestamped_subfolder which calls run() with no explicit timestamped_export and asserts the output file is in a subfolder matching YYYY-MM-DDTHHMM.
+**Rationale:** Pattern match validates the subfolder naming convention.
+**Findings:** Test passes confirming the new default works end-to-end.
+LESSONS: none
+**Files:** tests/test_stage4_export.py (+19)
 **Commit:** [pending — fill after commit]
