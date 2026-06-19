@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/pipeline/input_workbook.py, tournament_scheduler/models.py
   - Approach: Add a new `DatePreference` datatype (fra: date, til: date, vekt: float) to models.py and add a `_parse_datopreferanser` helper in input_workbook.py that reads the new sheet's rows and returns a list of DatePreference objects; surface the list through the return value of `load_workbook_config`.
 
-- [ ] Inject subjective weights as additive term in _score_candidate_date
+- [x] Extended _score_candidate_date with tournament_weight and date_preferences params; added date_preferences and preferanse_vekt_by_age_group to SeasonPlanner __init__; updated participant_selection.py call site to pass per-age-group weight. — 2026-06-19
   - Files: tournament_scheduler/season_planner.py
   - Approach: Extend `_score_candidate_date` to accept `tournament_weight: float = 0.0` and `date_preferences: list[DatePreference] = []`; sum any DatePreference whose fra–til range contains `candidate_date`, add both to the return value (positive = penalise, negative = reward), and cap magnitude at `max(abs(repeat_penalty), abs(month_penalty)) * 2` before adding.
 
@@ -70,4 +70,11 @@ LESSONS: none
 **Findings:** All 529 tests pass; DatePreference objects are created correctly for all three date formats.
 LESSONS: none
 **Files:** tournament_scheduler/models.py (+14/-0), tournament_scheduler/pipeline/input_workbook.py (+47/-0)
+**Commit:** 28504f0 (hockey)
+
+### 2026-06-19 — Extended _score_candidate_date with tournament_weight and date_preferences params; added date_preferences and preferanse_vekt_by_age_group to SeasonPlanner __init__; updated participant_selection.py call site to pass per-age-group weight.
+**Rationale:** Weight is capped at 2x max organic penalty (repeat+month); cap is 0 when both penalties are 0 (no structural constraints yet), so raw weight flows through uncapped at that point.
+**Findings:** All season_planner and models tests pass (88 collected).
+LESSONS: When both repeat_penalty and month_penalty are 0.0 (early scheduling), the cap is also 0 and raw_weight passes uncapped. This is safe since there are no structural constraints to override, but note the asymmetry.
+**Files:** tournament_scheduler/season_planner.py (+25/-1), tournament_scheduler/participant_selection.py (+3/-1)
 **Commit:** [pending — fill after commit]

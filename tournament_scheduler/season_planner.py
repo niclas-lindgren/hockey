@@ -33,6 +33,7 @@ from tournament_scheduler.host_assignment import (
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
     CalendarEvent,
+    DatePreference,
     Game,
     Roster,
     SeasonPlan,
@@ -108,6 +109,8 @@ class SeasonPlanner:
         events_by_club: Optional[Dict[str, List[CalendarEvent]]] = None,
         fairness_thresholds: Optional[Dict[str, float]] = None,
         fairness_model: Optional[SeasonFairnessModel] = None,
+        date_preferences: Optional[List[DatePreference]] = None,
+        preferanse_vekt_by_age_group: Optional[Dict[str, float]] = None,
     ):
         self.scheduler = scheduler
         self.roster = roster
@@ -162,6 +165,8 @@ class SeasonPlanner:
             self.fairness_thresholds.update(fairness_thresholds)
         self.fairness_model = fairness_model or SeasonFairnessModel()
         self._fallback_host_substitutions: List[Tuple[date, str, str, str]] = []
+        self.date_preferences: List[DatePreference] = date_preferences or []
+        self.preferanse_vekt_by_age_group: Dict[str, float] = preferanse_vekt_by_age_group or {}
 
     def _team_target_tournament_count(self, team: Team) -> int:
         return team.target_tournament_count or (self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT)
@@ -385,6 +390,8 @@ class SeasonPlanner:
         age_group: str,
         candidate_participants: Sequence[Team],
         expected_per_month: float,
+        tournament_weight: float = 0.0,
+        date_preferences: Optional[List[DatePreference]] = None,
     ) -> float:
         repeat_penalty = 0.0
         participants = list(candidate_participants)
@@ -400,7 +407,23 @@ class SeasonPlanner:
                 repeat_penalty = repeat_total / pair_count
 
         month_penalty = max(0.0, self.month_load_ratio(candidate_date, expected_per_month) - 1.0)
-        return repeat_penalty + month_penalty
+
+        # Compute the subjective weight term (positive = penalise, negative = reward).
+        # Cap magnitude to 2x the larger organic penalty so weights influence but
+        # cannot completely override structural constraints.
+        prefs = date_preferences if date_preferences is not None else self.date_preferences
+        date_pref_total = sum(
+            p.vekt for p in prefs if p.fra <= candidate_date <= p.til
+        )
+        raw_weight = tournament_weight + date_pref_total
+        cap = max(abs(repeat_penalty), abs(month_penalty)) * 2
+        if cap > 0.0:
+            if raw_weight > cap:
+                raw_weight = cap
+            elif raw_weight < -cap:
+                raw_weight = -cap
+
+        return repeat_penalty + month_penalty + raw_weight
 
     def month_load_ratio(self, tournament_date: date, expected_per_month: float) -> float:
         if expected_per_month <= 0:

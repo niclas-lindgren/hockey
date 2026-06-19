@@ -70,7 +70,8 @@ def pick_spread_dates(
             def combined_score(d: date) -> float:
                 spread_penalty = abs((d - bucket_center).days) / half_span_days
                 diversity_penalty = planner._score_candidate_date(
-                    d, predicted_age_group, predicted_participants, expected_per_month
+                    d, predicted_age_group, predicted_participants, expected_per_month,
+                    tournament_weight=planner.preferanse_vekt_by_age_group.get(predicted_age_group, 0.0),
                 )
                 same_day_penalty = len(scheduled_age_groups_by_date.get(d, [])) * 50.0
                 overlap_penalty = 0.0
