@@ -2,8 +2,6 @@
 
 ## Open
 
-- [135] [ ] Fix stage1_helpers.validate_config path resolution: currently checks Path(teams_val).exists() with no CWD anchor, so the check passes/fails based on the process launch directory rather than the location of input.xlsx. Resolve relative to input_path.
-
 - [134] [ ] Add duplicate label detection in stage1_helpers._validate_team_list — two teams with the same label cause silent collisions in stage3's _find_team lookup.
 
 - [133] [ ] Move hardcoded URL substring checks (baerumishall.no, bookup.no) from stage2_scraping._scrape_source dispatch block into scraper_strategies.py alongside get_strategy/needs_llm_agent — adding a new special-case source currently requires editing the core scraping loop.
@@ -25,6 +23,7 @@
 - [125] [ ] Fix double _invalidate_downstream calls in all pipeline stages: write_stage(status=DONE/FAILED) and mark_done/mark_failed both call _invalidate_downstream — remove the redundant mark_done/mark_failed calls from stage1–4 run functions and make write_stage the single place that sets final status.
 
 ## Done
+- [135] [x] Fix stage1_helpers.validate_config path resolution: currently checks Path(teams_val).exists() with no CWD anchor, so the check passes/fails based on the process launch directory rather than the location of input.xlsx. Resolve relative to input_path. (2026-06-19)
 - [136] [x] Make the report's subjective conclusion dynamic: _report_overview_html currently has three static hardcoded string branches with no per-run data. Inject: tournament count + month span, the weakest named score metric + its value, most-travelling team and distance, number of blocked sources, and the specific fairness gate sub-metric that triggered warn/fail. (2026-06-19)
 - [137] [x] Restructure report layout: (1) move the judgment block ($JUDGMENT$) up to immediately follow the hero verdict instead of appearing after 8 data sections; (2) collapse the advisory review section (review.py) behind a <details> toggle by default — it duplicates content already shown as action items; (3) group numeric detail sections (scores, metrics, fairness adjustments, club dashboard, team stats, travel stats) under a single collapsible Detaljer accordion. (2026-06-19)
 - [156] [x] Fix Stage 2 scraping checkpoint finalization bug: stage exits 0 but leaves checkpoint as 'running' with no data when resuming from a previously interrupted run — checkpoint finalization is skipped on partial-resume; second run fixes it via cache (2026-06-19)
