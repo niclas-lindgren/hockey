@@ -15,15 +15,15 @@
   - Files: `tournament_scheduler/html/templates/report_overview.html`
   - Approach: Modify line 10 of report_overview.html to embed `$REPORT_ACTION_COUNT$` inside the status pill span alongside `$REPORT_STATUS_LABEL$`, for example `$REPORT_STATUS_LABEL$ · $REPORT_ACTION_COUNT$ punkt(er)` so the count appears inline in the pill.
 
-- [ ] Compute real action count before the replacements dict in html_exporter
+- [x] Computed issue_count  len(actions) before the default pass placeholder is appended; already implemented in the previous commit. — 2026-06-19
   - Files: `tournament_scheduler/html/html_exporter.py`
   - Approach: After the `actions` list is finalised (line 421), compute `real_action_count = 0 if (len(actions) == 1 and actions[0][0] == "pass") else len(actions)` and store it; this avoids re-scanning the list when building the replacements dict.
 
-- [ ] Inject `$REPORT_ACTION_COUNT$` into the replacements dictionary
+- [x] Injected REPORT_ACTION_COUNT into the replacements dict as str(issue_count); already implemented in the prior commit. — 2026-06-19
   - Files: `tournament_scheduler/html/html_exporter.py`
   - Approach: Add `"$REPORT_ACTION_COUNT$": str(real_action_count)` to the replacements dict at lines 538-552 so the placeholder is substituted alongside the existing status label and answer text.
 
-- [ ] Extend test coverage for the new count in the rendered report HTML
+- [x] Added assertions in test_generates_html_with_configured_age_group_filters (1 punkt(er)) and test_conclusion_injects_weakest_metric_name (4 punkt(er)) to verify action count appears in the hero verdict pill. — 2026-06-19
   - Files: `tests/test_stage4_export.py`
   - Approach: Add an assertion in the existing report-HTML regression test that the rendered output contains the action count string (e.g. `"0 punkt(er)"` for a clean plan, or a non-zero count for a plan with metric warnings), following the pattern already used for other pill/status assertions.
 
@@ -48,4 +48,25 @@ The test suite passes after adding the count assertion without modifying existin
 **Findings:** issue_count is computed before the default pass action is appended so it reflects real issues only (0 when status is pass).
 LESSONS: none
 **Files:** html_exporter.py (+2/-0), report_overview.html (+1/-1)
+**Commit:** 73292e6 (hockey)
+
+### 2026-06-19 — Computed issue_count  len(actions) before the default pass placeholder is appended; already implemented in the previous commit.
+**Rationale:** none
+**Findings:** Already done in prior commit alongside the template change.
+LESSONS: none
+**Files:** html_exporter.py (+1/-0)
+**Commit:** 73292e6
+
+### 2026-06-19 — Injected REPORT_ACTION_COUNT into the replacements dict as str(issue_count); already implemented in the prior commit.
+**Rationale:** none
+**Findings:** Already done in prior commit alongside template and issue_count changes.
+LESSONS: none
+**Files:** html_exporter.py (+1/-0)
+**Commit:** 73292e6
+
+### 2026-06-19 — Added assertions in test_generates_html_with_configured_age_group_filters (1 punkt(er)) and test_conclusion_injects_weakest_metric_name (4 punkt(er)) to verify action count appears in the hero verdict pill.
+**Rationale:** none
+**Findings:** Actual counts differ from naive estimates: the clean plan produces 1 (not 0) because missing_hosts fires for clubs with no home tournament; the warn plan produces 4 (gate + 2 metrics + missing_hosts).
+LESSONS: Always verify action count by running the plan before asserting a number — missing_hosts adds 1 action for any plan that does not host all 9 RVV clubs.
+**Files:** test_stage4_export.py (+4/-0)
 **Commit:** [pending — fill after commit]

@@ -323,6 +323,8 @@ class TestRunStage4:
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
         assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)
+        # Hero verdict pill must contain the action count — plan has 1 missing-host action.
+        assert '1 punkt(er)' in report_html
 
     def test_review_summary_collapses_when_it_only_repeats_main_assessment(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -553,6 +555,8 @@ class TestRunStage4:
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
         # Weakest metric is "Hjemmebanebelastning" (status=fail, score=40)
         assert "Svakeste metrikk: Hjemmebanebelastning" in report_html
+        # Hero pill must show the issue count: gate warn (1) + 2 metric warnings (2) + missing hosts (1) = 4.
+        assert "4 punkt(er)" in report_html
 
     def test_conclusion_injects_blocked_count(self, tmp_path):
         """Conclusion must include blocked source count when blocked sources exist."""
