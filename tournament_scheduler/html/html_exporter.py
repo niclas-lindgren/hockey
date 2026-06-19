@@ -539,7 +539,7 @@ class HtmlExporter:
             '</tr></thead><tbody>' + "".join(tournament_rows) + '</tbody></table></div>'
         )
         rule_transparency_html = fairness_gate_html + fairness_adjustments_html
-        advisory_html = review_summary_html + judgment_html
+        advisory_html = review_summary_html
         diagnostics_html = team_stats_html + travel_stats_html
 
         replacements = {
@@ -557,6 +557,7 @@ class HtmlExporter:
             "$REPORT_TOURNAMENT_TABLE$": tournament_table,
             "$REPORT_DIAGNOSTICS$": diagnostics_html,
             "$REPORT_HEATMAP$": heatmap_html,
+            "$REPORT_JUDGMENT$": judgment_html,
         }
         html = REPORT_OVERVIEW
         for marker, value in replacements.items():
