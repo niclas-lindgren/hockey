@@ -11,7 +11,7 @@
 - [x] Deleted stage2_helpers.py — the re-export facade is now fully removed, 54 lines eliminated. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage2_helpers.py
   - Approach: Delete the file entirely using shell rm; it is now unreferenced since the only consumer (stage2_scraping.py) has been updated to import directly from the sub-modules.
-- [ ] Confirm no regressions after removing the facade
+- [x] Ran pytest — 545 tests pass, 13 pre-existing failures in test_claude_orchestration.py and two integration tests; none related to stage2_helpers removal. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Run pytest to verify the test suite passes with no import errors or failures introduced by the removal.
 
@@ -42,4 +42,11 @@ LESSONS: none
 **Findings:** Import of stage2_scraping still succeeds after deletion; only log/plan files reference the name.
 LESSONS: none
 **Files:** stage2_helpers.py (-54)
+**Commit:** 898cdfc (hockey)
+
+### 2026-06-19 — Ran pytest — 545 tests pass, 13 pre-existing failures in test_claude_orchestration.py and two integration tests; none related to stage2_helpers removal.
+**Rationale:** Ran full suite and inspected failures; none tied to our import changes.
+**Findings:** No regressions from facade removal; the 13 failures were pre-existing before this plan.
+LESSONS: none
+**Files:** stage2_scraping.py (no change)
 **Commit:** [pending — fill after commit]
