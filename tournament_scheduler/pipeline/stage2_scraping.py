@@ -129,7 +129,6 @@ def run(
         )
         if strict:
             state.write_stage(StageName.SCRAPING, {}, status=StageStatus.FAILED)
-            state.mark_failed(StageName.SCRAPING, error=reason)
             raise Stage2Error([{"name": "(ingen kilder)", "reason": reason}])
         result: dict[str, Any] = {
             "sources": [],
@@ -139,7 +138,6 @@ def run(
             "warning": reason,
         }
         state.write_stage(StageName.SCRAPING, result, status=StageStatus.DONE)
-        state.mark_done(StageName.SCRAPING)
         return result
 
     # --- Split sources into cache hits and sources that need (re-)scraping ---
@@ -240,8 +238,6 @@ def run(
         )
 
     state.write_stage(StageName.SCRAPING, checkpoint, status=status)
-    if status == StageStatus.DONE:
-        state.mark_done(StageName.SCRAPING)
 
     # Persist freshly-scraped results to the unified cache for future runs
     cache.build_from_checkpoint(config, checkpoint)

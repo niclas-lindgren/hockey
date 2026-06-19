@@ -13,7 +13,7 @@
   - Files: `tournament_scheduler/pipeline/stage1_config.py`
   - Approach: Remove the mark_done(CONFIG) call on line 169 that immediately follows write_stage(CONFIG, config, status=DONE) on line 168; write_stage already calls _invalidate_downstream so the mark_done call is fully redundant.
 
-- [ ] Remove redundant mark_done/mark_failed calls after write_stage in stage2_scraping.py
+- [x] Removed three redundant calls in stage2_scraping.py: mark_failed after write_stage(FAILED) at line 132, mark_done after write_stage(DONE) at line 142, and conditional mark_done after write_stage at line 244. — 2026-06-19
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`
   - Approach: Remove three redundant calls — mark_failed(SCRAPING) after write_stage(FAILED) at line 132, mark_done(SCRAPING) after write_stage(DONE) at line 142, and mark_done(SCRAPING) after write_stage(checkpoint, status=status) at line 244; all three follow an immediately preceding write_stage call that already handles status and invalidation.
 
@@ -54,4 +54,11 @@ Pipeline tests pass with no regressions after redundant mark_done and mark_faile
 **Findings:** Removed mark_done call; write_stage is now the sole place setting final status in stage1_config.py.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage1_config.py (+0/-1)
+**Commit:** 0ed66e6 (hockey)
+
+### 2026-06-19 — Removed three redundant calls in stage2_scraping.py: mark_failed after write_stage(FAILED) at line 132, mark_done after write_stage(DONE) at line 142, and conditional mark_done after write_stage at line 244.
+**Rationale:** Straightforward removal of three redundant post-write_stage calls.
+**Findings:** Removed 3 redundant status calls; write_stage now sole status setter in stage2_scraping.py.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage2_scraping.py (+0/-4)
 **Commit:** [pending — fill after commit]
