@@ -14,7 +14,7 @@
   - Files: tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/cli/args.py
   - Approach: Add a new `auto-adjust` CLI subcommand to `args.py` (with `--max-iterations` int defaulting to 3, `--work-dir`, `--export-dir`, `--timestamped-export`) and a `_cmd_auto_adjust(args)` handler in `rvv_cli.py` that loads the Stage 3 checkpoint, calls `generate_critic_summary`, translates issues to moves via `suggest_moves`, and applies each auto-fixable move by invoking `_cmd_replan` internally with the proposed arguments, then re-evaluates.
 
-- [ ] Wire replan re-evaluation loop with iteration counter
+- [x] Refactored _cmd_auto_adjust to apply one move per iteration then reload the checkpoint and re-run generate_critic_summary before the next iteration; count_critic_issues_from_dict serves as the fast early-exit gate; extracted _load_critic_state helper to avoid code duplication. — 2026-06-19
   - Files: tournament_scheduler/cli/rvv_cli.py
   - Approach: Inside `_cmd_auto_adjust`, loop up to `max_iterations` times: after each call to `_cmd_replan`, reload the checkpoint, re-run `generate_critic_summary`, and break early when `count_critic_issues_from_dict` returns 0. Track iteration count and pass it to the escalation step.
 
@@ -49,4 +49,11 @@ LESSONS: none
 **Findings:** Deduplication of manual-review issues across iterations prevents duplicate output when the same non-fixable metric recurs.
 LESSONS: none
 **Files:** tournament_scheduler/cli/rvv_cli.py (+120), tournament_scheduler/cli/args.py (+31)
+**Commit:** 36cd4fb (hockey)
+
+### 2026-06-19 — Refactored _cmd_auto_adjust to apply one move per iteration then reload the checkpoint and re-run generate_critic_summary before the next iteration; count_critic_issues_from_dict serves as the fast early-exit gate; extracted _load_critic_state helper to avoid code duplication.
+**Rationale:** Applies one auto-fixable move at a time (not all moves in a batch) so each iteration starts from a fresh plan state; this prevents stale collision/clump data from generating redundant moves.
+**Findings:** The _plan_to_dict converter lives in pipeline.stage3_helpers, not on SeasonPlanner; import it from there for the dict-based issue count gate.
+LESSONS: _plan_to_dict is in pipeline/stage3_helpers.py — import from there, not from season_planner
+**Files:** tournament_scheduler/cli/rvv_cli.py (+91/-50)
 **Commit:** [pending — fill after commit]
