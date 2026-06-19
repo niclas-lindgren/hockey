@@ -20,7 +20,7 @@ from ..season_config import (
     AgeGroupSettings,
 )
 
-def validate_config(raw: dict[str, Any]) -> list[str]:
+def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
     """Validate *raw* config dict and return a list of Norwegian error messages.
 
     Returns an empty list if the config is valid.
@@ -29,6 +29,10 @@ def validate_config(raw: dict[str, Any]) -> list[str]:
     ----------
     raw:
         Parsed workbook config dict from ``input.xlsx``.
+    input_path:
+        Path to ``input.xlsx`` itself.  Used to resolve relative team-file
+        paths relative to the workbook's directory rather than the process
+        working directory.
     """
     errors: list[str] = []
 
@@ -133,8 +137,10 @@ def validate_config(raw: dict[str, Any]) -> list[str]:
     else:
         teams_val = raw["teams"]
         if isinstance(teams_val, str):
-            # External file reference — check it exists
-            if not Path(teams_val).exists():
+            # External file reference — resolve relative to the workbook directory
+            # so the check is not sensitive to the process working directory.
+            teams_path = (input_path.parent / teams_val).resolve()
+            if not teams_path.exists():
                 errors.append(
                     f"Lagfilen '{teams_val}' finnes ikke. "
                     "Sjekk at stien er riktig."

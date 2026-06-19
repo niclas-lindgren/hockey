@@ -148,7 +148,7 @@ def run(
         When *input_path* does not exist.
     """
     raw = _load_json(input_path)
-    errors = validate_config(raw)
+    errors = validate_config(raw, Path(input_path))
 
     if errors:
         if strict:
