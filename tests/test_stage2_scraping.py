@@ -837,3 +837,67 @@ class TestHarnessGate:
             result = _check_stage2_checkpoint(checkpoint, True, console, log_fn, harness_active=True)
 
         assert result is True
+
+
+class TestStrategyBasedDispatch:
+    """_scrape_source dispatches to the correct scraper via get_deterministic_scraper_type."""
+
+    def test_bookup_spa_strategy_routes_to_bookup_scraper(self, tmp_path):
+        """A source whose strategy has CalendarEngine.BOOKUP_SPA calls _run_bookup_scraper."""
+        state = PipelineState(tmp_path / "pipeline")
+        # "Tønsberg" is registered with CalendarEngine.BOOKUP_SPA in STRATEGIES
+        cfg = _make_config_with_sources([
+            {
+                "name": "Tønsberg",
+                "type": SOURCE_OUTLOOK,
+                "url": "https://www.bookup.no/utleie/Index/860",
+            },
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_bookup_scraper",
+            return_value=([_make_event("Booking")], ""),
+        ) as mock_bookup, patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_styledcalendar_scraper",
+            side_effect=AssertionError("styledcalendar must not be called for bookup source"),
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_bookup.assert_called_once()
+        src = result["sources"][0]
+        assert src["event_count"] == 1
+        assert src["blocked"] is False
+
+    def test_styled_calendar_strategy_routes_to_styledcalendar_scraper(self, tmp_path):
+        """A source whose strategy has CalendarEngine.STYLED_CALENDAR calls _run_styledcalendar_scraper."""
+        state = PipelineState(tmp_path / "pipeline")
+        # "Jutul" is registered with CalendarEngine.STYLED_CALENDAR in STRATEGIES
+        cfg = _make_config_with_sources([
+            {
+                "name": "Jutul",
+                "type": SOURCE_OUTLOOK,
+                "url": "https://baerumishall.no/kalender/",
+            },
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_styledcalendar_scraper",
+            return_value=([_make_event("Ishockey")], ""),
+        ) as mock_styled, patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_bookup_scraper",
+            side_effect=AssertionError("bookup must not be called for styledcalendar source"),
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_styled.assert_called_once()
+        src = result["sources"][0]
+        assert src["event_count"] == 1
+        assert src["blocked"] is False

@@ -19,7 +19,7 @@
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`
   - Approach: At the top of the deterministic scraper block, call `get_strategy(name)` to retrieve the strategy for the current source. Then call `get_deterministic_scraper_type(strategy)` and branch on the returned string instead of `"baerumishall.no" in url` / `"bookup.no" in url`. Keep the existing `source_type in _BROWSER_SOURCE_TYPES` / `_ICAL_SOURCE_TYPES` fallbacks for sources not in STRATEGIES. Import `get_deterministic_scraper_type` from `scraper_strategies`.
 
-- [ ] Update `test_stage2_scraping.py` to cover strategy-based dispatch for bookup and styledcalendar sources
+- [x] Added TestStrategyBasedDispatch class with two tests: BOOKUP_SPA→_run_bookup_scraper and STYLED_CALENDAR→_run_styledcalendar_scraper, using real strategy registry entries (Tønsberg and Jutul). — 2026-06-19
   - Files: `tests/test_stage2_scraping.py`
   - Approach: For existing tests that mock `_run_bookup_scraper` or `_run_styledcalendar_scraper` triggered by a URL like "bookup.no" or "baerumishall.no", verify they still call the correct scraper function under the new strategy-based dispatch (the test setup may need to ensure a matching STRATEGIES entry exists or mock `get_strategy`). Add a test asserting that a source with `CalendarEngine.BOOKUP_SPA` routes to `_run_bookup_scraper` and one with `CalendarEngine.STYLED_CALENDAR` routes to `_run_styledcalendar_scraper`.
 
@@ -59,4 +59,11 @@ LESSONS: none
 **Findings:** All 28 stage2 tests pass; import verified via python3 -c.
 LESSONS: none
 **Files:** stage2_scraping.py (+10/-5)
+**Commit:** 297ed90 (hockey)
+
+### 2026-06-19 — Added TestStrategyBasedDispatch class with two tests: BOOKUP_SPA→_run_bookup_scraper and STYLED_CALENDAR→_run_styledcalendar_scraper, using real strategy registry entries (Tønsberg and Jutul).
+**Rationale:** Used real STRATEGIES entries so the strategy lookup exercises actual production mappings rather than mocking get_strategy; AssertionError side effects guard against wrong scraper being called.
+**Findings:** All 30 stage2 tests pass (28 existing + 2 new).
+LESSONS: none
+**Files:** test_stage2_scraping.py (+64/-0)
 **Commit:** [pending — fill after commit]
