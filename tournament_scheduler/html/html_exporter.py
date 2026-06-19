@@ -219,7 +219,9 @@ class HtmlExporter:
         export_links_html = build_export_links_html(output_files)
 
         # Assemble pages from fragments
-        calendars_href = "calendars.html"
+        # Only link to calendars.html when scrape data is available (otherwise the file won't exist)
+        has_scrape_data = bool(meta and (meta.get("total_events", 0) > 0 or meta.get("source_count", 0) > 0))
+        calendars_href = "calendars.html" if has_scrape_data else ""
         season_plan_href = "season_plan.html"
         report_href = "season_plan_report.html"
 
@@ -257,6 +259,10 @@ class HtmlExporter:
                 "$ICON_WARNING$": ICON_WARNING,
                 "$ICON_BAR_CHART$": ICON_BAR_CHART,
                 "$CALENDARS_HREF$": calendars_href,
+                "$CALENDARS_NAV_ITEM$": (
+                    f'<a href="{calendars_href}" class="{"active" if active_page == "calendars" else ""}"><span class="nav-icon">{ICON_CALENDAR}</span> Skrapede kalendere</a>'
+                    if calendars_href else ""
+                ),
                 "$SEASON_PLAN_HREF$": season_plan_href,
                 "$REPORT_HREF$": report_href,
                 "$CALENDARS_ACTIVE$": "active" if active_page == "calendars" else "",

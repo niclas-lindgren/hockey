@@ -10,7 +10,7 @@
   - Files: tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/pipeline/calendar_viewer.py
   - Approach: Import `generate_html` from `calendar_viewer` inside `stage4_export.run()` and call it with `work_dir` (default `.pipeline`) and the same `export_dir` already used by stage4 — mirror the existing call pattern in `pipeline_orchestrator.py` lines 539-546. Catch exceptions and surface them as non-fatal warnings so a missing cache does not break the full export.
 
-- [ ] Make calendars link in navbar conditional on calendar data availability
+- [x] In html_exporter.py, compute has_scrape_data from the meta parameter and set calendars_href to empty string when no scrape data is available. Replace the hardcoded calendar <a> tag in navbar.html with a $CALENDARS_NAV_ITEM$ placeholder that resolves to either the full link or empty string. — 2026-06-19
   - Files: tournament_scheduler/html/html_exporter.py, tournament_scheduler/html/templates/navbar.html
   - Approach: In `html_exporter.py`, check whether the scraped data cache (`.pipeline/stage2_scraping.json` or the ScrapedDataCache) has any events before setting `calendars_href`; if no data is available, set `calendars_href` to an empty string and update `navbar.html` to hide the `<a>` element when `$CALENDARS_HREF$` is empty (e.g., wrap in an `{% if %}` or use a CSS `hidden` class injected from the exporter).
 
@@ -50,4 +50,11 @@ Key files:
 **Findings:** generate_html writes to <export_dir>/calendars.html; work_dir is passed from state.work_dir; exception is caught and appended to errors list so it does not abort the full export.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage4_export.py (+11/-0)
+**Commit:** 1ed4c25 (hockey)
+
+### 2026-06-19 — In html_exporter.py, compute has_scrape_data from the meta parameter and set calendars_href to empty string when no scrape data is available. Replace the hardcoded calendar <a> tag in navbar.html with a $CALENDARS_NAV_ITEM$ placeholder that resolves to either the full link or empty string.
+**Rationale:** The nav item must be built inside _render_page where active_page is in scope, so the active CSS class can be set correctly without relying on a second substitution pass.
+**Findings:** When meta is None or has zero events/sources, the Scraped calendars nav item is completely omitted from the rendered HTML so no broken link is present.
+LESSONS: The replacement dict is applied in a single pass, so any placeholders inside a substituted value are not expanded again — build the full nav item string including icon and active class in Python, not in the template.
+**Files:** tournament_scheduler/html/html_exporter.py (+8/-1), tournament_scheduler/html/templates/navbar.html (+1/-1)
 **Commit:** [pending — fill after commit]
