@@ -532,7 +532,7 @@ class HtmlExporter:
         )
         rule_transparency_html = fairness_gate_html + fairness_adjustments_html
         advisory_html = review_summary_html + judgment_html
-        diagnostics_html = team_stats_html + travel_stats_html + heatmap_html
+        diagnostics_html = team_stats_html + travel_stats_html
 
         replacements = {
             "$REPORT_STATUS$": overall_status,
@@ -547,6 +547,7 @@ class HtmlExporter:
             "$REPORT_ADVISORY$": advisory_html,
             "$REPORT_TOURNAMENT_TABLE$": tournament_table,
             "$REPORT_DIAGNOSTICS$": diagnostics_html,
+            "$REPORT_HEATMAP$": heatmap_html,
         }
         html = REPORT_OVERVIEW
         for marker, value in replacements.items():
