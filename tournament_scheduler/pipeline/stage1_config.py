@@ -166,7 +166,6 @@ def run(
     config = _parse_config(raw, input_path)
 
     state.write_stage(StageName.CONFIG, config, status=StageStatus.DONE)
-    state.mark_done(StageName.CONFIG)
     return config
 
 
