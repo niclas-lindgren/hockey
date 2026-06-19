@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/pipeline/stage2_scraping.py, tournament_scheduler/pipeline/state.py
   - Approach: Replace line 113's `state.write_stage(StageName.SCRAPING, {}, status=StageStatus.RUNNING)` with `state._set_status(StageName.SCRAPING, StageStatus.RUNNING)` so the RUNNING marker patches only the status field of the existing checkpoint without overwriting the data payload; add a `_set_status` call to `PipelineState` that creates a minimal envelope if no file exists yet.
 
-- [ ] Add regression test: interrupted run leaves checkpoint readable on resume
+- [x] Added TestCheckpointPreservationOnResume with two tests: one verifying that a prior checkpoint's data is preserved when resuming, and one verifying the fresh-run (no prior checkpoint) scenario still works correctly. — 2026-06-19
   - Files: tests/test_stage2_scraping.py
   - Approach: Write a test that (1) calls `state.write_stage(SCRAPING, existing_data, DONE)` to simulate a prior completed checkpoint, (2) then calls `run()` with a mock that raises mid-scrape to simulate interruption, (3) asserts the checkpoint still contains `existing_data` (not an empty dict) and is not left with `status=running` after the re-run completes successfully from cache.
 
@@ -37,4 +37,11 @@ Root cause: `stage2_scraping.py` line 113 calls `state.write_stage(StageName.SCR
 **Findings:** One-line change: _set_status(RUNNING) instead of write_stage({}, RUNNING). All tests pass.
 LESSONS: none
 **Files:** stage2_scraping.py (+1/-1)
+**Commit:** 7840d3a (hockey)
+
+### 2026-06-19 — Added TestCheckpointPreservationOnResume with two tests: one verifying that a prior checkpoint's data is preserved when resuming, and one verifying the fresh-run (no prior checkpoint) scenario still works correctly.
+**Rationale:** Both tests run against real PipelineState and a seeded cache to isolate just the _set_status change without triggering live scrapers.
+**Findings:** Both tests pass; no regressions in the full suite.
+LESSONS: none
+**Files:** tests/test_stage2_scraping.py (+96)
 **Commit:** [pending — fill after commit]

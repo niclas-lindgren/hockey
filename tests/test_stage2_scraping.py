@@ -696,6 +696,102 @@ class TestCheckpointDateRangeFields:
         assert result["end_date"] == "2026-06-30"
 
 
+class TestCheckpointPreservationOnResume:
+    """Regression tests for the RUNNING marker overwriting existing checkpoint data."""
+
+    def test_interrupted_run_preserves_existing_data_on_resume(self, tmp_path):
+        """When a prior completed checkpoint exists and a new run is interrupted
+        mid-scrape, the checkpoint must still contain the existing data — not an
+        empty dict — and must not be left with status=running after a successful
+        re-run from cache."""
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+
+        # Simulate a prior completed scrape checkpoint
+        existing_data = {
+            "sources": [{"name": "Kongsberg", "events": [], "event_count": 0, "blocked": False}],
+            "events_by_club": {},
+            "blocked": [],
+            "cached": [],
+            "start_date": "2025-09-01",
+            "end_date": "2025-12-01",
+        }
+        from tournament_scheduler.pipeline.state import StageStatus
+        state.write_stage(StageName.SCRAPING, existing_data, status=StageStatus.DONE)
+
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_ICAL, "url": "https://example.com/cal"},
+        ])
+
+        # Seed fresh cache so the run completes without scraping
+        from tournament_scheduler.pipeline.cache_manager import ScrapedDataCache
+        cache = ScrapedDataCache(work_dir=work_dir)
+        cached_events = _events_to_dicts([_make_event("Practice")])
+        cache.write({
+            "_meta": {
+                "updated_at": datetime.now().isoformat(),
+                "ttl_hours": 6,
+                "start_date": cfg["start_date"],
+                "end_date": cfg["end_date"],
+            },
+            "sources": {
+                "Kongsberg": {
+                    "name": "Kongsberg",
+                    "url": "https://example.com/cal",
+                    "scrape_timestamp": datetime.now().isoformat(),
+                    "ttl_hours": 6,
+                    "event_count": 1,
+                    "blocked": False,
+                    "events": cached_events,
+                },
+            },
+            "source_count": 1,
+            "total_events": 1,
+        })
+
+        run(
+            cfg, state,
+            datetime(2025, 9, 1), datetime(2025, 12, 1),
+            strict=False,
+        )
+
+        # After a successful run the checkpoint must not be left as running
+        assert state.is_done(StageName.SCRAPING), "Checkpoint must be DONE after successful run"
+        envelope = state.read_envelope(StageName.SCRAPING)
+        assert envelope["data"] != {}, "Checkpoint data must not be empty after resume"
+        assert "sources" in envelope["data"], "Checkpoint data must contain 'sources'"
+
+    def test_fresh_run_with_no_prior_checkpoint_works_correctly(self, tmp_path):
+        """When no prior checkpoint exists, _set_status creates a minimal RUNNING
+        envelope and the final write_stage overwrites it with full data and DONE status."""
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+
+        # Verify no checkpoint exists before the run
+        assert not state.checkpoint_path(StageName.SCRAPING).exists()
+
+        cfg = _make_config_with_sources([
+            {"name": "Skien", "type": SOURCE_ICAL, "url": "https://skien.example.com/ical"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[_make_event("Ice time")],
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+            )
+
+        # Checkpoint file must exist, be DONE, and have full data
+        assert state.checkpoint_path(StageName.SCRAPING).exists()
+        assert state.is_done(StageName.SCRAPING), "Fresh run must leave checkpoint as DONE"
+        assert result["sources"][0]["event_count"] == 1
+        envelope = state.read_envelope(StageName.SCRAPING)
+        assert envelope["data"] != {}, "Fresh run checkpoint data must not be empty"
+        assert envelope["data"]["sources"][0]["name"] == "Skien"
+
+
 class TestHarnessGate:
     """_check_stage2_checkpoint must proceed without calling any LLM."""
 
