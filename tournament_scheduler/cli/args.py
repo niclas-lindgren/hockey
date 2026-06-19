@@ -399,4 +399,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline work directory (default: .pipeline)",
     )
 
+    # auto-adjust
+    auto_adjust = sub.add_parser(
+        "auto-adjust",
+        help=(
+            "Automatically apply auto-fixable critic issues (arena-day collisions, "
+            "hosting clumps) in a loop until resolved or max iterations reached"
+        ),
+    )
+    auto_adjust.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    auto_adjust.add_argument(
+        "--export-dir",
+        default="export",
+        help="Export output directory (default: export)",
+    )
+    auto_adjust.add_argument(
+        "--max-iterations",
+        type=int,
+        default=3,
+        help="Maximum number of adjustment iterations (default: 3)",
+    )
+    auto_adjust.add_argument(
+        "--timestamped-export",
+        action="store_true",
+        default=False,
+        help="Add timestamp suffix to export filenames",
+    )
+
     return parser

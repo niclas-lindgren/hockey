@@ -10,7 +10,7 @@
   - Files: tournament_scheduler/cli/plan_critic.py
   - Approach: Add a `suggest_moves(plan: SeasonPlan, issues: List[str]) -> List[dict]` function that maps each critic issue string to a concrete replan proposal dict with keys `tournament_id`, `new_date`, `reason`, `can_auto_fix` (bool). Arena-day collisions and hosting clumps are auto-fixable (shift tournament by one week); fairness-gate FAILs requiring club-preference knowledge set `can_auto_fix=False`.
 
-- [ ] Add harness adjustment loop runner
+- [x] Added auto-adjust subcommand to args.py and _cmd_auto_adjust handler to rvv_cli.py; the handler loads Stage 3 checkpoint, runs plan critic, translates auto-fixable moves via suggest_moves, applies each via _cmd_replan, and loops until clean or max-iterations reached. — 2026-06-19
   - Files: tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/cli/args.py
   - Approach: Add a new `auto-adjust` CLI subcommand to `args.py` (with `--max-iterations` int defaulting to 3, `--work-dir`, `--export-dir`, `--timestamped-export`) and a `_cmd_auto_adjust(args)` handler in `rvv_cli.py` that loads the Stage 3 checkpoint, calls `generate_critic_summary`, translates issues to moves via `suggest_moves`, and applies each auto-fixable move by invoking `_cmd_replan` internally with the proposed arguments, then re-evaluates.
 
@@ -42,4 +42,11 @@
 **Findings:** suggest_moves resolved collisions and clumps to tournament IDs via arena/date and host/month lookups respectively; fairness/spread/balance issues flagged as manual-review.
 LESSONS: none
 **Files:** tournament_scheduler/cli/plan_critic.py (+208/-1)
+**Commit:** fb1d5ad (hockey)
+
+### 2026-06-19 — Added auto-adjust subcommand to args.py and _cmd_auto_adjust handler to rvv_cli.py; the handler loads Stage 3 checkpoint, runs plan critic, translates auto-fixable moves via suggest_moves, applies each via _cmd_replan, and loops until clean or max-iterations reached.
+**Rationale:** Used a synthetic argparse.Namespace to call _cmd_replan internally without spawning a subprocess; forceTrue skips conflict prompts during automated fixes.
+**Findings:** Deduplication of manual-review issues across iterations prevents duplicate output when the same non-fixable metric recurs.
+LESSONS: none
+**Files:** tournament_scheduler/cli/rvv_cli.py (+120), tournament_scheduler/cli/args.py (+31)
 **Commit:** [pending — fill after commit]

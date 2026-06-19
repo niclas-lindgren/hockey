@@ -463,6 +463,124 @@ def _cmd_critic(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_auto_adjust(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt auto-adjust`` — automated adjustment loop.
+
+    Loads the Stage 3 checkpoint, runs the plan critic, translates auto-fixable
+    issues to concrete moves via ``suggest_moves``, applies each move by
+    calling ``_cmd_replan`` internally, and re-evaluates.  Repeats until either
+    all auto-fixable issues are resolved or ``--max-iterations`` is reached.
+    Non-auto-fixable issues are printed as manual-review items at the end.
+    """
+    from ..pipeline.state import PipelineState, StageName
+    from .plan_critic import generate_critic_summary, suggest_moves
+
+    state = PipelineState(args.work_dir)
+    max_iter = getattr(args, "max_iterations", 3)
+
+    _console.print(
+        f"[bold cyan]Auto-adjust:[/bold cyan] starter justeringsløkke "
+        f"(max {max_iter} iterasjoner)…"
+    )
+
+    applied_total = 0
+    manual_issues: list = []
+
+    for iteration in range(1, max_iter + 1):
+        plan_checkpoint = state.read_stage(StageName.PLANNING)
+        if not plan_checkpoint:
+            _console.print(
+                f"[red]✗[/red] Ingen Stage 3-checkpoint funnet i '{args.work_dir}'. "
+                "Kjør ``rvv-miniputt run`` først."
+            )
+            return 1
+
+        season_plan = plan_checkpoint.get("plan") if isinstance(plan_checkpoint, dict) else None
+        if season_plan is None:
+            _console.print("[red]✗[/red] Stage 3-checkpoint mangler 'plan'-nøkkelen.")
+            return 1
+
+        issues = generate_critic_summary(season_plan)
+        if not issues:
+            _console.print(
+                f"[green]✓[/green] Ingen problemer funnet etter {iteration - 1} iterasjon(er)."
+            )
+            break
+
+        moves = suggest_moves(season_plan, issues)
+        auto_moves = [m for m in moves if m["can_auto_fix"] and m["tournament_id"]]
+        manual_moves = [m for m in moves if not m["can_auto_fix"]]
+
+        # Collect manual-review issues (deduplicated)
+        for m in manual_moves:
+            if m["issue"] not in [mi["issue"] for mi in manual_issues]:
+                manual_issues.append(m)
+
+        if not auto_moves:
+            _console.print(
+                f"[yellow]![/yellow] Iterasjon {iteration}: ingen auto-fikserbare problemer gjenstår."
+            )
+            break
+
+        _console.print(
+            f"\n[bold]Iterasjon {iteration}/{max_iter}[/bold] — "
+            f"{len(issues)} problem(er) funnet, {len(auto_moves)} auto-fikserbar(e):"
+        )
+
+        applied_this_iter = 0
+        for move in auto_moves:
+            tid = move["tournament_id"]
+            new_date = move["new_date"]
+            reason = move["reason"]
+
+            _console.print(f"  [cyan]→[/cyan] Turneringsid {tid}: flyttes til {new_date}")
+            _console.print(f"    [dim]{reason}[/dim]")
+
+            # Build a synthetic Namespace matching what _cmd_replan expects
+            replan_args = argparse.Namespace(
+                tournament_id=tid,
+                new_date=new_date,
+                suggest=False,
+                reason=reason,
+                force=True,
+                work_dir=args.work_dir,
+                export_dir=args.export_dir,
+                timestamped_export=getattr(args, "timestamped_export", False),
+            )
+            rc = _cmd_replan(replan_args)
+            if rc == 0:
+                applied_this_iter += 1
+                applied_total += 1
+            else:
+                _console.print(
+                    f"  [red]✗[/red] Kunne ikke flytte {tid} — hopper over."
+                )
+
+        if applied_this_iter == 0:
+            _console.print(
+                "[yellow]![/yellow] Ingen endringer ble brukt i denne iterasjonen — avbryter."
+            )
+            break
+    else:
+        _console.print(
+            f"[yellow]![/yellow] Maks iterasjoner ({max_iter}) nådd — "
+            "noen problemer kan gjenstå."
+        )
+
+    # Summary
+    _console.print(f"\n[bold]Auto-adjust ferdig:[/bold] {applied_total} endring(er) brukt totalt.")
+
+    if manual_issues:
+        _console.print(
+            "\n[bold yellow]Problemer som krever manuell gjennomgang:[/bold yellow]"
+        )
+        for mi in manual_issues:
+            _console.print(f"  [yellow]•[/yellow] {mi['issue']}")
+            _console.print(f"    [dim]{mi['reason']}[/dim]")
+
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -501,6 +619,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_recovery_inject(args)
     elif args.command == "critic":
         return _cmd_critic(args)
+    elif args.command == "auto-adjust":
+        return _cmd_auto_adjust(args)
     else:
         parser.print_help()
         return 0
