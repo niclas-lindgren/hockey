@@ -8,7 +8,7 @@
 - [x] Replace silent date.today() fallback with ValueError raise in _dict_to_plan — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage4_helpers.py
   - Approach: On line 41, change `tournament_date = date.fromisoformat(date_str) if date_str else date.today()` to raise a `ValueError` with a descriptive message (e.g. "Tournament date is required but missing or empty") when `date_str` is falsy.
-- [ ] Add a test asserting ValueError is raised when tournament date is missing
+- [x] Add two tests asserting ValueError is raised when tournament date is missing or empty — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tests/test_stage4_export.py
   - Approach: Add a new test that calls `_dict_to_plan` with a tournament dict where the `"date"` key is absent or empty, and asserts `pytest.raises(ValueError)` with a message containing "date".
 - [ ] Audit existing tests that call _dict_to_plan and fix any that omit the date field
@@ -35,4 +35,11 @@ The silent default is at stage4_helpers.py line 41. Callers in stage4_export.py 
 **Findings:** Changed line 41 of stage4_helpers.py to raise ValueError when date_str is falsy; existing tests pass (the test_review_command_applies_change_request_and_reexports failure pre-exists)
 LESSONS: none
 **Files:** stage4_helpers.py (+3/-1)
+**Commit:** a7644f0 (hockey)
+
+### 2026-06-19 — Add two tests asserting ValueError is raised when tournament date is missing or empty
+**Rationale:** Two tests cover both absence and empty string; both pass
+**Findings:** Added test_raises_on_missing_tournament_date and test_raises_on_empty_tournament_date to TestDictToPlan; all 5 tests in class pass
+LESSONS: none
+**Files:** tests/test_stage4_export.py (+12/-0)
 **Commit:** [pending — fill after commit]

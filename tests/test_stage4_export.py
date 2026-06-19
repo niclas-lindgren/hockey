@@ -176,6 +176,18 @@ class TestDictToPlan:
         plan = _dict_to_plan(plan_dict)
         assert plan.start_date is None
 
+    def test_raises_on_missing_tournament_date(self):
+        plan_dict = _make_plan_dict()["plan"]
+        plan_dict["tournaments"][0].pop("date")
+        with pytest.raises(ValueError, match="date"):
+            _dict_to_plan(plan_dict)
+
+    def test_raises_on_empty_tournament_date(self):
+        plan_dict = _make_plan_dict()["plan"]
+        plan_dict["tournaments"][0]["date"] = ""
+        with pytest.raises(ValueError, match="date"):
+            _dict_to_plan(plan_dict)
+
 
 class TestRunStage4:
     def test_produces_excel_file(self, tmp_path):
