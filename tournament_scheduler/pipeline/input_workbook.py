@@ -7,6 +7,7 @@ validation and downstream stages already understand.
 
 from __future__ import annotations
 
+import warnings
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Iterable
@@ -31,6 +32,8 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
     - ``Innstillinger``: columns ``felt`` and ``verdi`` for scalar settings.
       Tournament-participation target can be set as ``deltakelser_per_lag``
       (preferred) or the legacy ``target_tournament_count``.
+      Optional ``vekt_cap`` (float, default 10.0) sets the absolute cap for
+      preference-weight values; exceeded values trigger a :class:`UserWarning`.
     - ``Aldersgrupper``: columns ``age_group``, ``parallel_games``, optional
       ``round_length_minutes``, optional ``preferanse_vekt`` (float, default 0.0).
     - ``Lag``: columns ``club``, ``label``, ``age_group``.
@@ -53,8 +56,14 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
     raw: dict[str, Any] = {}
     raw.update(_read_settings(wb["Innstillinger"]))
 
+    # Configurable absolute cap on vekt values (default 10.0).
+    # Prevents runaway weights from dominating the scoring function.
+    vekt_cap: float = float(raw.pop("vekt_cap", 10.0))
+
     if "Aldersgrupper" in wb.sheetnames:
-        age_groups, parallel_games, round_lengths, pref_weights = _read_age_groups(wb["Aldersgrupper"])
+        age_groups, parallel_games, round_lengths, pref_weights = _read_age_groups(
+            wb["Aldersgrupper"], vekt_cap=vekt_cap
+        )
         if age_groups:
             raw["age_groups"] = age_groups
         if parallel_games:
@@ -79,18 +88,19 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
             raw["sources"] = sources
 
     if "Datopreferanser" in wb.sheetnames:
-        date_prefs = _parse_datopreferanser(wb["Datopreferanser"])
+        date_prefs = _parse_datopreferanser(wb["Datopreferanser"], vekt_cap=vekt_cap)
         if date_prefs:
             raw["datopreferanser"] = date_prefs
 
     return raw
 
 
-def _parse_datopreferanser(ws: Worksheet) -> list[DatePreference]:
+def _parse_datopreferanser(ws: Worksheet, *, vekt_cap: float = 10.0) -> list[DatePreference]:
     """Parse the ``Datopreferanser`` sheet into a list of :class:`DatePreference`.
 
     Expected columns: ``fra`` (date), ``til`` (date), ``vekt`` (float).
     Rows missing ``fra`` or ``til`` are skipped; ``vekt`` defaults to 0.0.
+    Emits a :class:`UserWarning` when ``abs(vekt) > vekt_cap``.
     """
     prefs: list[DatePreference] = []
     for row in _rows_as_dicts(ws):
@@ -105,6 +115,13 @@ def _parse_datopreferanser(ws: Worksheet) -> list[DatePreference]:
             continue
         vekt_raw = row.get("vekt")
         vekt = float(vekt_raw) if vekt_raw not in (None, "") else 0.0
+        if abs(vekt) > vekt_cap:
+            warnings.warn(
+                f"Datopreferanser: vekt={vekt:.2f} for perioden {fra_val}–{til_val} "
+                f"overskrider grensen ±{vekt_cap:.2f}. Verdien blir ikke automatisk begrenset her.",
+                UserWarning,
+                stacklevel=3,
+            )
         prefs.append(DatePreference(fra=fra_val, til=til_val, vekt=vekt))
     return prefs
 
@@ -140,6 +157,8 @@ def _read_settings(ws: Worksheet) -> dict[str, Any]:
 
 def _read_age_groups(
     ws: Worksheet,
+    *,
+    vekt_cap: float = 10.0,
 ) -> tuple[list[str], dict[str, int], dict[str, int], dict[str, float]]:
     age_groups: list[str] = []
     parallel_games: dict[str, int] = {}
@@ -155,7 +174,15 @@ def _read_age_groups(
         if row.get("round_length_minutes") not in (None, ""):
             round_lengths[age_group] = int(row["round_length_minutes"])
         if row.get("preferanse_vekt") not in (None, ""):
-            preferanse_vekt[age_group] = float(row["preferanse_vekt"])
+            vekt = float(row["preferanse_vekt"])
+            if abs(vekt) > vekt_cap:
+                warnings.warn(
+                    f"Aldersgrupper: preferanse_vekt for '{age_group}' er {vekt:.2f}, "
+                    f"som overskrider grensen ±{vekt_cap:.2f}. Verdien blir ikke automatisk begrenset her.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+            preferanse_vekt[age_group] = vekt
     return age_groups, parallel_games, round_lengths, preferanse_vekt
 
 

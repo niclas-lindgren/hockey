@@ -21,7 +21,7 @@
   - Files: tournament_scheduler/season_planner.py
   - Approach: Extend `_score_candidate_date` to accept `tournament_weight: float = 0.0` and `date_preferences: list[DatePreference] = []`; sum any DatePreference whose fra–til range contains `candidate_date`, add both to the return value (positive = penalise, negative = reward), and cap magnitude at `max(abs(repeat_penalty), abs(month_penalty)) * 2` before adding.
 
-- [ ] Cap weight magnitude and emit warnings for excessive weights
+- [x] Added vekt_cap (configurable via Innstillinger, default 10.0) to input_workbook.py; both _read_age_groups and _parse_datopreferanser emit UserWarning when abs(vekt) exceeds the cap. — 2026-06-19
   - Files: tournament_scheduler/season_planner.py, tournament_scheduler/pipeline/input_workbook.py
   - Approach: In `input_workbook.py`, validate parsed vekt values against a configurable cap (read from Innstillinger sheet, default 1.0× cap multiplier) and log a warning for any value that would exceed ±2× max organic penalty; in `season_planner.py` enforce the same cap silently so runaway weights cannot dominate scoring.
 
@@ -77,4 +77,11 @@ LESSONS: none
 **Findings:** All season_planner and models tests pass (88 collected).
 LESSONS: When both repeat_penalty and month_penalty are 0.0 (early scheduling), the cap is also 0 and raw_weight passes uncapped. This is safe since there are no structural constraints to override, but note the asymmetry.
 **Files:** tournament_scheduler/season_planner.py (+25/-1), tournament_scheduler/participant_selection.py (+3/-1)
+**Commit:** d706079 (hockey)
+
+### 2026-06-19 — Added vekt_cap (configurable via Innstillinger, default 10.0) to input_workbook.py; both _read_age_groups and _parse_datopreferanser emit UserWarning when abs(vekt) exceeds the cap.
+**Rationale:** The runtime 2x organic cap in _score_candidate_date handles enforcement; the parse-time warning just alerts the user early so they can fix input data before the plan run.
+**Findings:** All 88 targeted tests pass; no regressions.
+LESSONS: vekt_cap is popped from the raw config dict to prevent it from leaking into downstream pipeline stages as an unrecognised setting.
+**Files:** tournament_scheduler/pipeline/input_workbook.py (+31/-4)
 **Commit:** [pending — fill after commit]
