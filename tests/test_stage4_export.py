@@ -10,6 +10,7 @@ import pytest
 
 from tournament_scheduler.html.html_exporter import HtmlExporter
 from tournament_scheduler.models import Game, Roster, SeasonPlan, Team, Tournament
+from tournament_scheduler.pipeline.cache_manager import ScrapedDataCache
 from tournament_scheduler.pipeline.stage4_export import Stage4Error, _dict_to_plan, run
 from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
 
@@ -557,6 +558,46 @@ class TestRunStage4:
         assert "Svakeste metrikk: Hjemmebanebelastning" in report_html
         # Hero pill must show the issue count: gate warn (1) + 2 metric warnings (2) + missing hosts (1) = 4.
         assert "4 punkt(er)" in report_html
+
+    def test_calendars_html_generated_when_scrape_cache_populated(self, tmp_path):
+        """stage4 should write calendars.html when the scrape cache contains events."""
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        # Populate scrape cache so generate_html has data to render
+        cache = ScrapedDataCache(str(work_dir))
+        cache.write({
+            "_meta": {
+                "source_count": 1,
+                "total_events": 2,
+                "updated_at": "2025-01-01T00:00:00",
+            },
+            "sources": {
+                "TestClub": {
+                    "events": [
+                        {"date": "05.10.2025", "title": "Test", "source": "TestClub", "url": ""},
+                    ],
+                    "scrape_timestamp": "2025-01-01T00:00:00",
+                }
+            },
+        })
+        export_dir = tmp_path / "export"
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir))
+        files = result.get("output_files", {})
+        assert "calendars_html" in files
+        assert Path(files["calendars_html"]).exists()
+
+    def test_calendars_html_absent_and_nav_link_hidden_when_no_scrape_cache(self, tmp_path):
+        """When no scrape cache exists, calendars.html should not be generated and the navbar link should be hidden."""
+        state = PipelineState(tmp_path / "pipeline")
+        export_dir = tmp_path / "export"
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir))
+        files = result.get("output_files", {})
+        assert "calendars_html" not in files
+        calendars_path = export_dir / "calendars.html"
+        assert not calendars_path.exists()
+        html_path = Path(files["html"])
+        html = html_path.read_text(encoding="utf-8")
+        assert "Skrapede kalendere" not in html
 
     def test_conclusion_injects_blocked_count(self, tmp_path):
         """Conclusion must include blocked source count when blocked sources exist."""

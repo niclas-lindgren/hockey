@@ -234,14 +234,16 @@ def run(
         errors.append(f"Review-pakker feilet: {exc}")
 
     # --- Calendar viewer (calendars.html) ---
-    try:
-        _generate_calendars_html(
-            work_dir=str(state.work_dir),
-            export_dir=str(primary_export_path),
-        )
-        output_files["calendars_html"] = str(primary_export_path / "calendars.html")
-    except Exception as exc:  # noqa: BLE001
-        errors.append(f"Kalendervisning feilet: {exc}")
+    # Only generate when scrape data exists — without it the file would be empty and the navbar link would be broken.
+    if meta is not None and (meta.get("total_events", 0) > 0 or meta.get("source_count", 0) > 0):
+        try:
+            _generate_calendars_html(
+                work_dir=str(state.work_dir),
+                export_dir=str(primary_export_path),
+            )
+            output_files["calendars_html"] = str(primary_export_path / "calendars.html")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"Kalendervisning feilet: {exc}")
 
     checkpoint: dict[str, Any] = {
         "output_files": output_files,

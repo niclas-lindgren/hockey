@@ -14,7 +14,7 @@
   - Files: tournament_scheduler/html/html_exporter.py, tournament_scheduler/html/templates/navbar.html
   - Approach: In `html_exporter.py`, check whether the scraped data cache (`.pipeline/stage2_scraping.json` or the ScrapedDataCache) has any events before setting `calendars_href`; if no data is available, set `calendars_href` to an empty string and update `navbar.html` to hide the `<a>` element when `$CALENDARS_HREF$` is empty (e.g., wrap in an `{% if %}` or use a CSS `hidden` class injected from the exporter).
 
-- [ ] Update stage4_export tests to assert calendars.html is generated
+- [x] Added two tests: one verifies calendars.html is created and output_files["calendars_html"] is set when the scrape cache contains events; the other verifies calendars.html is absent and the navbar link is hidden when no cache exists. Also guarded the _generate_calendars_html call in stage4_export.run() to skip when meta has no data. — 2026-06-19
   - Files: tests/test_stage4_export.py
   - Approach: Add a test that runs `stage4_export.run()` against a fixture with a populated scrape cache and asserts that `calendars.html` is created in the export directory; add a second test that runs with no cache and asserts `calendars.html` is absent and the navbar link is not present in `season_plan.html`.
 
@@ -57,4 +57,11 @@ LESSONS: none
 **Findings:** When meta is None or has zero events/sources, the Scraped calendars nav item is completely omitted from the rendered HTML so no broken link is present.
 LESSONS: The replacement dict is applied in a single pass, so any placeholders inside a substituted value are not expanded again — build the full nav item string including icon and active class in Python, not in the template.
 **Files:** tournament_scheduler/html/html_exporter.py (+8/-1), tournament_scheduler/html/templates/navbar.html (+1/-1)
+**Commit:** 7059707 (hockey)
+
+### 2026-06-19 — Added two tests: one verifies calendars.html is created and output_files["calendars_html"] is set when the scrape cache contains events; the other verifies calendars.html is absent and the navbar link is hidden when no cache exists. Also guarded the _generate_calendars_html call in stage4_export.run() to skip when meta has no data.
+**Rationale:** generate_html always succeeds even with empty data — it generates a blank HTML page without raising an exception. The guard in stage4_export.run() must check meta before calling it, mirroring the navbar visibility check in html_exporter.py.
+**Findings:** Both new tests pass. The guard condition prevents an empty/useless calendars.html from being written when there is no scrape data.
+LESSONS: calendar_viewer.generate_html() never raises on empty cache — it renders an empty page. Always guard the call site with a scrape-data presence check before invoking it.
+**Files:** tests/test_stage4_export.py (+41/-0), tournament_scheduler/pipeline/stage4_export.py (+12/-5)
 **Commit:** [pending — fill after commit]
