@@ -258,9 +258,15 @@ def _scrape_source(
 ) -> dict[str, Any]:
     """Scrape a single source deterministically.
 
-    ``outlook`` / ``html`` sources are scraped via Playwright by loading the
-    URL and extracting events from the Outlook Web Calendar iframe (if present).
-    ``ical`` / ``google`` sources use the HTTP-based iCal scraper directly.
+    Dispatch is driven by the :class:`~scraper_strategies.CalendarEngine`
+    declared in ``STRATEGIES`` via :func:`~scraper_strategies.get_deterministic_scraper_type`:
+
+    * ``"styledcalendar"`` (e.g. Bærum/Jutul) — calls ``_run_styledcalendar_scraper``
+    * ``"bookup"``         (e.g. Tønsberg, Sandefjord) — calls ``_run_bookup_scraper``
+    * sources not in ``STRATEGIES`` fall back to ``source_type``-based routing:
+
+      * ``outlook`` / ``html`` — Playwright Outlook-iframe scraper
+      * ``ical`` / ``google``  — HTTP iCal scraper
 
     If the deterministic scrape returns zero events and the source strategy
     requires credentials, the function automatically retries with environment-

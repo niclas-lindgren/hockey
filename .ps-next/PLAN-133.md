@@ -27,7 +27,7 @@
   - Files: `tests/test_scraper_strategies.py`
   - Approach: Create or extend `tests/test_scraper_strategies.py` with parametrised pytest cases that call `get_deterministic_scraper_type(strategy)` for each `CalendarEngine` variant and assert the returned string matches expectations. Cover at minimum `STYLED_CALENDAR`, `BOOKUP_SPA`, `OUTLOOK_IFRAME`, `TEAMUP_ICAL`, and `GENERIC_ICAL`.
 
-- [ ] Update docstring in `stage2_scraping._scrape_source` to reflect new dispatch path
+- [x] Rewrote the _scrape_source docstring to document the strategy-driven dispatch hierarchy with concrete scraper-type tokens and example clubs for each engine. — 2026-06-19
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`
   - Approach: Rewrite the function docstring to state that special-case dispatch (StyledCalendar, Bookup) is now driven by the `ScraperStrategy.engine` field looked up via `get_deterministic_scraper_type`, rather than by URL substring checks. Remove or update any inline comments that reference the old `"baerumishall.no" in url` pattern.
 
@@ -73,4 +73,11 @@ LESSONS: none
 **Findings:** All 9 tests pass.
 LESSONS: none
 **Files:** test_scraper_strategies.py (+43/-0)
+**Commit:** 13b4348 (hockey)
+
+### 2026-06-19 — Rewrote the _scrape_source docstring to document the strategy-driven dispatch hierarchy with concrete scraper-type tokens and example clubs for each engine.
+**Rationale:** Documented both the strategy-based fast path and the source_type fallback path clearly in the docstring.
+**Findings:** All 30 stage2 tests still pass.
+LESSONS: none
+**Files:** stage2_scraping.py (+9/-3)
 **Commit:** [pending — fill after commit]
