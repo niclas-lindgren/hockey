@@ -197,11 +197,13 @@ def _parse_date(value: Any, field: str, errors: list[str]) -> date | None:
 def _validate_team_list(teams: list[Any]) -> list[str]:
     errors: list[str] = []
     required_keys = {"club", "label", "age_group"}
+    valid_teams: list[tuple[int, dict[str, Any]]] = []  # (1-based index, team dict)
     for i, team in enumerate(teams):
         prefix = f"Lag #{i + 1}"
         if not isinstance(team, dict):
             errors.append(f"{prefix}: forventet et objekt, fikk {type(team).__name__!r}.")
             continue
+        valid_teams.append((i + 1, team))
         missing = required_keys - team.keys()
         if missing:
             errors.append(
@@ -215,6 +217,18 @@ def _validate_team_list(teams: list[Any]) -> list[str]:
             errors.append(
                 f"{prefix} ('{team.get('label', '?')}'): ukjent aldersgruppe '{ag}'. "
                 f"Gyldige verdier: {valid}."
+            )
+    # Detect duplicate labels
+    label_to_indices: dict[str, list[int]] = {}
+    for idx, team in valid_teams:
+        label = team.get("label")
+        if label is not None:
+            label_to_indices.setdefault(label, []).append(idx)
+    for label, indices in label_to_indices.items():
+        if len(indices) > 1:
+            lag_liste = " og ".join(f"Lag #{n}" for n in indices)
+            errors.append(
+                f"duplikat 'label': {lag_liste} har samme etikett '{label}'."
             )
     return errors
 
