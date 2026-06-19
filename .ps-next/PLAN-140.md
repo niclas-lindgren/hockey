@@ -25,7 +25,7 @@
   - Files: tournament_scheduler/season_planner.py, tournament_scheduler/pipeline/input_workbook.py
   - Approach: In `input_workbook.py`, validate parsed vekt values against a configurable cap (read from Innstillinger sheet, default 1.0× cap multiplier) and log a warning for any value that would exceed ±2× max organic penalty; in `season_planner.py` enforce the same cap silently so runaway weights cannot dominate scoring.
 
-- [ ] Expose weight components in plan JSON checkpoint
+- [x] Added scoring_weight_term to Tournament and date_preference_weights to SeasonPlan; both are populated during build_plan and serialized/deserialized in stage3_helpers.py. — 2026-06-19
   - Files: tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/models.py
   - Approach: Add `date_preference_weights: List[Dict]` to SeasonPlan and a `scoring_weight_term: float` field to Tournament; populate both during planning, then serialize them in `_plan_to_dict` alongside the existing `diversity_score` and `month_balance_score` fields.
 
@@ -84,4 +84,11 @@ LESSONS: When both repeat_penalty and month_penalty are 0.0 (early scheduling), 
 **Findings:** All 88 targeted tests pass; no regressions.
 LESSONS: vekt_cap is popped from the raw config dict to prevent it from leaking into downstream pipeline stages as an unrecognised setting.
 **Files:** tournament_scheduler/pipeline/input_workbook.py (+31/-4)
+**Commit:** 74c4635 (hockey)
+
+### 2026-06-19 — Added scoring_weight_term to Tournament and date_preference_weights to SeasonPlan; both are populated during build_plan and serialized/deserialized in stage3_helpers.py.
+**Rationale:** scoring_weight_term stores the raw (uncapped) combined weight for transparency; the cap is still enforced at date-selection time in _score_candidate_date.
+**Findings:** All 88 targeted tests pass.
+LESSONS: none
+**Files:** tournament_scheduler/models.py (+5/-0), tournament_scheduler/pipeline/stage3_helpers.py (+8/-0), tournament_scheduler/season_planner.py (+11/-0)
 **Commit:** [pending — fill after commit]

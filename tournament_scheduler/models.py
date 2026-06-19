@@ -157,6 +157,7 @@ class Tournament:
     cancellation_reason: Optional[str] = None
     start_time: Optional[str] = None  # HH:MM string, e.g. "09:00"
     preferanse_vekt: float = 0.0  # subjective preference weight (0.0 = neutral, >0 preferred, <0 avoid)
+    scoring_weight_term: float = 0.0  # capped subjective weight term actually applied during scoring
 
     def duration_minutes(self, round_length: int) -> int:
         """Return the total tournament play time in minutes.
@@ -269,6 +270,10 @@ class SeasonPlan:
     # assigning hosts. Each entry is a small dict with date/arena/age-group
     # details for reporting.
     arena_day_collisions: List[Dict[str, str]] = field(default_factory=list)
+    # Global date-range preferences that were active during planning.
+    # Each entry mirrors a DatePreference: {"fra": ISO date, "til": ISO date, "vekt": float}.
+    # Populated from the Datopreferanser sheet; empty when no preferences were configured.
+    date_preference_weights: List[Dict[str, object]] = field(default_factory=list)
 
 
 # Mapping of age groups whose player pools are known to overlap (e.g. a player

@@ -43,6 +43,10 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
         if t.cancelled:
             d["cancelled"] = True
             d["cancellation_reason"] = t.cancellation_reason
+        if t.preferanse_vekt != 0.0:
+            d["preferanse_vekt"] = t.preferanse_vekt
+        if t.scoring_weight_term != 0.0:
+            d["scoring_weight_term"] = t.scoring_weight_term
         return d
 
     # Compute per-team tournament participation counts from the tournament list
@@ -71,6 +75,8 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
     }
     if plan.manual_adjustments:
         checkpoint["manual_adjustments"] = plan.manual_adjustments
+    if plan.date_preference_weights:
+        checkpoint["date_preference_weights"] = list(plan.date_preference_weights)
     return checkpoint
 
 
@@ -221,6 +227,8 @@ def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
         cancelled=bool(data.get("cancelled", False)),
         cancellation_reason=data.get("cancellation_reason"),
         start_time=data.get("start_time"),
+        preferanse_vekt=float(data.get("preferanse_vekt", 0.0)),
+        scoring_weight_term=float(data.get("scoring_weight_term", 0.0)),
     )
 
 

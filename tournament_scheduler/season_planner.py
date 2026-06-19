@@ -242,6 +242,10 @@ class SeasonPlanner:
                 _slot_host_club, slot_start, _slot_end = slot
                 start_time = slot_start
 
+            ag_weight = self.preferanse_vekt_by_age_group.get(age_group, 0.0)
+            date_pref_total = sum(
+                p.vekt for p in self.date_preferences if p.fra <= tournament_date <= p.til
+            )
             plan.tournaments.append(
                 Tournament(
                     date=tournament_date,
@@ -251,6 +255,8 @@ class SeasonPlanner:
                     games=games,
                     host_club=host_club,
                     start_time=start_time,
+                    preferanse_vekt=ag_weight,
+                    scoring_weight_term=ag_weight + date_pref_total,
                 )
             )
 
@@ -263,6 +269,11 @@ class SeasonPlanner:
         plan.month_balance_score = self._month_balance_score(expected_per_month)
         plan.arena_day_collisions = []
         plan.arena_counts.pop("_arena_day_collisions", None)
+        if self.date_preferences:
+            plan.date_preference_weights = [
+                {"fra": p.fra.isoformat(), "til": p.til.isoformat(), "vekt": p.vekt}
+                for p in self.date_preferences
+            ]
 
         self._compute_game_counts(plan.tournaments)
         skipped_age_groups_set = {entry["age_group"] for entry in plan.skipped_age_groups}
