@@ -221,6 +221,8 @@ class HtmlExporter:
             scores_html=SCORES,
             metrics_html=METRICS,
             club_dashboard_html=CLUB_DASHBOARD,
+            most_travel_team=most_travel_team,
+            most_travel_km=str(most_travel_km),
         )
         export_links_html = build_export_links_html(output_files)
 
@@ -371,8 +373,22 @@ class HtmlExporter:
         scores_html: str,
         metrics_html: str,
         club_dashboard_html: str,
+        most_travel_team: str = "",
+        most_travel_km: str = "0",
     ) -> str:
         """Render the organizer-first report overview above raw diagnostics."""
+        # Compute Norwegian month-span string from plan dates
+        _NO_MONTHS = [
+            "", "januar", "februar", "mars", "april", "mai", "juni",
+            "juli", "august", "september", "oktober", "november", "desember",
+        ]
+        if plan.start_date and plan.end_date:
+            _start_month = _NO_MONTHS[plan.start_date.month]
+            _end_month = _NO_MONTHS[plan.end_date.month]
+            month_span = f"{_start_month}–{_end_month}" if _start_month != _end_month else _start_month
+        else:
+            month_span = date_range
+
         gate = plan.fairness_gate if isinstance(plan.fairness_gate, dict) else {}
         gate_status = str(gate.get("status", "pass"))
         status_rank = {"pass": 0, "warn": 1, "fail": 2}
@@ -385,9 +401,9 @@ class HtmlExporter:
 
         status_labels = {"pass": "KLAR FOR GJENNOMGANG", "warn": "M\u00c5 SJEKKES", "fail": "KREVER ENDRING"}
         answer_by_status = {
-            "pass": "Ja, planen ser brukbar ut for klubbvis gjennomgang.",
-            "warn": "Nesten, men punktene under b\u00f8r sjekkes f\u00f8r planen sendes til klubbene.",
-            "fail": "Ikke enn\u00e5. Planen har feil eller store avvik som b\u00f8r rettes f\u00f8rst.",
+            "pass": "Ja, planen ({tournament_count} turneringer, {month_span}) ser brukbar ut for klubbvis gjennomgang.",
+            "warn": "Nesten \u2013 planen har {tournament_count} turneringer ({month_span}), men punktene under b\u00f8r sjekkes f\u00f8r utsending.",
+            "fail": "Ikke enn\u00e5. Planen ({tournament_count} turneringer, {month_span}) har feil eller store avvik som b\u00f8r rettes f\u00f8rst.",
         }
         note_by_status = {
             "pass": "Start med klubb- og aldersgruppeoppsummeringene, og bruk detaljdiagnostikken nederst ved behov.",
@@ -436,11 +452,21 @@ class HtmlExporter:
         if not actions:
             actions.append(("pass", "Ingen kritiske handlinger", "G\u00e5 videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
 
-        _answer_base = answer_by_status.get(overall_status, answer_by_status["warn"])
+        _tournament_count = len(active_tournaments)
+        _answer_base = answer_by_status.get(overall_status, answer_by_status["warn"]).format(
+            tournament_count=_tournament_count,
+            month_span=month_span,
+        )
         _note_base = note_by_status.get(overall_status, note_by_status["warn"])
         _detail_parts: list[str] = []
         if weakest_metric_name:
-            _detail_parts.append(f"Svakeste metrikk: {weakest_metric_name}.")
+            _detail_parts.append(f"Svakeste metrikk: {weakest_metric_name} ({weakest_metric['score']}%).")
+            if overall_status in {"warn", "fail"}:
+                _weakest_detail = str(weakest_metric.get("detail", "")) if weakest_metric else ""
+                if _weakest_detail:
+                    _detail_parts.append(f"Fairness-avvik: {weakest_metric_name} – {_weakest_detail}")
+        if most_travel_team and most_travel_km != "0":
+            _detail_parts.append(f"Mest reisende lag: {most_travel_team} (~{most_travel_km} km).")
         if blocked:
             _detail_parts.append(f"{len(blocked)} kilde(r) blokkert.")
         if cancelled_count:

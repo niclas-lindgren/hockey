@@ -282,7 +282,7 @@ class TestRunStage4:
         assert 'id="reportOverview"' in report_html
         assert 'Kan planen brukes?' in report_html
         assert 'Hva må sjekkes eller endres?' in report_html
-        assert 'Ja, planen ser brukbar ut for klubbvis gjennomgang.' in report_html or 'Nesten, men punktene under' in report_html or 'Ikke ennå.' in report_html
+        assert 'ser brukbar ut for klubbvis gjennomgang.' in report_html or 'punktene under' in report_html or 'feil eller store avvik' in report_html
         assert 'Hva skjer per aldersgruppe?' in report_html
         assert 'Hva må hver klubb vurdere?' in report_html
         assert 'Turneringer som skal gjennomgås' in report_html
@@ -588,6 +588,67 @@ class TestRunStage4:
         assert "Svakeste metrikk: Hjemmebanebelastning" in report_html
         # Hero pill must show the issue count: gate warn (1) + 2 metric warnings (2) + missing hosts (1) = 4.
         assert "4 punkt(er)" in report_html
+
+    def test_conclusion_injects_tournament_count(self, tmp_path):
+        """Conclusion must include tournament count from active_tournaments."""
+        data = _make_plan_dict()
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        # Plan has 1 active tournament; the answer string embeds "1 turneringer"
+        assert "1 turneringer" in report_html
+
+    def test_conclusion_injects_month_span(self, tmp_path):
+        """Conclusion must include the Norwegian month-span derived from plan dates."""
+        data = _make_plan_dict()
+        # Plan start_date=2025-09-01, end_date=2025-12-01 → "september–desember"
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        assert "september" in report_html
+        assert "desember" in report_html
+
+    def test_conclusion_injects_most_travel_team(self, tmp_path):
+        """Conclusion must name the team with the most travel distance."""
+        data = _make_plan_dict()
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        # The plan has Kongsberg and Skien; whichever has most travel should appear in conclusion
+        assert "Mest reisende lag:" in report_html
+
+    def test_conclusion_injects_weakest_metric_score(self, tmp_path):
+        """Conclusion must include the numeric score of the weakest metric."""
+        data = _make_plan_dict()
+        data["plan"]["fairness_gate"] = {
+            "status": "warn",
+            "score": 65,
+            "metrics": [
+                {"label": "Kampbalanse", "value": 3, "threshold": 2, "status": "warn", "score": 55, "unit": "", "detail": "Ujevn fordeling."},
+            ],
+        }
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        # Score value 55 must appear in the metric score annotation
+        assert "Svakeste metrikk: Kampbalanse (55%)" in report_html
+
+    def test_conclusion_injects_fairness_submetric_detail(self, tmp_path):
+        """Conclusion must include fairness sub-metric detail for warn/fail status."""
+        data = _make_plan_dict()
+        data["plan"]["fairness_gate"] = {
+            "status": "fail",
+            "score": 30,
+            "metrics": [
+                {"label": "Hjemmebanebelastning", "value": 2.5, "threshold": 1, "status": "fail", "score": 30, "unit": "", "detail": "Kritisk skjevfordeling hjemme."},
+            ],
+        }
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        # The fairness detail string must appear for fail status
+        assert "Fairness-avvik: Hjemmebanebelastning" in report_html
+        assert "Kritisk skjevfordeling hjemme." in report_html
 
     def test_calendars_html_generated_when_scrape_cache_populated(self, tmp_path):
         """stage4 should write calendars.html when the scrape cache contains events."""
