@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Add `"$REPORT_HEATMAP$": heatmap_html` to the `parts` dict in `_render_page` (or equivalent assembly point) and verify `heatmap_html` is still passed through correctly when `include_diagnostics` is False (render empty string).
 
-- [ ] Update regression test assertions for report HTML structure
+- [x] Added two position assertions to test_generates_html_with_configured_age_group_filters: heatmapSection must appear before report-card-grid and before priorityActions, locking in the new above-the-fold placement. — 2026-06-19
   - Files: tests/test_stage4_export.py
   - Approach: Update any test that checks the order or presence of heatmap content in the rendered HTML so it expects the heatmap to appear before (not after) status cards and other report sections.
 
@@ -59,4 +59,11 @@ LESSONS: none
 **Findings:** Guard entry added to _render_page parts dict; tests still pass.
 LESSONS: none
 **Files:** tournament_scheduler/html/html_exporter.py (+1/-0)
+**Commit:** 0803c1e (hockey)
+
+### 2026-06-19 — Added two position assertions to test_generates_html_with_configured_age_group_filters: heatmapSection must appear before report-card-grid and before priorityActions, locking in the new above-the-fold placement.
+**Rationale:** Existing tests already passed; added new positional guards rather than modifying old ones.
+**Findings:** All tests pass including new positional assertions.
+LESSONS: none
+**Files:** tests/test_stage4_export.py (+3/-0)
 **Commit:** [pending — fill after commit]

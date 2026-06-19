@@ -300,6 +300,9 @@ class TestRunStage4:
         assert 'id="teamStats"' in report_html
         assert 'id="travelStats"' in report_html
         assert 'id="heatmapSection"' in report_html
+        # Heatmap must appear immediately after the hero block — before the card-grid and all other sections.
+        assert report_html.index('id="heatmapSection"') < report_html.index('class="report-card-grid"')
+        assert report_html.index('id="heatmapSection"') < report_html.index('id="priorityActions"')
         assert 'id="clubDashboard"' not in report_html
         assert 'style="display:none' not in report_html
         assert 'id="timeline"' not in report_html
