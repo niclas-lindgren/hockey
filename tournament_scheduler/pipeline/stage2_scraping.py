@@ -300,6 +300,7 @@ def _scrape_source(
     # --- Run the deterministic scraper ---
     events: list[CalendarEvent] = []
     scraper_error: str = ""
+    deterministic_raised: bool = False
 
     calendar_cache = _CALENDAR_CACHE
 
@@ -323,12 +324,16 @@ def _scrape_source(
             scraper_error = f"Ukjent kildetype '{source_type}'."
     except Exception as exc:  # noqa: BLE001
         scraper_error = str(exc)
+        deterministic_raised = True
 
     if scraper_error:
         result["scraper_error"] = scraper_error
 
-    # --- If deterministic failed, try credentialed fallback ---
-    if not events:
+    # --- If deterministic succeeded but returned 0 events, try credentialed fallback ---
+    # Do NOT fall through to credentialed scrape when the deterministic scraper raised an
+    # exception (e.g. network error, Playwright crash) — an exception means we don't know
+    # whether the source has events; only a clean zero-event return warrants the fallback.
+    if not events and not deterministic_raised:
         events, cred_error = _try_credentialed_scrape(
             name, url, start_date, end_date, calendar_cache
         )
