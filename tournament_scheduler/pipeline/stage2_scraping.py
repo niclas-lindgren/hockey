@@ -36,7 +36,7 @@ from .cache_manager import ScrapedDataCache
 from ..utils.calendar_cache import CalendarCache
 
 _CALENDAR_CACHE: CalendarCache | None = None
-from .scraper_strategies import get_strategy, requires_credentials, needs_llm_agent
+from .scraper_strategies import get_strategy, requires_credentials, needs_llm_agent, get_deterministic_scraper_type
 from .state import PipelineState, StageName, StageStatus
 from .scraper_constants import (
     SOURCE_OUTLOOK, SOURCE_HTML, SOURCE_ICAL, SOURCE_GOOGLE,
@@ -291,11 +291,16 @@ def _scrape_source(
     calendar_cache = _CALENDAR_CACHE
 
     try:
-        # Jutul/Bærum uses StyledCalendar (FullCalendar) in a cross-origin iframe.
-        # Navigate to the embed URL directly instead.
-        if "baerumishall.no" in url:
+        # Dispatch is driven by the CalendarEngine declared in scraper_strategies.
+        # get_deterministic_scraper_type() returns a string token for sources
+        # registered in STRATEGIES, or None for sources that only appear in
+        # the generic _BROWSER_SOURCE_TYPES / _ICAL_SOURCE_TYPES fallbacks.
+        _strategy = get_strategy(name)
+        _scraper_type = get_deterministic_scraper_type(_strategy) if _strategy is not None else None
+
+        if _scraper_type == "styledcalendar":
             events, _ = _run_styledcalendar_scraper(name, start_date, end_date)
-        elif "bookup.no" in url:
+        elif _scraper_type == "bookup":
             events, _ = _run_bookup_scraper(url, name, start_date, end_date)
         elif source_type in _BROWSER_SOURCE_TYPES:
             events, _ = _run_outlook_scraper(url, name, start_date, end_date, calendar_cache)

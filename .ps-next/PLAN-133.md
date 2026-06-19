@@ -15,7 +15,7 @@
   - Files: `tournament_scheduler/pipeline/scraper_strategies.py`
   - Approach: Add a new public function that takes a `ScraperStrategy` and returns a string identifier ("styledcalendar", "bookup", "browser", "ical", or None) based on `strategy.engine`. Map `STYLED_CALENDAR` → "styledcalendar", `BOOKUP_SPA` → "bookup", `OUTLOOK_IFRAME` / `DATE_PARAM` → "browser", `TEAMUP_ICAL` / `GENERIC_ICAL` → "ical". Include a docstring and export the function alongside `get_strategy`, `needs_llm_agent`, etc.
 
-- [ ] Replace URL substring checks in `_scrape_source` with strategy-based dispatch
+- [x] Replaced baerumishall.no and bookup.no URL substring checks with strategy-based dispatch using get_deterministic_scraper_type; falls back to source_type sets for sources not in STRATEGIES. — 2026-06-19
   - Files: `tournament_scheduler/pipeline/stage2_scraping.py`
   - Approach: At the top of the deterministic scraper block, call `get_strategy(name)` to retrieve the strategy for the current source. Then call `get_deterministic_scraper_type(strategy)` and branch on the returned string instead of `"baerumishall.no" in url` / `"bookup.no" in url`. Keep the existing `source_type in _BROWSER_SOURCE_TYPES` / `_ICAL_SOURCE_TYPES` fallbacks for sources not in STRATEGIES. Import `get_deterministic_scraper_type` from `scraper_strategies`.
 
@@ -52,4 +52,11 @@ The `get_deterministic_scraper_type` function is exported from `scraper_strategi
 **Findings:** Function returns correct strings: bookup→bookup, styled_calendar→styledcalendar, outlook_iframe/date_param/forumbooking/sportello→browser, teamup_ical/generic_ical→ical; verified via python3 import test.
 LESSONS: none
 **Files:** scraper_strategies.py (+31/-0)
+**Commit:** 54d1d95 (hockey)
+
+### 2026-06-19 — Replaced baerumishall.no and bookup.no URL substring checks with strategy-based dispatch using get_deterministic_scraper_type; falls back to source_type sets for sources not in STRATEGIES.
+**Rationale:** Minimal-invasive: added two lines before the if/elif chain, replaced the first two branches with string comparisons on the returned token, kept fallback branches untouched.
+**Findings:** All 28 stage2 tests pass; import verified via python3 -c.
+LESSONS: none
+**Files:** stage2_scraping.py (+10/-5)
 **Commit:** [pending — fill after commit]
