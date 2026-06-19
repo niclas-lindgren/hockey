@@ -13,7 +13,7 @@
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage3_helpers.py
   - Approach: Bind the caught exception to a variable (`except (KeyError, ValueError) as exc:`) and call `logger.warning("Dropped malformed event for club %r: %s — raw: %s", club_name, exc, e)` before `continue`, giving operators the club name, error, and raw event dict.
 
-- [ ] Write unit tests for _build_events_by_club logging
+- [x] Created tests/test_stage3_helpers.py with 8 tests covering warning emission for missing keys, bad ISO strings, mixed valid/malformed events, warning count, and no-warning case for clean input. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tests/test_stage3_helpers.py
   - Approach: Create a new test file that patches the logger and asserts a warning is emitted (with the correct club name) when a malformed event dict (missing `datetime` key or bad ISO string) is passed to `_build_events_by_club`. Also assert that well-formed events in the same club list are still returned.
 
@@ -44,4 +44,11 @@ LESSONS: none
 **Findings:** 541 unit tests pass; logger.warning now emits club name, error, and raw event on malformed event.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage3_helpers.py (+7/-1)
+**Commit:** bc1b790 (hockey)
+
+### 2026-06-19 — Created tests/test_stage3_helpers.py with 8 tests covering warning emission for missing keys, bad ISO strings, mixed valid/malformed events, warning count, and no-warning case for clean input.
+**Rationale:** Used unittest.mock.patch on the module logger and assert_called_once / call_count to verify correct warning behavior. All 8 tests pass.
+**Findings:** 8/8 tests pass; covers missing key, bad value, mixed events, multiple warnings, and clean input.
+LESSONS: none
+**Files:** tests/test_stage3_helpers.py (+133/-0)
 **Commit:** [pending — fill after commit]
