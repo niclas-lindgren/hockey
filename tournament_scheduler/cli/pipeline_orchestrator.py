@@ -519,7 +519,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if resume_from <= 4:
         _console.print("[bold]Stage 4:[/bold] Eksport...")
         try:
-            export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", False))
+            export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", True))
             files = export.get("output_files", {})
             stage4_generated_calendars = "calendars_html" in files
             _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")

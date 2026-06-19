@@ -19,7 +19,7 @@
   - **Files:** `tournament_scheduler/cli/args.py`
   - **Approach:** For the `replan`, `adjust`, `review`, and `auto_adjust` subcommands, change `--timestamped-export` from `action=store_true` (default False) to `--no-timestamped-export` with `action=store_false, dest=timestamped_export` and call `<subparser>.set_defaults(timestamped_export=True)` — mirroring the pattern already used for the `run` subcommand at line 80-85.
 
-- [ ] Fix pipeline_orchestrator.py fallback default for `timestamped_export`
+- [x] Changed getattr fallback from False to True so any code path without explicit args.timestamped_export defaults to timestamped-on. — 2026-06-19
   - **Files:** `tournament_scheduler/cli/pipeline_orchestrator.py`
   - **Approach:** Change line 522's `getattr(args, "timestamped_export", False)` fallback to `getattr(args, "timestamped_export", True)` so that any code path that reaches stage4_run without an explicit args attribute defaults to timestamped-on rather than off.
 
@@ -55,4 +55,11 @@ LESSONS: none
 **Findings:** All tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/cli/args.py (+20/-13)
+**Commit:** 298ac6b (hockey)
+
+### 2026-06-19 — Changed getattr fallback from False to True so any code path without explicit args.timestamped_export defaults to timestamped-on.
+**Rationale:** Straightforward one-line fix.
+**Findings:** All tests pass.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+1/-1)
 **Commit:** [pending — fill after commit]
