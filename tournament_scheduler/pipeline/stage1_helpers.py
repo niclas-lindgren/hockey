@@ -223,17 +223,22 @@ def _validate_team_list(teams: list[Any]) -> list[str]:
                 f"{prefix} ('{team.get('label', '?')}'): ukjent aldersgruppe '{ag}'. "
                 f"Gyldige verdier: {valid}."
             )
-    # Detect duplicate labels
-    label_to_indices: dict[str, list[int]] = {}
+    # Detect duplicate labels within the same age group.
+    # The same label is allowed across different age groups — team_key() handles
+    # disambiguation in that case (see models.team_key).
+    label_ag_to_indices: dict[tuple[str, str], list[int]] = {}
     for idx, team in valid_teams:
         label = team.get("label")
+        ag = team.get("age_group") or ""
         if label is not None:
-            label_to_indices.setdefault(label, []).append(idx)
-    for label, indices in label_to_indices.items():
+            label_ag_to_indices.setdefault((label, ag), []).append(idx)
+    for (label, ag), indices in label_ag_to_indices.items():
         if len(indices) > 1:
             lag_liste = " og ".join(f"Lag #{n}" for n in indices)
             errors.append(
-                f"duplikat 'label': {lag_liste} har samme etikett '{label}'."
+                f"duplikat 'label': {lag_liste} har samme etikett '{label}'"
+                + (f" i aldersgruppe '{ag}'" if ag else "")
+                + "."
             )
     return errors
 
