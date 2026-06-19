@@ -29,17 +29,6 @@
     $REPORT_ACTIONS$
   </section>
 
-  <details class="report-section report-section--collapsible" id="ruleTransparency">
-    <summary class="section-head">
-      <div>
-        <p class="eyebrow">Regler og rettferdighet</p>
-        <h2>Hvorfor fikk planen denne vurderingen?</h2>
-      </div>
-      <p class="section-note">Gate, avvik og eventuelle justeringer samlet i én forklaring.</p>
-    </summary>
-    $REPORT_RULE_TRANSPARENCY$
-  </details>
-
   <section class="report-section" id="ageGroupSummary">
     <div class="section-head">
       <div>
@@ -62,17 +51,6 @@
     $REPORT_CLUB_SUMMARY$
   </section>
 
-  <details class="report-section report-section--collapsible" id="advisoryChecks">
-    <summary class="section-head">
-      <div>
-        <p class="eyebrow">Rådgivende kontroller</p>
-        <h2>Hva sier den manuelle etterkontrollen?</h2>
-      </div>
-      <p class="section-note">Advisory funn og den menneskelige tolkningen av helheten.</p>
-    </summary>
-    $REPORT_ADVISORY$
-  </details>
-
   <section class="report-section" id="tournamentReviewTable">
     <div class="section-head">
       <div>
@@ -84,14 +62,47 @@
     $REPORT_TOURNAMENT_TABLE$
   </section>
 
-  <section class="report-section report-section--diagnostics" id="detailedDiagnosticsIntro">
-    <div class="section-head">
+  <details class="report-section report-section--collapsible" id="detaljerAccordion">
+    <summary class="section-head">
       <div>
-        <p class="eyebrow">Diagnostikk</p>
-        <h2>Detaljerte måltall og kontroller</h2>
+        <p class="eyebrow">Mer informasjon</p>
+        <h2>Detaljer</h2>
       </div>
-      <p class="section-note">Tekniske tall ligger her, samlet under samme vurdering.</p>
-    </div>
-    $REPORT_DIAGNOSTICS$
-  </section>
+      <p class="section-note">Regler, kontroller og diagnostikk samlet for den som vil grave dypere.</p>
+    </summary>
+
+    <details class="report-section report-section--collapsible" id="ruleTransparency">
+      <summary class="section-head">
+        <div>
+          <p class="eyebrow">Regler og rettferdighet</p>
+          <h2>Hvorfor fikk planen denne vurderingen?</h2>
+        </div>
+        <p class="section-note">Gate, avvik og eventuelle justeringer samlet i én forklaring.</p>
+      </summary>
+      $REPORT_RULE_TRANSPARENCY$
+    </details>
+
+    <details class="report-section report-section--collapsible" id="advisoryChecks">
+      <summary class="section-head">
+        <div>
+          <p class="eyebrow">Rådgivende kontroller</p>
+          <h2>Hva sier den manuelle etterkontrollen?</h2>
+        </div>
+        <p class="section-note">Advisory funn og den menneskelige tolkningen av helheten.</p>
+      </summary>
+      $REPORT_ADVISORY$
+    </details>
+
+    <section class="report-section report-section--diagnostics" id="detailedDiagnosticsIntro">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Diagnostikk</p>
+          <h2>Detaljerte måltall og kontroller</h2>
+        </div>
+        <p class="section-note">Tekniske tall ligger her, samlet under samme vurdering.</p>
+      </div>
+      $REPORT_DIAGNOSTICS$
+    </section>
+
+  </details>
 </section>

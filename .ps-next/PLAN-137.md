@@ -17,7 +17,7 @@
   - Files: `tournament_scheduler/html/templates/report_overview.html`
   - Approach: Change the `#advisoryChecks` section from an open `<section>` to a `<details class="report-section report-section--collapsible">` element (without the `open` attribute so it defaults to closed), with `<summary class="section-head">` wrapping the heading, matching the existing pattern used for `#ruleTransparency`.
 
-- [ ] Group the existing diagnostics and rule transparency sections into a single collapsible Detaljer accordion in report_overview.html
+- [x] Wrapped #ruleTransparency, #advisoryChecks, and #detailedDiagnosticsIntro inside a new outer <details id'detaljerAccordion'> with summary 'Detaljer'. The accordion is closed by default and contains all numeric detail sub-sections. — 2026-06-19
   - Files: `tournament_scheduler/html/templates/report_overview.html`
   - Approach: Wrap the `#ruleTransparency` details block, `#advisoryChecks` (now also a details), and `#detailedDiagnosticsIntro` inside a new outer `<details class="report-section report-section--collapsible" id="detaljerAccordion">` with a `<summary>` labelled "Detaljer". This accordion is closed by default and contains all numeric detail sections.
 
@@ -52,4 +52,11 @@ LESSONS: none
 **Findings:** Advisory section now collapses by default using same details/summary pattern as ruleTransparency.
 LESSONS: none
 **Files:** report_overview.html (+4/-4)
+**Commit:** 38378e9 (hockey)
+
+### 2026-06-19 — Wrapped #ruleTransparency, #advisoryChecks, and #detailedDiagnosticsIntro inside a new outer <details id'detaljerAccordion'> with summary 'Detaljer'. The accordion is closed by default and contains all numeric detail sub-sections.
+**Rationale:** Moved ageGroupSummary, clubReviewSummary, and tournamentReviewTable outside the accordion so they remain visible by default.
+**Findings:** Detaljer accordion groups three detail sections; top-level summary sections remain open.
+LESSONS: none
+**Files:** report_overview.html (+41/-30)
 **Commit:** [pending — fill after commit]
