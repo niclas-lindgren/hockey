@@ -515,11 +515,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
         _write_run_log(args.work_dir, log_start, log_lines, success=False)
         return 1
 
+    stage4_generated_calendars = False
     if resume_from <= 4:
         _console.print("[bold]Stage 4:[/bold] Eksport...")
         try:
             export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", False))
             files = export.get("output_files", {})
+            stage4_generated_calendars = "calendars_html" in files
             _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")
             for label, file_path in files.items():
                 _console.print(f"    → {file_path}")
@@ -536,15 +538,18 @@ def _cmd_run(args: argparse.Namespace) -> int:
         _console.print("[bold]Stage 4:[/bold] Hoppet over (gjenopptatt)")
         _log("Stage 4 skipped via --resume-from")
 
-    _console.print("Genererer calendars.html...", end=" ")
-    try:
-        path = generate_calendars(work_dir=args.work_dir, export_dir=args.export_dir)
-        _console.print(f"[green]✓[/green] {path}")
-        _log(f"calendars.html generated: {path}")
-    except Exception as exc:
-        _console.print(f"[red]✗[/red] {exc}")
-        _log(f"calendars.html FAILED: {exc}")
-        run_failed = True
+    # Only regenerate calendars.html here when stage4 did not already produce it
+    # (e.g. stage4 was skipped via --resume-from, or no scrape data was available).
+    if not stage4_generated_calendars:
+        _console.print("Genererer calendars.html...", end=" ")
+        try:
+            path = generate_calendars(work_dir=args.work_dir, export_dir=args.export_dir)
+            _console.print(f"[green]✓[/green] {path}")
+            _log(f"calendars.html generated: {path}")
+        except Exception as exc:
+            _console.print(f"[red]✗[/red] {exc}")
+            _log(f"calendars.html FAILED: {exc}")
+            run_failed = True
 
     if run_failed:
         _console.print("\n[bold yellow]⚠ Pipeline fullført med feil.[/bold yellow]")

@@ -18,7 +18,7 @@
   - Files: tests/test_stage4_export.py
   - Approach: Add a test that runs `stage4_export.run()` against a fixture with a populated scrape cache and asserts that `calendars.html` is created in the export directory; add a second test that runs with no cache and asserts `calendars.html` is absent and the navbar link is not present in `season_plan.html`.
 
-- [ ] Remove duplicate calendars.html generation from pipeline_orchestrator post-stage4 block
+- [x] Guard the post-stage4 generate_calendars() call in _cmd_run() with a stage4_generated_calendars flag; when stage4 produces calendars_html in output_files, the orchestrator skips the duplicate call. The fallback call is retained for cases where stage4 was skipped via --resume-from or had no scrape data. — 2026-06-19
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: After the previous task makes stage4 responsible for generating `calendars.html`, remove or guard the duplicate `generate_calendars()` call in `_cmd_run()` at lines 539-546 to avoid double-writing the file; keep the call in the `--scrape` path (lines 77-82) which runs without stage4.
 
@@ -64,4 +64,11 @@ LESSONS: The replacement dict is applied in a single pass, so any placeholders i
 **Findings:** Both new tests pass. The guard condition prevents an empty/useless calendars.html from being written when there is no scrape data.
 LESSONS: calendar_viewer.generate_html() never raises on empty cache — it renders an empty page. Always guard the call site with a scrape-data presence check before invoking it.
 **Files:** tests/test_stage4_export.py (+41/-0), tournament_scheduler/pipeline/stage4_export.py (+12/-5)
+**Commit:** bbf18b7 (hockey)
+
+### 2026-06-19 — Guard the post-stage4 generate_calendars() call in _cmd_run() with a stage4_generated_calendars flag; when stage4 produces calendars_html in output_files, the orchestrator skips the duplicate call. The fallback call is retained for cases where stage4 was skipped via --resume-from or had no scrape data.
+**Rationale:** Removing the call entirely would break the --resume-from path where stage4 is skipped. A guard flag is safer than removal.
+**Findings:** The post-stage4 call now only runs when stage4 did not already generate the file, eliminating the double-write without breaking any fallback path.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+14/-9)
 **Commit:** [pending — fill after commit]
