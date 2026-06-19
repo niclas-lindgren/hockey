@@ -10,7 +10,7 @@
   - Files: tournament_scheduler/pipeline/stage1_helpers.py
   - Approach: Rename the function from `_load_json` to `_load_workbook_config`, update its docstring to accurately describe loading an Excel workbook, and add an alias `_load_json = _load_workbook_config` immediately after the definition to preserve backward compatibility.
 
-- [ ] Update import statement in stage1_config.py to use new function name
+- [x] Updated stage1_config.py to import and call _load_workbook_config instead of _load_json at the import statement and all three call sites. — 2026-06-19
   - Files: tournament_scheduler/pipeline/stage1_config.py
   - Approach: Change the import at line 48 from `from .stage1_helpers import _load_json, ...` to `from .stage1_helpers import _load_workbook_config, ...` and update all three call sites (lines 83, 150, 190) from `_load_json(...)` to `_load_workbook_config(...)`.
 
@@ -38,4 +38,11 @@ The alias `_load_json = _load_workbook_config` is added in stage1_helpers.py to 
 **Findings:** All 537 unit tests pass; the alias correctly resolves to the same function object.
 LESSONS: none
 **Files:** stage1_helpers.py (+8/-3)
+**Commit:** 3446dfa (hockey)
+
+### 2026-06-19 — Updated stage1_config.py to import and call _load_workbook_config instead of _load_json at the import statement and all three call sites.
+**Rationale:** none
+**Findings:** 537 unit tests pass; no regressions.
+LESSONS: none
+**Files:** stage1_config.py (+4/-4)
 **Commit:** [pending — fill after commit]

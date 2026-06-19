@@ -45,7 +45,7 @@ from ..season_config import (
     AgeGroupSettings,
 )
 from .state import PipelineState, StageName, StageStatus
-from .stage1_helpers import _load_json, _parse_config, validate_config
+from .stage1_helpers import _load_workbook_config, _parse_config, validate_config
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ def load_effective_config(
 
     # Resolve input path: checkpoint > parameter > default
     ip = input_path or ckpt.get("input_path", "input.xlsx")
-    raw = _load_json(ip)
+    raw = _load_workbook_config(ip)
 
     merged: dict[str, Any] = {}
 
@@ -147,7 +147,7 @@ def run(
     FileNotFoundError
         When *input_path* does not exist.
     """
-    raw = _load_json(input_path)
+    raw = _load_workbook_config(input_path)
     errors = validate_config(raw, Path(input_path))
 
     if errors:
@@ -187,7 +187,7 @@ if __name__ == "__main__":  # pragma: no cover
     _state = PipelineState(cli_args.work_dir)
     try:
         _result = run(cli_args.input, _state)
-        _raw = _load_json(cli_args.input)
+        _raw = _load_workbook_config(cli_args.input)
         print(f"Stage 1 OK — {len(_result.get('teams', []))} lag, "
               f"{_raw.get('start_date')} til {_raw.get('end_date')}")
         sys.exit(0)
