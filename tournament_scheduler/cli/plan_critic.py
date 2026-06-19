@@ -7,8 +7,10 @@ ranked by severity (most severe first).
 from __future__ import annotations
 
 import calendar
+import re
 from collections import defaultdict
-from typing import TYPE_CHECKING, List
+from datetime import timedelta
+from typing import TYPE_CHECKING, Dict, List
 
 if TYPE_CHECKING:
     from tournament_scheduler.models import SeasonPlan
@@ -125,6 +127,211 @@ def generate_critic_summary(plan: "SeasonPlan") -> List[str]:
         + balance_issues
     )
     return all_issues[:5]
+
+
+def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
+    """Map each critic issue string to a concrete replan proposal.
+
+    Returns a list of move dicts, each with keys:
+      - ``tournament_id`` (str): ID of the tournament to move (or empty string if N/A).
+      - ``new_date`` (str | None): ISO date string for the proposed new date, or None.
+      - ``reason`` (str): Human-readable explanation of the proposed move.
+      - ``can_auto_fix`` (bool): True if the harness can apply the fix without human input.
+      - ``issue`` (str): The original issue string that triggered this move.
+
+    Arena-day collisions and hosting clumps are considered auto-fixable (shift
+    the involved tournament by +7 days).  Fairness-gate FAILs that require
+    club-preference knowledge set ``can_auto_fix=False``.
+    """
+    moves: List[Dict] = []
+
+    tournaments = getattr(plan, "tournaments", []) or []
+    # Build a lookup from (arena, date_iso) → tournament id for collision resolution
+    arena_date_to_tid: Dict[tuple, str] = {}
+    for t in tournaments:
+        if getattr(t, "cancelled", False):
+            continue
+        t_date = getattr(t, "date", None)
+        t_arena = getattr(t, "arena", None)
+        if t_date and t_arena:
+            arena_date_to_tid[(t_arena, t_date.isoformat())] = t.id
+
+    # Build a lookup from (host_club, year, month) → list of tournament ids
+    host_month_to_tids: Dict[tuple, List[str]] = defaultdict(list)
+    for t in tournaments:
+        if getattr(t, "cancelled", False):
+            continue
+        host_club = getattr(t, "host_club", None)
+        t_date = getattr(t, "date", None)
+        if host_club and t_date:
+            host_month_to_tids[(host_club, t_date.year, t_date.month)].append(t.id)
+
+    for issue in issues:
+        # ------------------------------------------------------------------
+        # Arena-day collisions — shift one of the colliding tournaments +7d
+        # ------------------------------------------------------------------
+        collision_match = re.match(r"(\d+) arena-day collision", issue)
+        if collision_match:
+            collisions = getattr(plan, "arena_day_collisions", []) or []
+            if collisions:
+                # Pick the first collision and suggest moving the second tournament
+                col = collisions[0]
+                col_arena = col.get("arena", "")
+                col_date = col.get("date", "")
+                # Try to find a tournament matching the conflicting entry
+                conflicting_tid = arena_date_to_tid.get((col_arena, col_date), "")
+                new_date = None
+                if col_date:
+                    try:
+                        from datetime import date as _date
+                        d = _date.fromisoformat(col_date)
+                        new_date = (d + timedelta(weeks=1)).isoformat()
+                    except (ValueError, TypeError):
+                        pass
+                moves.append(
+                    {
+                        "tournament_id": conflicting_tid,
+                        "new_date": new_date,
+                        "reason": (
+                            f"Arena '{col_arena}' has two tournaments on {col_date}; "
+                            "move one to the following weekend to resolve the collision."
+                        ),
+                        "can_auto_fix": True,
+                        "issue": issue,
+                    }
+                )
+            else:
+                moves.append(
+                    {
+                        "tournament_id": "",
+                        "new_date": None,
+                        "reason": "Arena-day collision detected; review date assignments manually.",
+                        "can_auto_fix": False,
+                        "issue": issue,
+                    }
+                )
+            continue
+
+        # ------------------------------------------------------------------
+        # Hosting clumps — move one tournament from the clumped month +7d
+        # ------------------------------------------------------------------
+        clump_match = re.match(r"(.+) hosts (\d+) tournaments in (\w+) (\d{4})", issue)
+        if clump_match:
+            club = clump_match.group(1)
+            year = int(clump_match.group(4))
+            month_name = clump_match.group(3)
+            # Convert month name to number
+            month_num = list(calendar.month_name).index(month_name)
+            tids = host_month_to_tids.get((club, year, month_num), [])
+            # Suggest moving the last tournament in the clumped month
+            target_tid = tids[-1] if tids else ""
+            # Find that tournament's current date and propose +7d
+            new_date = None
+            for t in tournaments:
+                if t.id == target_tid:
+                    t_date = getattr(t, "date", None)
+                    if t_date:
+                        new_date = (t_date + timedelta(weeks=1)).isoformat()
+                    break
+            moves.append(
+                {
+                    "tournament_id": target_tid,
+                    "new_date": new_date,
+                    "reason": (
+                        f"{club} hosts too many tournaments in {month_name} {year}; "
+                        "move one to the following weekend to distribute load."
+                    ),
+                    "can_auto_fix": True,
+                    "issue": issue,
+                }
+            )
+            continue
+
+        # ------------------------------------------------------------------
+        # Fairness gate FAILs — flag for manual review
+        # ------------------------------------------------------------------
+        if issue.startswith("Fairness gate FAIL:"):
+            moves.append(
+                {
+                    "tournament_id": "",
+                    "new_date": None,
+                    "reason": (
+                        "Fairness gate failure requires club-preference knowledge to fix; "
+                        "review the fairness metrics and adjust team assignments manually."
+                    ),
+                    "can_auto_fix": False,
+                    "issue": issue,
+                }
+            )
+            continue
+
+        # ------------------------------------------------------------------
+        # Fairness gate warnings — flag for manual review (lower priority)
+        # ------------------------------------------------------------------
+        if issue.startswith("Fairness gate warning:"):
+            moves.append(
+                {
+                    "tournament_id": "",
+                    "new_date": None,
+                    "reason": (
+                        "Fairness gate warning; monitor but no automatic fix is safe."
+                    ),
+                    "can_auto_fix": False,
+                    "issue": issue,
+                }
+            )
+            continue
+
+        # ------------------------------------------------------------------
+        # Game count spread outliers — flag for manual review
+        # ------------------------------------------------------------------
+        if issue.startswith("Game count spread"):
+            moves.append(
+                {
+                    "tournament_id": "",
+                    "new_date": None,
+                    "reason": (
+                        "Game count imbalance detected; redistribute team assignments "
+                        "across tournaments to even out game counts."
+                    ),
+                    "can_auto_fix": False,
+                    "issue": issue,
+                }
+            )
+            continue
+
+        # ------------------------------------------------------------------
+        # Low month balance — flag for manual review
+        # ------------------------------------------------------------------
+        if "unevenly spread" in issue or "balance score" in issue:
+            moves.append(
+                {
+                    "tournament_id": "",
+                    "new_date": None,
+                    "reason": (
+                        "Tournaments are unevenly spread across months; "
+                        "consider redistributing to improve month balance."
+                    ),
+                    "can_auto_fix": False,
+                    "issue": issue,
+                }
+            )
+            continue
+
+        # ------------------------------------------------------------------
+        # Unrecognised issue — pass through as non-auto-fixable
+        # ------------------------------------------------------------------
+        moves.append(
+            {
+                "tournament_id": "",
+                "new_date": None,
+                "reason": f"Unrecognised issue — manual review required: {issue}",
+                "can_auto_fix": False,
+                "issue": issue,
+            }
+        )
+
+    return moves
 
 
 def count_critic_issues_from_dict(plan_dict: dict) -> int:
