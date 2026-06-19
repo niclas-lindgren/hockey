@@ -23,7 +23,7 @@
   - Files: `tests/test_stage2_scraping.py`
   - Approach: For existing tests that mock `_run_bookup_scraper` or `_run_styledcalendar_scraper` triggered by a URL like "bookup.no" or "baerumishall.no", verify they still call the correct scraper function under the new strategy-based dispatch (the test setup may need to ensure a matching STRATEGIES entry exists or mock `get_strategy`). Add a test asserting that a source with `CalendarEngine.BOOKUP_SPA` routes to `_run_bookup_scraper` and one with `CalendarEngine.STYLED_CALENDAR` routes to `_run_styledcalendar_scraper`.
 
-- [ ] Add unit tests for `get_deterministic_scraper_type` in a scraper_strategies test file
+- [x] Created tests/test_scraper_strategies.py with parametrised tests covering all 8 CalendarEngine values plus a coverage guard that asserts no engine returns None. — 2026-06-19
   - Files: `tests/test_scraper_strategies.py`
   - Approach: Create or extend `tests/test_scraper_strategies.py` with parametrised pytest cases that call `get_deterministic_scraper_type(strategy)` for each `CalendarEngine` variant and assert the returned string matches expectations. Cover at minimum `STYLED_CALENDAR`, `BOOKUP_SPA`, `OUTLOOK_IFRAME`, `TEAMUP_ICAL`, and `GENERIC_ICAL`.
 
@@ -66,4 +66,11 @@ LESSONS: none
 **Findings:** All 30 stage2 tests pass (28 existing + 2 new).
 LESSONS: none
 **Files:** test_stage2_scraping.py (+64/-0)
+**Commit:** 4ea540d (hockey)
+
+### 2026-06-19 — Created tests/test_scraper_strategies.py with parametrised tests covering all 8 CalendarEngine values plus a coverage guard that asserts no engine returns None.
+**Rationale:** Added a coverage-guard test that iterates all CalendarEngine members to catch missing mappings automatically.
+**Findings:** All 9 tests pass.
+LESSONS: none
+**Files:** test_scraper_strategies.py (+43/-0)
 **Commit:** [pending — fill after commit]
