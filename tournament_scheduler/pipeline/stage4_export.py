@@ -88,7 +88,7 @@ def run(
     plan_dict = plan_checkpoint.get("plan", {})
     if not plan_dict:
         reason = "Ingen plan funnet i Stage 3 checkpoint — kjør Stage 3 først."
-        state.mark_failed(StageName.EXPORT, error=reason)
+        state.write_stage(StageName.EXPORT, {}, status=StageStatus.FAILED)
         if strict:
             raise Stage4Error(reason)
         return {}
@@ -253,13 +253,10 @@ def run(
 
     if errors and strict:
         state.write_stage(StageName.EXPORT, checkpoint, status=StageStatus.FAILED)
-        state.mark_failed(StageName.EXPORT, error="; ".join(errors))
         raise Stage4Error("\n".join(errors))
 
     status = StageStatus.DONE if not errors else StageStatus.FAILED
     state.write_stage(StageName.EXPORT, checkpoint, status=status)
-    if not errors:
-        state.mark_done(StageName.EXPORT)
     return checkpoint
 
 

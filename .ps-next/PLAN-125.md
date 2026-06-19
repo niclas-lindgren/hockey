@@ -25,11 +25,11 @@
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: Remove the mark_done(PLANNING) call on line 128 that immediately follows write_stage(PLANNING, checkpoint, status=DONE) on line 127; write_stage already handles the final status transition.
 
-- [ ] Replace standalone mark_failed with write_stage in stage4_export.py
+- [x] Replaced standalone mark_failed(EXPORT) at line 91 with write_stage(EXPORT, {}, statusFAILED) so all failure routing goes through the canonical path. — 2026-06-19
   - Files: `tournament_scheduler/pipeline/stage4_export.py`
   - Approach: At line 91, the standalone mark_failed(EXPORT, error=reason) is not preceded by a write_stage(FAILED) call; replace it with write_stage(StageName.EXPORT, {}, status=StageStatus.FAILED) to route the failure through the single canonical status-setting path.
 
-- [ ] Remove redundant mark_done/mark_failed calls after write_stage in stage4_export.py
+- [x] Removed mark_failed(EXPORT) after write_stage(FAILED) at line 256 and mark_done(EXPORT) after write_stage at line 262 — done as part of the same stage4_export.py change. — 2026-06-19
   - Files: `tournament_scheduler/pipeline/stage4_export.py`
   - Approach: Remove mark_failed(EXPORT) on line 256 (follows write_stage(FAILED) on line 255) and mark_done(EXPORT) on line 262 (follows write_stage(checkpoint, status=status) on line 260); both are redundant given the preceding write_stage calls.
 
@@ -68,11 +68,25 @@ LESSONS: none
 **Findings:** Standalone mark_failed replaced by write_stage(FAILED) in stage3_planning.py.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage3_planning.py (+1/-1)
-**Commit:** [pending — fill after commit]
+**Commit:** 070504a (hockey)
 
 ### 2026-06-19 — Removed the redundant mark_done(PLANNING) call that immediately followed write_stage(PLANNING, checkpoint, statusDONE); done as part of the same stage3_planning.py change.
 **Rationale:** Combined with replace-mark_failed task in the same commit.
 **Findings:** Redundant mark_done removed from stage3_planning.py.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage3_planning.py (in prior commit)
+**Commit:** 070504a (hockey)
+
+### 2026-06-19 — Replaced standalone mark_failed(EXPORT) at line 91 with write_stage(EXPORT, {}, statusFAILED) so all failure routing goes through the canonical path.
+**Rationale:** Direct replacement; no alternatives.
+**Findings:** Standalone mark_failed replaced by write_stage(FAILED) in stage4_export.py.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage4_export.py (+1/-4)
+**Commit:** [pending — fill after commit]
+
+### 2026-06-19 — Removed mark_failed(EXPORT) after write_stage(FAILED) at line 256 and mark_done(EXPORT) after write_stage at line 262 — done as part of the same stage4_export.py change.
+**Rationale:** Combined in same commit.
+**Findings:** Removed 2 redundant post-write_stage calls from stage4_export.py.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage4_export.py (in same commit)
 **Commit:** [pending — fill after commit]
