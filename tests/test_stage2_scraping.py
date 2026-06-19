@@ -901,3 +901,51 @@ class TestStrategyBasedDispatch:
         src = result["sources"][0]
         assert src["event_count"] == 1
         assert src["blocked"] is False
+
+
+class TestCredentialedFallbackGate:
+    """Credentialed fallback is only triggered on a clean zero-event return, never on exception."""
+
+    def test_credentialed_fallback_skipped_when_deterministic_raises(self, tmp_path):
+        """When the deterministic iCal scraper raises, _try_credentialed_scrape is NOT called."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Teamup", "type": SOURCE_ICAL, "url": "https://teamup.com/example"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            side_effect=RuntimeError("network timeout"),
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping._try_credentialed_scrape",
+            return_value=([], ""),
+        ) as mock_cred:
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_cred.assert_not_called()
+
+    def test_credentialed_fallback_called_when_deterministic_returns_empty(self, tmp_path):
+        """When the deterministic iCal scraper returns [] (no exception), _try_credentialed_scrape IS called."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Teamup", "type": SOURCE_ICAL, "url": "https://teamup.com/example"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[],
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping._try_credentialed_scrape",
+            return_value=([], ""),
+        ) as mock_cred:
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_cred.assert_called_once()

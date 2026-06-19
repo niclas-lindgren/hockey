@@ -9,11 +9,11 @@
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Add a boolean `deterministic_raised = False` before the try block, set it to `True` inside the except clause. This separates "scraper raised" from "scraper returned 0 events" without changing any other control flow.
 
-- [ ] Guard credentialed fallback on `not deterministic_raised`
+- [x] Guard was implemented together with the flag in task 1: condition on line 336 is already 'if not events and not deterministic_raised'. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Change the condition on line 331 from `if not events:` to `if not deterministic_raised and not events:` so that `_try_credentialed_scrape` is only called when the deterministic scrape completed without raising and returned an empty list.
 
-- [ ] Add unit tests verifying credentialed fallback is skipped on exception
+- [x] Added TestCredentialedFallbackGate with two tests: one verifying _try_credentialed_scrape is NOT called when deterministic raises RuntimeError, one verifying it IS called when deterministic returns empty list. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tests/test_stage2_scraping.py
   - Approach: Add a test that patches one of the deterministic scraper helpers (e.g. `_run_ical_scraper`) to raise `RuntimeError` and asserts that `_try_credentialed_scrape` is never called; also add a complementary test where the deterministic scraper returns `[]` (no exception) and asserts that `_try_credentialed_scrape` IS called.
 
@@ -41,4 +41,18 @@ Key files:
 **Findings:** Credentialed fallback now correctly skips when deterministic scraper raised an exception, only triggering on clean zero-event returns.
 LESSONS: none
 **Files:** stage2_scraping.py (+7/-2)
+**Commit:** a56d1c8 (hockey)
+
+### 2026-06-19 — Guard was implemented together with the flag in task 1: condition on line 336 is already 'if not events and not deterministic_raised'.
+**Rationale:** Already implemented as part of the prior task — no separate change needed.
+**Findings:** Condition already reads 'if not events and not deterministic_raised' in stage2_scraping.py.
+LESSONS: none
+**Files:** no files changed (already done in task 1)
+**Commit:** [pending — fill after commit]
+
+### 2026-06-19 — Added TestCredentialedFallbackGate with two tests: one verifying _try_credentialed_scrape is NOT called when deterministic raises RuntimeError, one verifying it IS called when deterministic returns empty list.
+**Rationale:** Direct patch approach as described in plan approach sub-bullet — patches _run_ical_scraper and _try_credentialed_scrape.
+**Findings:** Both tests pass: fallback skipped on exception, fallback invoked on clean empty return.
+LESSONS: none
+**Files:** tests/test_stage2_scraping.py (+48)
 **Commit:** [pending — fill after commit]
