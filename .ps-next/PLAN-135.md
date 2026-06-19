@@ -8,7 +8,7 @@
 - [x] Changed validate_config to accept input_path: Path and resolve relative team-file paths against input_path.parent, so the existence check is CWD-independent. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage1_helpers.py
   - Approach: Change the function signature from `validate_config(raw: dict[str, Any])` to `validate_config(raw: dict[str, Any], input_path: Path)` so the directory context of input.xlsx is available for path resolution.
-- [ ] Fix path resolution in validate_config to use input_path.parent as anchor
+- [x] Already implemented in the previous task: (input_path.parent / teams_val).resolve() is used to anchor relative team-file paths to the workbook directory. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage1_helpers.py
   - Approach: Replace `Path(teams_val).exists()` with `(Path(input_path).parent / teams_val).exists()` so relative paths are resolved relative to the input file location, not CWD. Absolute paths should remain unaffected (Path division with an absolute right-hand side keeps the absolute path).
 - [ ] Update call sites in stage1_config.py to pass input_path to validate_config
@@ -38,4 +38,11 @@ The bug is in `tournament_scheduler/pipeline/stage1_helpers.py` — `validate_co
 **Findings:** All tests pass; teams file path now resolved relative to the workbook directory.
 LESSONS: none
 **Files:** stage1_config.py (+2/-1), stage1_helpers.py (+12/-3)
+**Commit:** 014f37f (hockey)
+
+### 2026-06-19 — Already implemented in the previous task: (input_path.parent / teams_val).resolve() is used to anchor relative team-file paths to the workbook directory.
+**Rationale:** This task was subsumed by the signature-change task which was implemented together.
+**Findings:** Path resolution already in place from prior task; absolute paths unaffected because Path division with an absolute RHS preserves the absolute path.
+LESSONS: none
+**Files:** no additional files changed
 **Commit:** [pending — fill after commit]
