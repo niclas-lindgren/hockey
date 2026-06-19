@@ -69,6 +69,9 @@ from .templates import (
     SHARED_JAVASCRIPT,
     SCHEDULE_JAVASCRIPT,
     COUNT_BAR,
+    SCORES,
+    METRICS,
+    CLUB_DASHBOARD,
 )
 
 
@@ -215,6 +218,9 @@ class HtmlExporter:
             travel_stats_html=TRAVEL_STATS,
             heatmap_html=HEATMAP,
             judgment=judgment,
+            scores_html=SCORES,
+            metrics_html=METRICS,
+            club_dashboard_html=CLUB_DASHBOARD,
         )
         export_links_html = build_export_links_html(output_files)
 
@@ -362,6 +368,9 @@ class HtmlExporter:
         travel_stats_html: str,
         heatmap_html: str,
         judgment: dict[str, object],
+        scores_html: str,
+        metrics_html: str,
+        club_dashboard_html: str,
     ) -> str:
         """Render the organizer-first report overview above raw diagnostics."""
         gate = plan.fairness_gate if isinstance(plan.fairness_gate, dict) else {}
@@ -558,6 +567,9 @@ class HtmlExporter:
             "$REPORT_DIAGNOSTICS$": diagnostics_html,
             "$REPORT_HEATMAP$": heatmap_html,
             "$REPORT_JUDGMENT$": judgment_html,
+            "$REPORT_SCORES$": scores_html,
+            "$REPORT_METRICS$": metrics_html,
+            "$REPORT_CLUB_DASHBOARD$": club_dashboard_html,
         }
         html = REPORT_OVERVIEW
         for marker, value in replacements.items():

@@ -21,7 +21,7 @@
   - Files: `tournament_scheduler/html/templates/report_overview.html`
   - Approach: Wrap the `#ruleTransparency` details block, `#advisoryChecks` (now also a details), and `#detailedDiagnosticsIntro` inside a new outer `<details class="report-section report-section--collapsible" id="detaljerAccordion">` with a `<summary>` labelled "Detaljer". This accordion is closed by default and contains all numeric detail sections.
 
-- [ ] Inject scores, metrics, and club dashboard content into the Detaljer accordion in report_overview.html and html_exporter.py
+- [x] Added SCORES, METRICS, CLUB_DASHBOARD imports to html_exporter.py, passed them as scores_html/metrics_html/club_dashboard_html to _report_overview_html, and added $REPORT_SCORES$, $REPORT_METRICS$, $REPORT_CLUB_DASHBOARD$ placeholders inside the Detaljer accordion in report_overview.html. — 2026-06-19
   - Files: `tournament_scheduler/html/templates/report_overview.html`, `tournament_scheduler/html/html_exporter.py`
   - Approach: Add `$REPORT_SCORES$`, `$REPORT_METRICS$`, and `$REPORT_CLUB_DASHBOARD$` placeholders inside the new Detaljer accordion in report_overview.html. In `_report_overview_html`, populate them using the existing SCORES, METRICS, and CLUB_DASHBOARD template constants (import them from `templates` and add substitution entries in the replacements dict).
 
@@ -59,4 +59,11 @@ LESSONS: none
 **Findings:** Detaljer accordion groups three detail sections; top-level summary sections remain open.
 LESSONS: none
 **Files:** report_overview.html (+41/-30)
+**Commit:** 854ff84 (hockey)
+
+### 2026-06-19 — Added SCORES, METRICS, CLUB_DASHBOARD imports to html_exporter.py, passed them as scores_html/metrics_html/club_dashboard_html to _report_overview_html, and added $REPORT_SCORES$, $REPORT_METRICS$, $REPORT_CLUB_DASHBOARD$ placeholders inside the Detaljer accordion in report_overview.html.
+**Rationale:** Followed the same pattern as TEAM_STATS/TRAVEL_STATS: constants passed as named args, wired via replacements dict.
+**Findings:** Scores, metrics, and club dashboard now render inside the Detaljer accordion.
+LESSONS: none
+**Files:** html_exporter.py (+12/-0), report_overview.html (+6/-0)
 **Commit:** [pending — fill after commit]
