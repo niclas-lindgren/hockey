@@ -23,7 +23,7 @@
   - **Files:** `tournament_scheduler/cli/pipeline_orchestrator.py`
   - **Approach:** Change line 522's `getattr(args, "timestamped_export", False)` fallback to `getattr(args, "timestamped_export", True)` so that any code path that reaches stage4_run without an explicit args attribute defaults to timestamped-on rather than off.
 
-- [ ] Update tests that call `run()` without `timestamped_export` to explicitly pass `timestamped_export=False`
+- [x] Added timestamped_exportFalse to all run() calls in test_stage4_export.py that assert flat export paths, preserving existing test behavior. — 2026-06-19
   - **Files:** `tests/test_stage4_export.py`
   - **Approach:** Find all `run(...)` calls in `test_stage4_export.py` that do not pass `timestamped_export` and are asserting flat export paths (files directly under `export/`). Add `timestamped_export=False` to each so they continue testing flat export without being affected by the new default. Ensure the existing test at line 468-474 that tests `timestamped_export=True` remains unchanged.
 
@@ -62,4 +62,11 @@ LESSONS: none
 **Findings:** All tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+1/-1)
+**Commit:** 4e251d5 (hockey)
+
+### 2026-06-19 — Added timestamped_exportFalse to all run() calls in test_stage4_export.py that assert flat export paths, preserving existing test behavior.
+**Rationale:** Explicit opt-out is safer than implicit reliance on defaults in tests.
+**Findings:** All tests pass.
+LESSONS: none
+**Files:** tests/test_stage4_export.py (+16/-5)
 **Commit:** [pending — fill after commit]

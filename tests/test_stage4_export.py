@@ -184,6 +184,7 @@ class TestRunStage4:
         result = run(
             _make_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         files = result.get("output_files", {})
         assert "excel" in files
@@ -199,6 +200,7 @@ class TestRunStage4:
         result = run(
             _make_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         files = result.get("output_files", {})
         workbook = openpyxl.load_workbook(files["excel"])
@@ -241,6 +243,7 @@ class TestRunStage4:
         result = run(
             _make_multi_age_group_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         files = result.get("output_files", {})
         html_path = Path(files["html"])
@@ -333,6 +336,7 @@ class TestRunStage4:
             _make_plan_dict(),
             state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
 
@@ -391,6 +395,7 @@ class TestRunStage4:
             },
             state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
 
@@ -421,6 +426,7 @@ class TestRunStage4:
         result = run(
             _make_multi_age_group_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         html = Path(result["output_files"]["html"]).read_text(encoding="utf-8")
 
@@ -433,6 +439,7 @@ class TestRunStage4:
         result = run(
             _make_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         files = result.get("output_files", {})
         html = Path(files["html"]).read_text(encoding="utf-8")
@@ -449,6 +456,7 @@ class TestRunStage4:
         result = run(
             _make_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         files = result.get("output_files", {})
         assert "ical" in files
@@ -493,6 +501,7 @@ class TestRunStage4:
         result = run(
             _make_spond_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         files = result.get("output_files", {})
         workbook = openpyxl.load_workbook(files["spond"])
@@ -517,6 +526,7 @@ class TestRunStage4:
         result = run(
             _make_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         files = result.get("output_files", {})
         assert "csv_games" in files
@@ -532,6 +542,7 @@ class TestRunStage4:
         run(
             _make_plan_dict(), state,
             export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
         )
         assert state.is_done(StageName.EXPORT)
 
@@ -552,7 +563,7 @@ class TestRunStage4:
             ],
         }
         state = PipelineState(tmp_path / "pipeline")
-        result = run(data, state, export_dir=str(tmp_path / "export"))
+        result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
         # Weakest metric is "Hjemmebanebelastning" (status=fail, score=40)
         assert "Svakeste metrikk: Hjemmebanebelastning" in report_html
@@ -581,7 +592,7 @@ class TestRunStage4:
             },
         })
         export_dir = tmp_path / "export"
-        result = run(_make_plan_dict(), state, export_dir=str(export_dir))
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir), timestamped_export=False)
         files = result.get("output_files", {})
         assert "calendars_html" in files
         assert Path(files["calendars_html"]).exists()
@@ -590,7 +601,7 @@ class TestRunStage4:
         """When no scrape cache exists, calendars.html should not be generated and the navbar link should be hidden."""
         state = PipelineState(tmp_path / "pipeline")
         export_dir = tmp_path / "export"
-        result = run(_make_plan_dict(), state, export_dir=str(export_dir))
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir), timestamped_export=False)
         files = result.get("output_files", {})
         assert "calendars_html" not in files
         calendars_path = export_dir / "calendars.html"
@@ -608,7 +619,7 @@ class TestRunStage4:
             StageName.SCRAPING,
             {"sources": [], "blocked": ["Ringerike", "Tønsberg"]},
         )
-        result = run(data, state, export_dir=str(tmp_path / "export"))
+        result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
         assert "2 kilde(r) blokkert." in report_html
 
@@ -626,6 +637,6 @@ class TestRunStage4:
             "cancelled": True,
         })
         state = PipelineState(tmp_path / "pipeline")
-        result = run(data, state, export_dir=str(tmp_path / "export"))
+        result = run(data, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
         report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
         assert "1 turnering(er) avlyst." in report_html
