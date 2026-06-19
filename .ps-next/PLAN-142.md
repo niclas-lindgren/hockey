@@ -22,7 +22,7 @@
   - Files: tournament_scheduler/cli/rvv_cli.py
   - Approach: When the loop ends with remaining issues (either max iterations reached or all remaining moves have `can_auto_fix=False`), print a Rich-formatted escalation table listing each unresolved issue, the reason the harness could not fix it, and the suggested next manual step. Use the existing Rich console pattern from `tournament_scheduler/utils/rich_output.py`.
 
-- [ ] Add unit tests for the adjustment loop
+- [x] Added tests/test_auto_adjust.py with 18 tests covering: suggest_moves for all issue categories (arena-day collision, hosting clump, fairness gate, game count spread, month balance, unrecognised), and _cmd_auto_adjust loop behaviour (early exit, move application, max-iterations stop, escalation on manual-only issues, missing checkpoint return code). — 2026-06-19
   - Files: tests/test_auto_adjust.py, tests/test_plan_critic.py
   - Approach: Write pytest tests covering: (a) `suggest_moves` returns correct move dicts for each issue category, (b) the loop exits early when all issues are resolved before max iterations, (c) the loop escalates when `can_auto_fix=False` issues remain, and (d) the loop stops at `max_iterations` even when auto-fixable issues persist. Mock `_cmd_replan` and the Stage 3 checkpoint load to isolate harness logic.
 
@@ -63,4 +63,10 @@ LESSONS: _plan_to_dict is in pipeline/stage3_helpers.py — import from there, n
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/cli/rvv_cli.py (+84/-7)
-**Commit:** [pending — fill after commit]
+**Commit:** d6d6fb5 (hockey)
+
+### 2026-06-19 — Added tests/test_auto_adjust.py with 18 tests covering: suggest_moves for all issue categories (arena-day collision, hosting clump, fairness gate, game count spread, month balance, unrecognised), and _cmd_auto_adjust loop behaviour (early exit, move application, max-iterations stop, escalation on manual-only issues, missing checkpoint return code).
+**Rationale:** Mocked PipelineState.read_stage at the module level (tournament_scheduler.pipeline.state.PipelineState.read_stage) to control checkpoint data; mocked _cmd_replan at tournament_scheduler.cli.rvv_cli._cmd_replan; mocked _print_escalation_table to assert it is called on non-auto-fixable plans.
+**Findings:** tests/test_auto_adjust.py (+356)
+**Files:** [pending — fill after commit]
+**Commit:** none
