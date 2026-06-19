@@ -67,73 +67,76 @@ def _write_input_workbook(path: Path, raw: dict | None = None) -> None:
     wb.save(path)
 
 
+_DUMMY_INPUT_PATH = Path("/tmp/input.xlsx")
+
+
 class TestValidateConfig:
     def test_valid_config_has_no_errors(self):
-        assert validate_config(_make_valid_raw()) == []
+        assert validate_config(_make_valid_raw(), _DUMMY_INPUT_PATH) == []
 
     def test_missing_start_date(self):
         raw = _make_valid_raw()
         del raw["start_date"]
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("start_date" in e for e in errors)
 
     def test_missing_end_date(self):
         raw = _make_valid_raw()
         del raw["end_date"]
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("end_date" in e for e in errors)
 
     def test_end_before_start_produces_error(self):
         raw = _make_valid_raw()
         raw["end_date"] = "2025-08-01"
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("end_date" in e for e in errors)
 
     def test_period_too_short(self):
         raw = _make_valid_raw()
         raw["start_date"] = "2025-09-01"
         raw["end_date"] = "2025-09-03"
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("dager" in e for e in errors)
 
     def test_invalid_date_format(self):
         raw = _make_valid_raw()
         raw["start_date"] = "01.09.2025"
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("ÅÅÅÅ-MM-DD" in e or "format" in e.lower() for e in errors)
 
     def test_missing_teams(self):
         raw = _make_valid_raw()
         del raw["teams"]
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("teams" in e for e in errors)
 
     def test_empty_teams_list(self):
         raw = _make_valid_raw()
         raw["teams"] = []
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert errors
 
     def test_unknown_age_group_in_team(self):
         raw = _make_valid_raw()
         raw["teams"][0]["age_group"] = "U99"
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("U99" in e for e in errors)
 
     def test_invalid_parallel_games_type(self):
         raw = _make_valid_raw()
         raw["parallel_games"] = "lots"
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("parallel_games" in e for e in errors)
 
     def test_parallel_games_exceed_federation_max(self):
         raw = _make_valid_raw()
         raw["parallel_games"] = {"U10": 999}
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("999" in e or "forbundets" in e for e in errors)
 
     def test_error_messages_are_norwegian(self):
-        errors = validate_config({})
+        errors = validate_config({}, _DUMMY_INPUT_PATH)
         # Norwegian error messages should contain Norwegian words
         combined = " ".join(errors)
         assert any(word in combined for word in ["Mangler", "felt", "Oppgi"])
@@ -143,22 +146,37 @@ class TestValidateConfig:
         raw = _make_valid_raw()
         raw.pop("target_tournament_count", None)
         raw["deltakelser_per_lag"] = 6
-        assert validate_config(raw) == []
+        assert validate_config(raw, _DUMMY_INPUT_PATH) == []
 
     def test_deltakelser_per_lag_takes_priority(self):
         """When both are set, `deltakelser_per_lag` wins (no validation error)."""
         raw = _make_valid_raw()
         raw["target_tournament_count"] = 3
         raw["deltakelser_per_lag"] = 8
-        assert validate_config(raw) == []
+        assert validate_config(raw, _DUMMY_INPUT_PATH) == []
 
     def test_deltakelser_per_lag_invalid_rejected(self):
         """An invalid `deltakelser_per_lag` produces a Norwegian validation error."""
         raw = _make_valid_raw()
         raw.pop("target_tournament_count", None)
         raw["deltakelser_per_lag"] = "mange"
-        errors = validate_config(raw)
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("deltakelser_per_lag" in e for e in errors)
+
+    def test_teams_file_found_relative_to_input_dir(self, tmp_path):
+        """A teams file that exists relative to the input dir passes validation."""
+        (tmp_path / "teams.xlsx").touch()
+        raw = _make_valid_raw()
+        raw["teams"] = "teams.xlsx"
+        errors = validate_config(raw, tmp_path / "input.xlsx")
+        assert not any("finnes ikke" in e for e in errors)
+
+    def test_teams_file_not_found_produces_error(self, tmp_path):
+        """A teams file that does not exist relative to the input dir is reported."""
+        raw = _make_valid_raw()
+        raw["teams"] = "missing_teams.xlsx"
+        errors = validate_config(raw, tmp_path / "input.xlsx")
+        assert any("finnes ikke" in e for e in errors)
 
 
 class TestRunStage1:

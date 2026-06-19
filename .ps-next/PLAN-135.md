@@ -14,7 +14,7 @@
 - [x] Already implemented in task 1: the single call site at line 151 was updated to pass Path(input_path) as the second argument. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/pipeline/stage1_config.py
   - Approach: Update both calls to `validate_config` (at lines ~48 and ~151) in stage1_config.py to include the `input_path` argument, which is already in scope at each call site.
-- [ ] Update existing tests and add path-resolution test cases in test_stage1_config.py
+- [x] Updated all 15 existing validate_config calls to pass _DUMMY_INPUT_PATH; added test_teams_file_found_relative_to_input_dir and test_teams_file_not_found_produces_error. — 2026-06-19
   - Files: /Users/niclasl/src/hockey/tests/test_stage1_config.py
   - Approach: Update all existing `validate_config` calls in the test file to pass an `input_path` argument. Add new test cases that verify a relative teams path resolves correctly relative to the input file directory, and fails when the same relative path does not exist relative to that directory.
 
@@ -52,4 +52,11 @@ LESSONS: none
 **Findings:** Only one call site exists; already updated in prior task.
 LESSONS: none
 **Files:** no additional files changed
+**Commit:** 31c96a2 (hockey)
+
+### 2026-06-19 — Updated all 15 existing validate_config calls to pass _DUMMY_INPUT_PATH; added test_teams_file_found_relative_to_input_dir and test_teams_file_not_found_produces_error.
+**Rationale:** Used a module-level _DUMMY_INPUT_PATH constant to avoid repetition across existing tests; new tests use tmp_path for real filesystem interaction.
+**Findings:** All 28 tests pass including 2 new path-resolution tests.
+LESSONS: none
+**Files:** tests/test_stage1_config.py (+33/-15)
 **Commit:** [pending — fill after commit]
