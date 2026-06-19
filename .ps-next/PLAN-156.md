@@ -13,7 +13,7 @@
   - Files: tests/test_stage2_scraping.py
   - Approach: Write a test that (1) calls `state.write_stage(SCRAPING, existing_data, DONE)` to simulate a prior completed checkpoint, (2) then calls `run()` with a mock that raises mid-scrape to simulate interruption, (3) asserts the checkpoint still contains `existing_data` (not an empty dict) and is not left with `status=running` after the re-run completes successfully from cache.
 
-- [ ] Add regression test: fresh run (no prior checkpoint) still works correctly
+- [x] The fresh-run regression test (test_fresh_run_with_no_prior_checkpoint_works_correctly) was included in the prior task's commit as part of TestCheckpointPreservationOnResume — it verifies that _set_status creates a minimal RUNNING envelope when no checkpoint exists and that write_stage then overwrites it with full data and DONE status. — 2026-06-19
   - Files: tests/test_stage2_scraping.py
   - Approach: Verify the fix does not break the first-ever run scenario: when no checkpoint file exists, `_set_status` should create a minimal RUNNING envelope and the final `write_stage(checkpoint, DONE)` should overwrite it with full data and DONE status.
 
@@ -44,4 +44,11 @@ LESSONS: none
 **Findings:** Both tests pass; no regressions in the full suite.
 LESSONS: none
 **Files:** tests/test_stage2_scraping.py (+96)
+**Commit:** c38a049 (hockey)
+
+### 2026-06-19 — The fresh-run regression test (test_fresh_run_with_no_prior_checkpoint_works_correctly) was included in the prior task's commit as part of TestCheckpointPreservationOnResume — it verifies that _set_status creates a minimal RUNNING envelope when no checkpoint exists and that write_stage then overwrites it with full data and DONE status.
+**Rationale:** Implemented together with the interrupted-run test in the previous task; no separate code needed.
+**Findings:** Test already present in tests/test_stage2_scraping.py and passes.
+LESSONS: none
+**Files:** tests/test_stage2_scraping.py (already committed)
 **Commit:** [pending — fill after commit]
