@@ -110,7 +110,7 @@ def run(
     dict
         Checkpoint data with per-source results.
     """
-    state.write_stage(StageName.SCRAPING, {}, status=StageStatus.RUNNING)
+    state._set_status(StageName.SCRAPING, StageStatus.RUNNING)
 
     sources: list[dict[str, Any]] = config.get("sources", [])
 
