@@ -163,10 +163,11 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def _load_json(path: str | os.PathLike[str]) -> dict[str, Any]:
-    """Load the standard Excel workbook input as the canonical raw config dict.
+def _load_workbook_config(path: str | os.PathLike[str]) -> dict[str, Any]:
+    """Load an Excel workbook and return it as the canonical raw config dict.
 
-    The function name is kept for compatibility with existing imports.
+    Validates that the file exists and has an Excel extension (.xlsx or .xlsm),
+    then delegates to load_workbook_config for parsing.
     """
     p = Path(path)
     if not p.exists():
@@ -179,6 +180,10 @@ def _load_json(path: str | os.PathLike[str]) -> dict[str, Any]:
             "JSON input er ikke lenger støttet som pipeline-standard."
         )
     return load_workbook_config(p)
+
+
+# Backward-compatibility alias — existing importers can keep using _load_json.
+_load_json = _load_workbook_config
 
 
 def _parse_date(value: Any, field: str, errors: list[str]) -> date | None:
