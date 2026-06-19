@@ -14,7 +14,7 @@
   - Files: tournament_scheduler/pipeline/stage1_config.py
   - Approach: Change the import at line 48 from `from .stage1_helpers import _load_json, ...` to `from .stage1_helpers import _load_workbook_config, ...` and update all three call sites (lines 83, 150, 190) from `_load_json(...)` to `_load_workbook_config(...)`.
 
-- [ ] Verify no other modules reference _load_json directly and run tests
+- [x] Confirmed no remaining direct _load_json call sites outside the alias definition; all 537 unit tests pass. — 2026-06-19
   - Files: tournament_scheduler/pipeline/stage1_helpers.py, tournament_scheduler/pipeline/stage1_config.py
   - Approach: Run `rg '_load_json' tournament_scheduler/` to confirm no remaining direct references outside the alias line, then run `pytest` to verify all tests pass.
 
@@ -45,4 +45,11 @@ LESSONS: none
 **Findings:** 537 unit tests pass; no regressions.
 LESSONS: none
 **Files:** stage1_config.py (+4/-4)
+**Commit:** 388b2c6 (hockey)
+
+### 2026-06-19 — Confirmed no remaining direct _load_json call sites outside the alias definition; all 537 unit tests pass.
+**Rationale:** none
+**Findings:** reporting.py contained _load_jsonl_entries which matched substring search but is unrelated; only the alias in stage1_helpers.py remains as expected.
+LESSONS: none
+**Files:** no source files changed
 **Commit:** [pending — fill after commit]
