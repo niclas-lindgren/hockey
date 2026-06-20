@@ -444,4 +444,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     auto_adjust.set_defaults(timestamped_export=True)
 
+    # verdict
+    verdict = sub.add_parser(
+        "verdict",
+        help="Read the Stage 3 checkpoint and print the tone (strong/mixed/rough) and key scores",
+    )
+    verdict.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
     return parser
