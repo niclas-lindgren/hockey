@@ -14,7 +14,7 @@ Stage-by-stage orchestration:
 ```bash
 python3 -m tournament_scheduler.pipeline.stage1_config [--input input.xlsx] [--work-dir .pipeline]
 ```
-Read `.pipeline/stage1_config.json` and verify: `teams` non-empty (9 RVV clubs), `age_groups` populated, `parallel_games` present, `target_tournament_count` ≥ 1, `sources` non-empty.
+Read `.pipeline/stage1_config.json` and verify: `teams` non-empty (9 RVV clubs), `target_tournament_count` ≥ 1, `round_length_minutes` present, `input_path` set. Note: `age_groups`, `parallel_games`, and `sources` are not stored in the stage1 checkpoint — they live in `input.json`.
 
 **Stage 2 — Scraping**
 ```bash

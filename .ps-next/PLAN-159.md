@@ -8,7 +8,7 @@
 - [x] Updated stage1_config key list in _STAGE_SUMMARY_KEYS to match actual checkpoint fields: input_path, teams, round_length_minutes, target_tournament_count. — 2026-06-20
   - Files: /Users/niclasl/src/hockey/tournament_scheduler/cli/checkpoint_printer.py
   - Approach: On line 44, replace the stage1_config key list `["teams", "age_groups", "parallel_games", "target_tournament_count", "sources"]` with `["input_path", "teams", "round_length_minutes", "target_tournament_count"]` to match the actual fields written to the stage1 checkpoint by stage1_config.py.
-- [ ] Update run.md stage1 verification checklist
+- [x] Updated stage1 verification checklist in run.md to check actual checkpoint fields (teams, target_tournament_count, round_length_minutes, input_path) and note that age_groups/parallel_games/sources live in input.json. — 2026-06-20
   - Files: /Users/niclasl/src/hockey/.opencode/commands/rvv-miniputt/run.md
   - Approach: Replace line 17 which says "verify: `teams` non-empty (9 RVV clubs), `age_groups` populated, `parallel_games` present, `target_tournament_count` >= 1, `sources` non-empty" with text that checks only the actual checkpoint fields: `teams` non-empty, `target_tournament_count` >= 1, `round_length_minutes` present, `input_path` set — and notes that age_groups/parallel_games/sources live in input.json.
 
@@ -38,4 +38,11 @@ Actual stage1 checkpoint data keys (verified against `.pipeline/stage1_config.js
 **Findings:** Fixed mismatch between displayed fields and actual stage1 checkpoint data.
 LESSONS: none
 **Files:** tournament_scheduler/cli/checkpoint_printer.py (+1/-1)
+**Commit:** 1e52836 (hockey)
+
+### 2026-06-20 — Updated stage1 verification checklist in run.md to check actual checkpoint fields (teams, target_tournament_count, round_length_minutes, input_path) and note that age_groups/parallel_games/sources live in input.json.
+**Rationale:** Direct replacement per plan approach.
+**Findings:** Checklist now accurately reflects what is stored in the stage1 checkpoint.
+LESSONS: none
+**Files:** .opencode/commands/rvv-miniputt/run.md (+1/-1)
 **Commit:** [pending — fill after commit]
