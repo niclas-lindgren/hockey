@@ -283,7 +283,7 @@ class HtmlExporter:
                 "$AGE_GROUPS$": " + ".join(display_age_groups),
                 "$TOURNAMENT_COUNT$": str(len(plan.tournaments)),
                 "$GAME_COUNT$": str(sum(len(t.games) for t in plan.tournaments)),
-                "$UNIQUE_TEAMS$": str(len(all_teams)),
+                "$UNIQUE_TEAMS$": str(len(team_game_counts)),
                 "$TEAM_COUNT$": str(len(team_game_counts)),
                 "$GAME_COUNT_SPREAD$": (
                     f"{max(team_game_counts.values()) - min(team_game_counts.values())} spread"
