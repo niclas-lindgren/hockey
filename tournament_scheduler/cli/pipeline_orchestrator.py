@@ -549,11 +549,102 @@ def _run_stage1(
     return cfg, False
 
 
+def _run_stage2(
+    args: "argparse.Namespace",
+    cfg: "dict[str, Any]",
+    state: "Any",
+    start: "Any",
+    end: "Any",
+    strict: bool,
+    log_fn: "Any",
+    resume_from: int,
+) -> "tuple[dict[str, Any] | None, bool, bool]":
+    """Run Stage 2 (scraping) or skip it when resuming from a later stage.
+
+    Returns ``(scraping, abort, stage_failed)`` where *scraping* is the
+    checkpoint dict, *abort* is True when the pipeline should stop (caller
+    writes the run log and returns 1), and *stage_failed* is True when the
+    stage failed in non-strict mode (pipeline continues but ``run_failed``
+    should be set).
+    """
+    from ..llm_judge import get_judge_if_headless
+    from ..pipeline.stage2_scraping import run as stage2_run
+    from ..pipeline.state import StageName
+
+    allow_missing_sources = getattr(args, "allow_missing_sources", False)
+
+    if resume_from <= 2:
+        _console.print("[bold]Stage 2:[/bold] Skraping...")
+        if getattr(args, "force_refresh", False):
+            try:
+                _force_refresh_stage2_inputs(args.work_dir)
+                _console.print("  [green]✓[/green] Cache tvangsoppdatert før Stage 2")
+                log_fn("Stage 2 inputs force-refreshed")
+            except Exception as exc:
+                _console.print(f"  [yellow]⚠[/yellow] Cache-refresh feilet: {exc}")
+                log_fn(f"Stage 2 force-refresh warning: {exc}")
+        try:
+            scraping = stage2_run(
+                cfg,
+                state,
+                start,
+                end,
+                strict=strict,
+                allow_missing_sources=allow_missing_sources,
+            )
+            n = len(scraping.get("sources", []))
+            blocked = scraping.get("blocked", [])
+            _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
+            log_fn(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked")
+            if blocked:
+                for blocked_name in blocked:
+                    _console.print(f"    [yellow]⚠[/yellow] {blocked_name}")
+                    log_fn(f"  Blocked: {blocked_name}")
+                if scraping.get("warning"):
+                    _console.print(f"  [dim]{scraping['warning']}[/dim]")
+                if allow_missing_sources:
+                    _console.print("  [green]✓[/green] Delvise resultater er lagret og pipeline fortsetter med godkjente mangler.")
+                else:
+                    _console.print("  [dim]Delvise resultater er lagret; kjør [bold]rvv-miniputt run --allow-missing-sources[/bold] for å fortsette med slike mangler neste gang.[/dim]")
+            stage2_summary = {
+                "sources_scanned": n,
+                "blocked": blocked,
+            }
+            if not _judge_stage(2, stage2_summary, state, log_fn, stage_name=StageName.SCRAPING):
+                return None, True, False
+            # Deterministic checkpoint inspection — runs regardless of judge backend.
+            try:
+                _harness_active = get_judge_if_headless() is None
+            except ValueError:
+                _harness_active = True  # no backend configured — treat as harness
+            if not _check_stage2_checkpoint(
+                scraping, strict, _console, log_fn, harness_active=_harness_active
+            ):
+                return None, True, False
+        except Exception as exc:
+            _console.print(f"  [red]✗[/red] {exc}")
+            log_fn(f"Stage 2 FAILED: {exc}")
+            scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": []}
+            if scraping.get("warning"):
+                _console.print(f"  [dim]{scraping['warning']}[/dim]")
+            if strict:
+                return None, True, False
+            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+            return scraping, False, True
+    else:
+        scraping = state.read_stage(StageName.SCRAPING)
+        if not scraping:
+            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 2-checkpoint mangler.")
+            return None, True, False
+        _console.print("[bold]Stage 2:[/bold] Hoppet over (gjenopptatt)")
+        log_fn("Stage 2 skipped via --resume-from")
+
+    return scraping, False, False
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
-    from ..llm_judge import get_judge_if_headless
     from ..pipeline.calendar_viewer import generate_html as generate_calendars
-    from ..pipeline.stage2_scraping import run as stage2_run
     from ..pipeline.stage3_planning import run as stage3_run
     from ..pipeline.stage4_export import run as stage4_run
     from ..pipeline.state import PipelineState, StageName, StageStatus
@@ -578,7 +669,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if resume_from > 1:
         _console.print(f"[dim]Gjenopptar fra Stage {resume_from}[/dim]")
 
-    scraping: dict[str, Any] | None = None
     plan: dict[str, Any] | None = None
 
     cfg, abort = _run_stage1(args, state, strict, _log, resume_from)
@@ -589,76 +679,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
     start = datetime.strptime(cfg["start_date"], "%Y-%m-%d")
     end = datetime.strptime(cfg["end_date"], "%Y-%m-%d")
 
-    if resume_from <= 2:
-        _console.print("[bold]Stage 2:[/bold] Skraping...")
-        allow_missing_sources = args.allow_missing_sources
-        if getattr(args, "force_refresh", False):
-            try:
-                _force_refresh_stage2_inputs(args.work_dir)
-                _console.print("  [green]✓[/green] Cache tvangsoppdatert før Stage 2")
-                _log("Stage 2 inputs force-refreshed")
-            except Exception as exc:
-                _console.print(f"  [yellow]⚠[/yellow] Cache-refresh feilet: {exc}")
-                _log(f"Stage 2 force-refresh warning: {exc}")
-        try:
-            scraping = stage2_run(
-                cfg,
-                state,
-                start,
-                end,
-                strict=strict,
-                allow_missing_sources=allow_missing_sources,
-            )
-            n = len(scraping.get("sources", []))
-            blocked = scraping.get("blocked", [])
-            _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
-            _log(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked")
-            if blocked:
-                for blocked_name in blocked:
-                    _console.print(f"    [yellow]⚠[/yellow] {blocked_name}")
-                    _log(f"  Blocked: {blocked_name}")
-                if scraping.get("warning"):
-                    _console.print(f"  [dim]{scraping['warning']}[/dim]")
-                if allow_missing_sources:
-                    _console.print("  [green]✓[/green] Delvise resultater er lagret og pipeline fortsetter med godkjente mangler.")
-                else:
-                    _console.print("  [dim]Delvise resultater er lagret; kjør [bold]rvv-miniputt run --allow-missing-sources[/bold] for å fortsette med slike mangler neste gang.[/dim]")
-            stage2_summary = {
-                "sources_scanned": n,
-                "blocked": blocked,
-            }
-            if not _judge_stage(2, stage2_summary, state, _log, stage_name=StageName.SCRAPING):
-                _write_run_log(args.work_dir, log_start, log_lines, success=False)
-                return 1
-            # Deterministic checkpoint inspection — runs regardless of judge backend.
-            try:
-                _harness_active = get_judge_if_headless() is None
-            except ValueError:
-                _harness_active = True  # no backend configured — treat as harness
-            if not _check_stage2_checkpoint(
-                scraping, strict, _console, _log, harness_active=_harness_active
-            ):
-                _write_run_log(args.work_dir, log_start, log_lines, success=False)
-                return 1
-        except Exception as exc:
-            _console.print(f"  [red]✗[/red] {exc}")
-            _log(f"Stage 2 FAILED: {exc}")
-            scraping = state.read_stage(StageName.SCRAPING) or {"sources": [], "blocked": []}
-            if scraping.get("warning"):
-                _console.print(f"  [dim]{scraping['warning']}[/dim]")
-            if strict:
-                _write_run_log(args.work_dir, log_start, log_lines, success=False)
-                return 1
-            run_failed = True
-            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
-    else:
-        scraping = state.read_stage(StageName.SCRAPING)
-        if not scraping:
-            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 2-checkpoint mangler.")
-            _write_run_log(args.work_dir, log_start, log_lines, success=False)
-            return 1
-        _console.print("[bold]Stage 2:[/bold] Hoppet over (gjenopptatt)")
-        _log("Stage 2 skipped via --resume-from")
+    scraping, abort, stage2_failed = _run_stage2(args, cfg, state, start, end, strict, _log, resume_from)
+    if abort:
+        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        return 1
+    if stage2_failed:
+        run_failed = True
 
     if resume_from <= 3:
         _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")

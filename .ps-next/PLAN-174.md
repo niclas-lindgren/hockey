@@ -11,7 +11,7 @@
 - [x] Extracted Stage 1 inline block from _cmd_run into module-level _run_stage1(args, state, strict, log_fn, resume_from) returning (cfg, abort); call site in _cmd_run reduced to 3 lines. — 2026-06-20
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: The inline block at lines 529–558 calls `stage1_run` and `load_effective_config`; extract it into a new module-level function `_run_stage1(args, state, strict)` and replace the inline block with a call to it.
-- [ ] Extract stage 2 execution block from _cmd_run into module-level _run_stage2 helper
+- [x] Extracted Stage 2 inline block from _cmd_run into module-level _run_stage2 returning (scraping, abort, stage_failed); handles force-refresh, judge gate, checkpoint gate, and non-strict fallback. — 2026-06-20
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: The inline block at lines 563–632 calls `stage2_run`, `_force_refresh_stage2_inputs`, and `_check_stage2_checkpoint`; extract into `_run_stage2(args, cfg, state, start, end, strict, allow_missing_sources)` following the same pattern as other module-level helpers in this file.
 - [ ] Extract stage 4 export block from _cmd_run into module-level _run_stage4_export helper
@@ -51,4 +51,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+57/-32)
+**Commit:** d6ac5dd (hockey)
+
+### 2026-06-20 — Extracted Stage 2 inline block from _cmd_run into module-level _run_stage2 returning (scraping, abort, stage_failed); handles force-refresh, judge gate, checkpoint gate, and non-strict fallback.
+**Rationale:** none
+**Findings:** none
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+80/-54)
 **Commit:** [pending — fill after commit]
