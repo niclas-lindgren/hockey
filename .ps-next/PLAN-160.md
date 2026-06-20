@@ -15,7 +15,7 @@
   - Files: `.chatgpt/commands/rvv-miniputt/run.md`
   - Approach: Insert a subsection immediately after the Stage 2 block describing how to identify blocked or empty sources using `python3 -m tournament_scheduler.cli.rvv_cli recovery-targets`, mirroring the equivalent section in `.claude/commands/rvv-miniputt/run.md`.
 
-- [ ] Add "Recovery loop" section to .chatgpt/commands/rvv-miniputt/run.md with WebFetch and recovery-inject steps
+- [x] The recovery loop section with WebFetch and recovery-inject steps was already included in the previous task's insertion — no additional changes needed. — 2026-06-20
   - Files: `.chatgpt/commands/rvv-miniputt/run.md`
   - Approach: Add the recovery loop section after the recovery check, documenting the WebFetch-then-inject pattern: use WebFetch (or browser tool) to retrieve each problem source URL, extract calendar events, and inject them via `echo '<JSON-array>' | python3 -m tournament_scheduler.cli.rvv_cli recovery-inject --source "SOURCE_NAME"`, matching the Claude version structure.
 
@@ -41,4 +41,11 @@ The .chatgpt/commands/rvv-miniputt/run.md file is not missing any of the three r
 **Findings:** Section inserted successfully; .chatgpt run.md now has full recovery guidance matching the .claude version.
 LESSONS: none
 **Files:** .chatgpt/commands/rvv-miniputt/run.md (+46/-0)
+**Commit:** 5b0624c (hockey)
+
+### 2026-06-20 — The recovery loop section with WebFetch and recovery-inject steps was already included in the previous task's insertion — no additional changes needed.
+**Rationale:** Content was inserted together with the recovery check section in the prior task commit.
+**Findings:** Verified the .chatgpt run.md already contains the full recovery loop content at lines 51-82.
+LESSONS: The recovery loop section was inserted as part of the recovery check insertion; both tasks map to the same block of content from the .claude run.md.
+**Files:** .chatgpt/commands/rvv-miniputt/run.md (no new changes — already present)
 **Commit:** [pending — fill after commit]
