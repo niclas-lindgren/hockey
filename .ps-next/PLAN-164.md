@@ -23,7 +23,7 @@
   - Files: `tournament_scheduler/cli/rvv_cli.py`
   - Approach: Inside `_cmd_verdict`, use `_console.print()` to emit tone, tone_label, pairwise/diversity/month_balance scores, verdict string, and action_text in a structured, machine-parseable format (e.g. `tone: strong`, `pairwise_score: 0.85`) so the rvv-miniputt:run skill can consume it without HTML parsing.
 
-- [ ] Wire verdict command into main() dispatcher
+- [x] The verdict dispatcher entry was already added in the _cmd_verdict implementation task — elif args.command  'verdict': return _cmd_verdict(args) is present at line 810 of rvv_cli.py. — 2026-06-20
   - Files: `tournament_scheduler/cli/rvv_cli.py`
   - Approach: Add `elif args.command == "verdict": return _cmd_verdict(args)` to the `main()` dispatch block, following the pattern of all other subcommands in the same function.
 
@@ -62,4 +62,11 @@ LESSONS: compute_team_travel_info returns a tuple; first element is the team_tra
 **Findings:** none
 LESSONS: analyze_opinionated_judgment signature is (plan, *, team_game_counts, club_stats, team_travel) — always use keyword args
 **Files:** tournament_scheduler/cli/rvv_cli.py (+30/-7)
+**Commit:** 971506e (hockey)
+
+### 2026-06-20 — The verdict dispatcher entry was already added in the _cmd_verdict implementation task — elif args.command  'verdict': return _cmd_verdict(args) is present at line 810 of rvv_cli.py.
+**Rationale:** Pre-implemented in task 2 as part of the same file edit.
+**Findings:** Wiring was already present; no code change needed.
+LESSONS: none
+**Files:** n/a
 **Commit:** [pending — fill after commit]
