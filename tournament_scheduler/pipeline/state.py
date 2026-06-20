@@ -167,7 +167,7 @@ class PipelineState:
             "data": data,
         }
         path = self.checkpoint_path(stage)
-        path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+        self._write_envelope(path, envelope)
         if status in (StageStatus.DONE, StageStatus.FAILED):
             self._invalidate_downstream(stage, reason=self._default_stale_reason(stage, status))
         return path
@@ -320,7 +320,7 @@ class PipelineState:
         }
         envelope["updated_at"] = datetime.now(tz=timezone.utc).isoformat()
         path = self.checkpoint_path(stage)
-        path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+        self._write_envelope(path, envelope)
 
     def write_approval(
         self,
@@ -353,7 +353,7 @@ class PipelineState:
         }
         envelope["updated_at"] = datetime.now(tz=timezone.utc).isoformat()
         path = self.checkpoint_path(stage)
-        path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+        self._write_envelope(path, envelope)
 
     def _set_status(
         self,
@@ -367,12 +367,26 @@ class PipelineState:
         if extra:
             envelope.update(extra)
         path = self.checkpoint_path(stage)
-        path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+        self._write_envelope(path, envelope)
         if status in (StageStatus.DONE, StageStatus.FAILED):
             reason = None
             if extra:
                 reason = extra.get("error")
             self._invalidate_downstream(stage, reason=reason or self._default_stale_reason(stage, status))
+
+    def _write_envelope(self, path: Path, envelope: dict[str, Any]) -> None:
+        """Write *envelope* as JSON to *path*, catching OS and serialisation errors.
+
+        Raises
+        ------
+        RuntimeError
+            If the write fails due to an :class:`OSError` or a
+            :class:`ValueError` (which covers :class:`json.JSONDecodeError`).
+        """
+        try:
+            path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+        except (OSError, ValueError) as exc:
+            raise RuntimeError(f"Failed to write checkpoint {path}: {exc}") from exc
 
     def _default_stale_reason(self, stage: StageName, status: StageStatus) -> str:
         if status == StageStatus.FAILED:
@@ -396,4 +410,4 @@ class PipelineState:
             envelope["updated_at"] = datetime.now(tz=timezone.utc).isoformat()
             if not envelope.get("error"):
                 envelope["error"] = f"Stale etter endring i {stage.value}: {reason}"
-            path.write_text(json.dumps(envelope, indent=2, ensure_ascii=False), encoding="utf-8")
+            self._write_envelope(path, envelope)

@@ -115,3 +115,83 @@ class TestPipelineState:
         summary = tmp_state.summary()
         assert set(summary.keys()) == set(StageName)
         assert all(v == StageStatus.PENDING for v in summary.values())
+
+
+class TestWriteEnvelopeErrorHandling:
+    """_write_envelope centralises file-write error handling for all five write methods."""
+
+    def _patch_write_text(self, monkeypatch, exc):
+        """Patch Path.write_text to raise *exc*."""
+        monkeypatch.setattr(Path, "write_text", lambda *args, **kwargs: (_ for _ in ()).throw(exc))
+
+    # ------------------------------------------------------------------ #
+    # OSError injection
+    # ------------------------------------------------------------------ #
+
+    def test_write_stage_oserror_raises_runtime_error(self, tmp_path, monkeypatch):
+        state = PipelineState(tmp_path / "pipeline")
+        monkeypatch.setattr(Path, "write_text", lambda *a, **kw: (_ for _ in ()).throw(OSError("disk full")))
+        with pytest.raises(RuntimeError, match="Failed to write checkpoint"):
+            state.write_stage(StageName.CONFIG, {})
+
+    def test_write_judgment_oserror_raises_runtime_error(self, tmp_path, monkeypatch):
+        state = PipelineState(tmp_path / "pipeline")
+        # write_judgment reads the envelope first; pre-populate so read succeeds
+        state.write_stage(StageName.CONFIG, {})
+        monkeypatch.setattr(Path, "write_text", lambda *a, **kw: (_ for _ in ()).throw(OSError("disk full")))
+        with pytest.raises(RuntimeError, match="Failed to write checkpoint"):
+            state.write_judgment(StageName.CONFIG, verdict="PROCEED")
+
+    def test_write_approval_oserror_raises_runtime_error(self, tmp_path, monkeypatch):
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(StageName.CONFIG, {})
+        monkeypatch.setattr(Path, "write_text", lambda *a, **kw: (_ for _ in ()).throw(OSError("disk full")))
+        with pytest.raises(RuntimeError, match="Failed to write checkpoint"):
+            state.write_approval(StageName.CONFIG, decision="GO")
+
+    def test_set_status_oserror_raises_runtime_error(self, tmp_path, monkeypatch):
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(StageName.CONFIG, {})
+        monkeypatch.setattr(Path, "write_text", lambda *a, **kw: (_ for _ in ()).throw(OSError("disk full")))
+        with pytest.raises(RuntimeError, match="Failed to write checkpoint"):
+            state.mark_done(StageName.CONFIG)
+
+    def test_invalidate_downstream_oserror_raises_runtime_error(self, tmp_path, monkeypatch):
+        state = PipelineState(tmp_path / "pipeline")
+        # Create checkpoints for config and scraping so _invalidate_downstream finds them
+        state.write_stage(StageName.CONFIG, {})
+        state.write_stage(StageName.SCRAPING, {})
+        # Allow the first write (config mark_done) but fail the downstream invalidation write
+        call_count = {"n": 0}
+        original = Path.write_text
+
+        def _fail_on_second(self_, *args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] > 1:
+                raise OSError("disk full")
+            return original(self_, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "write_text", _fail_on_second)
+        with pytest.raises(RuntimeError, match="Failed to write checkpoint"):
+            state.mark_done(StageName.CONFIG)
+
+    # ------------------------------------------------------------------ #
+    # ValueError injection (covers json.JSONDecodeError / bad data)
+    # ------------------------------------------------------------------ #
+
+    def test_write_stage_valueerror_raises_runtime_error(self, tmp_path, monkeypatch):
+        state = PipelineState(tmp_path / "pipeline")
+        monkeypatch.setattr(Path, "write_text", lambda *a, **kw: (_ for _ in ()).throw(ValueError("bad json")))
+        with pytest.raises(RuntimeError, match="Failed to write checkpoint"):
+            state.write_stage(StageName.CONFIG, {})
+
+    # ------------------------------------------------------------------ #
+    # Error message contains the file path
+    # ------------------------------------------------------------------ #
+
+    def test_runtime_error_message_contains_path(self, tmp_path, monkeypatch):
+        state = PipelineState(tmp_path / "pipeline")
+        monkeypatch.setattr(Path, "write_text", lambda *a, **kw: (_ for _ in ()).throw(OSError("no space")))
+        with pytest.raises(RuntimeError) as exc_info:
+            state.write_stage(StageName.CONFIG, {})
+        assert "stage1_config.json" in str(exc_info.value)
