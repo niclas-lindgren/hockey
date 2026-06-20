@@ -25,7 +25,7 @@
   - Files: `tournament_scheduler/pipeline/scraper_ical.py`, `tournament_scheduler/club_registry.py`
   - Approach: Extract the `location_filter` from the resolved ClubCalendarSource entry and pass it as an argument when calling `ICalScraper.scrape_calendar`, so the filter is applied during the scrape phase.
 
-- [ ] Add tests for location filtering in ICalScraper
+- [x] Added TestLocationFilter class with 4 tests using MULTI_VENUE_ICAL_FEED fixture (events at Askerhallen, Varner Arena, and no-location); covers no-filter, Askerhallen filter, case-insensitivity, and explicit Varner exclusion. — 2026-06-20
   - Files: `tests/test_ical_scraper.py`
   - Approach: Add test cases using sample iCal data containing events at both Askerhallen and Varner Arena; verify that when `location_filter="Askerhallen"` is passed, only Askerhallen events are returned and Varner Arena events are excluded.
 
@@ -67,4 +67,11 @@ LESSONS: none
 **Findings:** location_filter flows from CLUB_REGISTRY through stage2_scraping -> _run_ical_scraper -> scrape_calendar.
 LESSONS: none
 **Files:** scraper_ical.py (+8/-2), stage2_scraping.py (+11/-2)
+**Commit:** 64f74e6 (hockey)
+
+### 2026-06-20 — Added TestLocationFilter class with 4 tests using MULTI_VENUE_ICAL_FEED fixture (events at Askerhallen, Varner Arena, and no-location); covers no-filter, Askerhallen filter, case-insensitivity, and explicit Varner exclusion.
+**Rationale:** none
+**Findings:** All 13 tests in test_ical_scraper.py pass, including 4 new location filter tests.
+LESSONS: none
+**Files:** tests/test_ical_scraper.py (+137)
 **Commit:** [pending — fill after commit]

@@ -177,3 +177,140 @@ class TestScrapeCalendarParsing:
             )
 
         assert events == []
+
+
+# iCal fixture with events at two different venues, modelling the Frisk Asker
+# Teamup feed which covers both Askerhallen and Varner Arena.
+MULTI_VENUE_ICAL_FEED = b"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Test//Multi Venue Calendar//EN
+CALSCALE:GREGORIAN
+BEGIN:VEVENT
+UID:ask-1@example.com
+DTSTAMP:20260101T120000Z
+DTSTART:20260615T100000Z
+DTEND:20260615T130000Z
+SUMMARY:Ishockey U10 Askerhallen
+LOCATION:Askerhallen, Asker
+END:VEVENT
+BEGIN:VEVENT
+UID:var-1@example.com
+DTSTAMP:20260101T120000Z
+DTSTART:20260616T180000Z
+DTEND:20260616T200000Z
+SUMMARY:Ishockey Varner
+LOCATION:Varner Arena
+END:VEVENT
+BEGIN:VEVENT
+UID:ask-2@example.com
+DTSTAMP:20260101T120000Z
+DTSTART:20260617T090000Z
+DTEND:20260617T120000Z
+SUMMARY:Turnering Askerhallen U12
+LOCATION:Askerhallen
+END:VEVENT
+BEGIN:VEVENT
+UID:no-loc@example.com
+DTSTAMP:20260101T120000Z
+DTSTART:20260618T100000Z
+DTEND:20260618T120000Z
+SUMMARY:Event without location
+END:VEVENT
+END:VCALENDAR
+"""
+
+
+class TestLocationFilter:
+    """location_filter parameter restricts scrape_calendar output by LOCATION field."""
+
+    def _scraper_with_empty_cache(self, calendar_id="https://example.com/frisk.ics"):
+        cache = MagicMock(spec=CalendarCache)
+        cache.get.return_value = None
+        return ICalScraper(calendar_id, cache=cache), cache
+
+    def test_no_filter_returns_all_events(self):
+        """Without a filter all events (including those without LOCATION) are returned."""
+        scraper, _ = self._scraper_with_empty_cache()
+
+        with patch(
+            "tournament_scheduler.data_sources.ical_scraper.requests.get",
+            return_value=_make_response(MULTI_VENUE_ICAL_FEED),
+        ):
+            events = scraper.scrape_calendar(
+                "https://example.com/frisk.ics",
+                "Frisk Asker",
+                datetime(2026, 6, 1),
+                datetime(2026, 6, 30),
+            )
+
+        names = {e.name for e in events}
+        assert len(events) == 4
+        assert "Ishockey U10 Askerhallen" in names
+        assert "Ishockey Varner" in names
+        assert "Turnering Askerhallen U12" in names
+        assert "Event without location" in names
+
+    def test_location_filter_keeps_only_matching_events(self):
+        """With location_filter='Askerhallen', only events at Askerhallen are returned."""
+        scraper, _ = self._scraper_with_empty_cache()
+
+        with patch(
+            "tournament_scheduler.data_sources.ical_scraper.requests.get",
+            return_value=_make_response(MULTI_VENUE_ICAL_FEED),
+        ):
+            events = scraper.scrape_calendar(
+                "https://example.com/frisk.ics",
+                "Frisk Asker",
+                datetime(2026, 6, 1),
+                datetime(2026, 6, 30),
+                location_filter="Askerhallen",
+            )
+
+        names = {e.name for e in events}
+        assert "Ishockey U10 Askerhallen" in names
+        assert "Turnering Askerhallen U12" in names
+        # Varner Arena event must be excluded
+        assert "Ishockey Varner" not in names
+        # Event without location must be excluded when filter is active
+        assert "Event without location" not in names
+        assert len(events) == 2
+
+    def test_location_filter_is_case_insensitive(self):
+        """location_filter match is case-insensitive."""
+        scraper, _ = self._scraper_with_empty_cache()
+
+        with patch(
+            "tournament_scheduler.data_sources.ical_scraper.requests.get",
+            return_value=_make_response(MULTI_VENUE_ICAL_FEED),
+        ):
+            events_lower = scraper.scrape_calendar(
+                "https://example.com/frisk.ics",
+                "Frisk Asker",
+                datetime(2026, 6, 1),
+                datetime(2026, 6, 30),
+                location_filter="askerhallen",
+            )
+
+        names = {e.name for e in events_lower}
+        assert "Ishockey U10 Askerhallen" in names
+        assert "Turnering Askerhallen U12" in names
+        assert "Ishockey Varner" not in names
+
+    def test_location_filter_excludes_varner_arena(self):
+        """Varner Arena events are excluded when filtering for Askerhallen."""
+        scraper, _ = self._scraper_with_empty_cache()
+
+        with patch(
+            "tournament_scheduler.data_sources.ical_scraper.requests.get",
+            return_value=_make_response(MULTI_VENUE_ICAL_FEED),
+        ):
+            events = scraper.scrape_calendar(
+                "https://example.com/frisk.ics",
+                "Frisk Asker",
+                datetime(2026, 6, 1),
+                datetime(2026, 6, 30),
+                location_filter="Askerhallen",
+            )
+
+        varner_events = [e for e in events if "Varner" in e.name]
+        assert varner_events == [], "No Varner Arena events should appear in filtered results"
