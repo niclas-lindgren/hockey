@@ -285,3 +285,105 @@ class TestVarnerArenaHomeTeamRegression:
             assert home_label == frisk.label, (
                 f"Game row {idx}: Frisk Asker must be Hjemmelag, got {home_label!r}"
             )
+
+
+class TestDuplicateLabelDisambiguation:
+    """Tests that teams with duplicate labels are correctly counted using team_key()."""
+
+    def _make_plan_with_duplicate_labels(self):
+        """Return a SeasonPlan where two teams share the same label but differ in club/age_group."""
+        from tournament_scheduler.season_planner import SeasonPlanner
+
+        # Two teams labelled "A-lag" in different clubs/age groups
+        team_a1 = Team(club="Kongsberg", label="A-lag", age_group="U10")
+        team_a2 = Team(club="Ringerike", label="A-lag", age_group="U10")
+        team_b = Team(club="Skien", label="Skien U10", age_group="U10")
+        team_c = Team(club="Jar", label="Jar U10", age_group="U10")
+
+        teams = [team_a1, team_a2, team_b, team_c]
+        games = SeasonPlanner.generate_round_robin_games(teams, parallel_games=2)
+
+        tournament = Tournament(
+            date=date(2026, 10, 10),
+            arena="Kongsberg ishall",
+            age_group="U10",
+            teams=teams,
+            games=games,
+            host_club="Kongsberg",
+        )
+        return SeasonPlan(
+            tournaments=[tournament],
+            start_date=date(2026, 10, 1),
+            end_date=date(2027, 4, 30),
+            diversity_score=0.9,
+            arena_counts={"Kongsberg ishall": 1},
+        )
+
+    def test_compute_team_game_counts_disambiguates_duplicate_labels(self):
+        """compute_team_game_counts should produce distinct keys for teams sharing a label."""
+        from tournament_scheduler.html.data_computation import compute_team_game_counts
+
+        plan = self._make_plan_with_duplicate_labels()
+        counts = compute_team_game_counts(plan)
+
+        # There are 4 distinct teams: two named "A-lag" (different clubs) plus two unique ones.
+        assert len(counts) == 4, (
+            f"Expected 4 distinct team keys, got {len(counts)}: {list(counts.keys())}"
+        )
+        # All counts should be > 0 (each team plays some games).
+        assert all(v > 0 for v in counts.values()), (
+            f"All teams should have played at least one game; counts={counts}"
+        )
+        # The raw duplicate label should not appear alone as a key.
+        assert "A-lag" not in counts, (
+            "Raw duplicate label 'A-lag' should not appear as a key; keys should be disambiguated"
+        )
+
+    def test_review_summary_game_spread_uses_disambiguated_counts(self):
+        """analyze_review_summary should show non-zero game counts for all teams."""
+        from tournament_scheduler.html.data_computation import compute_team_game_counts
+        from tournament_scheduler.html.renderers.review import analyze_review_summary
+
+        plan = self._make_plan_with_duplicate_labels()
+        # Attach team_game_counts to the plan as the HTML exporter does.
+        plan.team_game_counts = compute_team_game_counts(plan)  # type: ignore[attr-defined]
+
+        result = analyze_review_summary(plan)
+
+        # The age_spread_summaries finding should not contain "0" (i.e. no missed lookups).
+        spread_finding = next(
+            (f for f in result["findings"] if "Avvik" in str(f.get("label", ""))),
+            None,
+        )
+        assert spread_finding is not None, "Expected an 'Avvik' finding"
+        # The finding text must not read "0 kamper" / reference zero counts if there are games.
+        text = str(spread_finding.get("text", ""))
+        # If all lookups returned 0, the spread would be 0 and the text would say "0 kamper".
+        assert "har 0 kamper" not in text, (
+            f"All lookups returned 0 — team_key disambiguation likely failed. Finding: {text}"
+        )
+
+    def test_opinionated_judgment_spread_uses_disambiguated_counts(self):
+        """analyze_opinionated_judgment spread should reflect actual game counts, not all zeros."""
+        from tournament_scheduler.html.data_computation import compute_team_game_counts
+        from tournament_scheduler.html.renderers.judgment import analyze_opinionated_judgment
+
+        plan = self._make_plan_with_duplicate_labels()
+        team_game_counts = compute_team_game_counts(plan)
+
+        result = analyze_opinionated_judgment(
+            plan,
+            team_game_counts=team_game_counts,
+            club_stats={},
+            team_travel={},
+        )
+
+        # The "Belastning" card should mention actual game counts, not "0 kamper".
+        load_card = next(
+            (text for label, text in result["cards"] if label == "Belastning"),
+            None,
+        )
+        assert load_card is not None, "Expected a 'Belastning' card"
+        assert "har 0 kamper" not in load_card, (
+            f"All lookups returned 0 — team_key disambiguation likely failed. Card: {load_card}"
+        )

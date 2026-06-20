@@ -17,7 +17,7 @@
 - [x] Fixed judgment.py to build plan-wide duplicate_labels set and use team_key() for looking up team_game_counts at line 71, replacing raw label lookup. — 2026-06-20
   - Files: tournament_scheduler/html/renderers/judgment.py
   - Approach: Import team_key from tournament_scheduler.models. Before the loop at line 70, build a duplicate_labels set from age_team objects collected from age_tournaments. On line 71, replace `team_game_counts.get(label, 0)` with a lookup using `team_key(team_obj, duplicate_labels)`, iterating team objects rather than raw labels.
-- [ ] Add tests verifying team count header and game-count lookups with duplicate-label teams
+- [x] Added TestDuplicateLabelDisambiguation class with 3 tests verifying compute_team_game_counts produces 4 distinct keys for plans with duplicate-label teams, and that review/judgment renderers use non-zero counts. — 2026-06-20
   - Files: tests/test_plan_exporter.py
   - Approach: Add a test fixture that creates two teams with the same label in different clubs/age-groups (triggering disambiguation) and verifies (a) the rendered HTML contains `len(team_game_counts)` as the UNIQUE_TEAMS value, and (b) analyze_review_summary and analyze_opinionated_judgment return non-zero age_team_counts for each team rather than all zeros.
 
@@ -69,4 +69,11 @@ LESSONS: none
 **Findings:** Tests pass. Pattern mirrors review.py fix.
 LESSONS: none
 **Files:** tournament_scheduler/html/renderers/judgment.py (+13/-2)
+**Commit:** 672a025 (hockey)
+
+### 2026-06-20 — Added TestDuplicateLabelDisambiguation class with 3 tests verifying compute_team_game_counts produces 4 distinct keys for plans with duplicate-label teams, and that review/judgment renderers use non-zero counts.
+**Rationale:** none
+**Findings:** All 3 new tests pass and full suite is green.
+LESSONS: none
+**Files:** tests/test_plan_exporter.py (+102)
 **Commit:** [pending — fill after commit]
