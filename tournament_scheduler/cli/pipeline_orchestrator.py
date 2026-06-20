@@ -690,9 +690,30 @@ def _run_stage4_export(
         return False, False, False
 
 
+def _regenerate_calendar(
+    args: "argparse.Namespace",
+    log_fn: "Any",
+) -> bool:
+    """Regenerate calendars.html from scrape cache when Stage 4 did not produce it.
+
+    Returns True if calendar generation failed (caller should set run_failed).
+    """
+    from ..pipeline.calendar_viewer import generate_html as generate_calendars
+
+    _console.print("Genererer calendars.html...", end=" ")
+    try:
+        path = generate_calendars(work_dir=args.work_dir, export_dir=args.export_dir)
+        _console.print(f"[green]✓[/green] {path}")
+        log_fn(f"calendars.html generated: {path}")
+        return False
+    except Exception as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        log_fn(f"calendars.html FAILED: {exc}")
+        return True
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
-    from ..pipeline.calendar_viewer import generate_html as generate_calendars
     from ..pipeline.stage3_planning import run as stage3_run
     from ..pipeline.stage4_export import run as stage4_run
     from ..pipeline.state import PipelineState, StageName, StageStatus
@@ -833,14 +854,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # Only regenerate calendars.html here when stage4 did not already produce it
     # (e.g. stage4 was skipped via --resume-from, or no scrape data was available).
     if not stage4_generated_calendars:
-        _console.print("Genererer calendars.html...", end=" ")
-        try:
-            path = generate_calendars(work_dir=args.work_dir, export_dir=args.export_dir)
-            _console.print(f"[green]✓[/green] {path}")
-            _log(f"calendars.html generated: {path}")
-        except Exception as exc:
-            _console.print(f"[red]✗[/red] {exc}")
-            _log(f"calendars.html FAILED: {exc}")
+        if _regenerate_calendar(args, _log):
             run_failed = True
 
     if run_failed:
