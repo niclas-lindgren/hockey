@@ -17,7 +17,7 @@
   - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/participant_selection.py`
   - Approach: After `_select_participants` returns in `season_planner.py` (line 228), use `club_for_arena(arena)` (or fall back to `tournament.host_club`) to identify the host club, then move any team whose `team.club` matches that club to index 0 of the `participants` list before passing it to `generate_round_robin_games`.
 
-- [ ] Reorder teams in `tournament_updater.py` before game regeneration
+- [x] In tournament_updater.py, before both calls to generate_round_robin_games (team_drop and add_tournament operations), reorder teams so the arena-owning club (via club_for_arena or host_club fallback) is first. — 2026-06-20
   - Files: `tournament_scheduler/pipeline/tournament_updater.py`
   - Approach: Before the two calls to `SeasonPlanner.generate_round_robin_games` (lines 191 and 531), reorder `tournament.teams` to place the host club's team at index 0, using `club_for_arena` from `club_registry.py` and falling back to `tournament.host_club`, mirroring the season_planner fix.
 
@@ -53,4 +53,11 @@ LESSONS: none
 **Findings:** participants list now starts with host club teams before passing to generate_round_robin_games, ensuring correct home team assignment.
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+12/-0)
+**Commit:** f1479cf (hockey)
+
+### 2026-06-20 — In tournament_updater.py, before both calls to generate_round_robin_games (team_drop and add_tournament operations), reorder teams so the arena-owning club (via club_for_arena or host_club fallback) is first.
+**Rationale:** Mirrored the same pattern as season_planner fix; applied to both regeneration sites (team drop at ~line 191 and add_tournament at ~line 531).
+**Findings:** Both tournament_updater operations now produce games with the correct home team (arena owner first).
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/tournament_updater.py (+14/-3)
 **Commit:** [pending — fill after commit]

@@ -22,7 +22,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from ..club_registry import CLUB_REGISTRY
+from ..club_registry import CLUB_REGISTRY, club_for_arena as _club_for_arena
 from ..models import Game, Roster, SeasonPlan, Team, Tournament
 from ..scheduler import TournamentScheduler
 from ..season_planner import SeasonPlanner
@@ -187,9 +187,14 @@ class TournamentUpdater:
             )
 
         # Regenerate round-robin games
+        # Ensure host club's team is first so home team assignment is correct.
+        _home_club = _club_for_arena(tournament.arena) or tournament.host_club
+        _host_t = [t for t in tournament.teams if t.club == _home_club]
+        _other_t = [t for t in tournament.teams if t.club != _home_club]
+        ordered_teams = (_host_t + _other_t) if _host_t else list(tournament.teams)
         parallel_games = self._infer_parallel_games(tournament)
         tournament.games = SeasonPlanner.generate_round_robin_games(
-            tournament.teams, parallel_games
+            ordered_teams, parallel_games
         )
 
         return UpdateResult(
@@ -520,13 +525,19 @@ class TournamentUpdater:
         import uuid
         new_id = uuid.uuid4().hex[:8]
 
+        # Reorder teams so the arena-owning club is first (correct home team).
+        _home_club_new = _club_for_arena(arena) or resolved_host
+        _host_t_new = [t for t in teams if t.club == _home_club_new]
+        _other_t_new = [t for t in teams if t.club != _home_club_new]
+        ordered_teams_new = (_host_t_new + _other_t_new) if _host_t_new else list(teams)
+
         tournament = Tournament(
             id=new_id,
             date=tournament_date,
             arena=arena,
             age_group=age_group,
             host_club=resolved_host,
-            teams=list(teams),
+            teams=ordered_teams_new,
         )
         tournament.games = SeasonPlanner.generate_round_robin_games(
             tournament.teams, pg
