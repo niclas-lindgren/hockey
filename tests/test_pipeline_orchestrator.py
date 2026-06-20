@@ -222,16 +222,22 @@ class TestRunRefinementLoop:
                             "issue": "Arena-day collision on 2026-03-01",
                         }],
                     ):
+                        move_date_result = MagicMock()
+                        move_date_result.summary_nb = "moved"
                         with patch(
-                            "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.apply",
-                            return_value=apply_result,
+                            "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.move_date",
+                            return_value=move_date_result,
                         ):
                             with patch(
-                                "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.write_updated_checkpoint",
+                                "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.apply",
+                                return_value=apply_result,
                             ):
-                                tone, updated = _run_refinement_loop(
-                                    checkpoint, state, args, False, log_calls.append
-                                )
+                                with patch(
+                                    "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.write_updated_checkpoint",
+                                ):
+                                    tone, updated = _run_refinement_loop(
+                                        checkpoint, state, args, False, log_calls.append
+                                    )
 
         # After first iteration apply, tone becomes mixed → early exit before second iteration starts
         assert tone == "mixed"
@@ -273,16 +279,22 @@ class TestRunRefinementLoop:
                             "issue": "some issue",
                         }],
                     ):
+                        move_date_result = MagicMock()
+                        move_date_result.summary_nb = "moved"
                         with patch(
-                            "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.apply",
-                            apply_mock,
+                            "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.move_date",
+                            return_value=move_date_result,
                         ):
                             with patch(
-                                "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.write_updated_checkpoint",
+                                "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.apply",
+                                apply_mock,
                             ):
-                                tone, updated = _run_refinement_loop(
-                                    checkpoint, state, args, False, log_calls.append
-                                )
+                                with patch(
+                                    "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.write_updated_checkpoint",
+                                ):
+                                    tone, updated = _run_refinement_loop(
+                                        checkpoint, state, args, False, log_calls.append
+                                    )
 
         # apply() called exactly _MAX_REFINEMENT_ITERATIONS times
         assert apply_mock.call_count == _MAX_REFINEMENT_ITERATIONS
@@ -363,3 +375,171 @@ class TestRunRefinementLoop:
                         )
 
         apply_mock.assert_not_called()
+
+    def test_banned_dates_populated_for_moves_without_tournament_id(self) -> None:
+        """Moves without tournament_id should have their old_date added to banned_dates."""
+        plan_obj = _make_plan_obj(gate_status="fail", gate_score=40, pairwise=0.5, diversity=0.5, month_balance=0.5)
+        checkpoint = _make_checkpoint(plan_obj)
+        state = _make_state()
+        state.read_stage.return_value = checkpoint
+        args = _make_args()
+        log_calls: list[str] = []
+
+        apply_result = _make_update_result(success=True)
+
+        # Move with no tournament_id but with old_date and new_date — should go to banned_dates
+        moves = [{
+            "tournament_id": "",
+            "new_date": "2026-04-05",
+            "old_date": "2026-03-22",
+            "reason": "conflict",
+            "can_auto_fix": True,
+            "issue": "Arena collision",
+        }]
+
+        captured_plan_obj: list[Any] = []
+
+        def capture_apply(plan, **kwargs):  # type: ignore[no-untyped-def]
+            captured_plan_obj.append(plan)
+            return apply_result
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._compute_verdict_tone",
+            side_effect=["rough", "mixed"],
+        ):
+            with patch(
+                "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.load_plan",
+                return_value=plan_obj,
+            ):
+                with patch(
+                    "tournament_scheduler.cli.plan_critic.generate_critic_summary",
+                    return_value=["Arena collision"],
+                ):
+                    with patch(
+                        "tournament_scheduler.cli.plan_critic.suggest_moves",
+                        return_value=moves,
+                    ):
+                        with patch(
+                            "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.apply",
+                            side_effect=capture_apply,
+                        ):
+                            with patch(
+                                "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.write_updated_checkpoint",
+                            ):
+                                _run_refinement_loop(checkpoint, state, args, False, log_calls.append)
+
+        # apply() must have been called with plan_obj that has banned_dates populated
+        assert len(captured_plan_obj) == 1
+        adj = getattr(captured_plan_obj[0], "manual_adjustments", {}) or {}
+        assert "2026-03-22" in adj.get("banned_dates", []), (
+            f"Expected '2026-03-22' in banned_dates, got manual_adjustments={adj!r}"
+        )
+
+    def test_move_date_called_directly_for_moves_with_tournament_id(self) -> None:
+        """Moves with tournament_id should call TournamentUpdater.move_date directly."""
+        from datetime import date
+
+        plan_obj = _make_plan_obj(gate_status="fail", gate_score=40, pairwise=0.5, diversity=0.5, month_balance=0.5)
+        checkpoint = _make_checkpoint(plan_obj)
+        state = _make_state()
+        state.read_stage.return_value = checkpoint
+        args = _make_args()
+        log_calls: list[str] = []
+
+        apply_result = _make_update_result(success=True)
+        move_date_result = MagicMock()
+        move_date_result.summary_nb = "moved"
+
+        moves = [{
+            "tournament_id": "t42",
+            "new_date": "2026-05-10",
+            "old_date": "2026-04-27",
+            "reason": "conflict",
+            "can_auto_fix": True,
+            "issue": "Arena collision",
+        }]
+
+        move_date_mock = MagicMock(return_value=move_date_result)
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._compute_verdict_tone",
+            side_effect=["rough", "mixed"],
+        ):
+            with patch(
+                "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.load_plan",
+                return_value=plan_obj,
+            ):
+                with patch(
+                    "tournament_scheduler.cli.plan_critic.generate_critic_summary",
+                    return_value=["Arena collision"],
+                ):
+                    with patch(
+                        "tournament_scheduler.cli.plan_critic.suggest_moves",
+                        return_value=moves,
+                    ):
+                        with patch(
+                            "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.move_date",
+                            move_date_mock,
+                        ):
+                            with patch(
+                                "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.apply",
+                                return_value=apply_result,
+                            ):
+                                with patch(
+                                    "tournament_scheduler.pipeline.tournament_updater.TournamentUpdater.write_updated_checkpoint",
+                                ):
+                                    _run_refinement_loop(checkpoint, state, args, False, log_calls.append)
+
+        # move_date should have been called with the correct tournament_id and parsed date
+        move_date_mock.assert_called_once()
+        call_args = move_date_mock.call_args
+        assert call_args[0][0] == "t42"
+        assert call_args[0][1] == date(2026, 5, 10)
+
+    def test_apply_skipped_when_no_changes(self) -> None:
+        """apply() should be skipped when moves have no old_date and no tournament_id (no-op)."""
+        plan_obj = _make_plan_obj(gate_status="fail", gate_score=40, pairwise=0.5, diversity=0.5, month_balance=0.5)
+        checkpoint = _make_checkpoint(plan_obj)
+        state = _make_state()
+        args = _make_args()
+        log_calls: list[str] = []
+
+        apply_mock = MagicMock()
+
+        # Move with no tournament_id and no old_date — nothing to ban, nothing to move
+        moves = [{
+            "tournament_id": "",
+            "new_date": "2026-04-05",
+            "old_date": None,
+            "reason": "conflict",
+            "can_auto_fix": True,
+            "issue": "some issue",
+        }]
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._compute_verdict_tone",
+            return_value="rough",
+        ):
+            with patch(
+                "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.load_plan",
+                return_value=plan_obj,
+            ):
+                with patch(
+                    "tournament_scheduler.cli.plan_critic.generate_critic_summary",
+                    return_value=["some issue"],
+                ):
+                    with patch(
+                        "tournament_scheduler.cli.plan_critic.suggest_moves",
+                        return_value=moves,
+                    ):
+                        with patch(
+                            "tournament_scheduler.pipeline.manual_adjustment_workflow.ManualAdjustmentWorkflow.apply",
+                            apply_mock,
+                        ):
+                            _run_refinement_loop(checkpoint, state, args, False, log_calls.append)
+
+        # apply() should NOT be called — no effective changes were made
+        apply_mock.assert_not_called()
+        assert any("no effective changes" in msg for msg in log_calls), (
+            f"Expected 'no effective changes' in log; got: {log_calls}"
+        )

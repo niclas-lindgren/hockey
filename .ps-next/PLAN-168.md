@@ -17,7 +17,7 @@
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`
   - Approach: After applying fixes, add a guard that skips `workflow.apply()` and `write_updated_checkpoint()` when `requested_adjustments` is effectively empty (all lists empty) to avoid a no-op apply that resets scores.
 
-- [ ] Add unit tests asserting requested_adjustments is populated and apply() receives non-empty adjustments
+- [x] Added 3 new tests: banned_dates populated for moves without tournament_id, move_date called directly for moves with tournament_id, and apply() skipped when no effective changes. Updated 2 existing tests to mock TournamentUpdater.move_date. — 2026-06-20
   - Files: `tests/test_pipeline_orchestrator.py`
   - Approach: Extend the existing `_run_refinement_loop` test fixtures to supply moves with `old_date` and `new_date` set; assert that the `apply` mock is called with a `plan_obj` whose `manual_adjustments["banned_dates"]` is non-empty.
 
@@ -55,4 +55,11 @@ LESSONS: none
 **Findings:** Guard breaks out of the refinement loop early when direct_move_count0 and requested_adjustments is empty.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+8/-0)
+**Commit:** 3cda0d6 (hockey)
+
+### 2026-06-20 — Added 3 new tests: banned_dates populated for moves without tournament_id, move_date called directly for moves with tournament_id, and apply() skipped when no effective changes. Updated 2 existing tests to mock TournamentUpdater.move_date.
+**Rationale:** Existing tests with tournament_id moves needed move_date mocked to avoid calling real TournamentUpdater with mock state.
+**Findings:** All 19 orchestrator tests pass; new tests cover the three code paths added in previous tasks.
+LESSONS: Existing tests with moves containing tournament_id must mock TournamentUpdater.move_date or they will call the real method and the no-changes guard will break expected apply() call counts.
+**Files:** tests/test_pipeline_orchestrator.py (+192/-12)
 **Commit:** [pending — fill after commit]
