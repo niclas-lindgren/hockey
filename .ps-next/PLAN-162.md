@@ -8,7 +8,7 @@
 - [x] Changed $UNIQUE_TEAMS$ to use len(team_game_counts) instead of len(all_teams) in html_exporter.py line 286. — 2026-06-20
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: In html_exporter.py line 286, change `str(len(all_teams))` to `str(len(team_game_counts))`. The all_teams set is built from raw g.home.label/g.away.label and collapses duplicate labels; team_game_counts already uses the same keys as the rest of the report, so its length is the correct unique-team count.
-- [ ] Update compute_team_game_counts to use team_key() for disambiguated dict keys
+- [x] Rewrote compute_team_game_counts() to use team_key() for disambiguated dict keys by first collecting all teams to find labels with multiple distinct club/age_group identities, then using that set to generate keys. — 2026-06-20
   - Files: tournament_scheduler/html/data_computation.py, tournament_scheduler/models.py
   - Approach: Import team_key from tournament_scheduler.models. In compute_team_game_counts(), collect all team objects across games to build a duplicate_labels set (Counter on labels, keep those with count > 1), then use team_key(team_obj, duplicate_labels) as the dict key instead of team_obj.label. This makes the keys match what review.py and judgment.py expect.
 - [ ] Fix review.py:93 to look up team_game_counts via team_key()
@@ -48,4 +48,11 @@ Key codebase context:
 **Findings:** One-line fix confirmed correct by pytest passing.
 LESSONS: none
 **Files:** tournament_scheduler/html/html_exporter.py (+1/-1)
+**Commit:** e7652e7 (hockey)
+
+### 2026-06-20 — Rewrote compute_team_game_counts() to use team_key() for disambiguated dict keys by first collecting all teams to find labels with multiple distinct club/age_group identities, then using that set to generate keys.
+**Rationale:** none
+**Findings:** Tests pass. Keys now match what review.py and judgment.py expect.
+LESSONS: none
+**Files:** tournament_scheduler/html/data_computation.py (+25/-3)
 **Commit:** [pending — fill after commit]

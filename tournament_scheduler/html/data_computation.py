@@ -17,6 +17,7 @@ from typing import Any
 from tournament_scheduler.club_distances import (
     compute_team_travel_distances as _compute_team_travel_distances,
 )
+from tournament_scheduler.models import team_key as _team_key
 
 # ---------------------------------------------------------------------------
 # Inline SVG icons (14x14 or 16x16 viewBox, currentColor stroke, 1.5px)
@@ -114,12 +115,33 @@ def age_string(iso_str: str) -> str:
 
 
 def compute_team_game_counts(plan: object) -> dict[str, int]:
-    """Return a dict mapping team label → total games played."""
+    """Return a dict mapping team_key → total games played.
+
+    Keys are disambiguated via team_key() so that teams with the same label
+    but different clubs or age groups are counted separately.
+    """
+    # First pass: collect all team objects to find labels that are shared by
+    # more than one distinct (club, age_group) combination.
+    label_to_identities: dict[str, set[tuple[str, str]]] = {}
+    for t in getattr(plan, "tournaments", []):
+        for g in getattr(t, "games", []):
+            for team_obj in (getattr(g, "home"), getattr(g, "away")):
+                identity = (
+                    getattr(team_obj, "club", ""),
+                    getattr(team_obj, "age_group", ""),
+                )
+                label_to_identities.setdefault(team_obj.label, set()).add(identity)
+    duplicate_labels = {
+        label for label, ids in label_to_identities.items() if len(ids) > 1
+    }
+
+    # Second pass: count games per disambiguated team key.
     team_game_counts: dict[str, int] = {}
     for t in getattr(plan, "tournaments", []):
         for g in getattr(t, "games", []):
-            for team_label in (getattr(g, "home").label, getattr(g, "away").label):
-                team_game_counts[team_label] = team_game_counts.get(team_label, 0) + 1
+            for team_obj in (getattr(g, "home"), getattr(g, "away")):
+                key = _team_key(team_obj, duplicate_labels)
+                team_game_counts[key] = team_game_counts.get(key, 0) + 1
     return team_game_counts
 
 
