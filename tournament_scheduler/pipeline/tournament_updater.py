@@ -870,51 +870,53 @@ if __name__ == "__main__":  # pragma: no cover
 
     cli_args = parser.parse_args()
 
-    if not cli_args.drop_team and not cli_args.new_date:
-        print("Feil: Angi --drop-team eller --new-date.", file=sys.stderr)
-        sys.exit(1)
-
-    if cli_args.drop_team and cli_args.new_date:
-        print("Feil: Kan ikke bruke --drop-team og --new-date samtidig.", file=sys.stderr)
-        sys.exit(1)
-
-    state_obj = PipelineState(cli_args.work_dir)
-    updater = TournamentUpdater(state=state_obj)
-
     try:
-        season_plan = updater.load_plan()
-    except ValueError as exc:
-        print(f"Feil: {exc}", file=sys.stderr)
-        sys.exit(1)
+        if not cli_args.drop_team and not cli_args.new_date:
+            raise TournamentValidationError("Angi --drop-team eller --new-date.")
 
-    result: Optional[UpdateResult] = None
+        if cli_args.drop_team and cli_args.new_date:
+            raise TournamentValidationError("Kan ikke bruke --drop-team og --new-date samtidig.")
 
-    if cli_args.drop_team:
-        result = updater.drop_team(cli_args.tournament_id, cli_args.drop_team, plan=season_plan)
-    elif cli_args.new_date:
+        state_obj = PipelineState(cli_args.work_dir)
+        updater = TournamentUpdater(state=state_obj)
+
         try:
-            parsed_date = date.fromisoformat(cli_args.new_date)
-        except ValueError:
-            print(f"Feil: Ugyldig datoformat '{cli_args.new_date}'. Bruk YYYY-MM-DD.", file=sys.stderr)
+            season_plan = updater.load_plan()
+        except ValueError as exc:
+            raise TournamentUpdateError(str(exc)) from exc
+
+        result: Optional[UpdateResult] = None
+
+        if cli_args.drop_team:
+            result = updater.drop_team(cli_args.tournament_id, cli_args.drop_team, plan=season_plan)
+        elif cli_args.new_date:
+            try:
+                parsed_date = date.fromisoformat(cli_args.new_date)
+            except ValueError:
+                raise TournamentValidationError(
+                    f"Ugyldig datoformat '{cli_args.new_date}'. Bruk YYYY-MM-DD."
+                )
+            result = updater.move_date(
+                cli_args.tournament_id, parsed_date,
+                plan=season_plan,
+                force=cli_args.force,
+                cascade=not cli_args.no_cascade,
+            )
+
+        if not result:
+            raise TournamentUpdateError("Ingen operasjon utført.")
+
+        if result.success:
+            updater.write_updated_checkpoint(season_plan, log_entry=result)
+            log_path = updater.log_update(result)
+            print(result.summary_nb)
+            print(f"\nPlan oppdatert i {cli_args.work_dir}/stage3_planning.json")
+            print(f"Logget til {log_path}")
+            sys.exit(0)
+        else:
+            print(result.summary_nb, file=sys.stderr)
             sys.exit(1)
-        result = updater.move_date(
-            cli_args.tournament_id, parsed_date,
-            plan=season_plan,
-            force=cli_args.force,
-            cascade=not cli_args.no_cascade,
-        )
 
-    if not result:
-        print("Feil: Ingen operasjon utført.", file=sys.stderr)
-        sys.exit(1)
-
-    if result.success:
-        updater.write_updated_checkpoint(season_plan, log_entry=result)
-        log_path = updater.log_update(result)
-        print(result.summary_nb)
-        print(f"\nPlan oppdatert i {cli_args.work_dir}/stage3_planning.json")
-        print(f"Logget til {log_path}")
-        sys.exit(0)
-    else:
-        print(result.summary_nb, file=sys.stderr)
+    except TournamentUpdateError as exc:
+        print(f"Feil: {exc}", file=sys.stderr)
         sys.exit(1)

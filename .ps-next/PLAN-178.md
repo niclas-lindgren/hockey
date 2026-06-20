@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/pipeline/tournament_updater.py
   - Approach: Add `TournamentUpdateError` and `TournamentValidationError` custom exception classes near the top of tournament_updater.py (after imports, before function definitions), so that the __main__ block can raise typed exceptions instead of calling sys.exit.
 
-- [ ] Replace all sys.exit(1) calls in __main__ block with exception raises
+- [x] Replaced all six sys.exit(1) calls in the __main__ block with raises of TournamentValidationError/TournamentUpdateError; wrapped the block in a single try/except that catches TournamentUpdateError and prints to stderr then exits cleanly. — 2026-06-20
   - Files: tournament_scheduler/pipeline/tournament_updater.py
   - Approach: Locate the six sys.exit(1) calls in the `if __name__ == "__main__":` block (lines 862, 866, 875, 886, 896, 907) and replace each with a raise of `TournamentValidationError` or `TournamentUpdateError`, preserving all error messages; wrap the entire __main__ block in a try/except that catches these and prints to stderr then exits cleanly for CLI use.
 
@@ -40,4 +40,11 @@ No sys.exit call remains in tournament_updater.py outside of the `if __name__ ==
 **Findings:** Custom exception classes defined; tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/tournament_updater.py (+13/-0)
+**Commit:** 32c3835 (hockey)
+
+### 2026-06-20 — Replaced all six sys.exit(1) calls in the __main__ block with raises of TournamentValidationError/TournamentUpdateError; wrapped the block in a single try/except that catches TournamentUpdateError and prints to stderr then exits cleanly.
+**Rationale:** Wrapping in try/except at the top of __main__ keeps CLI behavior while allowing library import without sys.exit risk.
+**Findings:** All tests pass; __main__ block now uses exceptions exclusively for error paths.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/tournament_updater.py (+42/-40)
 **Commit:** [pending — fill after commit]
