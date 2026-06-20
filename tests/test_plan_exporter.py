@@ -212,3 +212,76 @@ class TestSeasonPlanExporter:
                 if game.home is team or game.away is team
             }
             assert set(opponents.split(", ")) == expected_opponents
+
+
+class TestVarnerArenaHomeTeamRegression:
+    """Regression: Frisk Asker must be the home team in Excel output for Varner Arena tournaments."""
+
+    def test_hjemmelag_column_shows_frisk_asker_for_varner_arena(self, tmp_path):
+        """When a tournament is hosted at Varner Arena, all game rows in the
+        per-tournament Excel sheet must show Frisk Asker in the Hjemmelag column."""
+        from tournament_scheduler.season_planner import SeasonPlanner
+
+        frisk = Team(club="Frisk Asker", label="Frisk Asker A", age_group="U10")
+        visitors = [
+            Team(club="Kongsberg", label="Kongsberg A", age_group="U10"),
+            Team(club="Skien", label="Skien A", age_group="U10"),
+            Team(club="Ringerike", label="Ringerike A", age_group="U10"),
+        ]
+        # Host-first ordering: Frisk Asker comes first
+        teams = [frisk] + visitors
+        games = SeasonPlanner.generate_round_robin_games(teams, parallel_games=2)
+
+        tournament = Tournament(
+            date=date(2026, 11, 14),
+            arena="Varner Arena",
+            age_group="U10",
+            teams=teams,
+            games=games,
+            host_club="Frisk Asker",
+        )
+        plan = SeasonPlan(
+            tournaments=[tournament],
+            start_date=date(2026, 10, 1),
+            end_date=date(2027, 4, 30),
+            diversity_score=0.5,
+            arena_counts={"Varner Arena": 1},
+        )
+
+        output_path = tmp_path / "varner_arena_plan.xlsx"
+        SeasonPlanExporter().export(plan, str(output_path))
+
+        workbook = openpyxl.load_workbook(str(output_path))
+
+        # Find the per-tournament sheet for this tournament.
+        # Sheet names use short date format "DD.MM" not the full date.
+        date_prefix = tournament.date.strftime("%d.%m")
+        matching_sheets = [
+            name for name in workbook.sheetnames
+            if name.startswith(date_prefix) and tournament.age_group in name
+        ]
+        assert len(matching_sheets) == 1, (
+            f"Expected exactly one sheet for {tournament.date} {tournament.age_group}; "
+            f"got {matching_sheets}"
+        )
+        sheet = workbook[matching_sheets[0]]
+        rows = list(sheet.iter_rows(values_only=True))
+
+        header_index = next(
+            i for i, row in enumerate(rows)
+            if row[:2] == ("Runde", "Hjemmelag")
+        )
+        game_rows = rows[header_index + 1:header_index + 1 + len(games)]
+
+        assert len(game_rows) == len(games), "row count mismatch"
+        # Frisk Asker must be home in every game they play (never away).
+        frisk_rows = [
+            (idx, row) for idx, row in enumerate(game_rows)
+            if row[1] == frisk.label or row[2] == frisk.label
+        ]
+        assert len(frisk_rows) > 0, "Frisk Asker should appear in at least one game row"
+        for idx, row in frisk_rows:
+            home_label = row[1]
+            assert home_label == frisk.label, (
+                f"Game row {idx}: Frisk Asker must be Hjemmelag, got {home_label!r}"
+            )

@@ -178,3 +178,52 @@ class TestRoundRobinGenerator:
                 assert game.away.label not in seen
                 seen.add(game.home.label)
                 seen.add(game.away.label)
+
+
+class TestHostFirstParticipantOrder:
+    """participants[0] is the host club; they must appear as game.home
+    in every game they participate in (never as the away team)."""
+
+    def test_first_participant_is_home_in_their_own_games(self):
+        """When the host club's team is placed first, they appear as game.home
+        in all games where they participate."""
+        host = Team(club="Frisk Asker", label="Frisk Asker A", age_group="U10")
+        visitors = [
+            Team(club="Kongsberg", label="Kongsberg A", age_group="U10"),
+            Team(club="Skien", label="Skien A", age_group="U10"),
+            Team(club="Ringerike", label="Ringerike A", age_group="U10"),
+        ]
+        participants = [host] + visitors
+
+        games = SeasonPlanner.generate_round_robin_games(participants, parallel_games=2)
+
+        assert len(games) > 0
+        host_games = [
+            g for g in games
+            if g.home.club == "Frisk Asker" or g.away.club == "Frisk Asker"
+        ]
+        assert len(host_games) > 0, "host should participate in at least one game"
+        for game in host_games:
+            assert game.home.club == "Frisk Asker", (
+                f"Frisk Asker should be home in their games; got home={game.home.club!r}"
+            )
+
+    def test_home_team_invariant_with_five_participants(self):
+        host = Team(club="Kongsberg", label="Kongsberg A", age_group="U10")
+        visitors = [
+            Team(club=f"Club{i}", label=f"Club{i} A", age_group="U10")
+            for i in range(4)
+        ]
+        participants = [host] + visitors
+
+        games = SeasonPlanner.generate_round_robin_games(participants, parallel_games=2)
+
+        host_games = [
+            g for g in games
+            if g.home.club == "Kongsberg" or g.away.club == "Kongsberg"
+        ]
+        assert len(host_games) > 0
+        for game in host_games:
+            assert game.home.club == "Kongsberg", (
+                f"Kongsberg should be home in their games; got {game.home.club!r}"
+            )

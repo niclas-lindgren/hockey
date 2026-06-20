@@ -25,7 +25,7 @@
   - Files: `tournament_scheduler/host_assignment.py`
   - Approach: In `find_slot_for_tournament` and any function that passes a `games` list derived from participants, ensure the host team ordering invariant is documented and, if games are re-generated here, apply the same reordering before calling `generate_round_robin_games`.
 
-- [ ] Add unit tests verifying host club is always game.home
+- [x] Added tests/test_host_assignment.py (14 tests) covering club_for_arena lookup and the host-always-home invariant; added TestHostFirstParticipantOrder to test_round_robin.py; added TestVarnerArenaHomeTeamRegression to test_plan_exporter.py. Also fixed game_generation.py to preserve rotation[0] as home in odd rounds by not swapping their pair. — 2026-06-20
   - Files: `tests/test_host_assignment.py`, `tests/test_round_robin.py`, `tests/test_plan_exporter.py`
   - Approach: Add tests that create a Tournament at "Varner Arena" with Frisk Asker and visitors, call `generate_round_robin_games` with the host-first participant list, and assert `game.home.club == "Frisk Asker"` for all rounds. Also add a regression test in `test_plan_exporter.py` that checks the Excel "home" column contains "Frisk Asker" for Varner Arena tournaments.
 
@@ -67,4 +67,11 @@ LESSONS: none
 **Findings:** Invariant is now explicit in the function docstring; no regeneration sites were found.
 LESSONS: none
 **Files:** tournament_scheduler/host_assignment.py (+8/-1)
+**Commit:** 246986f (hockey)
+
+### 2026-06-20 — Added tests/test_host_assignment.py (14 tests) covering club_for_arena lookup and the host-always-home invariant; added TestHostFirstParticipantOrder to test_round_robin.py; added TestVarnerArenaHomeTeamRegression to test_plan_exporter.py. Also fixed game_generation.py to preserve rotation[0] as home in odd rounds by not swapping their pair.
+**Rationale:** Discovered that the original odd-round swap in circle method would place participants[0] as away — fixed by skipping the swap for the pair involving the pinned team (roster[0]). Tests now verify host club appears as game.home in all their games.
+**Findings:** All 14 new tests pass; no regressions in remaining test suite (1 pre-existing stage4 ical test failure confirmed pre-existing).
+LESSONS: The circle-method odd-round swap must preserve rotation[0] as home; otherwise the host club appears as away in alternating rounds. Fix: check if home-candidate is the pinned team before swapping.
+**Files:** tests/test_host_assignment.py (+168), tests/test_plan_exporter.py (+73), tests/test_round_robin.py (+49), tournament_scheduler/game_generation.py (+11/-1)
 **Commit:** [pending — fill after commit]

@@ -38,7 +38,16 @@ def generate_round_robin_games(teams: Sequence[Team], parallel_games: int) -> Li
             round_pairs.append((home, away))
 
         if round_index % 2 == 1:
-            round_pairs = [(away, home) for home, away in round_pairs]
+            # Swap home/away for balanced hosting — but preserve the pinned team
+            # (roster[0], i.e. the host club when the caller places the host at
+            # index 0) as home so that the arena-owning club always appears as
+            # the home team in their own games.
+            pinned = roster[0]
+            round_pairs = [
+                (home, away) if (home is pinned or away is None)
+                else (away, home)
+                for home, away in round_pairs
+            ]
 
         for slot_index, (home, away) in enumerate(round_pairs):
             games.append(
