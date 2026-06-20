@@ -11,6 +11,84 @@ from rich.console import Console
 
 _console = Console()
 
+_STAGE_NAMES = {1: "stage1", 2: "stage2", 3: "stage3"}
+
+
+def _judge_stage(
+    stage_num: int,
+    checkpoint_summary: dict[str, Any],
+    state: "Any",
+    log_fn: "Any",
+    stage_name: "StageName | None" = None,
+) -> bool:
+    """Ask the headless judge whether to proceed after a stage.
+
+    Returns True if the pipeline should continue, False if it should abort.
+    When no judge is present (harness active or RVV_JUDGE_BACKEND unset)
+    always returns True so the pipeline continues unchanged.
+
+    The verdict is persisted into the stage checkpoint via
+    ``state.write_judgment`` so it appears in ``.pipeline/stage*.json``.
+    """
+    import os as _os
+    from ..llm_judge import build_stage_prompt, get_judge_if_headless
+
+    try:
+        judge = get_judge_if_headless()
+    except ValueError:
+        # RVV_JUDGE_BACKEND not set — headless but no backend configured.
+        # Treat as "proceed" so the pipeline is not silently broken.
+        return True
+    if judge is None:
+        return True  # harness is active — it will judge interactively
+
+    backend_name = _os.environ.get("RVV_JUDGE_BACKEND", "unknown")
+    stage_key = _STAGE_NAMES.get(stage_num, f"stage{stage_num}")
+    try:
+        prompt = build_stage_prompt(stage_key, checkpoint_summary)
+    except ValueError:
+        # Unknown stage — fall back to a generic prompt.
+        prompt = (
+            f"Pipeline stage {stage_num} completed. "
+            f"Summary: {checkpoint_summary}. "
+            "Respond PROCEED or ABORT."
+        )
+    try:
+        verdict_raw = judge.judge(prompt).strip()
+    except RuntimeError as exc:
+        log_fn(f"Stage {stage_num} judge call failed: {exc}")
+        _console.print(f"  [yellow]⚠[/yellow] Dommerkall feilet: {exc} — fortsetter")
+        if stage_name is not None:
+            try:
+                state.write_judgment(stage_name, "ERROR", reasoning=str(exc), backend=backend_name)
+            except Exception:
+                pass
+        return True
+
+    # Split verdict keyword from any trailing reasoning text.
+    lines = verdict_raw.splitlines()
+    verdict_keyword = lines[0].strip() if lines else verdict_raw
+    reasoning = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+
+    log_fn(f"Stage {stage_num} judge verdict: {verdict_raw[:200]}")
+    log_fn(f"Stage {stage_num} judge backend: {backend_name}")
+
+    if stage_name is not None:
+        try:
+            state.write_judgment(
+                stage_name,
+                verdict=verdict_keyword,
+                reasoning=reasoning,
+                backend=backend_name,
+            )
+        except Exception as exc:
+            log_fn(f"Stage {stage_num} write_judgment failed: {exc}")
+
+    if verdict_keyword.upper().startswith("ABORT"):
+        _console.print(f"  [red]✗ Headless dommer avbrøt etter Stage {stage_num}:[/red] {verdict_raw}")
+        return False
+    return True
+
 
 def _compute_verdict_tone(plan: "dict[str, Any] | Any") -> str:
     """Compute the verdict tone ('rough', 'mixed', or 'strong') from a plan.
@@ -420,7 +498,7 @@ def _check_stage2_checkpoint(
 
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
-    from ..llm_judge import build_stage_prompt, get_judge_if_headless
+    from ..llm_judge import get_judge_if_headless
     from ..pipeline.calendar_viewer import generate_html as generate_calendars
     from ..pipeline.stage1_config import load_effective_config, run as stage1_run
     from ..pipeline.stage2_scraping import run as stage2_run
@@ -439,80 +517,6 @@ def _cmd_run(args: argparse.Namespace) -> int:
     def _log(msg: str) -> None:
         ts = datetime.now().strftime("%H:%M:%S")
         log_lines.append(f"[{ts}] {msg}")
-
-    _STAGE_NAMES = {1: "stage1", 2: "stage2", 3: "stage3"}
-
-    def _judge_stage(
-        stage_num: int,
-        checkpoint_summary: dict[str, Any],
-        stage_name: "StageName | None" = None,
-    ) -> bool:
-        """Ask the headless judge whether to proceed after a stage.
-
-        Returns True if the pipeline should continue, False if it should abort.
-        When no judge is present (harness active or RVV_JUDGE_BACKEND unset)
-        always returns True so the pipeline continues unchanged.
-
-        The verdict is persisted into the stage checkpoint via
-        ``state.write_judgment`` so it appears in ``.pipeline/stage*.json``.
-        """
-        import os as _os
-
-        try:
-            judge = get_judge_if_headless()
-        except ValueError:
-            # RVV_JUDGE_BACKEND not set — headless but no backend configured.
-            # Treat as "proceed" so the pipeline is not silently broken.
-            return True
-        if judge is None:
-            return True  # harness is active — it will judge interactively
-
-        backend_name = _os.environ.get("RVV_JUDGE_BACKEND", "unknown")
-        stage_key = _STAGE_NAMES.get(stage_num, f"stage{stage_num}")
-        try:
-            prompt = build_stage_prompt(stage_key, checkpoint_summary)
-        except ValueError:
-            # Unknown stage — fall back to a generic prompt.
-            prompt = (
-                f"Pipeline stage {stage_num} completed. "
-                f"Summary: {checkpoint_summary}. "
-                "Respond PROCEED or ABORT."
-            )
-        try:
-            verdict_raw = judge.judge(prompt).strip()
-        except RuntimeError as exc:
-            _log(f"Stage {stage_num} judge call failed: {exc}")
-            _console.print(f"  [yellow]⚠[/yellow] Dommerkall feilet: {exc} — fortsetter")
-            if stage_name is not None:
-                try:
-                    state.write_judgment(stage_name, "ERROR", reasoning=str(exc), backend=backend_name)
-                except Exception:
-                    pass
-            return True
-
-        # Split verdict keyword from any trailing reasoning text.
-        lines = verdict_raw.splitlines()
-        verdict_keyword = lines[0].strip() if lines else verdict_raw
-        reasoning = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
-
-        _log(f"Stage {stage_num} judge verdict: {verdict_raw[:200]}")
-        _log(f"Stage {stage_num} judge backend: {backend_name}")
-
-        if stage_name is not None:
-            try:
-                state.write_judgment(
-                    stage_name,
-                    verdict=verdict_keyword,
-                    reasoning=reasoning,
-                    backend=backend_name,
-                )
-            except Exception as exc:
-                _log(f"Stage {stage_num} write_judgment failed: {exc}")
-
-        if verdict_keyword.upper().startswith("ABORT"):
-            _console.print(f"  [red]✗ Headless dommer avbrøt etter Stage {stage_num}:[/red] {verdict_raw}")
-            return False
-        return True
 
     _console.print("[bold]🏒 RVV Miniputt — full pipeline[/bold]\n")
     _log(
@@ -540,7 +544,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "age_groups": cfg.get("age_groups", []),
                 "clubs": cfg.get("clubs", []),
             }
-            if not _judge_stage(1, stage1_summary, stage_name=StageName.CONFIG):
+            if not _judge_stage(1, stage1_summary, state, _log, stage_name=StageName.CONFIG):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
         except Exception as exc:
@@ -598,7 +602,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "sources_scanned": n,
                 "blocked": blocked,
             }
-            if not _judge_stage(2, stage2_summary, stage_name=StageName.SCRAPING):
+            if not _judge_stage(2, stage2_summary, state, _log, stage_name=StageName.SCRAPING):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
             # Deterministic checkpoint inspection — runs regardless of judge backend.
@@ -642,7 +646,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
                 "tournaments_planned": n_tournaments,
                 "warnings": plan.get("warnings", []),
             }
-            if not _judge_stage(3, stage3_summary, stage_name=StageName.PLANNING):
+            if not _judge_stage(3, stage3_summary, state, _log, stage_name=StageName.PLANNING):
                 _write_run_log(args.work_dir, log_start, log_lines, success=False)
                 return 1
         except Exception as exc:
