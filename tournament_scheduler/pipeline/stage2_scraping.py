@@ -52,6 +52,53 @@ from .scraper_recovery import _blocked_sources_warning, _recovery_hint_for_sourc
 from .scraper_styledcalendar import _run_styledcalendar_scraper
 
 # ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_source_result(
+    name: str,
+    url: str,
+    source_type: str,
+    events: list,
+    event_count: int,
+    blocked: bool,
+    block_reason: str,
+    llm_fallback: bool,
+    *,
+    skipped: bool = False,
+    skip_reason: str | None = None,
+    scraper_error: str | None = None,
+    from_cache: bool = False,
+) -> dict[str, Any]:
+    """Build the canonical source-result dict used throughout stage 2.
+
+    All callers (skipped sources, executor exception handler, and
+    :func:`_scrape_source`) must go through this helper so the dict shape
+    stays consistent.
+    """
+    result: dict[str, Any] = {
+        "name": name,
+        "url": url,
+        "type": source_type,
+        "events": events,
+        "event_count": event_count,
+        "blocked": blocked,
+        "block_reason": block_reason,
+        "llm_fallback": llm_fallback,
+    }
+    if skipped:
+        result["skipped"] = True
+    if skip_reason is not None:
+        result["skip_reason"] = skip_reason
+    if scraper_error is not None:
+        result["scraper_error"] = scraper_error
+    if from_cache:
+        result["from_cache"] = True
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
 
@@ -160,18 +207,18 @@ def run(
         name = source_cfg.get("name", "ukjent kilde")
         url = source_cfg.get("url", "").strip()
         if not url:
-            source_results.append({
-                "name": name,
-                "url": "",
-                "type": source_cfg.get("type", SOURCE_OUTLOOK).lower(),
-                "events": [],
-                "event_count": 0,
-                "blocked": False,
-                "block_reason": "",
-                "llm_fallback": False,
-                "skipped": True,
-                "skip_reason": "Tom URL — kilden er deaktivert i input.xlsx.",
-            })
+            source_results.append(_make_source_result(
+                name=name,
+                url="",
+                source_type=source_cfg.get("type", SOURCE_OUTLOOK).lower(),
+                events=[],
+                event_count=0,
+                blocked=False,
+                block_reason="",
+                llm_fallback=False,
+                skipped=True,
+                skip_reason="Tom URL — kilden er deaktivert i input.xlsx.",
+            ))
             continue
         entry = cache_sources.get(name)
         if (
@@ -204,17 +251,17 @@ def run(
             try:
                 source_result = future.result()
             except Exception as exc:
-                source_result = {
-                    "name": source_cfg.get("name", "ukjent kilde"),
-                    "url": source_cfg.get("url", ""),
-                    "type": source_cfg.get("type", SOURCE_OUTLOOK),
-                    "events": [],
-                    "event_count": 0,
-                    "blocked": True,
-                    "block_reason": f"Scraper krasjet: {exc}",
-                    "scraper_error": str(exc),
-                    "llm_fallback": False,
-                }
+                source_result = _make_source_result(
+                    name=source_cfg.get("name", "ukjent kilde"),
+                    url=source_cfg.get("url", ""),
+                    source_type=source_cfg.get("type", SOURCE_OUTLOOK),
+                    events=[],
+                    event_count=0,
+                    blocked=True,
+                    block_reason=f"Scraper krasjet: {exc}",
+                    llm_fallback=False,
+                    scraper_error=str(exc),
+                )
             source_results.append(source_result)
             if source_result.get("blocked"):
                 blocked.append({"name": source_cfg.get("name", "?"), **source_result})
@@ -282,16 +329,16 @@ def _scrape_source(
     url = source_cfg.get("url", "")
     source_type = source_cfg.get("type", SOURCE_OUTLOOK).lower()
 
-    result: dict[str, Any] = {
-        "name": name,
-        "url": url,
-        "type": source_type,
-        "events": [],
-        "event_count": 0,
-        "blocked": False,
-        "block_reason": "",
-        "llm_fallback": False,
-    }
+    result: dict[str, Any] = _make_source_result(
+        name=name,
+        url=url,
+        source_type=source_type,
+        events=[],
+        event_count=0,
+        blocked=False,
+        block_reason="",
+        llm_fallback=False,
+    )
 
     # --- Run the deterministic scraper ---
     events: list[CalendarEvent] = []
