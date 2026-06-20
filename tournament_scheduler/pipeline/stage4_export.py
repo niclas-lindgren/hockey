@@ -133,7 +133,7 @@ def run(
     # --- iCal ---
     try:
         ical_path = str(primary_export_path / f"{basename}.ics")
-        ICalExporter(round_length_for_age_group=round_length_for_age_group).export(plan, ical_path)
+        ICalExporter(round_length_for_age_group=round_length_for_age_group).export_tournament_summary(plan, ical_path)
         output_files["ical"] = ical_path
     except Exception as exc:  # noqa: BLE001
         errors.append(f"iCal-eksport feilet: {exc}")
@@ -182,9 +182,11 @@ def run(
             pass
         # Scrape metadata from cache for navbar
         meta = None
+        _scrape_cache_data: dict[str, Any] = {}
         try:
             from .cache_manager import ScrapedDataCache
-            meta = ScrapedDataCache(state.work_dir).read().get("_meta")
+            _scrape_cache_data = ScrapedDataCache(state.work_dir).read()
+            meta = _scrape_cache_data.get("_meta")
         except Exception:
             pass
         HtmlExporter().export(
@@ -236,7 +238,8 @@ def run(
 
     # --- Calendar viewer (calendars.html) ---
     # Only generate when scrape data exists — without it the file would be empty and the navbar link would be broken.
-    if meta is not None and (meta.get("total_events", 0) > 0 or meta.get("source_count", 0) > 0):
+    # total_events/source_count are top-level keys in the cache, not inside _meta.
+    if _scrape_cache_data.get("total_events", 0) > 0 or _scrape_cache_data.get("source_count", 0) > 0:
         try:
             _generate_calendars_html(
                 work_dir=str(state.work_dir),
