@@ -2,8 +2,6 @@
 
 ## Open
 
-- [163] [ ] Add skill-driven plan refinement to rvv-miniputt:run: after stage4, compute verdict tone from stage3 checkpoint scores (pairwise_matchup_score, diversity_score, month_balance_score, fairness_gate) — if tone is 'rough' (IKKE KLAR), call ManualAdjustmentWorkflow to apply targeted host/date swaps, re-export, and recheck — loop until tone is 'strong' or 'mixed' or retry cap (3) is reached
-
 - [162] [ ] Fix 18-team display bug in HTML report: (1) header shows 18 instead of 70 because $UNIQUE_TEAMS$ uses raw team labels — fix by using len(team_game_counts) instead; (2) review.py:93 and judgment.py:71 look up team_game_counts with raw label but the dict uses disambiguated keys (e.g. 'Frisk Asker (Frisk Asker, U7)') — fix by building a duplicate_labels set and using team_key() for the lookup
 
 - [160] [ ] Add run.md to .chatgpt/commands/rvv-miniputt/ — ChatGPT harness has guide/logs/calendars but is missing the main pipeline run command
@@ -11,6 +9,7 @@
 - [159] [ ] Fix opencode run.md: stage1 verification checklist references fields (age_groups, parallel_games, sources) that do not exist in the current stage1 checkpoint — should match what checkpoint_printer actually shows (teams, target_tournament_count, round_length_minutes, input_path)
 
 ## Done
+- [163] [x] Add skill-driven plan refinement to rvv-miniputt:run: after stage4, compute verdict tone from stage3 checkpoint scores (pairwise_matchup_score, diversity_score, month_balance_score, fairness_gate) — if tone is 'rough' (IKKE KLAR), call ManualAdjustmentWorkflow to apply targeted host/date swaps, re-export, and recheck — loop until tone is 'strong' or 'mixed' or retry cap (3) is reached (2026-06-20)
 - [165] [x] Restrict Frisk Asker scraping to Askerhallen only: Frisk Asker has two arenas (Askerhallen and Varner Arena) but Frisk Asker tournaments are only held in Askerhallen. Update the Frisk Asker calendar source config to filter/scrape only Askerhallen bookings so Varner Arena slots do not appear as Frisk Asker availability. (2026-06-20)
 - [166] [x] Fix home team assignment: the home team in a tournament is the club that arranges it (owns the arena). When a tournament is in Varner Arena, the home team is Frisk Asker (not a visitor). Update host_assignment.py and any reporting/export logic to derive home-team from arena ownership in the club registry, not from scheduling order or participant index. (2026-06-20)
 - [167] [x] Fix iCal export to produce one VEVENT per tournament (not per match): each tournament event SUMMARY/DESCRIPTION should list the participating teams and round-robin matchups inside the description body, but the calendar entry itself represents the full tournament day — not individual games. Currently exporting one event per game produces unusable calendar spam. (2026-06-20)
