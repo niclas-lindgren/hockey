@@ -464,17 +464,40 @@ def _cmd_verdict(args: argparse.Namespace) -> int:
     club_stats, _missing_hosts = compute_club_stats(season_plan, team_travel)
 
     result = analyze_opinionated_judgment(
-        season_plan, team_game_counts, club_stats, team_travel
+        season_plan,
+        team_game_counts=team_game_counts,
+        club_stats=club_stats,
+        team_travel=team_travel,
     )
 
     tone: str = result.get("tone", "unknown")
     tone_label: str = result.get("tone_label", tone.upper())
-    print(f"tone={tone}")
-    print(f"tone_label={tone_label}")
+    verdict: str = result.get("verdict", "")
+    action_text: str = result.get("action_text", "")
 
-    # Print key scores from cards so callers can parse them
-    for card_label, card_text in result.get("cards", []):
-        print(f"card:{card_label}={card_text}")
+    # Machine-parseable key=value lines on stdout for skill consumption
+    _console.print(f"tone={tone}")
+    _console.print(f"tone_label={tone_label}")
+
+    # Extract pairwise/diversity/month_balance from the plan attributes directly
+    pairwise = float(getattr(season_plan, "pairwise_matchup_score", 0.0) or 0.0)
+    diversity = float(getattr(season_plan, "diversity_score", 0.0) or 0.0)
+    month_balance = float(getattr(season_plan, "month_balance_score", 0.0) or 0.0)
+    fairness_gate = (
+        getattr(season_plan, "fairness_gate", {})
+        if isinstance(getattr(season_plan, "fairness_gate", {}), dict)
+        else {}
+    )
+    gate_score = int(fairness_gate.get("score", 0) or 0)
+    gate_status = str(fairness_gate.get("status", "pass")).lower()
+
+    _console.print(f"pairwise_matchup_score={pairwise:.4f}")
+    _console.print(f"diversity_score={diversity:.4f}")
+    _console.print(f"month_balance_score={month_balance:.4f}")
+    _console.print(f"fairness_gate_score={gate_score}")
+    _console.print(f"fairness_gate_status={gate_status}")
+    _console.print(f"verdict={verdict}")
+    _console.print(f"action_text={action_text}")
 
     return 0
 

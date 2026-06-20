@@ -19,7 +19,7 @@
   - Files: `tournament_scheduler/cli/rvv_cli.py`
   - Approach: Add `_cmd_verdict(args: argparse.Namespace) -> int` that reads stage3 via `PipelineState(args.work_dir).read_stage(StageName.PLANNING)`, extracts the plan, calls `compute_team_game_counts`, `compute_team_travel_info`, and `compute_club_stats` from `tournament_scheduler/html/html_exporter.py`, then passes them to `analyze_opinionated_judgment` from `tournament_scheduler/html/renderers/judgment.py`.
 
-- [ ] Format and print verdict output to stdout using Rich console
+- [x] Enhanced _cmd_verdict to use _console.print() with structured keyvalue output including tone, tone_label, pairwise/diversity/month_balance scores, gate score/status, verdict string, and action_text. Fixed the call to use keyword-only args as required by analyze_opinionated_judgment. — 2026-06-20
   - Files: `tournament_scheduler/cli/rvv_cli.py`
   - Approach: Inside `_cmd_verdict`, use `_console.print()` to emit tone, tone_label, pairwise/diversity/month_balance scores, verdict string, and action_text in a structured, machine-parseable format (e.g. `tone: strong`, `pairwise_score: 0.85`) so the rvv-miniputt:run skill can consume it without HTML parsing.
 
@@ -55,4 +55,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: compute_team_travel_info returns a tuple; first element is the team_travel dict
 **Files:** tournament_scheduler/cli/rvv_cli.py (+47/-0)
+**Commit:** 1e0222e (hockey)
+
+### 2026-06-20 — Enhanced _cmd_verdict to use _console.print() with structured keyvalue output including tone, tone_label, pairwise/diversity/month_balance scores, gate score/status, verdict string, and action_text. Fixed the call to use keyword-only args as required by analyze_opinionated_judgment.
+**Rationale:** analyze_opinionated_judgment uses keyword-only args after plan — positional call raises TypeError
+**Findings:** none
+LESSONS: analyze_opinionated_judgment signature is (plan, *, team_game_counts, club_stats, team_travel) — always use keyword args
+**Files:** tournament_scheduler/cli/rvv_cli.py (+30/-7)
 **Commit:** [pending — fill after commit]
