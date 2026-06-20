@@ -479,7 +479,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if resume_from <= 3:
         _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
         try:
-            plan = stage3_run(cfg, scraping, state, start, end, strict=strict)
+            plan = stage3_run(cfg, scraping, state, start, end, strict=strict, iterations=getattr(args, "iterations", 1))
             n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
             _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
             _log(f"Stage 3 OK: {n_tournaments} tournaments planned")

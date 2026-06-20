@@ -23,7 +23,7 @@
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: In the `if __name__ == "__main__"` argparse block, add `parser.add_argument("--iterations", type=int, default=1, help="Run the planner N times with different random seeds and keep the plan with the best composite fairness score.")` and pass `cli_args.iterations` into the `run()` call.
 
-- [ ] Thread --iterations through the pipeline orchestrator
+- [x] Added --iterations N to the run subcommand argparse in args.py and forwarded it via getattr(args, 'iterations', 1) to stage3_run() in pipeline_orchestrator.py. — 2026-06-20
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`, `tournament_scheduler/cli/args.py`
   - Approach: Add `--iterations` (type int, default 1) to the `run` subcommand's argparse definition in `args.py`. In `pipeline_orchestrator.py` `_cmd_run`, pass `iterations=getattr(args, "iterations", 1)` to `stage3_run(...)` at line 482.
 
@@ -63,4 +63,11 @@ LESSONS: When iterations1 use seedNone (not seed0) to preserve backward-compatib
 **Findings:** CLI flag already present and wired up from previous task
 LESSONS: none
 **Files:** stage3_planning.py (already staged)
+**Commit:** 4bf859b (hockey)
+
+### 2026-06-20 — Added --iterations N to the run subcommand argparse in args.py and forwarded it via getattr(args, 'iterations', 1) to stage3_run() in pipeline_orchestrator.py.
+**Rationale:** Used getattr with fallback to avoid breakage if args namespace lacks the key in future callers.
+**Findings:** iterations flag now flows from CLI through orchestrator into stage3_run loop
+LESSONS: none
+**Files:** args.py (+7/-0), pipeline_orchestrator.py (+1/-1)
 **Commit:** [pending — fill after commit]
