@@ -13,7 +13,7 @@
   - Files: `tournament_scheduler/club_registry.py`
   - Approach: Extend the ClubCalendarSource dataclass with a new optional `location_filter: Optional[str] = None` field to allow per-source venue filtering when a club's iCal feed covers multiple arenas.
 
-- [ ] Update Frisk Asker entry in club_registry.py to set location_filter to Askerhallen
+- [x] Already completed in previous task — Frisk Asker location_filter'Askerhallen' and arena'Askerhallen' set in task 1. — 2026-06-20
   - Files: `tournament_scheduler/club_registry.py`
   - Approach: Set `location_filter="Askerhallen"` on the Frisk Asker ClubCalendarSource entry so only events at Askerhallen are accepted from the Teamup iCal feed.
 
@@ -46,4 +46,11 @@ Running the calendar scraping process for Frisk Asker shall emit only Askerhalle
 **Findings:** Field added with case-insensitive substring match doc comment; Frisk Asker arena field updated to Askerhallen.
 LESSONS: none
 **Files:** tournament_scheduler/club_registry.py (+9/-2)
+**Commit:** 7dc5db6 (hockey)
+
+### 2026-06-20 — Already completed in previous task — Frisk Asker location_filter'Askerhallen' and arena'Askerhallen' set in task 1.
+**Rationale:** Covered by task 1 which added the field and set the value simultaneously.
+**Findings:** Frisk Asker entry verified to have location_filterAskerhallen.
+LESSONS: none
+**Files:** tournament_scheduler/club_registry.py (no additional changes)
 **Commit:** [pending — fill after commit]
