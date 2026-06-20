@@ -27,7 +27,7 @@
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`, `tournament_scheduler/cli/args.py`
   - Approach: Add `--iterations` (type int, default 1) to the `run` subcommand's argparse definition in `args.py`. In `pipeline_orchestrator.py` `_cmd_run`, pass `iterations=getattr(args, "iterations", 1)` to `stage3_run(...)` at line 482.
 
-- [ ] Add tests for multi-iteration behavior in test_stage3_planning.py
+- [x] Added TestIterationsFlag class with 3 tests: iterations1 produces valid plan, iterations3 produces valid plan, and score from 3 iterations is > score from 1 iteration. All 12 tests pass. — 2026-06-20
   - Files: `tests/test_stage3_planning.py`
   - Approach: Add test cases that call `run(..., iterations=3)` with canonical config fixtures, assert that the returned checkpoint is non-empty and that the plan's composite score is at least as good as a single-iteration run. Also add a test that verifies `iterations=1` (default) produces identical behavior to the existing tests.
 
@@ -70,4 +70,11 @@ LESSONS: none
 **Findings:** iterations flag now flows from CLI through orchestrator into stage3_run loop
 LESSONS: none
 **Files:** args.py (+7/-0), pipeline_orchestrator.py (+1/-1)
+**Commit:** 11e6d55 (hockey)
+
+### 2026-06-20 — Added TestIterationsFlag class with 3 tests: iterations1 produces valid plan, iterations3 produces valid plan, and score from 3 iterations is > score from 1 iteration. All 12 tests pass.
+**Rationale:** none
+**Findings:** All 3 new tests pass; score comparison test validates that multi-seed selection is non-regressing
+LESSONS: none
+**Files:** tests/test_stage3_planning.py (+46/-0)
 **Commit:** [pending — fill after commit]

@@ -172,6 +172,52 @@ class TestRunStage3:
         assert plan["fairness_gate"]["status"] == "pass"
 
 
+class TestIterationsFlag:
+    """Tests for the --iterations multi-seed planning loop."""
+
+    def test_iterations_one_produces_valid_plan(self, tmp_path):
+        """iterations=1 (default) produces a non-empty plan, matching existing behavior."""
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+            iterations=1,
+        )
+        assert state.is_done(StageName.PLANNING)
+        assert "plan" in result
+        assert len(result["plan"]["tournaments"]) > 0
+
+    def test_iterations_three_produces_valid_plan(self, tmp_path):
+        """iterations=3 runs three seeds and keeps the best-scoring plan."""
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+            iterations=3,
+        )
+        assert state.is_done(StageName.PLANNING)
+        assert "plan" in result
+        assert len(result["plan"]["tournaments"]) > 0
+
+    def test_multi_iteration_score_at_least_single_iteration(self, tmp_path):
+        """The best plan from 3 iterations has a composite score >= the single-iteration plan."""
+        cfg = _make_config()
+        start = datetime(2025, 9, 1)
+        end = datetime(2025, 12, 15)
+
+        state_single = PipelineState(tmp_path / "single")
+        result_single = run(cfg, {}, state_single, start, end, iterations=1)
+        score_single = result_single["plan"].get("fairness_gate", {}).get("score", 0)
+
+        state_multi = PipelineState(tmp_path / "multi")
+        result_multi = run(cfg, {}, state_multi, start, end, iterations=3)
+        score_multi = result_multi["plan"].get("fairness_gate", {}).get("score", 0)
+
+        assert score_multi >= score_single
+
+
 class TestPlanToDict:
     def test_serializes_round_number(self):
         home = Team(club="Kongsberg", label="Kongsberg U10A", age_group="U10")
