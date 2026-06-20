@@ -19,7 +19,7 @@
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: Add an `iterations: int = 1` parameter to `run()`. When `iterations > 1`, loop from `seed=0` to `seed=iterations-1`, call `_make_planner(..., seed=i)` and `planner.build_plan(start_date, end_date)` each time, evaluate the composite score via `build_fairness_gate(planner, plan)["score"]` from `fairness_scoring`, track the best-scoring plan, and write only that plan to the Stage 3 checkpoint. Import `build_fairness_gate` from `..fairness_scoring`.
 
-- [ ] Add --iterations CLI flag to stage3_planning __main__ entry point
+- [x] Already implemented as part of the previous task — --iterations argparse argument and cli_args.iterations forwarding to run() are both present in stage3_planning.py. — 2026-06-20
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: In the `if __name__ == "__main__"` argparse block, add `parser.add_argument("--iterations", type=int, default=1, help="Run the planner N times with different random seeds and keep the plan with the best composite fairness score.")` and pass `cli_args.iterations` into the `run()` call.
 
@@ -56,4 +56,11 @@ LESSONS: none
 **Findings:** Multi-seed loop finds plans with higher composite fairness scores; single-iteration path unchanged
 LESSONS: When iterations1 use seedNone (not seed0) to preserve backward-compatible deterministic behavior
 **Files:** stage3_planning.py (+48/-18)
+**Commit:** 3661a53 (hockey)
+
+### 2026-06-20 — Already implemented as part of the previous task — --iterations argparse argument and cli_args.iterations forwarding to run() are both present in stage3_planning.py.
+**Rationale:** This task was subsumed by task 2; no additional changes required.
+**Findings:** CLI flag already present and wired up from previous task
+LESSONS: none
+**Files:** stage3_planning.py (already staged)
 **Commit:** [pending — fill after commit]
