@@ -238,6 +238,14 @@ def _run_refinement_loop(
                 existing_adj, requested_adjustments
             )
 
+        # Guard: skip apply/persist when nothing was actually changed to avoid a
+        # no-op call that resets scores without doing any work.
+        has_direct_moves = direct_move_count > 0
+        has_adj_changes = any(v for v in requested_adjustments.values())
+        if not has_direct_moves and not has_adj_changes:
+            log_fn(f"Refinement {iteration}: no effective changes — skipping apply/persist")
+            break
+
         # Apply adjustments and recompute fairness scores
         try:
             result = workflow.apply(plan_obj)

@@ -13,7 +13,7 @@
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`, `tournament_scheduler/pipeline/manual_adjustment_workflow.py`, `tournament_scheduler/pipeline/tournament_updater.py`
   - Approach: For each auto-fixable move that has both `tournament_id` and `new_date`, call the existing TournamentUpdater move API directly (similar to how `--update-tournament` works in `update_command.py`) so tournaments land on the specific suggested date, not an arbitrary replacement chosen by `_find_replacement_date()`.
 
-- [ ] Verify workflow.apply() is invoked with non-empty adjustments and persists the checkpoint
+- [x] Added a guard that checks whether any direct moves or banned-date adjustments were made; skips apply() and write_updated_checkpoint() when nothing changed to avoid no-op resets. — 2026-06-20
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`
   - Approach: After applying fixes, add a guard that skips `workflow.apply()` and `write_updated_checkpoint()` when `requested_adjustments` is effectively empty (all lists empty) to avoid a no-op apply that resets scores.
 
@@ -48,4 +48,11 @@ LESSONS: none
 **Findings:** TournamentUpdater.move_date called per auto-fixable move; fallback banned_dates path retained for moves without tournament_id.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+37/-11)
+**Commit:** a2e90be (hockey)
+
+### 2026-06-20 — Added a guard that checks whether any direct moves or banned-date adjustments were made; skips apply() and write_updated_checkpoint() when nothing changed to avoid no-op resets.
+**Rationale:** Without the guard, apply() would be called even when all moves were no-ops, potentially resetting scores to an earlier state.
+**Findings:** Guard breaks out of the refinement loop early when direct_move_count0 and requested_adjustments is empty.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+8/-0)
 **Commit:** [pending — fill after commit]
