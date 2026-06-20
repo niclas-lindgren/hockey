@@ -11,7 +11,7 @@
 - [x] Rewrote compute_team_game_counts() to use team_key() for disambiguated dict keys by first collecting all teams to find labels with multiple distinct club/age_group identities, then using that set to generate keys. — 2026-06-20
   - Files: tournament_scheduler/html/data_computation.py, tournament_scheduler/models.py
   - Approach: Import team_key from tournament_scheduler.models. In compute_team_game_counts(), collect all team objects across games to build a duplicate_labels set (Counter on labels, keep those with count > 1), then use team_key(team_obj, duplicate_labels) as the dict key instead of team_obj.label. This makes the keys match what review.py and judgment.py expect.
-- [ ] Fix review.py:93 to look up team_game_counts via team_key()
+- [x] Fixed review.py to build plan-wide duplicate_labels set and use team_key() for looking up team_game_counts, replacing raw label lookup at line 93. — 2026-06-20
   - Files: tournament_scheduler/html/renderers/review.py
   - Approach: Import team_key from tournament_scheduler.models. Before the loop at line 92, build a duplicate_labels set from the full set of team objects in age_tournaments (Counter on team.label, keep those with count > 1). On line 93, replace `team_game_counts.get(label, 0)` with a lookup using `team_key(team_obj, duplicate_labels)` — requires iterating team objects rather than labels so team_key() has the full Team object.
 - [ ] Fix judgment.py:71 to look up team_game_counts via team_key()
@@ -55,4 +55,11 @@ LESSONS: none
 **Findings:** Tests pass. Keys now match what review.py and judgment.py expect.
 LESSONS: none
 **Files:** tournament_scheduler/html/data_computation.py (+25/-3)
+**Commit:** 11c8693 (hockey)
+
+### 2026-06-20 — Fixed review.py to build plan-wide duplicate_labels set and use team_key() for looking up team_game_counts, replacing raw label lookup at line 93.
+**Rationale:** none
+**Findings:** Tests pass. Lookup now uses consistent team_key() keys matching those produced by compute_team_game_counts.
+LESSONS: none
+**Files:** tournament_scheduler/html/renderers/review.py (+13/-2)
 **Commit:** [pending — fill after commit]

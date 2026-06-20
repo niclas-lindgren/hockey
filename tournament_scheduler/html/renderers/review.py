@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import html as _html
 
+from tournament_scheduler.models import team_key as _team_key
+
 from ..data_computation import (
     _RVV_CLUBS,
     canonical_rvv_club_name,
@@ -30,6 +32,15 @@ def analyze_review_summary(plan: object) -> dict[str, object]:
 
     sorted_tournaments = [t for t in tournaments if not getattr(t, "cancelled", False) and getattr(t, "date", None)]
     sorted_tournaments.sort(key=lambda t: (getattr(t, "date", None), getattr(t, "arena", ""), getattr(t, "age_group", "")))
+
+    # Build the same duplicate-label set used by compute_team_game_counts so that
+    # team_key() lookups against team_game_counts resolve to the correct keys.
+    _label_to_identities: dict[str, set[tuple[str, str]]] = {}
+    for _t in tournaments:
+        for _team in getattr(_t, "teams", []):
+            _identity = (getattr(_team, "club", ""), getattr(_team, "age_group", ""))
+            _label_to_identities.setdefault(_team.label, set()).add(_identity)
+    _plan_duplicate_labels = {lbl for lbl, ids in _label_to_identities.items() if len(ids) > 1}
 
     findings: list[dict[str, object]] = []
 
@@ -89,8 +100,8 @@ def analyze_review_summary(plan: object) -> dict[str, object]:
     age_spread_summaries: list[str] = []
     for age_group, age_tournaments in sorted(tournaments_by_age.items()):
         age_hosts: dict[str, int] = {}
-        age_labels = sorted({team.label for tournament in age_tournaments for team in getattr(tournament, "teams", [])})
-        age_counts = [team_game_counts.get(label, 0) for label in age_labels]
+        age_team_objs = list({id(team): team for tournament in age_tournaments for team in getattr(tournament, "teams", [])}.values())
+        age_counts = [team_game_counts.get(_team_key(team, _plan_duplicate_labels), 0) for team in age_team_objs]
         if age_counts:
             age_spread_summaries.append(f"{age_group} {min(age_counts)}–{max(age_counts)}")
         for tournament in age_tournaments:
