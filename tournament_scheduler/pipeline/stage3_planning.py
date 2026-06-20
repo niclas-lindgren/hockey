@@ -22,6 +22,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any
 
+from ..fairness_scoring import build_fairness_gate as _build_fairness_gate
 from ..models import CalendarEvent, Game, Roster, SeasonPlan, Team, Tournament
 from ..season_planner import SeasonPlanner
 from ..roster_loader import RosterLoader
@@ -54,6 +55,7 @@ def run(
     end_date: datetime,
     *,
     strict: bool = True,
+    iterations: int = 1,
 ) -> dict[str, Any]:
     """Build a season plan using the deterministic Python algorithm.
 
@@ -70,6 +72,11 @@ def run(
         Season planning window.
     strict:
         If ``True``, raise :class:`Stage3Error` when no plan can be built.
+    iterations:
+        Number of planning attempts to run with different random seeds.
+        The attempt with the highest composite fairness score is kept.
+        When ``1`` (default), behaviour is identical to the original
+        deterministic single-pass run (seed=None).
 
     Returns
     -------
@@ -94,20 +101,36 @@ def run(
     fairness_thresholds = config.get("fairness_thresholds", {})
     target_tournament_count = config.get("target_tournament_count")
 
-    planner = _make_planner(
-        roster,
-        pg_config,
-        club_arenas,
-        division_skill_band,
-        max_hosting_deviation,
-        round_length_config,
-        events_by_club,
-        fairness_thresholds,
-        target_tournament_count,
-    )
-    plan = planner.build_plan(start_date, end_date)
+    best_plan: SeasonPlan | None = None
+    best_planner: SeasonPlanner | None = None
+    best_score: int = -1
 
-    if plan is None or not plan.tournaments:
+    n_iters = max(1, iterations)
+    seeds: list[int | None] = [None] if n_iters == 1 else list(range(n_iters))
+
+    for seed in seeds:
+        planner = _make_planner(
+            roster,
+            pg_config,
+            club_arenas,
+            division_skill_band,
+            max_hosting_deviation,
+            round_length_config,
+            events_by_club,
+            fairness_thresholds,
+            target_tournament_count,
+            seed=seed,
+        )
+        plan = planner.build_plan(start_date, end_date)
+        if plan is None or not plan.tournaments:
+            continue
+        score = int(_build_fairness_gate(planner, plan).get("score", 0))
+        if score > best_score:
+            best_score = score
+            best_plan = plan
+            best_planner = planner
+
+    if best_plan is None or best_planner is None:
         reason = "Klarte ikke å generere noen plan."
         state.write_stage(StageName.PLANNING, {}, status=StageStatus.FAILED)
         if strict:
@@ -115,9 +138,9 @@ def run(
         return {}
 
     if existing_manual_adjustments:
-        plan.manual_adjustments = dict(existing_manual_adjustments)
-    plan_dict = _plan_to_dict(plan)
-    rules_report = planner.rules_report()
+        best_plan.manual_adjustments = dict(existing_manual_adjustments)
+    plan_dict = _plan_to_dict(best_plan)
+    rules_report = best_planner.rules_report()
 
     checkpoint: dict[str, Any] = {
         "plan": plan_dict,
@@ -146,6 +169,13 @@ if __name__ == "__main__":  # pragma: no cover
     parser.add_argument(
         "--work-dir", default=".pipeline", help="Pipeline work directory"
     )
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Run the planner N times with different random seeds and keep the best plan (default: 1)",
+    )
     cli_args = parser.parse_args()
 
     from .state import PipelineState, StageName  # noqa: E402
@@ -163,7 +193,7 @@ if __name__ == "__main__":  # pragma: no cover
     _end = _dt.strptime(_cfg["end_date"], "%Y-%m-%d")
 
     try:
-        _result = run(_cfg, _scraping, _state, _start, _end)
+        _result = run(_cfg, _scraping, _state, _start, _end, iterations=cli_args.iterations)
         plan = _result.get("plan", {})
         n = len(plan.get("tournaments", []))
         print(f"Stage 3 OK — {n} turneringer planlagt")

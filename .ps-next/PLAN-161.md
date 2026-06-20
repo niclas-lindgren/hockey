@@ -15,7 +15,7 @@
   - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/pipeline/stage3_helpers.py`
   - Approach: Add an optional `seed: int | None = None` parameter to `SeasonPlanner.__init__` and use it to initialise a `random.Random` instance that shuffles team/club orderings before each planning pass. Update `_make_planner()` in `stage3_helpers.py` to accept and forward a `seed` keyword argument to `SeasonPlanner`.
 
-- [ ] Implement N-iteration loop with best-score selection in stage3_planning.run()
+- [x] Added iterations parameter to run(); loops 0..N-1 seeds calling _make_planner with each seed, scores each plan via build_fairness_gate, keeps the best-scoring plan. Added --iterations CLI arg. — 2026-06-20
   - Files: `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: Add an `iterations: int = 1` parameter to `run()`. When `iterations > 1`, loop from `seed=0` to `seed=iterations-1`, call `_make_planner(..., seed=i)` and `planner.build_plan(start_date, end_date)` each time, evaluate the composite score via `build_fairness_gate(planner, plan)["score"]` from `fairness_scoring`, track the best-scoring plan, and write only that plan to the Stage 3 checkpoint. Import `build_fairness_gate` from `..fairness_scoring`.
 
@@ -49,4 +49,11 @@ The stage3_planning process does not modify any existing deterministic behavior 
 **Findings:** age_groups shuffle in build_plan varies which age groups get first pick of free dates, producing structurally different plans per seed
 LESSONS: none
 **Files:** season_planner.py (+5/-0), stage3_helpers.py (+2/-0)
+**Commit:** 7ddf868 (hockey)
+
+### 2026-06-20 — Added iterations parameter to run(); loops 0..N-1 seeds calling _make_planner with each seed, scores each plan via build_fairness_gate, keeps the best-scoring plan. Added --iterations CLI arg.
+**Rationale:** Imported build_fairness_gate as _build_fairness_gate; used seedNone for the single-iteration case to preserve deterministic backward-compatible behavior.
+**Findings:** Multi-seed loop finds plans with higher composite fairness scores; single-iteration path unchanged
+LESSONS: When iterations1 use seedNone (not seed0) to preserve backward-compatible deterministic behavior
+**Files:** stage3_planning.py (+48/-18)
 **Commit:** [pending — fill after commit]
