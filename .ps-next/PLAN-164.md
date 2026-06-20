@@ -15,7 +15,7 @@
   - Files: `tournament_scheduler/cli/args.py`
   - Approach: Register the new `verdict` subcommand in `args.py` using `sub.add_parser()` with `--work-dir` defaulting to `.pipeline`, following the established pattern used by `critic` and `status` subcommands.
 
-- [ ] Implement _cmd_verdict handler in rvv_cli.py
+- [x] Added _cmd_verdict(args) to rvv_cli.py that reads Stage 3 checkpoint, computes team game counts, travel info, and club stats, calls analyze_opinionated_judgment, then prints tone, tone_label, and card key-value pairs to stdout for machine-readable consumption. — 2026-06-20
   - Files: `tournament_scheduler/cli/rvv_cli.py`
   - Approach: Add `_cmd_verdict(args: argparse.Namespace) -> int` that reads stage3 via `PipelineState(args.work_dir).read_stage(StageName.PLANNING)`, extracts the plan, calls `compute_team_game_counts`, `compute_team_travel_info`, and `compute_club_stats` from `tournament_scheduler/html/html_exporter.py`, then passes them to `analyze_opinionated_judgment` from `tournament_scheduler/html/renderers/judgment.py`.
 
@@ -48,4 +48,11 @@ The verdict command exits with code 1 and prints an error message when no stage3
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/cli/args.py (+11/-0)
+**Commit:** 16e2506 (hockey)
+
+### 2026-06-20 — Added _cmd_verdict(args) to rvv_cli.py that reads Stage 3 checkpoint, computes team game counts, travel info, and club stats, calls analyze_opinionated_judgment, then prints tone, tone_label, and card key-value pairs to stdout for machine-readable consumption.
+**Rationale:** none
+**Findings:** none
+LESSONS: compute_team_travel_info returns a tuple; first element is the team_travel dict
+**Files:** tournament_scheduler/cli/rvv_cli.py (+47/-0)
 **Commit:** [pending — fill after commit]

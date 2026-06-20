@@ -434,6 +434,51 @@ def _cmd_review(args: argparse.Namespace) -> int:
     )
 
 
+def _cmd_verdict(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt verdict`` — print tone and key scores from Stage 3 checkpoint."""
+    from ..pipeline.state import PipelineState, StageName
+    from ..html.data_computation import (
+        compute_club_stats,
+        compute_team_game_counts,
+        compute_team_travel_info,
+    )
+    from ..html.renderers.judgment import analyze_opinionated_judgment
+
+    state = PipelineState(args.work_dir)
+    plan_checkpoint = state.read_stage(StageName.PLANNING)
+    if not plan_checkpoint:
+        _console.print(
+            f"[red]✗[/red] Ingen Stage 3-checkpoint funnet i '{args.work_dir}'. "
+            "Kjør ``rvv-miniputt run`` først."
+        )
+        return 1
+
+    season_plan = plan_checkpoint.get("plan") if isinstance(plan_checkpoint, dict) else None
+    if season_plan is None:
+        _console.print("[red]✗[/red] Stage 3-checkpoint mangler 'plan'-nøkkelen.")
+        return 1
+
+    team_game_counts = compute_team_game_counts(season_plan)
+    team_travel_tuple = compute_team_travel_info(season_plan)
+    team_travel: dict[str, int] = team_travel_tuple[0]
+    club_stats, _missing_hosts = compute_club_stats(season_plan, team_travel)
+
+    result = analyze_opinionated_judgment(
+        season_plan, team_game_counts, club_stats, team_travel
+    )
+
+    tone: str = result.get("tone", "unknown")
+    tone_label: str = result.get("tone_label", tone.upper())
+    print(f"tone={tone}")
+    print(f"tone_label={tone_label}")
+
+    # Print key scores from cards so callers can parse them
+    for card_label, card_text in result.get("cards", []):
+        print(f"card:{card_label}={card_text}")
+
+    return 0
+
+
 def _cmd_critic(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt critic`` — print plan critic issues for existing Stage 3 checkpoint."""
     from ..pipeline.state import PipelineState, StageName
@@ -739,6 +784,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_critic(args)
     elif args.command == "auto-adjust":
         return _cmd_auto_adjust(args)
+    elif args.command == "verdict":
+        return _cmd_verdict(args)
     else:
         parser.print_help()
         return 0
