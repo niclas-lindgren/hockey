@@ -314,6 +314,13 @@ class ICalExporter:
             if club_teams:
                 description_lines.append(f"\nDine lag: {', '.join(club_teams)}")
 
+        if tournament.games:
+            matchups = "\n".join(
+                f"  {game.home.label} vs {game.away.label}"
+                for game in tournament.games
+            )
+            description_lines.append(f"\nKamper:\n{matchups}")
+
         description = "\n".join(description_lines)
 
         if tournament.cancelled:

@@ -15,7 +15,7 @@
   - **Files:** `tournament_scheduler/pipeline/stage4_export.py`
   - **Approach:** Change the iCal call at line 136 from `ICalExporter(...).export(plan, ical_path)` to `ICalExporter(...).export_tournament_summary(plan, ical_path)`. This is a one-line change at the call site that routes the pipeline through the already-existing per-tournament export method.
 
-- [ ] Add round-robin matchup pairings to tournament summary event description
+- [x] Appended a 'Kamper:' section to _tournament_summary_event() listing each game as 'home vs away', only when tournament.games is non-empty. — 2026-06-20
   - **Files:** `tournament_scheduler/ical/ical_exporter.py`
   - **Approach:** In `_tournament_summary_event()`, after building the existing `description_lines` (arena, age group, host, team list), append a "Kamper:" section by iterating `tournament.games` and formatting each as `"{game.home.label} vs {game.away.label}"`. Only append when `tournament.games` is non-empty.
 
@@ -41,4 +41,11 @@ The pytest suite passes after the changes, with new tests confirming VEVENT coun
 **Findings:** All 585 tests pass after the change.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage4_export.py (+6/-3)
+**Commit:** 5686cdc (hockey)
+
+### 2026-06-20 — Appended a 'Kamper:' section to _tournament_summary_event() listing each game as 'home vs away', only when tournament.games is non-empty.
+**Rationale:** Straightforward append to description_lines; used same game.home.label / game.away.label access pattern already present in _tournament_events().
+**Findings:** 585 tests pass; matchup pairings now appear in the VEVENT DESCRIPTION.
+LESSONS: none
+**Files:** tournament_scheduler/ical/ical_exporter.py (+7/-0)
 **Commit:** [pending — fill after commit]
