@@ -33,6 +33,19 @@ from .stage3_helpers import _tournament_from_dict
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Exceptions
+# ---------------------------------------------------------------------------
+
+
+class TournamentUpdateError(Exception):
+    """Raised when a tournament update operation fails."""
+
+
+class TournamentValidationError(TournamentUpdateError):
+    """Raised when input validation fails for a tournament update."""
+
+
+# ---------------------------------------------------------------------------
 # Types
 # ---------------------------------------------------------------------------
 
