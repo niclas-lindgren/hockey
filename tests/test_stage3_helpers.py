@@ -1,4 +1,4 @@
-"""Unit tests for stage3_helpers._build_events_by_club logging."""
+"""Unit tests for stage3_helpers._build_events_by_club logging and _resolve_plan_dict."""
 
 from __future__ import annotations
 
@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 import pytest
 
-from tournament_scheduler.pipeline.stage3_helpers import _build_events_by_club
+from tournament_scheduler.pipeline.stage3_helpers import (
+    _build_events_by_club,
+    _resolve_plan_dict,
+)
 
 
 VALID_EVENT = {
@@ -130,4 +133,43 @@ class TestBuildEventsByClubLogging:
 
     def test_returns_empty_dict_for_missing_events_by_club_key(self) -> None:
         result = _build_events_by_club({"other_key": "value"})
+        assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# _resolve_plan_dict
+# ---------------------------------------------------------------------------
+
+
+class TestResolvePlanDict:
+    def test_returns_plain_dict_unchanged(self):
+        d = {"key": "value", "tournaments": []}
+        assert _resolve_plan_dict(d) is d
+
+    def test_converts_object_with_dunder_dict(self):
+        """An object with __dict__ (e.g. SeasonPlan) should be converted via _plan_to_dict."""
+        from unittest.mock import MagicMock, patch
+
+        mock_plan = MagicMock(spec=[])
+        # Give it a __dict__ so hasattr check passes
+        mock_plan.__dict__ = {"tournaments": []}
+        expected = {"converted": True}
+        with patch(
+            "tournament_scheduler.pipeline.stage3_helpers._plan_to_dict",
+            return_value=expected,
+        ) as mock_p2d:
+            result = _resolve_plan_dict(mock_plan)
+        mock_p2d.assert_called_once_with(mock_plan)
+        assert result == expected
+
+    def test_returns_empty_dict_for_none(self):
+        result = _resolve_plan_dict(None)
+        assert result == {}
+
+    def test_returns_empty_dict_for_non_dict_non_object(self):
+        result = _resolve_plan_dict(42)
+        assert result == {}
+
+    def test_returns_empty_dict_for_empty_input(self):
+        result = _resolve_plan_dict({})
         assert result == {}

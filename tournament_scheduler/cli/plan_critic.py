@@ -10,7 +10,7 @@ import calendar
 import re
 from collections import defaultdict
 from datetime import timedelta
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 if TYPE_CHECKING:
     from tournament_scheduler.models import SeasonPlan
@@ -384,6 +384,25 @@ def count_critic_issues_from_dict(plan_dict: dict) -> int:
         count += 1
 
     return min(count, 5)
+
+
+def count_issues_from_plan(plan_raw: Any) -> int:
+    """Count critic issues from a raw plan value (SeasonPlan object or dict).
+
+    Converts *plan_raw* to a JSON-serialisable dict via
+    :func:`~tournament_scheduler.pipeline.stage3_helpers._resolve_plan_dict`
+    and then delegates to :func:`count_critic_issues_from_dict`.
+
+    This is the single callable for all CLI commands that need an issue count
+    without caring whether they hold a :class:`SeasonPlan` object or a plain
+    dict.
+    """
+    from ..pipeline.stage3_helpers import _resolve_plan_dict
+
+    plan_dict = _resolve_plan_dict(plan_raw)
+    if not plan_dict:
+        return 0
+    return count_critic_issues_from_dict(plan_dict)
 
 
 if __name__ == "__main__":

@@ -83,6 +83,21 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
     return checkpoint
 
 
+def _resolve_plan_dict(plan_raw: Any) -> dict[str, Any]:
+    """Return a JSON-serialisable dict from *plan_raw*.
+
+    Accepts either a :class:`SeasonPlan` object (converted via
+    :func:`_plan_to_dict`) or a plain :class:`dict` (returned as-is).
+    Returns an empty dict for any other input so callers never receive
+    ``None``.
+    """
+    if hasattr(plan_raw, "__dict__"):
+        return _plan_to_dict(plan_raw)
+    if isinstance(plan_raw, dict):
+        return plan_raw
+    return {}
+
+
 # ---------------------------------------------------------------------------
 # Builder helpers
 # ---------------------------------------------------------------------------

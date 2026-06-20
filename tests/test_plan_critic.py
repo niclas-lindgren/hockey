@@ -5,7 +5,7 @@ from datetime import date
 
 import pytest
 
-from tournament_scheduler.cli.plan_critic import generate_critic_summary
+from tournament_scheduler.cli.plan_critic import count_issues_from_plan, generate_critic_summary
 from tournament_scheduler.models import SeasonPlan, Tournament, Team
 
 
@@ -277,3 +277,41 @@ def test_result_never_exceeds_5():
     )
     result = generate_critic_summary(plan)
     assert len(result) <= 5
+
+
+# ---------------------------------------------------------------------------
+# count_issues_from_plan
+# ---------------------------------------------------------------------------
+
+
+def test_count_issues_from_plan_with_season_plan_object():
+    """Passing a SeasonPlan object should produce the same count as a plain dict."""
+    plan = _make_plan(month_balance_score=0.4)  # triggers one issue
+    count = count_issues_from_plan(plan)
+    assert count >= 1
+
+
+def test_count_issues_from_plan_with_plain_dict():
+    """Passing a pre-serialised dict should work without any SeasonPlan."""
+    plan_dict = {
+        "month_balance_score": 0.4,
+        "tournaments": [],
+        "fairness_gate": None,
+        "arena_day_collisions": [],
+        "game_count_spread": 0,
+    }
+    count = count_issues_from_plan(plan_dict)
+    assert count >= 1
+
+
+def test_count_issues_from_plan_empty_dict_returns_zero():
+    """An empty dict (e.g. checkpoint missing) should return 0, not raise."""
+    count = count_issues_from_plan({})
+    assert count == 0
+
+
+def test_count_issues_from_plan_no_issues():
+    """A healthy plan should return 0."""
+    plan = _make_plan()
+    count = count_issues_from_plan(plan)
+    assert count == 0

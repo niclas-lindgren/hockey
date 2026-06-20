@@ -566,7 +566,7 @@ def _cmd_auto_adjust(args: argparse.Namespace) -> int:
     is reached.  Non-auto-fixable issues are collected and printed at the end.
     """
     from ..pipeline.state import PipelineState
-    from .plan_critic import count_critic_issues_from_dict, suggest_moves
+    from .plan_critic import count_issues_from_plan, suggest_moves
 
     state = PipelineState(args.work_dir)
     max_iter = getattr(args, "max_iterations", 3)
@@ -590,21 +590,11 @@ def _cmd_auto_adjust(args: argparse.Namespace) -> int:
             )
             return 1
 
-        # Use count_critic_issues_from_dict as the fast early-exit check
+        # Use count_issues_from_plan as the fast early-exit check
         from ..pipeline.state import StageName
         raw_checkpoint = state.read_stage(StageName.PLANNING)
-        plan_dict: dict = {}
-        if isinstance(raw_checkpoint, dict):
-            plan_raw = raw_checkpoint.get("plan")
-            # plan_raw may be a SeasonPlan object or a dict; convert if needed
-            if hasattr(plan_raw, "__dict__"):
-                # Convert SeasonPlan to dict for count_critic_issues_from_dict
-                from ..pipeline.stage3_helpers import _plan_to_dict as _p2d
-                plan_dict = _p2d(plan_raw)
-            elif isinstance(plan_raw, dict):
-                plan_dict = plan_raw
-
-        issue_count = count_critic_issues_from_dict(plan_dict) if plan_dict else len(issues)
+        plan_raw = (raw_checkpoint or {}).get("plan") if isinstance(raw_checkpoint, dict) else None
+        issue_count = count_issues_from_plan(plan_raw) if plan_raw is not None else len(issues)
 
         if issue_count == 0:
             _console.print(
