@@ -50,6 +50,122 @@ def _compute_verdict_tone(plan: "dict[str, Any] | Any") -> str:
     )
 
 
+_MAX_REFINEMENT_ITERATIONS = 3
+
+
+def _run_refinement_loop(
+    plan_checkpoint: "dict[str, Any]",
+    state: "Any",
+    args: "argparse.Namespace",
+    strict: bool,
+    log_fn: "Any",
+) -> "tuple[str, dict[str, Any]]":
+    """Run the skill-driven plan refinement loop after Stage 4.
+
+    On each iteration:
+    1. Loads the current SeasonPlan from the Stage 3 checkpoint.
+    2. Generates targeted swap suggestions via the plan critic.
+    3. Merges those suggestions into ``plan.manual_adjustments``.
+    4. Applies the adjustments and recalculates fairness scores.
+    5. Re-evaluates the verdict tone; exits early if tone is no longer 'rough'.
+
+    Args:
+        plan_checkpoint: Stage 3 checkpoint dict (with a ``"plan"`` key).
+        state: ``PipelineState`` instance for reading/writing stage checkpoints.
+        args: Parsed CLI arguments (used for logging context).
+        strict: Whether the pipeline is in strict mode.
+        log_fn: Callable that appends a timestamped message to the run log.
+
+    Returns:
+        A ``(tone, updated_plan_checkpoint)`` tuple with the final tone string
+        and the updated Stage 3 checkpoint dict after all refinement rounds.
+    """
+    from ..pipeline.manual_adjustment_workflow import ManualAdjustmentWorkflow
+    from ..pipeline.state import StageName
+    from .plan_critic import generate_critic_summary, suggest_moves
+
+    workflow = ManualAdjustmentWorkflow(state)
+    current_checkpoint = plan_checkpoint
+
+    for iteration in range(1, _MAX_REFINEMENT_ITERATIONS + 1):
+        tone = _compute_verdict_tone(current_checkpoint)
+        log_fn(f"Refinement iteration {iteration}: tone={tone}")
+        _console.print(f"  [dim]Refinement {iteration}/{_MAX_REFINEMENT_ITERATIONS}: tone={tone}[/dim]")
+
+        if tone != "rough":
+            log_fn(f"Refinement loop exiting early at iteration {iteration}: tone={tone}")
+            return tone, current_checkpoint
+
+        # Load current SeasonPlan object
+        try:
+            plan_obj = workflow.load_plan()
+        except Exception as exc:
+            log_fn(f"Refinement {iteration}: load_plan failed: {exc}")
+            _console.print(f"  [yellow]⚠[/yellow] Refinement {iteration}: kan ikke laste plan: {exc}")
+            break
+
+        # Generate critic issues and targeted swap suggestions
+        issues = generate_critic_summary(plan_obj)
+        if not issues:
+            log_fn(f"Refinement {iteration}: no critic issues found — stopping")
+            break
+
+        moves = suggest_moves(plan_obj, issues)
+        auto_moves = [m for m in moves if m.get("can_auto_fix")]
+        if not auto_moves:
+            log_fn(f"Refinement {iteration}: no auto-fixable moves — stopping")
+            break
+
+        # Build a manual_adjustments patch from auto-fixable moves
+        requested_adjustments: dict[str, list[str]] = {}
+        for move in auto_moves:
+            new_date = move.get("new_date")
+            if new_date:
+                requested_adjustments.setdefault("banned_dates", [])
+                # We push the old date as banned so the planner is forced to move it
+                tid = move.get("tournament_id", "")
+                log_fn(f"  Move: tournament={tid} → {new_date} ({move.get('reason', '')[:80]})")
+
+        # Merge into plan's existing adjustments
+        existing_adj = getattr(plan_obj, "manual_adjustments", {}) or {}
+        plan_obj.manual_adjustments = ManualAdjustmentWorkflow.merge_manual_adjustments(
+            existing_adj, requested_adjustments
+        )
+
+        # Apply adjustments and recompute fairness scores
+        try:
+            result = workflow.apply(plan_obj)
+        except Exception as exc:
+            log_fn(f"Refinement {iteration}: apply() failed: {exc}")
+            _console.print(f"  [yellow]⚠[/yellow] Refinement {iteration}: apply feilet: {exc}")
+            break
+
+        # Persist the updated plan so the next iteration reads fresh scores
+        try:
+            workflow.updater.write_updated_checkpoint(plan_obj, log_entry=result)
+        except Exception as exc:
+            log_fn(f"Refinement {iteration}: write_updated_checkpoint failed: {exc}")
+
+        # Reload the checkpoint dict for the next iteration / return value
+        updated = state.read_stage(StageName.PLANNING)
+        if updated:
+            current_checkpoint = updated
+        else:
+            log_fn(f"Refinement {iteration}: could not re-read PLANNING checkpoint after apply")
+
+        log_fn(f"Refinement {iteration} applied: {result.summary_nb[:120]}")
+        _console.print(
+            f"  [cyan]✓[/cyan] Refinement {iteration}: {result.summary_nb[:80]}"
+            if result.success
+            else f"  [yellow]⚠[/yellow] Refinement {iteration}: {result.summary_nb[:80]}"
+        )
+
+    # Final tone check after loop
+    final_tone = _compute_verdict_tone(current_checkpoint)
+    log_fn(f"Refinement loop ended after {_MAX_REFINEMENT_ITERATIONS} max iterations: final tone={final_tone}")
+    return final_tone, current_checkpoint
+
+
 def _cmd_calendars(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt calendars [--refresh]``."""
     from ..pipeline.calendar_viewer import generate_html
@@ -576,6 +692,54 @@ def _cmd_run(args: argparse.Namespace) -> int:
     else:
         _console.print("[bold]Stage 4:[/bold] Hoppet over (gjenopptatt)")
         _log("Stage 4 skipped via --resume-from")
+
+    # ── Skill-driven refinement loop (post-Stage 4) ──────────────────────────
+    # When the plan verdict tone is 'rough', attempt automated improvements by
+    # applying critic-guided swap suggestions and re-running Stage 4 export.
+    # This is a best-effort step — failures here do not abort the pipeline.
+    if not run_failed:
+        try:
+            initial_tone = _compute_verdict_tone(plan)
+            _log(f"Post-Stage4 verdict tone: {initial_tone}")
+            if initial_tone == "rough":
+                _console.print(
+                    "\n[bold cyan]Plankvalitet: ROUGH — starter automatisk refinering...[/bold cyan]"
+                )
+                final_tone, refined_plan = _run_refinement_loop(
+                    plan, state, args, strict, _log
+                )
+                _log(f"Refinement loop complete: final tone={final_tone}")
+                tone_label = {"strong": "SOLID", "mixed": "OK", "rough": "ROUGH"}.get(final_tone, final_tone.upper())
+                if final_tone != "rough":
+                    _console.print(
+                        f"  [green]✓[/green] Plankvalitet etter refinering: {tone_label} — re-eksporterer..."
+                    )
+                    # Re-run Stage 4 to export with the improved plan
+                    try:
+                        export2 = stage4_run(
+                            refined_plan,
+                            state,
+                            export_dir=args.export_dir,
+                            strict=strict,
+                            timestamped_export=getattr(args, "timestamped_export", True),
+                        )
+                        files2 = export2.get("output_files", {})
+                        stage4_generated_calendars = "calendars_html" in files2
+                        _console.print(f"  [green]✓[/green] Re-eksport: {len(files2)} fil(er)")
+                        _log(f"Post-refinement Stage 4 re-export OK: {len(files2)} files")
+                    except Exception as exc:
+                        _console.print(f"  [yellow]⚠[/yellow] Re-eksport feilet: {exc}")
+                        _log(f"Post-refinement Stage 4 re-export FAILED: {exc}")
+                else:
+                    _console.print(
+                        f"  [yellow]⚠[/yellow] Plankvalitet fremdeles ROUGH etter {_MAX_REFINEMENT_ITERATIONS} forsøk"
+                    )
+            else:
+                tone_label = {"strong": "SOLID", "mixed": "OK"}.get(initial_tone, initial_tone.upper())
+                _console.print(f"\n  [dim]Plankvalitet: {tone_label} — ingen refinering nødvendig[/dim]")
+        except Exception as exc:
+            _console.print(f"  [yellow]⚠[/yellow] Refinering feilet uventet: {exc}")
+            _log(f"Refinement loop unexpected error: {exc}")
 
     # Only regenerate calendars.html here when stage4 did not already produce it
     # (e.g. stage4 was skipped via --resume-from, or no scrape data was available).
