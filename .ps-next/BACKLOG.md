@@ -2,6 +2,8 @@
 
 ## Open
 
+- [179] [ ] Fix calendars.html navbar link — the exported calendars.html is not linked in the navbar; update the HTML generation script to include it
+
 - [172] [ ] Fix browser_worker.py ~line 300 retry goto using same 30s timeout — fallback navigation uses identical timeout so it cannot recover from slow page loads
 
 - [171] [ ] Fix credentialed fallback never triggered on zero events in stage2_scraping.py ~line 340 — deterministic_raised is only True on exception, not on empty result, so silent zero-event returns skip the fallback
@@ -10,9 +12,8 @@
 
 - [169] [ ] Fix _run_approval_gate always returning True (pipeline_orchestrator.py ~line 304) — gate is a no-op so critical issues can never block the pipeline
 
-- [168] [ ] Fix refinement loop silently dropping moves — `requested_adjustments` is built in `_run_refinement_loop` (pipeline_orchestrator.py ~line 122) but never applied back to the plan, so all manual moves from refinement iterations are discarded
-
 ## Done
+- [168] [x] Fix refinement loop silently dropping moves — `requested_adjustments` is built in `_run_refinement_loop` (pipeline_orchestrator.py ~line 122) but never applied back to the plan, so all manual moves from refinement iterations are discarded (2026-06-20)
 - [173] [x] Wrap state.py file writes in try/except — write_stage, write_judgment, write_approval, _set_status, _invalidate_downstream all write JSON without catching OSError or json.JSONDecodeError, risking silent data loss mid-pipeline (2026-06-20)
 - [174] [x] Decompose _cmd_run god function in pipeline_orchestrator.py — 300+ line function handles stage dispatch, judge invocation, refinement loop, export, and calendar generation inline; split into per-stage helpers (2026-06-20)
 - [175] [x] Decouple global _CALENDAR_CACHE in stage2_scraping.py — global set in run() and consumed in _scrape_source() via side-channel; pass cache explicitly so _scrape_source can be unit-tested in isolation (2026-06-20)
