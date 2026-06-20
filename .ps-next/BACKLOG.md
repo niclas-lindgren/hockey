@@ -2,8 +2,6 @@
 
 ## Open
 
-- [166] [ ] Fix home team assignment: the home team in a tournament is the club that arranges it (owns the arena). When a tournament is in Varner Arena, the home team is Frisk Asker (not a visitor). Update host_assignment.py and any reporting/export logic to derive home-team from arena ownership in the club registry, not from scheduling order or participant index.
-
 - [165] [ ] Restrict Frisk Asker scraping to Askerhallen only: Frisk Asker has two arenas (Askerhallen and Varner Arena) but Frisk Asker tournaments are only held in Askerhallen. Update the Frisk Asker calendar source config to filter/scrape only Askerhallen bookings so Varner Arena slots do not appear as Frisk Asker availability.
 
 - [163] [ ] Add skill-driven plan refinement to rvv-miniputt:run: after stage4, compute verdict tone from stage3 checkpoint scores (pairwise_matchup_score, diversity_score, month_balance_score, fairness_gate) — if tone is 'rough' (IKKE KLAR), call ManualAdjustmentWorkflow to apply targeted host/date swaps, re-export, and recheck — loop until tone is 'strong' or 'mixed' or retry cap (3) is reached
@@ -15,6 +13,7 @@
 - [159] [ ] Fix opencode run.md: stage1 verification checklist references fields (age_groups, parallel_games, sources) that do not exist in the current stage1 checkpoint — should match what checkpoint_printer actually shows (teams, target_tournament_count, round_length_minutes, input_path)
 
 ## Done
+- [166] [x] Fix home team assignment: the home team in a tournament is the club that arranges it (owns the arena). When a tournament is in Varner Arena, the home team is Frisk Asker (not a visitor). Update host_assignment.py and any reporting/export logic to derive home-team from arena ownership in the club registry, not from scheduling order or participant index. (2026-06-20)
 - [167] [x] Fix iCal export to produce one VEVENT per tournament (not per match): each tournament event SUMMARY/DESCRIPTION should list the participating teams and round-robin matchups inside the description body, but the calendar entry itself represents the full tournament day — not individual games. Currently exporting one event per game produces unusable calendar spam. (2026-06-20)
 - [164] [x] Add verdict CLI command: python3 -m tournament_scheduler.cli.rvv_cli verdict [--work-dir .pipeline] — reads stage3 checkpoint and prints the tone (strong/mixed/rough) and key scores to stdout, so rvv-miniputt:run skill can check the verdict without parsing HTML (2026-06-20)
 - [161] [x] Add --iterations N flag to stage3_planning: run the planner N times with different random seeds and keep the plan with the best composite score (pairwise + diversity + month_balance). This unlocks the self-improvement loop in rvv-miniputt:run where the skill re-runs stage3+4 until the judgment verdict is no longer IKKE KLAR. (2026-06-20)
