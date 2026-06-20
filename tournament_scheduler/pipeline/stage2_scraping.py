@@ -35,7 +35,6 @@ from ..models import CalendarEvent
 from .cache_manager import ScrapedDataCache
 from ..utils.calendar_cache import CalendarCache
 
-_CALENDAR_CACHE: CalendarCache | None = None
 from .scraper_strategies import get_strategy, requires_credentials, needs_llm_agent, get_deterministic_scraper_type
 from .state import PipelineState, StageName, StageStatus
 from .scraper_constants import (
@@ -187,9 +186,8 @@ def run(
         return result
 
     # --- Split sources into cache hits and sources that need (re-)scraping ---
-    global _CALENDAR_CACHE
     cache = ScrapedDataCache(work_dir=state.work_dir)
-    _CALENDAR_CACHE = CalendarCache(work_dir=state.work_dir)
+    calendar_cache = CalendarCache(work_dir=state.work_dir)
     cache_data = cache.read()
     cache_meta = cache_data.get("_meta", {})
     cache_sources = cache_data.get("sources", {})
@@ -253,6 +251,7 @@ def run(
                 source_cfg,
                 start_date=start_date,
                 end_date=end_date,
+                calendar_cache=calendar_cache,
             ): source_cfg
             for source_cfg in sources_to_scrape
         }
@@ -315,6 +314,7 @@ def _scrape_source(
     *,
     start_date: datetime,
     end_date: datetime,
+    calendar_cache: CalendarCache | None = None,
 ) -> dict[str, Any]:
     """Scrape a single source deterministically.
 
@@ -354,8 +354,6 @@ def _scrape_source(
     events: list[CalendarEvent] = []
     scraper_error: str = ""
     deterministic_raised: bool = False
-
-    calendar_cache = _CALENDAR_CACHE
 
     try:
         # Dispatch is driven by the CalendarEngine declared in scraper_strategies.

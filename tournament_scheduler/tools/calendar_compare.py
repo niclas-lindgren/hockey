@@ -213,6 +213,7 @@ def _scrape_deterministic(
             source_cfg,
             start_date=start_date,
             end_date=end_date,
+            calendar_cache=None,
         )
         if result.get("blocked"):
             return [], result.get("block_reason", "blokkert (ingen hendelser)")

@@ -12,10 +12,12 @@ from tournament_scheduler.pipeline.stage2_scraping import (
     SOURCE_OUTLOOK,
     Stage2Error,
     _events_to_dicts,
+    _scrape_source,
     run,
 )
 from tournament_scheduler.pipeline.state import PipelineState, StageName
 from tournament_scheduler.models import CalendarEvent
+from tournament_scheduler.utils.calendar_cache import CalendarCache
 
 
 def _make_event(name: str = "Booking") -> CalendarEvent:
@@ -258,11 +260,11 @@ class TestParallelExecution:
 
         call_count = {"count": 0}
 
-        def crashing_scraper(source_cfg, *, start_date, end_date):
+        def crashing_scraper(source_cfg, *, start_date, end_date, calendar_cache=None):
             call_count["count"] += 1
             if source_cfg.get("name") == "Crashy":
                 raise RuntimeError("simulated crash")
-            return original(source_cfg, start_date=start_date, end_date=end_date)
+            return original(source_cfg, start_date=start_date, end_date=end_date, calendar_cache=calendar_cache)
 
         with patch(
             "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
@@ -1079,3 +1081,121 @@ class TestSourceResultShape:
         assert "skipped" not in src
         assert "scraper_error" not in src
         assert "from_cache" not in src
+
+
+# ---------------------------------------------------------------------------
+# Isolated unit tests for _scrape_source with injected CalendarCache
+# ---------------------------------------------------------------------------
+
+_SCRAPE_START = datetime(2025, 9, 1)
+_SCRAPE_END = datetime(2025, 12, 1)
+
+_COMMON_SOURCE_KEYS = {
+    "name", "url", "type", "events", "event_count",
+    "blocked", "block_reason", "llm_fallback",
+}
+
+
+class TestScrapeSourceIsolated:
+    """Call _scrape_source directly with a mock CalendarCache — no run() required."""
+
+    def _mock_cache(self, tmp_path):
+        """Return a CalendarCache instance backed by a temp directory."""
+        return CalendarCache(work_dir=str(tmp_path))
+
+    def test_ical_source_returns_expected_shape(self, tmp_path):
+        """iCal branch returns a result with all required keys when events are found."""
+        source_cfg = {
+            "name": "Skien",
+            "type": SOURCE_ICAL,
+            "url": "https://example.com/feed.ics",
+        }
+        cache = self._mock_cache(tmp_path)
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[_make_event("Trening")],
+        ):
+            result = _scrape_source(
+                source_cfg,
+                start_date=_SCRAPE_START,
+                end_date=_SCRAPE_END,
+                calendar_cache=cache,
+            )
+
+        assert _COMMON_SOURCE_KEYS.issubset(result.keys())
+        assert result["name"] == "Skien"
+        assert result["event_count"] == 1
+        assert result["blocked"] is False
+        assert result["llm_fallback"] is False
+
+    def test_browser_source_returns_expected_shape(self, tmp_path):
+        """Outlook/browser branch returns a result with all required keys when events are found."""
+        source_cfg = {
+            "name": "Kongsberg",
+            "type": SOURCE_OUTLOOK,
+            "url": "https://example.com/calendar",
+        }
+        cache = self._mock_cache(tmp_path)
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Booking")], ""),
+        ):
+            result = _scrape_source(
+                source_cfg,
+                start_date=_SCRAPE_START,
+                end_date=_SCRAPE_END,
+                calendar_cache=cache,
+            )
+
+        assert _COMMON_SOURCE_KEYS.issubset(result.keys())
+        assert result["name"] == "Kongsberg"
+        assert result["event_count"] == 1
+        assert result["blocked"] is False
+
+    def test_error_branch_returns_scraper_error_key(self, tmp_path):
+        """When the scraper raises, the result has scraper_error set and event_count=0."""
+        source_cfg = {
+            "name": "Feil kilde",
+            "type": SOURCE_OUTLOOK,
+            "url": "https://example.com/bad",
+        }
+        cache = self._mock_cache(tmp_path)
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            side_effect=RuntimeError("connection refused"),
+        ):
+            result = _scrape_source(
+                source_cfg,
+                start_date=_SCRAPE_START,
+                end_date=_SCRAPE_END,
+                calendar_cache=cache,
+            )
+
+        assert result["event_count"] == 0
+        assert "scraper_error" in result
+        assert "connection refused" in result["scraper_error"]
+
+    def test_none_calendar_cache_is_accepted(self, tmp_path):
+        """Passing calendar_cache=None does not raise; result shape is intact."""
+        source_cfg = {
+            "name": "NoCacheSource",
+            "type": SOURCE_ICAL,
+            "url": "https://example.com/feed.ics",
+        }
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[],
+        ):
+            result = _scrape_source(
+                source_cfg,
+                start_date=_SCRAPE_START,
+                end_date=_SCRAPE_END,
+                calendar_cache=None,
+            )
+
+        assert _COMMON_SOURCE_KEYS.issubset(result.keys())
+        assert result["event_count"] == 0

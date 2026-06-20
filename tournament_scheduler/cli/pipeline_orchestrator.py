@@ -804,7 +804,7 @@ def _cmd_scrape(args: argparse.Namespace) -> int:
     start = dt.strptime(cfg["start_date"], "%Y-%m-%d")
     end = dt.strptime(cfg["end_date"], "%Y-%m-%d")
 
-    result = _scrape_source(source_cfg, start_date=start, end_date=end)
+    result = _scrape_source(source_cfg, start_date=start, end_date=end, calendar_cache=None)
 
     n_events = result.get("event_count", 0)
     blocked = result.get("blocked", False)
