@@ -13,7 +13,7 @@
   - Files: `tournament_scheduler/club_registry.py`
   - Approach: Add a `club_for_arena(arena_name: str) -> Optional[str]` function that iterates CLUB_REGISTRY values and returns the matching `club` for a given arena name; this is the authoritative source that downstream callers should prefer over the separate `_ARENA_TO_CLUB` dict in `club_distances.py`.
 
-- [ ] Reorder participants in `season_planner.py` so host club's team is first
+- [x] In season_planner.py, after _select_participants returns, reorder participants so any teams from the arena-owning club (via club_for_arena(arena) or fall back to host_club) come first; other teams follow. — 2026-06-20
   - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/participant_selection.py`
   - Approach: After `_select_participants` returns in `season_planner.py` (line 228), use `club_for_arena(arena)` (or fall back to `tournament.host_club`) to identify the host club, then move any team whose `team.club` matches that club to index 0 of the `participants` list before passing it to `generate_round_robin_games`.
 
@@ -46,4 +46,11 @@ Running pytest passes with new tests confirming that Frisk Asker appears as `gam
 **Findings:** club_for_arena('Varner Arena') returns 'Frisk Asker', club_for_arena('Kongsberghallen') returns 'Kongsberg', and unknown arenas return None as expected.
 LESSONS: none
 **Files:** tournament_scheduler/club_registry.py (+18/-0)
+**Commit:** ae3173f (hockey)
+
+### 2026-06-20 — In season_planner.py, after _select_participants returns, reorder participants so any teams from the arena-owning club (via club_for_arena(arena) or fall back to host_club) come first; other teams follow.
+**Rationale:** Used club_for_arena as the authoritative source with host_club as fallback; only reorders when host_teams is non-empty to avoid breaking tournaments where the host has no participating team.
+**Findings:** participants list now starts with host club teams before passing to generate_round_robin_games, ensuring correct home team assignment.
+LESSONS: none
+**Files:** tournament_scheduler/season_planner.py (+12/-0)
 **Commit:** [pending — fill after commit]

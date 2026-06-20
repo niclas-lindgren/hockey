@@ -43,6 +43,7 @@ from tournament_scheduler.models import (
     overlapping_age_groups,
     team_key,
 )
+from tournament_scheduler.club_registry import club_for_arena as _club_for_arena
 from tournament_scheduler.participant_selection import (
     age_group_deficit_spread as _age_group_deficit_spread,
     cap_per_club_deficit_aware as _cap_per_club_deficit_aware,
@@ -226,6 +227,17 @@ class SeasonPlanner:
 
             arena = self.club_arenas.get(host_club, host_club)
             participants = self._select_participants(age_group)
+
+            # Reorder participants so the host club's team is first.
+            # The home team in every generated game is participants[0], so
+            # placing the arena-owning club at index 0 ensures correct home
+            # team assignment regardless of selection order.
+            home_club = _club_for_arena(arena) or host_club
+            host_teams = [t for t in participants if t.club == home_club]
+            other_teams = [t for t in participants if t.club != home_club]
+            if host_teams:
+                participants = host_teams + other_teams
+
             if len(participants) < MIN_TEAMS_PER_TOURNAMENT:
                 plan.skipped_age_groups.append(
                     {
