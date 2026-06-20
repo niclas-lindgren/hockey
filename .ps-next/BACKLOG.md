@@ -2,7 +2,28 @@
 
 ## Open
 
+- [177] [ ] Extract shared issue-counting helper used by _cmd_auto_adjust, _cmd_critic, _cmd_verdict in rvv_cli.py — all three convert SeasonPlan to dict and count issues identically
+
+- [176] [ ] Extract shared source_result dict helper in stage2_scraping.py — missing-URL case, normal result, and error result all hand-roll the same dict shape across ~3 locations
+
+- [175] [ ] Decouple global _CALENDAR_CACHE in stage2_scraping.py — global set in run() and consumed in _scrape_source() via side-channel; pass cache explicitly so _scrape_source can be unit-tested in isolation
+
+- [174] [ ] Decompose _cmd_run god function in pipeline_orchestrator.py — 300+ line function handles stage dispatch, judge invocation, refinement loop, export, and calendar generation inline; split into per-stage helpers
+
+- [173] [ ] Wrap state.py file writes in try/except — write_stage, write_judgment, write_approval, _set_status, _invalidate_downstream all write JSON without catching OSError or json.JSONDecodeError, risking silent data loss mid-pipeline
+
+- [172] [ ] Fix browser_worker.py ~line 300 retry goto using same 30s timeout — fallback navigation uses identical timeout so it cannot recover from slow page loads
+
+- [171] [ ] Fix credentialed fallback never triggered on zero events in stage2_scraping.py ~line 340 — deterministic_raised is only True on exception, not on empty result, so silent zero-event returns skip the fallback
+
+- [170] [ ] Fix crash in cancellation_workflow.py ~line 230-234 — result.detailed_exclusions and set difference both used without None guard; crashes if the scheduler fails
+
+- [169] [ ] Fix _run_approval_gate always returning True (pipeline_orchestrator.py ~line 304) — gate is a no-op so critical issues can never block the pipeline
+
+- [168] [ ] Fix refinement loop silently dropping moves — `requested_adjustments` is built in `_run_refinement_loop` (pipeline_orchestrator.py ~line 122) but never applied back to the plan, so all manual moves from refinement iterations are discarded
+
 ## Done
+- [178] [x] Replace sys.exit(1) with exceptions in tournament_updater.py __main__ block — library code calling sys.exit kills the process when imported and hit during pipeline use (2026-06-20)
 - [159] [x] Fix opencode run.md: stage1 verification checklist references fields (age_groups, parallel_games, sources) that do not exist in the current stage1 checkpoint — should match what checkpoint_printer actually shows (teams, target_tournament_count, round_length_minutes, input_path) (2026-06-20)
 - [160] [x] Add run.md to .chatgpt/commands/rvv-miniputt/ — ChatGPT harness has guide/logs/calendars but is missing the main pipeline run command (2026-06-20)
 - [162] [x] Fix 18-team display bug in HTML report: (1) header shows 18 instead of 70 because $UNIQUE_TEAMS$ uses raw team labels — fix by using len(team_game_counts) instead; (2) review.py:93 and judgment.py:71 look up team_game_counts with raw label but the dict uses disambiguated keys (e.g. 'Frisk Asker (Frisk Asker, U7)') — fix by building a duplicate_labels set and using team_key() for the lookup (2026-06-20)
