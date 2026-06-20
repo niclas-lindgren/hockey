@@ -198,9 +198,11 @@ def _run_refinement_loop(
         requested_adjustments: dict[str, list[str]] = {}
         for move in auto_moves:
             new_date = move.get("new_date")
+            old_date = move.get("old_date")
             if new_date:
-                requested_adjustments.setdefault("banned_dates", [])
-                # We push the old date as banned so the planner is forced to move it
+                # Push the old date as banned so the planner is forced to move it
+                if old_date:
+                    requested_adjustments.setdefault("banned_dates", []).append(old_date)
                 tid = move.get("tournament_id", "")
                 log_fn(f"  Move: tournament={tid} → {new_date} ({move.get('reason', '')[:80]})")
 
