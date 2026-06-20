@@ -21,7 +21,7 @@
   - Files: tests/test_tournament_updater.py, tests/test_pipeline_orchestrator.py, tests/test_cancellation_workflow.py
   - Approach: Update any test cases that mock or expect sys.exit calls to instead assert that `TournamentValidationError` or `TournamentUpdateError` is raised, using pytest.raises() as appropriate.
 
-- [ ] Verify importers handle new exceptions gracefully without process kill
+- [x] Verified that cancellation_workflow.py, manual_adjustment_workflow.py, update_command.py, and rvv_cli.py all call updater library methods (load_plan, drop_team, move_date) which do not raise TournamentUpdateError/TournamentValidationError — those exceptions are only raised in the __main__ block. No code changes needed. — 2026-06-20
   - Files: tournament_scheduler/pipeline/cancellation_workflow.py, tournament_scheduler/pipeline/manual_adjustment_workflow.py, tournament_scheduler/cli/update_command.py, tournament_scheduler/cli/rvv_cli.py
   - Approach: Review each importing module to confirm it does not invoke the __main__ block code paths, and if any caller re-exposes the updater's validation logic, add try/except handling for `TournamentUpdateError`/`TournamentValidationError` rather than relying on sys.exit to terminate.
 
@@ -54,4 +54,11 @@ LESSONS: none
 **Findings:** 4 new tests added; all 25 tests in the file pass.
 LESSONS: none
 **Files:** tests/test_tournament_updater.py (+33/-1)
+**Commit:** f55f69f (hockey)
+
+### 2026-06-20 — Verified that cancellation_workflow.py, manual_adjustment_workflow.py, update_command.py, and rvv_cli.py all call updater library methods (load_plan, drop_team, move_date) which do not raise TournamentUpdateError/TournamentValidationError — those exceptions are only raised in the __main__ block. No code changes needed.
+**Rationale:** The new exceptions are confined to __main__; library callers are unaffected.
+**Findings:** All four importing modules confirmed safe; rvv_cli.py has its own separate sys.exit in _load_plan_and_updater for CLI use which is appropriate.
+LESSONS: The new TournamentUpdateError/TournamentValidationError exceptions are only raised in the __main__ block, not in library methods — callers that import TournamentUpdater directly are not affected.
+**Files:** none
 **Commit:** [pending — fill after commit]
