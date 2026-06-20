@@ -14,7 +14,7 @@
 - [x] Fixed review.py to build plan-wide duplicate_labels set and use team_key() for looking up team_game_counts, replacing raw label lookup at line 93. — 2026-06-20
   - Files: tournament_scheduler/html/renderers/review.py
   - Approach: Import team_key from tournament_scheduler.models. Before the loop at line 92, build a duplicate_labels set from the full set of team objects in age_tournaments (Counter on team.label, keep those with count > 1). On line 93, replace `team_game_counts.get(label, 0)` with a lookup using `team_key(team_obj, duplicate_labels)` — requires iterating team objects rather than labels so team_key() has the full Team object.
-- [ ] Fix judgment.py:71 to look up team_game_counts via team_key()
+- [x] Fixed judgment.py to build plan-wide duplicate_labels set and use team_key() for looking up team_game_counts at line 71, replacing raw label lookup. — 2026-06-20
   - Files: tournament_scheduler/html/renderers/judgment.py
   - Approach: Import team_key from tournament_scheduler.models. Before the loop at line 70, build a duplicate_labels set from age_team objects collected from age_tournaments. On line 71, replace `team_game_counts.get(label, 0)` with a lookup using `team_key(team_obj, duplicate_labels)`, iterating team objects rather than raw labels.
 - [ ] Add tests verifying team count header and game-count lookups with duplicate-label teams
@@ -62,4 +62,11 @@ LESSONS: none
 **Findings:** Tests pass. Lookup now uses consistent team_key() keys matching those produced by compute_team_game_counts.
 LESSONS: none
 **Files:** tournament_scheduler/html/renderers/review.py (+13/-2)
+**Commit:** 5022e8d (hockey)
+
+### 2026-06-20 — Fixed judgment.py to build plan-wide duplicate_labels set and use team_key() for looking up team_game_counts at line 71, replacing raw label lookup.
+**Rationale:** none
+**Findings:** Tests pass. Pattern mirrors review.py fix.
+LESSONS: none
+**Files:** tournament_scheduler/html/renderers/judgment.py (+13/-2)
 **Commit:** [pending — fill after commit]

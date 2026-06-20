@@ -5,6 +5,8 @@ from __future__ import annotations
 import html as _html
 from typing import Any
 
+from tournament_scheduler.models import team_key as _team_key
+
 from ..data_computation import _RVV_CLUBS, canonical_rvv_club_name
 
 
@@ -26,6 +28,15 @@ def analyze_opinionated_judgment(
     """Return a structured opinionated synthesis of the plan."""
     tournaments = [t for t in getattr(plan, "tournaments", []) if not getattr(t, "cancelled", False)]
     fairness_gate = getattr(plan, "fairness_gate", {}) if isinstance(getattr(plan, "fairness_gate", {}), dict) else {}
+
+    # Build the same duplicate-label set used by compute_team_game_counts so
+    # team_key() lookups against team_game_counts resolve to the correct keys.
+    _label_to_identities: dict[str, set[tuple[str, str]]] = {}
+    for _t in tournaments:
+        for _team in getattr(_t, "teams", []):
+            _identity = (getattr(_team, "club", ""), getattr(_team, "age_group", ""))
+            _label_to_identities.setdefault(_team.label, set()).add(_identity)
+    _plan_duplicate_labels = {lbl for lbl, ids in _label_to_identities.items() if len(ids) > 1}
 
     gate_status = str(fairness_gate.get("status", "pass")).lower()
     gate_score = int(fairness_gate.get("score", 0) or 0)
@@ -67,8 +78,8 @@ def analyze_opinionated_judgment(
             team_age_groups.setdefault(team.label, str(getattr(tournament, "age_group", "") or ""))
     for age_group, age_tournaments in sorted(tournaments_by_age.items()):
         age_host_counts: dict[str, int] = {}
-        age_team_labels = sorted({team.label for tournament in age_tournaments for team in getattr(tournament, "teams", [])})
-        age_team_counts = [team_game_counts.get(label, 0) for label in age_team_labels]
+        age_team_objs = list({id(team): team for tournament in age_tournaments for team in getattr(tournament, "teams", [])}.values())
+        age_team_counts = [team_game_counts.get(_team_key(team, _plan_duplicate_labels), 0) for team in age_team_objs]
         if age_team_counts:
             age_group_game_spreads.append((age_group, min(age_team_counts), max(age_team_counts), max(age_team_counts) - min(age_team_counts)))
         for tournament in age_tournaments:
