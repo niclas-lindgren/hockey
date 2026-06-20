@@ -43,7 +43,6 @@ from .scraper_constants import (
     _BROWSER_SOURCE_TYPES, _ICAL_SOURCE_TYPES,
 )
 from .scraper_bookup import _run_bookup_scraper, _bookup_navigate_to_date, _parse_bookup_timegrid
-from .scraper_cache import _cached_source_result
 from .scraper_credentialed import _credentialed_scrape_months, _run_credentialed_bookup_or_outlook, _try_credentialed_scrape
 from .scraper_event_helpers import _events_to_dicts, _group_events_by_club
 from .scraper_ical import _run_ical_scraper
@@ -229,7 +228,18 @@ def run(
             and not entry.get("blocked")
             and not cache.is_stale(name)
         ):
-            source_results.append(_cached_source_result(source_cfg, entry))
+            _cached_events = entry.get("events", [])
+            source_results.append(_make_source_result(
+                name=name,
+                url=source_cfg.get("url", entry.get("url", "")),
+                source_type=source_cfg.get("type", SOURCE_OUTLOOK).lower(),
+                events=_cached_events,
+                event_count=entry.get("event_count", len(_cached_events)),
+                blocked=False,
+                block_reason="",
+                llm_fallback=False,
+                from_cache=True,
+            ))
             cached_names.append(name)
         else:
             sources_to_scrape.append(source_cfg)

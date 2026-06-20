@@ -14,7 +14,7 @@
 - [x] Already implemented in the first task — the executor exception handler now calls _make_source_result with scraper_error. — 2026-06-20
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Locate the error branch (~lines 207-217) that hand-rolls a dict with scraper_error and replace it with `_make_source_result(..., scraper_error=exc_str)`, keeping all existing field values identical.
-- [ ] Replace normal-result branch to use _make_source_result (superseding _cached_source_result call)
+- [x] Replaced _cached_source_result call with _make_source_result(..., from_cacheTrue) inline; removed now-unused _cached_source_result import from stage2_scraping.py. — 2026-06-20
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: At ~line 185 where `_cached_source_result(source_cfg, entry)` is called, unpack the cache entry fields and pass them to `_make_source_result(..., from_cache=True)`; verify the returned keys match what _cached_source_result currently returns, then remove or leave the import as appropriate.
 - [ ] Update tests to assert consistent dict shape across all three branches
@@ -60,3 +60,10 @@ LESSONS: none
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (no additional changes)
 **Commit:** none
+
+### 2026-06-20 — Replaced _cached_source_result call with _make_source_result(..., from_cacheTrue) inline; removed now-unused _cached_source_result import from stage2_scraping.py.
+**Rationale:** Inlining the cache-hit path keeps all dict construction through a single canonical helper; _cached_source_result in scraper_cache.py is still available if other callers need it.
+**Findings:** All tests pass; _cached_source_result import removed from stage2_scraping.py.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage2_scraping.py (+12/-2)
+**Commit:** pending — fill after commit
