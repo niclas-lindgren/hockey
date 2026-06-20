@@ -196,6 +196,24 @@ def club_for_source_name(source_name: str) -> Optional[str]:
     return None
 
 
+def club_for_arena(arena_name: str) -> Optional[str]:
+    """Return the club name that owns *arena_name*, or ``None`` if not found.
+
+    Performs an exact case-insensitive match against each entry's ``arena``
+    field in :data:`CLUB_REGISTRY`. This is the authoritative reverse-lookup
+    for resolving a venue name to the owning club; downstream callers should
+    prefer this over maintaining a separate arena→club dictionary.
+
+    Returns the canonical club name (as registered in :data:`CLUB_REGISTRY`)
+    on a match, or ``None`` if no entry matches.
+    """
+    lowered = arena_name.strip().lower()
+    for club_name, entry in CLUB_REGISTRY.items():
+        if entry.arena.lower() == lowered:
+            return club_name
+    return None
+
+
 def arenas_for_date_search(host_club: str) -> List[ClubCalendarSource]:
     """Return arena candidates for a date/slot search, host first.
 
