@@ -30,7 +30,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any
 
-from ..club_registry import club_for_source_name
+from ..club_registry import club_for_source_name, CLUB_REGISTRY
 from ..models import CalendarEvent
 from .cache_manager import ScrapedDataCache
 from ..utils.calendar_cache import CalendarCache
@@ -315,7 +315,14 @@ def _scrape_source(
         elif source_type in _BROWSER_SOURCE_TYPES:
             events, _ = _run_outlook_scraper(url, name, start_date, end_date, calendar_cache)
         elif source_type in _ICAL_SOURCE_TYPES:
-            events = _run_ical_scraper(url, name, start_date, end_date, source_type, calendar_cache)
+            # Look up any per-source location filter registered in CLUB_REGISTRY
+            _club_name = club_for_source_name(name)
+            _location_filter = (
+                CLUB_REGISTRY[_club_name].location_filter
+                if _club_name and _club_name in CLUB_REGISTRY
+                else None
+            )
+            events = _run_ical_scraper(url, name, start_date, end_date, source_type, calendar_cache, location_filter=_location_filter)
         else:
             scraper_error = f"Ukjent kildetype '{source_type}'."
     except Exception as exc:  # noqa: BLE001

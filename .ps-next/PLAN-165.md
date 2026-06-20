@@ -21,7 +21,7 @@
   - Files: `tournament_scheduler/data_sources/ical_scraper.py`
   - Approach: Add an optional `location_filter: str | None` parameter to `scrape_calendar`; after parsing each event, read the iCal `LOCATION` field and skip any event whose location does not contain the filter string (case-insensitive).
 
-- [ ] Update scraper_ical.py pipeline to pass location_filter from ClubCalendarSource to ICalScraper
+- [x] Added location_filter parameter to _run_ical_scraper; stage2_scraping.py now looks up CLUB_REGISTRY by source name and passes location_filter when calling _run_ical_scraper for iCal sources. — 2026-06-20
   - Files: `tournament_scheduler/pipeline/scraper_ical.py`, `tournament_scheduler/club_registry.py`
   - Approach: Extract the `location_filter` from the resolved ClubCalendarSource entry and pass it as an argument when calling `ICalScraper.scrape_calendar`, so the filter is applied during the scrape phase.
 
@@ -60,4 +60,11 @@ LESSONS: none
 **Findings:** Filter applied before appending to events list; missing LOCATION treated as empty string so events without location are excluded when filter is active.
 LESSONS: none
 **Files:** tournament_scheduler/data_sources/ical_scraper.py (+12/-1)
+**Commit:** 93c8a3d (hockey)
+
+### 2026-06-20 — Added location_filter parameter to _run_ical_scraper; stage2_scraping.py now looks up CLUB_REGISTRY by source name and passes location_filter when calling _run_ical_scraper for iCal sources.
+**Rationale:** Registry lookup uses club_for_source_name then CLUB_REGISTRY direct access; none needed otherwise.
+**Findings:** location_filter flows from CLUB_REGISTRY through stage2_scraping -> _run_ical_scraper -> scrape_calendar.
+LESSONS: none
+**Files:** scraper_ical.py (+8/-2), stage2_scraping.py (+11/-2)
 **Commit:** [pending — fill after commit]
