@@ -8,7 +8,7 @@
 - [x] Added _make_source_result() module-level helper in stage2_scraping.py; refactored all three inline dict constructions (empty-URL skip, executor exception handler, _scrape_source base) to use it. — 2026-06-20
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Define a new module-level helper `_make_source_result(name, url, type, events, event_count, blocked, block_reason, llm_fallback, *, skipped=False, skip_reason=None, scraper_error=None, from_cache=False)` that returns the canonical dict; place it near the existing imports and existing helpers, following the style of `_cached_source_result` in scraper_cache.py.
-- [ ] Replace missing-URL branch dict literal with _make_source_result call
+- [x] Already implemented in the previous task — missing-URL branch now calls _make_source_result with skippedTrue and skip_reason. — 2026-06-20
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Locate the missing-URL branch (~line 163) that hand-rolls a dict with skipped/skip_reason extras and replace it with `_make_source_result(..., skipped=True, skip_reason=...)`, keeping all existing field values identical.
 - [ ] Replace error branch dict literal with _make_source_result call
@@ -46,3 +46,10 @@ Key codebase context:
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (+80/-33)
 **Commit:** pending — fill after commit
+
+### 2026-06-20 — Already implemented in the previous task — missing-URL branch now calls _make_source_result with skippedTrue and skip_reason.
+**Rationale:** Done as part of the helper introduction task.
+**Findings:** Missing-URL branch verified to use _make_source_result in stage2_scraping.py.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage2_scraping.py (no additional changes)
+**Commit:** none
