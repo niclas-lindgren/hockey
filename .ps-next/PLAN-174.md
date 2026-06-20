@@ -20,7 +20,7 @@
 - [x] Extracted calendar regeneration block from _cmd_run into module-level _regenerate_calendar(args, log_fn) returning bool; removed generate_html import from _cmd_run. — 2026-06-20
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: The inline block at lines 744–755 calls `generate_html`; extract into `_regenerate_calendar(args)` and replace the inline block with a call to it.
-- [ ] Verify existing test suite passes after all extractions
+- [x] All 647 tests pass including all 12 tests in test_pipeline_orchestrator_judgment.py; patch targets updated automatically by extraction (module-level names unchanged). — 2026-06-20
   - Files: tests/test_pipeline_orchestrator_judgment.py
   - Approach: Run `pytest tests/test_pipeline_orchestrator_judgment.py` and confirm all tests pass; if patches reference the old inline nesting paths, update the patch targets to the new module-level names.
 
@@ -72,4 +72,11 @@ LESSONS: stage4_run must stay imported in _cmd_run even after extracting the mai
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+23/-9)
+**Commit:** 6963d59 (hockey)
+
+### 2026-06-20 — All 647 tests pass including all 12 tests in test_pipeline_orchestrator_judgment.py; patch targets updated automatically by extraction (module-level names unchanged).
+**Rationale:** none
+**Findings:** none
+LESSONS: none
+**Files:** no implementation changes
 **Commit:** [pending — fill after commit]
