@@ -9,7 +9,7 @@
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`
   - Approach: In the auto_moves loop (lines 197–205), change `requested_adjustments.setdefault("banned_dates", [])` to actually append `move.get("old_date")` to the list so it is non-empty when passed to `merge_manual_adjustments`.
 
-- [ ] Pass `new_date` targets directly to the updater instead of only banning old dates
+- [x] Auto-fixable moves with both tournament_id and new_date now call TournamentUpdater.move_date directly; moves without tournament_id fall back to banning the old date. — 2026-06-20
   - Files: `tournament_scheduler/cli/pipeline_orchestrator.py`, `tournament_scheduler/pipeline/manual_adjustment_workflow.py`, `tournament_scheduler/pipeline/tournament_updater.py`
   - Approach: For each auto-fixable move that has both `tournament_id` and `new_date`, call the existing TournamentUpdater move API directly (similar to how `--update-tournament` works in `update_command.py`) so tournaments land on the specific suggested date, not an arbitrary replacement chosen by `_find_replacement_date()`.
 
@@ -41,4 +41,11 @@ Root cause: in `_run_refinement_loop` (pipeline_orchestrator.py lines 197–211)
 **Findings:** banned_dates list now populated correctly; adjustments will be applied in subsequent refinement iterations.
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+4/-2)
+**Commit:** 3c371c3 (hockey)
+
+### 2026-06-20 — Auto-fixable moves with both tournament_id and new_date now call TournamentUpdater.move_date directly; moves without tournament_id fall back to banning the old date.
+**Rationale:** Direct move_date call ensures tournaments land on the critic-suggested date instead of an arbitrary replacement from _find_replacement_date().
+**Findings:** TournamentUpdater.move_date called per auto-fixable move; fallback banned_dates path retained for moves without tournament_id.
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+37/-11)
 **Commit:** [pending — fill after commit]

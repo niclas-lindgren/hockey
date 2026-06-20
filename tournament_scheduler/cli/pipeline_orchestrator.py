@@ -158,6 +158,8 @@ def _run_refinement_loop(
         A ``(tone, updated_plan_checkpoint)`` tuple with the final tone string
         and the updated Stage 3 checkpoint dict after all refinement rounds.
     """
+    from datetime import date as _date
+
     from ..pipeline.manual_adjustment_workflow import ManualAdjustmentWorkflow
     from ..pipeline.state import StageName
     from .plan_critic import generate_critic_summary, suggest_moves
@@ -194,23 +196,47 @@ def _run_refinement_loop(
             log_fn(f"Refinement {iteration}: no auto-fixable moves — stopping")
             break
 
-        # Build a manual_adjustments patch from auto-fixable moves
+        # Apply auto-fixable moves directly via TournamentUpdater.move_date when
+        # both tournament_id and new_date are present.  Fall back to banning the
+        # old date (so the planner picks a replacement) for any move that lacks
+        # a tournament_id or cannot be moved directly.
         requested_adjustments: dict[str, list[str]] = {}
+        direct_move_count = 0
         for move in auto_moves:
-            new_date = move.get("new_date")
+            new_date_str = move.get("new_date")
             old_date = move.get("old_date")
-            if new_date:
-                # Push the old date as banned so the planner is forced to move it
+            tid = move.get("tournament_id", "")
+            if not new_date_str:
+                continue
+            log_fn(f"  Move: tournament={tid} → {new_date_str} ({move.get('reason', '')[:80]})")
+            if tid and workflow.updater is not None:
+                # Parse new_date string → date object
+                try:
+                    parsed_new_date = _date.fromisoformat(new_date_str)
+                except ValueError:
+                    log_fn(f"  Move skipped: cannot parse new_date={new_date_str!r}")
+                    continue
+                try:
+                    move_result = workflow.updater.move_date(
+                        tid, parsed_new_date, plan=plan_obj, force=True, cascade=True
+                    )
+                    direct_move_count += 1
+                    log_fn(f"  move_date({tid}, {parsed_new_date}): {move_result.summary_nb[:80]}")
+                except Exception as exc:
+                    log_fn(f"  move_date({tid}) failed: {exc} — falling back to banned_dates")
+                    if old_date:
+                        requested_adjustments.setdefault("banned_dates", []).append(old_date)
+            else:
+                # No tournament_id — ban the old date so the planner relocates it
                 if old_date:
                     requested_adjustments.setdefault("banned_dates", []).append(old_date)
-                tid = move.get("tournament_id", "")
-                log_fn(f"  Move: tournament={tid} → {new_date} ({move.get('reason', '')[:80]})")
 
-        # Merge into plan's existing adjustments
-        existing_adj = getattr(plan_obj, "manual_adjustments", {}) or {}
-        plan_obj.manual_adjustments = ManualAdjustmentWorkflow.merge_manual_adjustments(
-            existing_adj, requested_adjustments
-        )
+        # Merge any fallback banned-date adjustments into plan's existing adjustments
+        if requested_adjustments:
+            existing_adj = getattr(plan_obj, "manual_adjustments", {}) or {}
+            plan_obj.manual_adjustments = ManualAdjustmentWorkflow.merge_manual_adjustments(
+                existing_adj, requested_adjustments
+            )
 
         # Apply adjustments and recompute fairness scores
         try:
