@@ -17,7 +17,7 @@
   - Files: tournament_scheduler/pipeline/tournament_updater.py
   - Approach: Locate the six sys.exit(1) calls in the `if __name__ == "__main__":` block (lines 862, 866, 875, 886, 896, 907) and replace each with a raise of `TournamentValidationError` or `TournamentUpdateError`, preserving all error messages; wrap the entire __main__ block in a try/except that catches these and prints to stderr then exits cleanly for CLI use.
 
-- [ ] Update tests to assert exception behavior instead of sys.exit behavior
+- [x] Added TournamentUpdateError/TournamentValidationError imports and a TestExceptionClasses suite (4 tests) to test_tournament_updater.py; no existing tests needed updating as none mocked sys.exit. — 2026-06-20
   - Files: tests/test_tournament_updater.py, tests/test_pipeline_orchestrator.py, tests/test_cancellation_workflow.py
   - Approach: Update any test cases that mock or expect sys.exit calls to instead assert that `TournamentValidationError` or `TournamentUpdateError` is raised, using pytest.raises() as appropriate.
 
@@ -47,4 +47,11 @@ LESSONS: none
 **Findings:** All tests pass; __main__ block now uses exceptions exclusively for error paths.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/tournament_updater.py (+42/-40)
+**Commit:** dcf5e46 (hockey)
+
+### 2026-06-20 — Added TournamentUpdateError/TournamentValidationError imports and a TestExceptionClasses suite (4 tests) to test_tournament_updater.py; no existing tests needed updating as none mocked sys.exit.
+**Rationale:** No existing tests used sys.exit mocking, so only additions were needed; a dedicated class verifies the exception hierarchy.
+**Findings:** 4 new tests added; all 25 tests in the file pass.
+LESSONS: none
+**Files:** tests/test_tournament_updater.py (+33/-1)
 **Commit:** [pending — fill after commit]

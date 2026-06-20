@@ -15,7 +15,12 @@ import pytest
 
 from tournament_scheduler.models import SeasonPlan, Tournament, Team, Game
 from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
-from tournament_scheduler.pipeline.tournament_updater import TournamentUpdater, UpdateResult
+from tournament_scheduler.pipeline.tournament_updater import (
+    TournamentUpdater,
+    TournamentUpdateError,
+    TournamentValidationError,
+    UpdateResult,
+)
 from tournament_scheduler.pipeline.stage3_planning import _plan_to_dict
 from tournament_scheduler.season_planner import SeasonPlanner
 
@@ -92,6 +97,33 @@ def make_state_with_plan(plan: SeasonPlan, tmp_path: Any) -> PipelineState:
     }
     state.write_stage(StageName.PLANNING, plan_dict, status=StageStatus.DONE)
     return state
+
+
+# ---------------------------------------------------------------------------
+# Exception class tests
+# ---------------------------------------------------------------------------
+
+
+class TestExceptionClasses:
+    """Verify the custom exception hierarchy introduced to replace sys.exit calls."""
+
+    def test_tournament_update_error_is_exception(self):
+        with pytest.raises(TournamentUpdateError):
+            raise TournamentUpdateError("update failed")
+
+    def test_tournament_validation_error_is_update_error(self):
+        """TournamentValidationError must be a subclass of TournamentUpdateError."""
+        with pytest.raises(TournamentUpdateError):
+            raise TournamentValidationError("validation failed")
+
+    def test_tournament_validation_error_is_exception(self):
+        with pytest.raises(TournamentValidationError):
+            raise TournamentValidationError("validation failed")
+
+    def test_error_message_preserved(self):
+        msg = "Kan ikke bruke --drop-team og --new-date samtidig."
+        exc = TournamentValidationError(msg)
+        assert str(exc) == msg
 
 
 # ---------------------------------------------------------------------------
