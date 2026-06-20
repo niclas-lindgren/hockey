@@ -11,6 +11,45 @@ from rich.console import Console
 
 _console = Console()
 
+
+def _compute_verdict_tone(plan: "dict[str, Any] | Any") -> str:
+    """Compute the verdict tone ('rough', 'mixed', or 'strong') from a plan.
+
+    Accepts either a Stage 3 checkpoint dict (with a ``"plan"`` key holding a
+    SeasonPlan-like object) or a SeasonPlan object directly.  Delegates to
+    ``judgment._score_tone`` using the plan's stored metric scores.
+    """
+    from ..html.renderers import judgment as _judgment
+
+    # Unwrap checkpoint dict → SeasonPlan-like object
+    if isinstance(plan, dict):
+        plan_obj = plan.get("plan", plan)
+    else:
+        plan_obj = plan
+
+    fairness_gate = getattr(plan_obj, "fairness_gate", {}) or {}
+    if isinstance(fairness_gate, dict):
+        gate_status = str(fairness_gate.get("status", "pass")).lower()
+        gate_score = int(fairness_gate.get("score", 0) or 0)
+    else:
+        gate_status = "pass"
+        gate_score = 0
+
+    pairwise = float(getattr(plan_obj, "pairwise_matchup_score", 0.0) or 0.0)
+    diversity = float(getattr(plan_obj, "diversity_score", 0.0) or 0.0)
+    month_balance = float(getattr(plan_obj, "month_balance_score", 0.0) or 0.0)
+
+    return _judgment._score_tone(
+        gate_status=gate_status,
+        gate_score=gate_score,
+        pairwise=pairwise,
+        diversity=diversity,
+        month_balance=month_balance,
+        missing_hosts=[],
+        spread=0,
+    )
+
+
 def _cmd_calendars(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt calendars [--refresh]``."""
     from ..pipeline.calendar_viewer import generate_html
