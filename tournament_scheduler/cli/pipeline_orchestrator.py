@@ -712,11 +712,130 @@ def _regenerate_calendar(
         return True
 
 
+def _run_stage3(
+    args: "argparse.Namespace",
+    cfg: "dict[str, Any]",
+    scraping: "dict[str, Any]",
+    state: "Any",
+    start: "Any",
+    end: "Any",
+    strict: bool,
+    resume_from: int,
+    log_fn: "Any",
+) -> "tuple[dict[str, Any] | None, bool, bool]":
+    """Run Stage 3 (planning) or skip it when resuming from a later stage.
+
+    Returns ``(plan, abort, run_failed)`` where *plan* is the planning checkpoint
+    dict, *abort* is True when the pipeline should stop (caller writes the run log
+    and returns 1), and *run_failed* is True when the stage failed in non-strict
+    mode (pipeline continues but ``run_failed`` should be set).
+    """
+    from ..pipeline.stage3_planning import run as stage3_run
+    from ..pipeline.state import StageName
+
+    if resume_from <= 3:
+        _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
+        try:
+            plan = stage3_run(cfg, scraping, state, start, end, strict=strict, iterations=getattr(args, "iterations", 1))
+            n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
+            _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
+            log_fn(f"Stage 3 OK: {n_tournaments} tournaments planned")
+            stage3_summary = {
+                "tournaments_planned": n_tournaments,
+                "warnings": plan.get("warnings", []),
+            }
+            if not _judge_stage(3, stage3_summary, state, log_fn, stage_name=StageName.PLANNING):
+                return None, True, False
+        except Exception as exc:
+            _console.print(f"  [red]✗[/red] {exc}")
+            log_fn(f"Stage 3 FAILED: {exc}")
+            if strict:
+                return None, True, False
+            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+            plan = state.read_stage(StageName.PLANNING) or {}
+            return plan, False, True
+    else:
+        plan = state.read_stage(StageName.PLANNING)
+        if not plan:
+            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 3-checkpoint mangler.")
+            return None, True, False
+        _console.print("[bold]Stage 3:[/bold] Hoppet over (gjenopptatt)")
+        log_fn("Stage 3 skipped via --resume-from")
+
+    return plan, False, False
+
+
+def _run_refinement_and_reexport(
+    args: "argparse.Namespace",
+    plan: "dict[str, Any]",
+    state: "Any",
+    strict: bool,
+    log_fn: "Any",
+    resume_from: int,
+) -> "tuple[dict[str, Any], bool, bool]":
+    """Run the skill-driven refinement loop and optional Stage 4 re-export.
+
+    Only runs when the plan verdict tone is 'rough'.  Failures here do not
+    abort the pipeline.
+
+    Returns ``(plan, generated_calendars, stage_failed)`` where *plan* is the
+    (possibly refined) plan dict, *generated_calendars* is True when the
+    re-export produced a calendars_html file, and *stage_failed* is always
+    False (refinement is best-effort).
+    """
+    from ..pipeline.stage4_export import run as stage4_run
+
+    generated_calendars = False
+    try:
+        initial_tone = _compute_verdict_tone(plan)
+        log_fn(f"Post-Stage4 verdict tone: {initial_tone}")
+        if initial_tone == "rough":
+            _console.print(
+                "\n[bold cyan]Plankvalitet: ROUGH — starter automatisk refinering...[/bold cyan]"
+            )
+            final_tone, refined_plan = _run_refinement_loop(
+                plan, state, args, strict, log_fn
+            )
+            log_fn(f"Refinement loop complete: final tone={final_tone}")
+            tone_label = {"strong": "SOLID", "mixed": "OK", "rough": "ROUGH"}.get(final_tone, final_tone.upper())
+            if final_tone != "rough":
+                _console.print(
+                    f"  [green]✓[/green] Plankvalitet etter refinering: {tone_label} — re-eksporterer..."
+                )
+                # Re-run Stage 4 to export with the improved plan
+                try:
+                    export2 = stage4_run(
+                        refined_plan,
+                        state,
+                        export_dir=args.export_dir,
+                        strict=strict,
+                        timestamped_export=getattr(args, "timestamped_export", True),
+                    )
+                    files2 = export2.get("output_files", {})
+                    generated_calendars = "calendars_html" in files2
+                    _console.print(f"  [green]✓[/green] Re-eksport: {len(files2)} fil(er)")
+                    log_fn(f"Post-refinement Stage 4 re-export OK: {len(files2)} files")
+                    plan = refined_plan
+                except Exception as exc:
+                    _console.print(f"  [yellow]⚠[/yellow] Re-eksport feilet: {exc}")
+                    log_fn(f"Post-refinement Stage 4 re-export FAILED: {exc}")
+            else:
+                _console.print(
+                    f"  [yellow]⚠[/yellow] Plankvalitet fremdeles ROUGH etter {_MAX_REFINEMENT_ITERATIONS} forsøk"
+                )
+        else:
+            tone_label = {"strong": "SOLID", "mixed": "OK"}.get(initial_tone, initial_tone.upper())
+            _console.print(f"\n  [dim]Plankvalitet: {tone_label} — ingen refinering nødvendig[/dim]")
+    except Exception as exc:
+        _console.print(f"  [yellow]⚠[/yellow] Refinering feilet uventet: {exc}")
+        log_fn(f"Refinement loop unexpected error: {exc}")
+
+    return plan, generated_calendars, False
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
-    from ..pipeline.stage3_planning import run as stage3_run
-    from ..pipeline.stage4_export import run as stage4_run
-    from ..pipeline.state import PipelineState, StageName, StageStatus
+    from ..pipeline.state import PipelineState
 
     strict = not args.non_strict
     resume_from = _resolve_resume_stage(getattr(args, "resume_from", None))
@@ -755,37 +874,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if stage2_failed:
         run_failed = True
 
-    if resume_from <= 3:
-        _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
-        try:
-            plan = stage3_run(cfg, scraping, state, start, end, strict=strict, iterations=getattr(args, "iterations", 1))
-            n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
-            _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
-            _log(f"Stage 3 OK: {n_tournaments} tournaments planned")
-            stage3_summary = {
-                "tournaments_planned": n_tournaments,
-                "warnings": plan.get("warnings", []),
-            }
-            if not _judge_stage(3, stage3_summary, state, _log, stage_name=StageName.PLANNING):
-                _write_run_log(args.work_dir, log_start, log_lines, success=False)
-                return 1
-        except Exception as exc:
-            _console.print(f"  [red]✗[/red] {exc}")
-            _log(f"Stage 3 FAILED: {exc}")
-            if strict:
-                _write_run_log(args.work_dir, log_start, log_lines, success=False)
-                return 1
-            run_failed = True
-            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
-            plan = state.read_stage(StageName.PLANNING) or {}
-    else:
-        plan = state.read_stage(StageName.PLANNING)
-        if not plan:
-            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 3-checkpoint mangler.")
-            _write_run_log(args.work_dir, log_start, log_lines, success=False)
-            return 1
-        _console.print("[bold]Stage 3:[/bold] Hoppet over (gjenopptatt)")
-        _log("Stage 3 skipped via --resume-from")
+    plan, abort, stage3_failed = _run_stage3(args, cfg, scraping, state, start, end, strict, resume_from, _log)
+    if abort:
+        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        return 1
+    if stage3_failed:
+        run_failed = True
 
     # ── LLM approval gate (between Stage 3 and Stage 4) ──────────────────────
     # Only runs when RVV_APPROVAL_ENDPOINT is set (opt-in).  If not configured
@@ -808,48 +902,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # applying critic-guided swap suggestions and re-running Stage 4 export.
     # This is a best-effort step — failures here do not abort the pipeline.
     if not run_failed:
-        try:
-            initial_tone = _compute_verdict_tone(plan)
-            _log(f"Post-Stage4 verdict tone: {initial_tone}")
-            if initial_tone == "rough":
-                _console.print(
-                    "\n[bold cyan]Plankvalitet: ROUGH — starter automatisk refinering...[/bold cyan]"
-                )
-                final_tone, refined_plan = _run_refinement_loop(
-                    plan, state, args, strict, _log
-                )
-                _log(f"Refinement loop complete: final tone={final_tone}")
-                tone_label = {"strong": "SOLID", "mixed": "OK", "rough": "ROUGH"}.get(final_tone, final_tone.upper())
-                if final_tone != "rough":
-                    _console.print(
-                        f"  [green]✓[/green] Plankvalitet etter refinering: {tone_label} — re-eksporterer..."
-                    )
-                    # Re-run Stage 4 to export with the improved plan
-                    try:
-                        export2 = stage4_run(
-                            refined_plan,
-                            state,
-                            export_dir=args.export_dir,
-                            strict=strict,
-                            timestamped_export=getattr(args, "timestamped_export", True),
-                        )
-                        files2 = export2.get("output_files", {})
-                        stage4_generated_calendars = "calendars_html" in files2
-                        _console.print(f"  [green]✓[/green] Re-eksport: {len(files2)} fil(er)")
-                        _log(f"Post-refinement Stage 4 re-export OK: {len(files2)} files")
-                    except Exception as exc:
-                        _console.print(f"  [yellow]⚠[/yellow] Re-eksport feilet: {exc}")
-                        _log(f"Post-refinement Stage 4 re-export FAILED: {exc}")
-                else:
-                    _console.print(
-                        f"  [yellow]⚠[/yellow] Plankvalitet fremdeles ROUGH etter {_MAX_REFINEMENT_ITERATIONS} forsøk"
-                    )
-            else:
-                tone_label = {"strong": "SOLID", "mixed": "OK"}.get(initial_tone, initial_tone.upper())
-                _console.print(f"\n  [dim]Plankvalitet: {tone_label} — ingen refinering nødvendig[/dim]")
-        except Exception as exc:
-            _console.print(f"  [yellow]⚠[/yellow] Refinering feilet uventet: {exc}")
-            _log(f"Refinement loop unexpected error: {exc}")
+        plan, refinement_calendars, _ = _run_refinement_and_reexport(args, plan, state, strict, _log, resume_from)
+        if refinement_calendars:
+            stage4_generated_calendars = refinement_calendars
 
     # Only regenerate calendars.html here when stage4 did not already produce it
     # (e.g. stage4 was skipped via --resume-from, or no scrape data was available).
