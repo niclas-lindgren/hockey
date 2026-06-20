@@ -2,8 +2,6 @@
 
 ## Open
 
-- [174] [ ] Decompose _cmd_run god function in pipeline_orchestrator.py — 300+ line function handles stage dispatch, judge invocation, refinement loop, export, and calendar generation inline; split into per-stage helpers
-
 - [173] [ ] Wrap state.py file writes in try/except — write_stage, write_judgment, write_approval, _set_status, _invalidate_downstream all write JSON without catching OSError or json.JSONDecodeError, risking silent data loss mid-pipeline
 
 - [172] [ ] Fix browser_worker.py ~line 300 retry goto using same 30s timeout — fallback navigation uses identical timeout so it cannot recover from slow page loads
@@ -17,6 +15,7 @@
 - [168] [ ] Fix refinement loop silently dropping moves — `requested_adjustments` is built in `_run_refinement_loop` (pipeline_orchestrator.py ~line 122) but never applied back to the plan, so all manual moves from refinement iterations are discarded
 
 ## Done
+- [174] [x] Decompose _cmd_run god function in pipeline_orchestrator.py — 300+ line function handles stage dispatch, judge invocation, refinement loop, export, and calendar generation inline; split into per-stage helpers (2026-06-20)
 - [175] [x] Decouple global _CALENDAR_CACHE in stage2_scraping.py — global set in run() and consumed in _scrape_source() via side-channel; pass cache explicitly so _scrape_source can be unit-tested in isolation (2026-06-20)
 - [176] [x] Extract shared source_result dict helper in stage2_scraping.py — missing-URL case, normal result, and error result all hand-roll the same dict shape across ~3 locations (2026-06-20)
 - [177] [x] Extract shared issue-counting helper used by _cmd_auto_adjust, _cmd_critic, _cmd_verdict in rvv_cli.py — all three convert SeasonPlan to dict and count issues identically (2026-06-20)
