@@ -8,6 +8,7 @@ scoring, game generation, warning scans, and the rules report.
 from __future__ import annotations
 
 import math
+import random
 from collections import Counter
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Sequence, Set, Tuple
@@ -111,6 +112,7 @@ class SeasonPlanner:
         fairness_model: Optional[SeasonFairnessModel] = None,
         date_preferences: Optional[List[DatePreference]] = None,
         preferanse_vekt_by_age_group: Optional[Dict[str, float]] = None,
+        seed: Optional[int] = None,
     ):
         self.scheduler = scheduler
         self.roster = roster
@@ -167,6 +169,7 @@ class SeasonPlanner:
         self._fallback_host_substitutions: List[Tuple[date, str, str, str]] = []
         self.date_preferences: List[DatePreference] = date_preferences or []
         self.preferanse_vekt_by_age_group: Dict[str, float] = preferanse_vekt_by_age_group or {}
+        self._rng: random.Random = random.Random(seed)
 
     def _team_target_tournament_count(self, team: Team) -> int:
         return team.target_tournament_count or (self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT)
@@ -187,6 +190,8 @@ class SeasonPlanner:
         age_groups = self.roster.age_groups()
         if not age_groups:
             return plan
+
+        self._rng.shuffle(age_groups)
 
         scheduled: List[Tuple[date, str]] = []
         planned_age_groups_by_date: Dict[date, List[str]] = {}
