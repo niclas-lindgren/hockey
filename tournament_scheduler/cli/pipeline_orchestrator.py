@@ -496,11 +496,63 @@ def _check_stage2_checkpoint(
     return True
 
 
+def _run_stage1(
+    args: "argparse.Namespace",
+    state: "Any",
+    strict: bool,
+    log_fn: "Any",
+    resume_from: int,
+) -> "tuple[dict[str, Any] | None, bool]":
+    """Run Stage 1 (config) or skip it when resuming from a later stage.
+
+    Returns ``(cfg, abort)`` where *cfg* is the loaded config dict and
+    *abort* is True if the pipeline should stop (caller should write the run
+    log and return 1).
+    """
+    from ..pipeline.stage1_config import load_effective_config, run as stage1_run
+    from ..pipeline.state import StageName
+
+    if resume_from <= 1:
+        _console.print("[bold]Stage 1:[/bold] Konfigurasjon...")
+        try:
+            stage1_run(args.input, state, strict=strict)
+            cfg = load_effective_config(state, input_path=args.input)
+            _console.print(
+                f"  [green]✓[/green] {len(cfg.get('sources', []))} kilder, "
+                f"{cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}"
+            )
+            log_fn(
+                f"Stage 1 OK: {cfg.get('source_count', 0)} sources, "
+                f"{cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}"
+            )
+            stage1_summary = {
+                "sources": len(cfg.get("sources", [])),
+                "start_date": cfg.get("start_date", "?"),
+                "end_date": cfg.get("end_date", "?"),
+                "age_groups": cfg.get("age_groups", []),
+                "clubs": cfg.get("clubs", []),
+            }
+            if not _judge_stage(1, stage1_summary, state, log_fn, stage_name=StageName.CONFIG):
+                return None, True
+        except Exception as exc:
+            _console.print(f"  [red]✗[/red] {exc}")
+            log_fn(f"Stage 1 FAILED: {exc}")
+            return None, True
+    else:
+        cfg = load_effective_config(state)
+        if not cfg:
+            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 1-checkpoint mangler.")
+            return None, True
+        _console.print("[bold]Stage 1:[/bold] Hoppet over (gjenopptatt)")
+        log_fn("Stage 1 skipped via --resume-from")
+
+    return cfg, False
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
     from ..llm_judge import get_judge_if_headless
     from ..pipeline.calendar_viewer import generate_html as generate_calendars
-    from ..pipeline.stage1_config import load_effective_config, run as stage1_run
     from ..pipeline.stage2_scraping import run as stage2_run
     from ..pipeline.stage3_planning import run as stage3_run
     from ..pipeline.stage4_export import run as stage4_run
@@ -526,40 +578,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if resume_from > 1:
         _console.print(f"[dim]Gjenopptar fra Stage {resume_from}[/dim]")
 
-    cfg: dict[str, Any] | None = None
     scraping: dict[str, Any] | None = None
     plan: dict[str, Any] | None = None
 
-    if resume_from <= 1:
-        _console.print("[bold]Stage 1:[/bold] Konfigurasjon...")
-        try:
-            stage1_run(args.input, state, strict=strict)
-            cfg = load_effective_config(state, input_path=args.input)
-            _console.print(f"  [green]✓[/green] {len(cfg.get('sources', []))} kilder, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
-            _log(f"Stage 1 OK: {cfg.get('source_count', 0)} sources, {cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}")
-            stage1_summary = {
-                "sources": len(cfg.get("sources", [])),
-                "start_date": cfg.get("start_date", "?"),
-                "end_date": cfg.get("end_date", "?"),
-                "age_groups": cfg.get("age_groups", []),
-                "clubs": cfg.get("clubs", []),
-            }
-            if not _judge_stage(1, stage1_summary, state, _log, stage_name=StageName.CONFIG):
-                _write_run_log(args.work_dir, log_start, log_lines, success=False)
-                return 1
-        except Exception as exc:
-            _console.print(f"  [red]✗[/red] {exc}")
-            _log(f"Stage 1 FAILED: {exc}")
-            _write_run_log(args.work_dir, log_start, log_lines, success=False)
-            return 1
-    else:
-        cfg = load_effective_config(state)
-        if not cfg:
-            _console.print("[red]✗[/red] Kan ikke gjenoppta: Stage 1-checkpoint mangler.")
-            _write_run_log(args.work_dir, log_start, log_lines, success=False)
-            return 1
-        _console.print("[bold]Stage 1:[/bold] Hoppet over (gjenopptatt)")
-        _log("Stage 1 skipped via --resume-from")
+    cfg, abort = _run_stage1(args, state, strict, _log, resume_from)
+    if abort:
+        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        return 1
 
     start = datetime.strptime(cfg["start_date"], "%Y-%m-%d")
     end = datetime.strptime(cfg["end_date"], "%Y-%m-%d")

@@ -8,7 +8,7 @@
 - [x] Moved _judge_stage from inside _cmd_run to module level; added state and log_fn parameters; kept lazy import of llm_judge inside the function; updated 3 call sites. — 2026-06-20
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: The nested `_judge_stage` function defined inside `_cmd_run` (lines 445–515) calls `get_judge_if_headless`, `build_stage_prompt`, `state.write_judgment`, and `judge.judge(prompt)`; move it to module level with the same signature and update the call site in `_cmd_run`.
-- [ ] Extract stage 1 execution block from _cmd_run into module-level _run_stage1 helper
+- [x] Extracted Stage 1 inline block from _cmd_run into module-level _run_stage1(args, state, strict, log_fn, resume_from) returning (cfg, abort); call site in _cmd_run reduced to 3 lines. — 2026-06-20
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: The inline block at lines 529–558 calls `stage1_run` and `load_effective_config`; extract it into a new module-level function `_run_stage1(args, state, strict)` and replace the inline block with a call to it.
 - [ ] Extract stage 2 execution block from _cmd_run into module-level _run_stage2 helper
@@ -44,4 +44,11 @@ The `_run_refinement_loop` function is already extracted at module level (line 5
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+82/-78)
+**Commit:** 227d601 (hockey)
+
+### 2026-06-20 — Extracted Stage 1 inline block from _cmd_run into module-level _run_stage1(args, state, strict, log_fn, resume_from) returning (cfg, abort); call site in _cmd_run reduced to 3 lines.
+**Rationale:** none
+**Findings:** none
+LESSONS: none
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+57/-32)
 **Commit:** [pending — fill after commit]
