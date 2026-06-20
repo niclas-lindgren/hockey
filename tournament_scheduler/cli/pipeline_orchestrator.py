@@ -642,6 +642,54 @@ def _run_stage2(
     return scraping, False, False
 
 
+def _run_stage4_export(
+    args: "argparse.Namespace",
+    plan: "dict[str, Any]",
+    state: "Any",
+    strict: bool,
+    log_fn: "Any",
+    resume_from: int,
+) -> "tuple[bool, bool, bool]":
+    """Run Stage 4 (export) or skip it when resuming from a later stage.
+
+    Returns ``(generated_calendars, abort, stage_failed)`` where
+    *generated_calendars* is True when the export produced a calendars_html
+    file, *abort* is True when the pipeline should stop (caller writes the
+    run log and returns 1), and *stage_failed* is True when the stage failed
+    in non-strict mode.
+    """
+    from ..pipeline.stage4_export import run as stage4_run
+
+    if resume_from <= 4:
+        _console.print("[bold]Stage 4:[/bold] Eksport...")
+        try:
+            export = stage4_run(
+                plan,
+                state,
+                export_dir=args.export_dir,
+                strict=strict,
+                timestamped_export=getattr(args, "timestamped_export", True),
+            )
+            files = export.get("output_files", {})
+            generated_calendars = "calendars_html" in files
+            _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")
+            for label, file_path in files.items():
+                _console.print(f"    → {file_path}")
+            log_fn(f"Stage 4 OK: {len(files)} files exported")
+            return generated_calendars, False, False
+        except Exception as exc:
+            _console.print(f"  [red]✗[/red] {exc}")
+            log_fn(f"Stage 4 FAILED: {exc}")
+            if strict:
+                return False, True, False
+            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
+            return False, False, True
+    else:
+        _console.print("[bold]Stage 4:[/bold] Hoppet over (gjenopptatt)")
+        log_fn("Stage 4 skipped via --resume-from")
+        return False, False, False
+
+
 def _cmd_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt run`` — full pipeline stages 1→4 + HTML."""
     from ..pipeline.calendar_viewer import generate_html as generate_calendars
@@ -725,28 +773,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
         _write_run_log(args.work_dir, log_start, log_lines, success=False)
         return 1
 
-    stage4_generated_calendars = False
-    if resume_from <= 4:
-        _console.print("[bold]Stage 4:[/bold] Eksport...")
-        try:
-            export = stage4_run(plan, state, export_dir=args.export_dir, strict=strict, timestamped_export=getattr(args, "timestamped_export", True))
-            files = export.get("output_files", {})
-            stage4_generated_calendars = "calendars_html" in files
-            _console.print(f"  [green]✓[/green] {len(files)} fil(er) eksportert")
-            for label, file_path in files.items():
-                _console.print(f"    → {file_path}")
-            _log(f"Stage 4 OK: {len(files)} files exported")
-        except Exception as exc:
-            _console.print(f"  [red]✗[/red] {exc}")
-            _log(f"Stage 4 FAILED: {exc}")
-            if strict:
-                _write_run_log(args.work_dir, log_start, log_lines, success=False)
-                return 1
-            run_failed = True
-            _console.print("  [yellow]⚠[/yellow] Fortsetter pga --non-strict")
-    else:
-        _console.print("[bold]Stage 4:[/bold] Hoppet over (gjenopptatt)")
-        _log("Stage 4 skipped via --resume-from")
+    stage4_generated_calendars, abort, stage4_failed = _run_stage4_export(
+        args, plan, state, strict, _log, resume_from
+    )
+    if abort:
+        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        return 1
+    if stage4_failed:
+        run_failed = True
 
     # ── Skill-driven refinement loop (post-Stage 4) ──────────────────────────
     # When the plan verdict tone is 'rough', attempt automated improvements by

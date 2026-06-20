@@ -14,7 +14,7 @@
 - [x] Extracted Stage 2 inline block from _cmd_run into module-level _run_stage2 returning (scraping, abort, stage_failed); handles force-refresh, judge gate, checkpoint gate, and non-strict fallback. — 2026-06-20
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: The inline block at lines 563–632 calls `stage2_run`, `_force_refresh_stage2_inputs`, and `_check_stage2_checkpoint`; extract into `_run_stage2(args, cfg, state, start, end, strict, allow_missing_sources)` following the same pattern as other module-level helpers in this file.
-- [ ] Extract stage 4 export block from _cmd_run into module-level _run_stage4_export helper
+- [x] Extracted Stage 4 inline block from _cmd_run into module-level _run_stage4_export(args, plan, state, strict, log_fn, resume_from) returning (generated_calendars, abort, stage_failed). — 2026-06-20
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: The inline block at lines 673–694 calls `stage4_run`; extract into `_run_stage4_export(args, plan, state, strict)` and replace the inline block with a call to it.
 - [ ] Extract calendar regeneration block from _cmd_run into module-level _regenerate_calendar helper
@@ -58,4 +58,11 @@ LESSONS: none
 **Findings:** none
 LESSONS: none
 **Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+80/-54)
+**Commit:** bf7f670 (hockey)
+
+### 2026-06-20 — Extracted Stage 4 inline block from _cmd_run into module-level _run_stage4_export(args, plan, state, strict, log_fn, resume_from) returning (generated_calendars, abort, stage_failed).
+**Rationale:** stage4_run remains in _cmd_run imports because the refinement loop re-export uses it directly
+**Findings:** none
+LESSONS: stage4_run must stay imported in _cmd_run even after extracting the main Stage 4 block, because the refinement loop re-exports via stage4_run directly
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py (+56/-22)
 **Commit:** [pending — fill after commit]
