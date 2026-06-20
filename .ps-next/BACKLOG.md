@@ -2,8 +2,6 @@
 
 ## Open
 
-- [177] [ ] Extract shared issue-counting helper used by _cmd_auto_adjust, _cmd_critic, _cmd_verdict in rvv_cli.py — all three convert SeasonPlan to dict and count issues identically
-
 - [176] [ ] Extract shared source_result dict helper in stage2_scraping.py — missing-URL case, normal result, and error result all hand-roll the same dict shape across ~3 locations
 
 - [175] [ ] Decouple global _CALENDAR_CACHE in stage2_scraping.py — global set in run() and consumed in _scrape_source() via side-channel; pass cache explicitly so _scrape_source can be unit-tested in isolation
@@ -23,6 +21,7 @@
 - [168] [ ] Fix refinement loop silently dropping moves — `requested_adjustments` is built in `_run_refinement_loop` (pipeline_orchestrator.py ~line 122) but never applied back to the plan, so all manual moves from refinement iterations are discarded
 
 ## Done
+- [177] [x] Extract shared issue-counting helper used by _cmd_auto_adjust, _cmd_critic, _cmd_verdict in rvv_cli.py — all three convert SeasonPlan to dict and count issues identically (2026-06-20)
 - [178] [x] Replace sys.exit(1) with exceptions in tournament_updater.py __main__ block — library code calling sys.exit kills the process when imported and hit during pipeline use (2026-06-20)
 - [159] [x] Fix opencode run.md: stage1 verification checklist references fields (age_groups, parallel_games, sources) that do not exist in the current stage1 checkpoint — should match what checkpoint_printer actually shows (teams, target_tournament_count, round_length_minutes, input_path) (2026-06-20)
 - [160] [x] Add run.md to .chatgpt/commands/rvv-miniputt/ — ChatGPT harness has guide/logs/calendars but is missing the main pipeline run command (2026-06-20)
