@@ -11,7 +11,7 @@
 - [x] Already implemented in the previous task — missing-URL branch now calls _make_source_result with skippedTrue and skip_reason. — 2026-06-20
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Locate the missing-URL branch (~line 163) that hand-rolls a dict with skipped/skip_reason extras and replace it with `_make_source_result(..., skipped=True, skip_reason=...)`, keeping all existing field values identical.
-- [ ] Replace error branch dict literal with _make_source_result call
+- [x] Already implemented in the first task — the executor exception handler now calls _make_source_result with scraper_error. — 2026-06-20
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Locate the error branch (~lines 207-217) that hand-rolls a dict with scraper_error and replace it with `_make_source_result(..., scraper_error=exc_str)`, keeping all existing field values identical.
 - [ ] Replace normal-result branch to use _make_source_result (superseding _cached_source_result call)
@@ -50,6 +50,13 @@ LESSONS: none
 ### 2026-06-20 — Already implemented in the previous task — missing-URL branch now calls _make_source_result with skippedTrue and skip_reason.
 **Rationale:** Done as part of the helper introduction task.
 **Findings:** Missing-URL branch verified to use _make_source_result in stage2_scraping.py.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage2_scraping.py (no additional changes)
+**Commit:** none
+
+### 2026-06-20 — Already implemented in the first task — the executor exception handler now calls _make_source_result with scraper_error.
+**Rationale:** Done as part of the helper introduction task.
+**Findings:** Error branch verified to use _make_source_result in stage2_scraping.py.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (no additional changes)
 **Commit:** none
