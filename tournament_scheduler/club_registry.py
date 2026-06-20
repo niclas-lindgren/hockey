@@ -70,6 +70,10 @@ class ClubCalendarSource:
     # rather than fail, and surface a TODO so the source can be added later.
     skip: bool = False
     note: Optional[str] = None
+    # When set, the iCal scraper will discard any event whose LOCATION field
+    # does not contain this string (case-insensitive substring match).  Useful
+    # when a club's feed covers multiple arenas and only one is relevant.
+    location_filter: Optional[str] = None
 
     @property
     def is_known(self) -> bool:
@@ -103,13 +107,16 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
     ),
     "Frisk Asker": ClubCalendarSource(
         club="Frisk Asker",
-        arena="Varner Arena",
+        arena="Askerhallen",
         kind=CalendarSourceKind.ICAL,
         source="https://ics.teamup.com/feed/ksdwpwxysmxwnuftoy/0.ics",
         skip=False,
         note=(
-            "Teamup iCal export feed (verified working -- 976 events parsed)."
+            "Teamup iCal export feed (verified working -- 976 events parsed). "
+            "Feed covers both Askerhallen and Varner Arena; location_filter "
+            "restricts output to Askerhallen only."
         ),
+        location_filter="Askerhallen",
     ),
     "Sandefjord Penguins": ClubCalendarSource(
         club="Sandefjord Penguins",
