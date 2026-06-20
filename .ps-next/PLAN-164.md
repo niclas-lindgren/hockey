@@ -27,7 +27,7 @@
   - Files: `tournament_scheduler/cli/rvv_cli.py`
   - Approach: Add `elif args.command == "verdict": return _cmd_verdict(args)` to the `main()` dispatch block, following the pattern of all other subcommands in the same function.
 
-- [ ] Write tests for verdict command
+- [x] Added tests/test_verdict_cli.py with 10 tests covering exit codes (0 on success, 1 when no checkpoint, 1 when plan key missing) and output assertions (tone, tone_label, pairwise_matchup_score, verdict, action_text lines present in console output). — 2026-06-20
   - Files: `tests/test_verdict_cli.py`
   - Approach: Using pytest and a fixture that provides a minimal stage3 checkpoint dict, invoke `_cmd_verdict` and assert it returns exit code 0 and that the Rich console output contains the expected tone string (strong/mixed/rough) and at least one score field.
 
@@ -69,4 +69,11 @@ LESSONS: analyze_opinionated_judgment signature is (plan, *, team_game_counts, c
 **Findings:** Wiring was already present; no code change needed.
 LESSONS: none
 **Files:** n/a
+**Commit:** 12535c6 (hockey)
+
+### 2026-06-20 — Added tests/test_verdict_cli.py with 10 tests covering exit codes (0 on success, 1 when no checkpoint, 1 when plan key missing) and output assertions (tone, tone_label, pairwise_matchup_score, verdict, action_text lines present in console output).
+**Rationale:** PipelineState is locally imported inside _cmd_verdict so patch target must be tournament_scheduler.pipeline.state.PipelineState.read_stage, not tournament_scheduler.cli.rvv_cli.PipelineState
+**Findings:** All 10 tests pass
+LESSONS: Patch PipelineState at tournament_scheduler.pipeline.state.PipelineState.read_stage — it is locally imported so module-level patching of rvv_cli.PipelineState does not work
+**Files:** tests/test_verdict_cli.py (+166/-0)
 **Commit:** [pending — fill after commit]
