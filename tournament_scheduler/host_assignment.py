@@ -188,7 +188,14 @@ def find_slot_for_tournament(
     games: List[Game],
     preferred_start: Optional[str] = None,
 ) -> Optional[Tuple[str, str, str]]:
-    """Find a time-of-day slot in the host club's own calendar."""
+    """Find a time-of-day slot in the host club's own calendar.
+
+    The *games* list must already be ordered so that the host club's team
+    appears at index 0 in the participants list that produced it (i.e. the
+    caller is responsible for applying the ``club_for_arena`` / ``host_club``
+    reordering before invoking ``generate_round_robin_games``).  This function
+    does **not** regenerate games, so no reordering is applied here.
+    """
     if not planner.events_by_club:
         return None
 

@@ -21,7 +21,7 @@
   - Files: `tournament_scheduler/pipeline/tournament_updater.py`
   - Approach: Before the two calls to `SeasonPlanner.generate_round_robin_games` (lines 191 and 531), reorder `tournament.teams` to place the host club's team at index 0, using `club_for_arena` from `club_registry.py` and falling back to `tournament.host_club`, mirroring the season_planner fix.
 
-- [ ] Propagate host-first ordering through `host_assignment.py`
+- [x] Confirmed find_slot_for_tournament does not regenerate games; documented the host-first ordering invariant in its docstring so future maintainers know the caller is responsible for reordering before generate_round_robin_games. — 2026-06-20
   - Files: `tournament_scheduler/host_assignment.py`
   - Approach: In `find_slot_for_tournament` and any function that passes a `games` list derived from participants, ensure the host team ordering invariant is documented and, if games are re-generated here, apply the same reordering before calling `generate_round_robin_games`.
 
@@ -60,4 +60,11 @@ LESSONS: none
 **Findings:** Both tournament_updater operations now produce games with the correct home team (arena owner first).
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/tournament_updater.py (+14/-3)
+**Commit:** ba3b857 (hockey)
+
+### 2026-06-20 — Confirmed find_slot_for_tournament does not regenerate games; documented the host-first ordering invariant in its docstring so future maintainers know the caller is responsible for reordering before generate_round_robin_games.
+**Rationale:** No code change needed since host_assignment.py never calls generate_round_robin_games; only documentation was required.
+**Findings:** Invariant is now explicit in the function docstring; no regeneration sites were found.
+LESSONS: none
+**Files:** tournament_scheduler/host_assignment.py (+8/-1)
 **Commit:** [pending — fill after commit]
