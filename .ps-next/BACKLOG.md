@@ -2,7 +2,18 @@
 
 ## Open
 
+- [164] [ ] Add verdict CLI command: python3 -m tournament_scheduler.cli.rvv_cli verdict [--work-dir .pipeline] — reads stage3 checkpoint and prints the tone (strong/mixed/rough) and key scores to stdout, so rvv-miniputt:run skill can check the verdict without parsing HTML
+
+- [163] [ ] Add skill-driven plan refinement to rvv-miniputt:run: after stage4, compute verdict tone from stage3 checkpoint scores (pairwise_matchup_score, diversity_score, month_balance_score, fairness_gate) — if tone is 'rough' (IKKE KLAR), call ManualAdjustmentWorkflow to apply targeted host/date swaps, re-export, and recheck — loop until tone is 'strong' or 'mixed' or retry cap (3) is reached
+
+- [162] [ ] Fix 18-team display bug in HTML report: (1) header shows 18 instead of 70 because $UNIQUE_TEAMS$ uses raw team labels — fix by using len(team_game_counts) instead; (2) review.py:93 and judgment.py:71 look up team_game_counts with raw label but the dict uses disambiguated keys (e.g. 'Frisk Asker (Frisk Asker, U7)') — fix by building a duplicate_labels set and using team_key() for the lookup
+
+- [160] [ ] Add run.md to .chatgpt/commands/rvv-miniputt/ — ChatGPT harness has guide/logs/calendars but is missing the main pipeline run command
+
+- [159] [ ] Fix opencode run.md: stage1 verification checklist references fields (age_groups, parallel_games, sources) that do not exist in the current stage1 checkpoint — should match what checkpoint_printer actually shows (teams, target_tournament_count, round_length_minutes, input_path)
+
 ## Done
+- [161] [x] Add --iterations N flag to stage3_planning: run the planner N times with different random seeds and keep the plan with the best composite score (pairwise + diversity + month_balance). This unlocks the self-improvement loop in rvv-miniputt:run where the skill re-runs stage3+4 until the judgment verdict is no longer IKKE KLAR. (2026-06-20)
 - [125] [x] Fix double _invalidate_downstream calls in all pipeline stages: write_stage(status=DONE/FAILED) and mark_done/mark_failed both call _invalidate_downstream — remove the redundant mark_done/mark_failed calls from stage1–4 run functions and make write_stage the single place that sets final status. (2026-06-19)
 - [126] [x] Fix scrape_age always empty in stage4_export.py: updated_at is an envelope field but is read via read_stage (data payload only) — switch to state.read_envelope(StageName.SCRAPING) to get the real timestamp. (2026-06-19)
 - [127] [x] Raise on missing tournament date in stage4_helpers._dict_to_plan instead of silently defaulting to date.today() — a missing date should be a clear error, not a silent wrong value. (2026-06-19)
