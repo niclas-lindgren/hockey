@@ -17,7 +17,7 @@
 - [x] Replaced _cached_source_result call with _make_source_result(..., from_cacheTrue) inline; removed now-unused _cached_source_result import from stage2_scraping.py. — 2026-06-20
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: At ~line 185 where `_cached_source_result(source_cfg, entry)` is called, unpack the cache entry fields and pass them to `_make_source_result(..., from_cache=True)`; verify the returned keys match what _cached_source_result currently returns, then remove or leave the import as appropriate.
-- [ ] Update tests to assert consistent dict shape across all three branches
+- [x] Added TestSourceResultShape test class with 4 tests covering missing-URL, error-branch, cache-hit, and normal-scrape branches; each asserts all common keys are present and branch-specific extras appear only where expected. — 2026-06-20
   - Files: tests/test_stage2_scraping.py
   - Approach: Add or extend test cases that exercise missing-URL, error, and normal-result paths and assert the returned source_result dicts share the common keys (name, url, type, events, event_count, blocked, block_reason, llm_fallback) in all cases; verify branch-specific extras (skipped, scraper_error, from_cache) are present only where expected.
 
@@ -66,4 +66,11 @@ LESSONS: none
 **Findings:** All tests pass; _cached_source_result import removed from stage2_scraping.py.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage2_scraping.py (+12/-2)
+**Commit:** pending — fill after commit
+
+### 2026-06-20 — Added TestSourceResultShape test class with 4 tests covering missing-URL, error-branch, cache-hit, and normal-scrape branches; each asserts all common keys are present and branch-specific extras appear only where expected.
+**Rationale:** Tests exercise all three construction branches to document and enforce the canonical shape; cache-hit test uses same seed pattern as TestUnifiedCache to properly trigger the cache path.
+**Findings:** All 4 new tests pass; full pytest suite green.
+LESSONS: Use ScrapedDataCache.write() with full _meta block (updated_at, ttl_hours, start_date, end_date) and per-source scrape_timestamp + ttl_hours to ensure the cache path is taken in run().
+**Files:** tests/test_stage2_scraping.py (+130/-0)
 **Commit:** pending — fill after commit

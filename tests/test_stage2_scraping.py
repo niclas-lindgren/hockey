@@ -949,3 +949,133 @@ class TestCredentialedFallbackGate:
             )
 
         mock_cred.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# Consistent source_result dict shape across all three construction branches
+# ---------------------------------------------------------------------------
+
+_COMMON_KEYS = {
+    "name", "url", "type", "events", "event_count",
+    "blocked", "block_reason", "llm_fallback",
+}
+
+
+class TestSourceResultShape:
+    """Assert the canonical source_result dict shape is consistent across all branches."""
+
+    def test_missing_url_branch_has_common_keys_and_skipped_extras(self, tmp_path):
+        """A source with an empty URL produces a result with common keys plus skipped=True."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Disabled", "type": SOURCE_OUTLOOK, "url": ""},
+        ])
+        result = run(
+            cfg, state,
+            datetime(2025, 9, 1), datetime(2025, 12, 1),
+            strict=False,
+        )
+        src = result["sources"][0]
+        assert _COMMON_KEYS.issubset(src.keys()), f"Missing keys: {_COMMON_KEYS - src.keys()}"
+        assert src["skipped"] is True
+        assert src["skip_reason"]
+        # Branch-specific extras for other branches must not be present
+        assert "scraper_error" not in src
+        assert "from_cache" not in src
+
+    def test_error_branch_has_common_keys_and_scraper_error(self, tmp_path):
+        """A source whose future raises an exception has common keys plus scraper_error."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "BrokenHall", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            side_effect=RuntimeError("network timeout"),
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping._try_credentialed_scrape",
+            side_effect=RuntimeError("network timeout"),
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        src = result["sources"][0]
+        assert _COMMON_KEYS.issubset(src.keys()), f"Missing keys: {_COMMON_KEYS - src.keys()}"
+        assert src["blocked"] is True
+        assert "scraper_error" in src
+        assert "network timeout" in src["scraper_error"]
+        assert "skipped" not in src
+        assert "from_cache" not in src
+
+    def test_cache_hit_branch_has_common_keys_and_from_cache(self, tmp_path):
+        """A source served from cache has common keys plus from_cache=True."""
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        cached_events = _events_to_dicts([_make_event("CachedEvent")])
+        ts = datetime.now().isoformat()
+        cache = ScrapedDataCache(work_dir=work_dir)
+        cache.write({
+            "_meta": {
+                "updated_at": ts,
+                "ttl_hours": 6,
+                "start_date": cfg["start_date"],
+                "end_date": cfg["end_date"],
+            },
+            "sources": {
+                "Kongsberg": {
+                    "name": "Kongsberg",
+                    "url": "https://example.com",
+                    "scrape_timestamp": ts,
+                    "ttl_hours": 6,
+                    "event_count": len(cached_events),
+                    "blocked": False,
+                    "events": cached_events,
+                },
+            },
+            "source_count": 1,
+            "total_events": len(cached_events),
+        })
+
+        result = run(
+            cfg, state,
+            datetime(2025, 9, 1), datetime(2025, 12, 1),
+        )
+
+        assert result["cached"] == ["Kongsberg"]
+        src = result["sources"][0]
+        assert _COMMON_KEYS.issubset(src.keys()), f"Missing keys: {_COMMON_KEYS - src.keys()}"
+        assert src["from_cache"] is True
+        assert src["blocked"] is False
+        assert "skipped" not in src
+        assert "scraper_error" not in src
+
+    def test_normal_scrape_branch_has_common_keys_no_extras(self, tmp_path):
+        """A source scraped normally has common keys but no branch-specific extras."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Practice")], ""),
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+            )
+
+        src = result["sources"][0]
+        assert _COMMON_KEYS.issubset(src.keys()), f"Missing keys: {_COMMON_KEYS - src.keys()}"
+        assert src["blocked"] is False
+        assert src["event_count"] == 1
+        assert "skipped" not in src
+        assert "scraper_error" not in src
+        assert "from_cache" not in src
