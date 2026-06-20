@@ -47,7 +47,8 @@ class ICalScraper(CalendarScraper):
         url: str,
         calendar_name: str,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
+        location_filter: Optional[str] = None,
     ) -> List[CalendarEvent]:
         """Scrape calendar events from iCal feed.
 
@@ -56,6 +57,10 @@ class ICalScraper(CalendarScraper):
             calendar_name: Display name for this calendar
             start_date: Start of date range
             end_date: End of date range
+            location_filter: When provided, only include events whose LOCATION
+                field contains this string (case-insensitive substring match).
+                Events with an empty/missing LOCATION are excluded when a
+                filter is active.
 
         Returns:
             List of CalendarEvent objects
@@ -92,6 +97,12 @@ class ICalScraper(CalendarScraper):
                 start = event.get('DTSTART').dt
                 end_dt = event.get('DTEND').dt if event.get('DTEND') else None
                 summary = str(event.get('SUMMARY', ''))
+
+                # Apply location filter if specified
+                if location_filter is not None:
+                    location = str(event.get('LOCATION', ''))
+                    if location_filter.lower() not in location.lower():
+                        continue
 
                 # Handle both date and datetime objects
                 if hasattr(start, 'hour'):

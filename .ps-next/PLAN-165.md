@@ -17,7 +17,7 @@
   - Files: `tournament_scheduler/club_registry.py`
   - Approach: Set `location_filter="Askerhallen"` on the Frisk Asker ClubCalendarSource entry so only events at Askerhallen are accepted from the Teamup iCal feed.
 
-- [ ] Modify ICalScraper.scrape_calendar to accept and apply a location_filter parameter
+- [x] Added optional location_filter parameter to scrape_calendar; events whose LOCATION field does not contain the filter string (case-insensitive) are skipped. — 2026-06-20
   - Files: `tournament_scheduler/data_sources/ical_scraper.py`
   - Approach: Add an optional `location_filter: str | None` parameter to `scrape_calendar`; after parsing each event, read the iCal `LOCATION` field and skip any event whose location does not contain the filter string (case-insensitive).
 
@@ -53,4 +53,11 @@ LESSONS: none
 **Findings:** Frisk Asker entry verified to have location_filterAskerhallen.
 LESSONS: none
 **Files:** tournament_scheduler/club_registry.py (no additional changes)
+**Commit:** d6d2138 (hockey)
+
+### 2026-06-20 — Added optional location_filter parameter to scrape_calendar; events whose LOCATION field does not contain the filter string (case-insensitive) are skipped.
+**Rationale:** none
+**Findings:** Filter applied before appending to events list; missing LOCATION treated as empty string so events without location are excluded when filter is active.
+LESSONS: none
+**Files:** tournament_scheduler/data_sources/ical_scraper.py (+12/-1)
 **Commit:** [pending — fill after commit]
