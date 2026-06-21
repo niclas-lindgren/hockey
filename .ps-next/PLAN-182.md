@@ -23,7 +23,7 @@
   - Files: `tournament_scheduler/pipeline/input_workbook.py`, `tournament_scheduler/pipeline/stage1_helpers.py`
   - Approach: `_read_settings` already reads arbitrary key/value pairs, so the Innstillinger row is sufficient; no code change is needed in `input_workbook.py` itself. In `stage1_helpers.py` `_parse_config`, forward the key `"max_hosting_days_per_month"` (int-coerced, defaulting to 2) into the stage 1 checkpoint dict alongside existing forwarded keys like `"maxHostingDeviation"` and `"target_tournament_count"`.
 
-- [ ] Add `max_hosting_days_per_month` row to `input.xlsx` Innstillinger sheet
+- [x] Appended a new row to the Innstillinger sheet with feltmax_hosting_days_per_month and verdi2 using openpyxl. — 2026-06-21
   - Files: `input.xlsx`
   - Approach: Open the workbook and append a new row to the Innstillinger sheet with `felt = "max_hosting_days_per_month"` and `verdi = 2`, following the existing key/value layout; save the file.
 
@@ -64,4 +64,11 @@ LESSONS: none
 **Findings:** All tests pass; the key flows from Innstillinger sheet through Stage 1 checkpoint to Stage 3 config.
 LESSONS: load_effective_config in stage1_config.py must also be updated to pass the key from checkpoint — the task Files list is incomplete.
 **Files:** stage1_helpers.py (+3), stage1_config.py (+1)
+**Commit:** 356bea0 (hockey)
+
+### 2026-06-21 — Appended a new row to the Innstillinger sheet with feltmax_hosting_days_per_month and verdi2 using openpyxl.
+**Rationale:** none
+**Findings:** Row added successfully; stage1_helpers._parse_config will now read and forward this value.
+LESSONS: none
+**Files:** input.xlsx (binary, row added)
 **Commit:** [pending — fill after commit]
