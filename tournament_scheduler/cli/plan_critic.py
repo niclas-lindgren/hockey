@@ -86,8 +86,10 @@ def generate_critic_summary(plan: "SeasonPlan") -> List[str]:
 
     # ------------------------------------------------------------------
     # 5. Hosting clumps: >2 distinct hosting days at same club in same month
-    #    A "hosting day" is a unique date — multiple age-group tournaments on
-    #    the same day at the same arena count as one hosting duty.
+    #    for the same age group. A "hosting day" is a unique date — multiple
+    #    tournaments of the same age group on the same day count as one duty.
+    #    Tournaments of different age groups are counted independently so that
+    #    a club hosting U7, U9, and U11 on three separate days is not flagged.
     # ------------------------------------------------------------------
     tournaments = getattr(plan, "tournaments", []) or []
     host_month_days: dict = defaultdict(set)
@@ -96,15 +98,16 @@ def generate_critic_summary(plan: "SeasonPlan") -> List[str]:
             continue
         host_club = getattr(t, "host_club", None)
         t_date = getattr(t, "date", None)
-        if host_club and t_date:
-            host_month_days[(host_club, t_date.year, t_date.month)].add(t_date)
+        age_group = getattr(t, "age_group", None)
+        if host_club and t_date and age_group:
+            host_month_days[(host_club, t_date.year, t_date.month, age_group)].add(t_date)
 
-    for (club, year, month), day_set in sorted(host_month_days.items()):
+    for (club, year, month, age_group), day_set in sorted(host_month_days.items()):
         count = len(day_set)
         if count > 2:
             month_name = calendar.month_name[month]
             clump_issues.append(
-                f"{club} hosts {count} tournaments in {month_name} {year} — "
+                f"{club} hosts {count} {age_group} tournaments in {month_name} {year} — "
                 "consider moving one to another club"
             )
 

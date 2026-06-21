@@ -160,6 +160,25 @@ def test_same_day_plus_one_extra_day_is_two_hosting_days():
     )
 
 
+def test_three_age_groups_on_three_days_no_clump():
+    """A club hosting one tournament per age group per month should not trigger a clump.
+
+    3 different age groups on 3 separate days = 1 day per age group → no over-hosting
+    per age group. The old cross-age-group counting would have flagged this as 3 days.
+    """
+    tournaments = [
+        _make_tournament("Holmen", 2027, 9, 4, age_group="U7"),
+        _make_tournament("Holmen", 2027, 9, 11, age_group="U9"),
+        _make_tournament("Holmen", 2027, 9, 18, age_group="U11"),
+    ]
+    plan = _make_plan(tournaments=tournaments)
+    result = generate_critic_summary(plan)
+    clump_issues = [i for i in result if "Holmen" in i and "hosts" in i]
+    assert clump_issues == [], (
+        "Hosting one tournament per age group per month should not be flagged as a clump"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Game count outlier detection
 # ---------------------------------------------------------------------------
