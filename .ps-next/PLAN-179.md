@@ -6,7 +6,7 @@
 **Backlog-ref:** 179
 
 ## Tasks
-- [ ] Reorder stage4_export.py so calendars.html is generated before html_exporter.export() is called
+- [x] Moved calendars.html generation inside the HTML try-block, before HtmlExporter().export(), so output_files["calendars_html"] is set when the exporter runs. Updated html_exporter.py to use output_files.get("calendars_html") for the navbar condition instead of the broken has_scrape_data check (meta/_meta sub-dict does not contain total_events). — 2026-06-21
   - Files: tournament_scheduler/pipeline/stage4_export.py
   - Approach: Move the calendars.html generation block (currently lines ~243-248) to run before the HtmlExporter().export() call (~line 192), so the file's existence can be used in the navbar condition.
 
@@ -35,3 +35,10 @@ Constraints: none
 ## Log
 <!-- PS:next appends entries here after each task is executed -->
 <!-- Entry format: ### YYYY-MM-DD — [task name] / **Done:** / **Rationale:** / **Findings:** / **Files:** / **Commit:** -->
+
+### 2026-06-21 — Moved calendars.html generation inside the HTML try-block, before HtmlExporter().export(), so output_files["calendars_html"] is set when the exporter runs. Updated html_exporter.py to use output_files.get("calendars_html") for the navbar condition instead of the broken has_scrape_data check (meta/_meta sub-dict does not contain total_events).
+**Rationale:** has_scrape_data used meta (the _meta sub-dict) which never contained total_events/source_count (those are top-level cache keys), so the navbar link was always suppressed even when calendars.html was generated.
+**Findings:** Navbar now uses output_files["calendars_html"] presence as ground truth; all 657 tests pass.
+LESSONS: The _meta sub-dict from ScrapedDataCache does not carry total_events/source_count — those are top-level. Do not use meta.get(total_events) as a proxy for scrape-data availability.
+**Files:** html_exporter.py (+6/-6), stage4_export.py (+16/-16)
+**Commit:** [pending — fill after commit]

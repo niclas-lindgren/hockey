@@ -227,9 +227,9 @@ class HtmlExporter:
         export_links_html = build_export_links_html(output_files)
 
         # Assemble pages from fragments
-        # Only link to calendars.html when scrape data is available (otherwise the file won't exist)
-        has_scrape_data = bool(meta and (meta.get("total_events", 0) > 0 or meta.get("source_count", 0) > 0))
-        calendars_href = "calendars.html" if has_scrape_data else ""
+        # Link to calendars.html only when the file was actually generated (output_files["calendars_html"] is set).
+        # This key is populated by stage4_export before calling HtmlExporter so the navbar reflects reality.
+        calendars_href = "calendars.html" if output_files.get("calendars_html") else ""
         season_plan_href = "season_plan.html"
         report_href = "season_plan_report.html"
 

@@ -189,6 +189,19 @@ def run(
             meta = _scrape_cache_data.get("_meta")
         except Exception:
             pass
+        # --- Calendar viewer (calendars.html) ---
+        # Generate before HtmlExporter so output_files["calendars_html"] is set and the navbar can link to it.
+        # Only generate when scrape data exists — without it the file would be empty and the navbar link would be broken.
+        # total_events/source_count are top-level keys in the cache, not inside _meta.
+        if _scrape_cache_data.get("total_events", 0) > 0 or _scrape_cache_data.get("source_count", 0) > 0:
+            try:
+                _generate_calendars_html(
+                    work_dir=str(state.work_dir),
+                    export_dir=str(primary_export_path),
+                )
+                output_files["calendars_html"] = str(primary_export_path / "calendars.html")
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"Kalendervisning feilet: {exc}")
         HtmlExporter().export(
             plan,
             html_path,
@@ -235,19 +248,6 @@ def run(
         output_files["review_packets"] = str(review_dir)
     except Exception as exc:  # noqa: BLE001
         errors.append(f"Review-pakker feilet: {exc}")
-
-    # --- Calendar viewer (calendars.html) ---
-    # Only generate when scrape data exists — without it the file would be empty and the navbar link would be broken.
-    # total_events/source_count are top-level keys in the cache, not inside _meta.
-    if _scrape_cache_data.get("total_events", 0) > 0 or _scrape_cache_data.get("source_count", 0) > 0:
-        try:
-            _generate_calendars_html(
-                work_dir=str(state.work_dir),
-                export_dir=str(primary_export_path),
-            )
-            output_files["calendars_html"] = str(primary_export_path / "calendars.html")
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"Kalendervisning feilet: {exc}")
 
     checkpoint: dict[str, Any] = {
         "output_files": output_files,
