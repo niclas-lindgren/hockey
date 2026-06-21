@@ -19,7 +19,7 @@
   - Files: `tournament_scheduler/season_planner.py`
   - Approach: Add an instance dict `self._hosting_days_by_club_month: dict[tuple[str, tuple[int,int]], set[date]]` that records, for each `(club, (year, month))`, the set of distinct dates already assigned as host. In `_score_candidate_date`, derive the predicted host club for the candidate date (using the least-recently-hosted club heuristic already in `_assign_hosts`), look up how many distinct days that club already hosts in the candidate month, and return a very large penalty (e.g. 1e6) if adding this date would exceed `self.max_hosting_days_per_month`. Update the tracking structure after a date is committed in `build_plan`.
 
-- [ ] Read `max_hosting_days_per_month` from the Innstillinger sheet in `input_workbook.py` and propagate through Stage 1
+- [x] Added maxHostingDaysPerMonth forwarding in _parse_config (stage1_helpers.py) and propagation through load_effective_config (stage1_config.py) so stage3 receives the value from the checkpoint dict. — 2026-06-21
   - Files: `tournament_scheduler/pipeline/input_workbook.py`, `tournament_scheduler/pipeline/stage1_helpers.py`
   - Approach: `_read_settings` already reads arbitrary key/value pairs, so the Innstillinger row is sufficient; no code change is needed in `input_workbook.py` itself. In `stage1_helpers.py` `_parse_config`, forward the key `"max_hosting_days_per_month"` (int-coerced, defaulting to 2) into the stage 1 checkpoint dict alongside existing forwarded keys like `"maxHostingDeviation"` and `"target_tournament_count"`.
 
@@ -57,4 +57,11 @@ LESSONS: none
 **Findings:** Tracking is populated in two phases: predicted during date selection (so penalty fires for subsequent age groups) and actual after tournament commitment. All tests pass.
 LESSONS: none
 **Files:** season_planner.py (+40)
+**Commit:** a635350 (hockey)
+
+### 2026-06-21 — Added maxHostingDaysPerMonth forwarding in _parse_config (stage1_helpers.py) and propagation through load_effective_config (stage1_config.py) so stage3 receives the value from the checkpoint dict.
+**Rationale:** Also updated stage1_config.py load_effective_config to include maxHostingDaysPerMonth from checkpoint, since that file was not listed in Files but is required for the key to reach stage3.
+**Findings:** All tests pass; the key flows from Innstillinger sheet through Stage 1 checkpoint to Stage 3 config.
+LESSONS: load_effective_config in stage1_config.py must also be updated to pass the key from checkpoint — the task Files list is incomplete.
+**Files:** stage1_helpers.py (+3), stage1_config.py (+1)
 **Commit:** [pending — fill after commit]

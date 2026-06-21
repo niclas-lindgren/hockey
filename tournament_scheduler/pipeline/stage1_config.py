@@ -105,6 +105,7 @@ def load_effective_config(
     # Preserve other computed/metadata fields from the checkpoint
     if "input_path" in ckpt:
         merged["input_path"] = ckpt["input_path"]
+    merged["maxHostingDaysPerMonth"] = ckpt.get("maxHostingDaysPerMonth", 2)
 
     return merged
 

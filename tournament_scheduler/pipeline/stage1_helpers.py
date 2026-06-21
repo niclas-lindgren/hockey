@@ -282,6 +282,9 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     if target_raw is not None:
         result["target_tournament_count"] = int(target_raw)
 
+    mhdpm_raw = raw.get("max_hosting_days_per_month", raw.get("maxHostingDaysPerMonth"))
+    result["maxHostingDaysPerMonth"] = int(mhdpm_raw) if mhdpm_raw is not None else 2
+
     return result
 
 
