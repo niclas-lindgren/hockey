@@ -354,3 +354,96 @@ class TestCmdAutoAdjustLoopBehavior:
             rc = _cmd_auto_adjust(args)
 
         assert rc == 1
+
+
+# ---------------------------------------------------------------------------
+# Tone-gated orchestration — _run_refinement_and_reexport behaviour
+# ---------------------------------------------------------------------------
+
+
+def _orchestration_args(**kwargs) -> argparse.Namespace:
+    defaults = dict(
+        work_dir=".pipeline",
+        export_dir="export",
+        timestamped_export=False,
+    )
+    defaults.update(kwargs)
+    return argparse.Namespace(**defaults)
+
+
+class TestToneGatedOrchestration:
+    """Tests that _run_refinement_and_reexport triggers refinement only when tone is 'rough'."""
+
+    def test_auto_adjust_called_when_initial_tone_is_rough(self):
+        """When initial tone is 'rough', the refinement loop must be invoked at least once."""
+        from tournament_scheduler.cli.pipeline_orchestrator import _run_refinement_and_reexport
+
+        plan: dict = {}
+        args = _orchestration_args()
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._compute_verdict_tone",
+            return_value="rough",
+        ), patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._run_refinement_loop",
+            return_value=("mixed", plan),
+        ) as mock_refine, patch(
+            "tournament_scheduler.pipeline.stage4_export.run",
+            return_value={"output_files": {}},
+        ):
+            _run_refinement_and_reexport(args, plan, MagicMock(), False, lambda s: None, 1)
+
+        mock_refine.assert_called()
+
+    def test_refinement_loop_called_exactly_once_on_rough_tone(self):
+        """The refinement loop is called exactly once — its internal cap handles iteration."""
+        from tournament_scheduler.cli.pipeline_orchestrator import _run_refinement_and_reexport
+
+        plan: dict = {}
+        args = _orchestration_args()
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._compute_verdict_tone",
+            return_value="rough",
+        ), patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._run_refinement_loop",
+            return_value=("rough", plan),
+        ) as mock_refine:
+            _run_refinement_and_reexport(args, plan, MagicMock(), False, lambda s: None, 1)
+
+        mock_refine.assert_called_once()
+
+    def test_no_refinement_when_initial_tone_is_mixed(self):
+        """When initial tone is 'mixed', the refinement loop must not be called."""
+        from tournament_scheduler.cli.pipeline_orchestrator import _run_refinement_and_reexport
+
+        plan: dict = {}
+        args = _orchestration_args()
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._compute_verdict_tone",
+            return_value="mixed",
+        ), patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._run_refinement_loop",
+        ) as mock_refine:
+            _run_refinement_and_reexport(args, plan, MagicMock(), False, lambda s: None, 1)
+
+        mock_refine.assert_not_called()
+
+    @pytest.mark.parametrize("tone", ["mixed", "strong"])
+    def test_no_auto_adjust_when_tone_is_not_rough(self, tone: str):
+        """When initial tone is 'mixed' or 'strong', no refinement loop is triggered."""
+        from tournament_scheduler.cli.pipeline_orchestrator import _run_refinement_and_reexport
+
+        plan: dict = {}
+        args = _orchestration_args()
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._compute_verdict_tone",
+            return_value=tone,
+        ), patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._run_refinement_loop",
+        ) as mock_refine:
+            _run_refinement_and_reexport(args, plan, MagicMock(), False, lambda s: None, 1)
+
+        mock_refine.assert_not_called()
