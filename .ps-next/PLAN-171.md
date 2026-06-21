@@ -28,7 +28,7 @@ tags:
   - Files: tests/test_stage2_scraping.py, tournament_scheduler/pipeline/scraper_strategies.py
   - Approach: Patch `get_strategy` to return a strategy object with `requires_credentials=True` and `credential_env_vars=["BOOKUP_EMAIL","BOOKUP_PASSWORD"]`; patch `_run_ical_scraper` to return `[]`; assert that `_try_credentialed_scrape` is called once. Use the class `TestCredentialedFallback` that already groups the two related tests at lines 911–953.
 
-- [ ] Add a test that verifies `_try_credentialed_scrape` is NOT called when the deterministic scraper produces a non-empty scraper_error from the unknown-type else branch (not an exception), confirming the guard added in task 2 works.
+- [x] Added test_credentialed_fallback_not_called_for_unknown_source_type; sets source type to 'unknown_type', asserts _try_credentialed_scrape is not called, and verifies scraper_error in checkpoint contains the type string. — 2026-06-21
   - Files: tests/test_stage2_scraping.py
   - Approach: Patch `_run_ical_scraper` to NOT be called (source type set to `"unknown"`); assert `_try_credentialed_scrape` is not invoked and that the result contains `"scraper_error"`.
 
@@ -68,4 +68,11 @@ LESSONS: none
 **Findings:** Test passes; coverage now exercises the path past the short-circuit guard inside _try_credentialed_scrape for a source with registered credentials.
 LESSONS: none
 **Files:** tests/test_stage2_scraping.py (+44/-0)
+**Commit:** 88cbc3c (hockey)
+
+### 2026-06-21 — Added test_credentialed_fallback_not_called_for_unknown_source_type; sets source type to 'unknown_type', asserts _try_credentialed_scrape is not called, and verifies scraper_error in checkpoint contains the type string.
+**Rationale:** Used state.read_stage(StageName.SCRAPING) to access the checkpoint data; PipelineState has no load_checkpoint method.
+**Findings:** Test passes; confirms the deterministic_raised flag fix from task 1 blocks fallback for unknown source types.
+LESSONS: none
+**Files:** tests/test_stage2_scraping.py (+28/-0)
 **Commit:** [pending — fill after commit]

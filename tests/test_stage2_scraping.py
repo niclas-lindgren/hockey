@@ -996,6 +996,34 @@ class TestCredentialedFallbackGate:
 
         mock_cred_run.assert_called_once()
 
+    def test_credentialed_fallback_not_called_for_unknown_source_type(self, tmp_path):
+        """When source type is unrecognised, _try_credentialed_scrape is NOT called and scraper_error is set.
+
+        This confirms the guard added in stage2_scraping: setting deterministic_raised=True
+        in the unknown-type else branch prevents the fallback from being triggered even
+        though the deterministic scraper returned zero events.
+        """
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Unknown", "type": "unknown_type", "url": "https://example.com/cal"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._try_credentialed_scrape",
+            return_value=([], ""),
+        ) as mock_cred:
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_cred.assert_not_called()
+        checkpoint_data = state.read_stage(StageName.SCRAPING)
+        src = checkpoint_data["sources"][0]
+        assert "scraper_error" in src
+        assert "unknown_type" in src["scraper_error"]
+
 
 # ---------------------------------------------------------------------------
 # Consistent source_result dict shape across all three construction branches
