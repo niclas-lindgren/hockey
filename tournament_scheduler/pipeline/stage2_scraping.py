@@ -218,6 +218,13 @@ def run(
             ))
             continue
         entry = cache_sources.get(name)
+        _source_type_for_match = source_cfg.get("type", SOURCE_OUTLOOK).lower()
+        _club_name_for_match = club_for_source_name(name)
+        _location_filter_for_match = (
+            CLUB_REGISTRY[_club_name_for_match].location_filter
+            if _club_name_for_match and _club_name_for_match in CLUB_REGISTRY
+            else None
+        )
         if (
             not force_refresh
             and date_range_matches
@@ -225,6 +232,7 @@ def run(
             and entry.get("events")
             and not entry.get("blocked")
             and not cache.is_stale(name)
+            and cache.is_config_match(name, url, _source_type_for_match, _location_filter_for_match)
         ):
             _cached_events = entry.get("events", [])
             source_results.append(_make_source_result(

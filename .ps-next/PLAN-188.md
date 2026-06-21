@@ -14,7 +14,7 @@
 - [x] Added _compute_config_fingerprint helper and config_fingerprint field to per-source cache entries in ScrapedDataCache.build_from_checkpoint; added is_config_match method; propagated location_filter through stage2 source_result dict so build_from_checkpoint can include it in the fingerprint. — 2026-06-21
   - Files: tournament_scheduler/pipeline/cache_manager.py
   - Approach: Add a `config_fingerprint` field (md5 of relevant config: url, location_filter, source kind) to each per-source entry written by `build_from_checkpoint`; on cache read in `is_stale` or a new `is_config_match` method, compare stored fingerprint against freshly computed one and treat mismatch as a cache miss.
-- [ ] Invalidate ScrapedDataCache entries on config fingerprint mismatch
+- [x] Added config fingerprint check to the cache-hit guard in stage2_scraping.py: before accepting a cached entry, is_config_match is called with the current url, source_type, and location_filter; a mismatch causes the source to be re-scraped. — 2026-06-21
   - Files: tournament_scheduler/pipeline/stage2_scraping.py, tournament_scheduler/pipeline/cache_manager.py
   - Approach: In the cache-hit check (stage2_scraping.py ~line 230), after the staleness check, also call `cache.is_config_match(name, current_fingerprint)`; on mismatch, skip the cached entry so the source is re-scraped and a fresh entry is written.
 - [ ] Add unit tests for cache key and fingerprint invalidation
@@ -54,4 +54,11 @@ LESSONS: none
 **Findings:** config_fingerprint is now stored per source entry and is_config_match returns False for legacy entries without a fingerprint (conservative invalidation).
 LESSONS: Legacy cache entries without config_fingerprint are treated as mismatches by is_config_match (returns False); callers should handle this as a cache miss.
 **Files:** cache_manager.py (+47/-0), stage2_scraping.py (+2/-1)
+**Commit:** 2bc00eb (hockey)
+
+### 2026-06-21 — Added config fingerprint check to the cache-hit guard in stage2_scraping.py: before accepting a cached entry, is_config_match is called with the current url, source_type, and location_filter; a mismatch causes the source to be re-scraped.
+**Rationale:** The location_filter lookup for the cache-hit guard reuses the same CLUB_REGISTRY pattern as _scrape_source, keeping the logic consistent without duplication.
+**Findings:** Cache entries with stale config (changed url, source_type, or location_filter) now trigger a re-scrape automatically; legacy entries without a fingerprint also trigger a re-scrape (is_config_match returns False).
+LESSONS: none
+**Files:** stage2_scraping.py (+8/-0)
 **Commit:** [pending — fill after commit]
