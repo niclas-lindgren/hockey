@@ -21,7 +21,7 @@
   - Files: `tournament_scheduler/html/templates/report_overview.html`
   - Approach: Remove the `$REPORT_JUDGMENT$` line that appears after the hero div; add a `$REPORT_JUDGMENT_CARDS$` placeholder inside the hero div (below `$REPORT_NOTE$`) where the 4 detail cards will be injected.
 
-- [ ] Render the 4 judgment cards (Matchup, Belastning, Hjemmeturneringer, Reise) as HTML and inject them into the hero via the new placeholder
+- [x] Added render_judgment_cards_html helper in judgment.py that produces a judgment-grid div from cards list; called it in html_exporter.py after analyze_opinionated_judgment and wired the result into $REPORT_JUDGMENT_CARDS$ in the replacements dict. — 2026-06-21
   - Files: `tournament_scheduler/html/html_exporter.py`, `tournament_scheduler/html/renderers/judgment.py`
   - Approach: Add a new helper `render_judgment_cards_html(cards)` in `judgment.py` that produces a card-grid `<div>` from the 4-tuple list; call it in `html_exporter.py` after `analyze_opinionated_judgment` and assign the result to `$REPORT_JUDGMENT_CARDS$` in the replacements dict.
 
@@ -64,4 +64,11 @@ LESSONS: none
 **Findings:** $REPORT_JUDGMENT_CARDS$ now sits inside the hero div below $REPORT_NOTE$ ready for injection in the next task.
 LESSONS: none
 **Files:** report_overview.html (+1)
+**Commit:** 27da0d8 (hockey)
+
+### 2026-06-21 — Added render_judgment_cards_html helper in judgment.py that produces a judgment-grid div from cards list; called it in html_exporter.py after analyze_opinionated_judgment and wired the result into $REPORT_JUDGMENT_CARDS$ in the replacements dict.
+**Rationale:** none
+**Findings:** render_judgment_cards_html added to judgment.py; judgment_cards_html computed and injected via $REPORT_JUDGMENT_CARDS$ in _report_overview_html; imports verified OK.
+LESSONS: none
+**Files:** judgment.py (+12), html_exporter.py (+6/-1)
 **Commit:** [pending — fill after commit]

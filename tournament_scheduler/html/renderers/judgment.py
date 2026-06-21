@@ -215,3 +215,15 @@ def analyze_opinionated_judgment(
     }
 
 
+def render_judgment_cards_html(cards: list[tuple[str, str]]) -> str:
+    """Render the 4 judgment detail cards as a hero card-grid div.
+
+    Each card is a (label, text) tuple produced by analyze_opinionated_judgment.
+    """
+    if not cards:
+        return ""
+    card_html = "".join(
+        f'<article class="judgment-card"><span>{_html.escape(label)}</span><p>{_html.escape(text)}</p></article>'
+        for label, text in cards
+    )
+    return f'<div class="judgment-grid judgment-grid--hero">{card_html}</div>'
