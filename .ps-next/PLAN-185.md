@@ -27,7 +27,7 @@
   - Files: `tests/test_plan_critic.py`
   - Approach: Add a test where one club hosts 3 U10 tournaments on 3 separate days in the same month alongside U12 tournaments on those same days — the U10 sequence should trigger a clump while U12 remains under the threshold. Also add a negative test confirming that 3 hosting days across 3 different age groups (one per day) does NOT trigger a clump.
 
-- [ ] Verify existing same-day multi-age-group tests still pass
+- [x] Ran pytest tests/test_plan_critic.py — all 24 tests passed, including test_same_day_multi_age_group_counts_as_one_hosting_day and test_same_day_plus_one_extra_day_is_two_hosting_days. No modifications required. — 2026-06-21
   - Files: `tests/test_plan_critic.py`
   - Approach: Run `pytest tests/test_plan_critic.py` and confirm the existing same-day deduplication tests (e.g. 4 tournaments across 2 days with two age groups per day) still pass without modification after the key changes above.
 
@@ -72,4 +72,11 @@ LESSONS: none
 **Findings:** All 7 clump/age_group tests pass including the new regression test.
 LESSONS: none
 **Files:** tests/test_plan_critic.py (+24/-0)
+**Commit:** afae29e (hockey)
+
+### 2026-06-21 — Ran pytest tests/test_plan_critic.py — all 24 tests passed, including test_same_day_multi_age_group_counts_as_one_hosting_day and test_same_day_plus_one_extra_day_is_two_hosting_days. No modifications required.
+**Rationale:** Verification-only task; the key changes in tasks 1-3 were backward-compatible with same-day deduplication because sets naturally deduplicate dates within each age group.
+**Findings:** All 24 plan_critic tests pass including both same-day deduplication tests.
+LESSONS: none
+**Files:** none (verification only)
 **Commit:** [pending — fill after commit]
