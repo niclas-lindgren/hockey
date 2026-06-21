@@ -19,7 +19,7 @@
   - Files: tests/test_plan_critic.py
   - Approach: Add test cases where a club hosts 4 tournaments across 2 days (should not flag) and 3 tournaments across 3 separate days (should flag at threshold 2); adjust any existing fixture that assumes raw tournament count drives the threshold.
 
-- [ ] Update tests for suggest_moves day-based moves
+- [x] Added 3 new tests in TestSuggestMovesHostingClump for same-day scenarios plus a convergence test verifying 4 tournaments on 2 days does not trigger cycling in the auto-adjust loop. — 2026-06-21
   - Files: tests/test_plan_critic.py, tests/test_auto_adjust.py
   - Approach: Add a test where a clump issue has multiple same-day tournaments and verify suggest_moves returns one move proposal per tournament on that day; also confirm the auto-adjust convergence test terminates without cycling when the false-positive case is corrected.
 
@@ -63,4 +63,11 @@ LESSONS: none
 **Findings:** All tests pass; 4 new hosting-day tests confirm the threshold is based on distinct dates.
 LESSONS: none
 **Files:** tests/test_plan_critic.py (+45/-0)
+**Commit:** 2ea1b54 (hockey)
+
+### 2026-06-21 — Added 3 new tests in TestSuggestMovesHostingClump for same-day scenarios plus a convergence test verifying 4 tournaments on 2 days does not trigger cycling in the auto-adjust loop.
+**Rationale:** All 26 test_auto_adjust tests pass; same-day proposals are correctly generated per tournament; false-positive convergence test confirms no replan called.
+**Findings:** All 693 tests pass; suggest_moves emits one proposal per tournament on the latest hosting day; false-positive case no longer triggers auto-adjust cycling.
+LESSONS: none
+**Files:** tests/test_auto_adjust.py (+72/-0)
 **Commit:** [pending — fill after commit]

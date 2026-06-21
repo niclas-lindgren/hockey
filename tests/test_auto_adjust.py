@@ -144,6 +144,45 @@ class TestSuggestMovesHostingClump:
 
         assert moves[0]["tournament_id"] == t3.id
 
+    def test_same_day_clump_returns_one_move_per_tournament(self):
+        """When the latest hosting day has 2 tournaments, suggest_moves emits 2 proposals."""
+        # 3 distinct hosting days: Oct 2, Oct 9, Oct 16 — but Oct 16 has 2 age groups.
+        # generate_critic_summary counts 3 distinct days → clump; suggest_moves should
+        # then emit one proposal per tournament on the latest day (Oct 16).
+        t1 = _make_tournament("Holmen", 2027, 10, 2, age_group="U10")
+        t2 = _make_tournament("Holmen", 2027, 10, 9, age_group="U10")
+        t3 = _make_tournament("Holmen", 2027, 10, 16, age_group="U10")
+        t4 = _make_tournament("Holmen", 2027, 10, 16, age_group="U12")
+        plan = _make_plan(tournaments=[t1, t2, t3, t4])
+        issue = "Holmen hosts 3 tournaments in October 2027 — consider moving one to another club"
+        moves = suggest_moves(plan, [issue])
+
+        # Both tournaments on the latest day should receive a move proposal.
+        moved_ids = {m["tournament_id"] for m in moves}
+        assert t3.id in moved_ids, "First same-day tournament should get a move proposal"
+        assert t4.id in moved_ids, "Second same-day tournament should get a move proposal"
+        # All proposals should be auto-fixable and share the same new_date.
+        assert all(m["can_auto_fix"] for m in moves)
+        new_dates = {m["new_date"] for m in moves}
+        assert len(new_dates) == 1, "All same-day moves should target the same new date"
+
+    def test_same_day_clump_moves_latest_day_not_earlier(self):
+        """suggest_moves targets the latest hosting day, not an earlier one."""
+        t1 = _make_tournament("Jar", 2027, 11, 6, age_group="U10")
+        t2 = _make_tournament("Jar", 2027, 11, 6, age_group="U12")
+        t3 = _make_tournament("Jar", 2027, 11, 13, age_group="U10")
+        t4 = _make_tournament("Jar", 2027, 11, 20, age_group="U10")
+        plan = _make_plan(tournaments=[t1, t2, t3, t4])
+        issue = "Jar hosts 3 tournaments in November 2027 — consider moving one to another club"
+        moves = suggest_moves(plan, [issue])
+
+        # The latest distinct date is Nov 20 (t4 only), so only t4 should be moved.
+        moved_ids = {m["tournament_id"] for m in moves}
+        assert t4.id in moved_ids, "Tournament on latest day should be moved"
+        assert t1.id not in moved_ids, "Earlier-day tournament should not be moved"
+        assert t2.id not in moved_ids, "Earlier-day tournament should not be moved"
+        assert t3.id not in moved_ids, "Earlier-day tournament should not be moved"
+
 
 class TestSuggestMovesFairnessGate:
     def test_fail_not_auto_fixable(self):
@@ -359,6 +398,39 @@ class TestCmdAutoAdjustLoopBehavior:
             rc = _cmd_auto_adjust(args)
 
         assert rc == 1
+
+    def test_same_day_false_positive_does_not_cycle(self):
+        """A plan with 4 tournaments across 2 days should produce no clump issue.
+
+        Before the distinct-day fix, this 4-tournament/2-day plan would have
+        triggered a false-positive clump.  With the fix, generate_critic_summary
+        should return no issues, so the auto-adjust loop exits in iteration 1
+        without calling _cmd_replan at all.
+        """
+        from tournament_scheduler.cli.rvv_cli import _cmd_auto_adjust
+
+        # 4 tournaments but only 2 distinct hosting days — no clump under new logic.
+        no_clump_plan = _make_plan(
+            tournaments=[
+                _make_tournament("Kongsberg", 2027, 3, 5, age_group="U10"),
+                _make_tournament("Kongsberg", 2027, 3, 5, age_group="U12"),
+                _make_tournament("Kongsberg", 2027, 3, 12, age_group="U10"),
+                _make_tournament("Kongsberg", 2027, 3, 12, age_group="U12"),
+            ]
+        )
+
+        with patch(
+            "tournament_scheduler.pipeline.state.PipelineState.read_stage",
+            return_value=_make_checkpoint(no_clump_plan),
+        ), patch(
+            "tournament_scheduler.cli.rvv_cli._cmd_replan"
+        ) as mock_replan:
+            args = _auto_adjust_args(max_iterations=5)
+            rc = _cmd_auto_adjust(args)
+
+        assert rc == 0
+        # With no clump issue, replan should never be triggered.
+        mock_replan.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
