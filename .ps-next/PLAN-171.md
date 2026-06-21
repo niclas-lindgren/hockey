@@ -24,7 +24,7 @@ tags:
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: After `scraper_error = f"Ukjent kildetype '{source_type}'."` at line 382, add `deterministic_raised = True` so the subsequent `if not events and not deterministic_raised:` check does not attempt credentialed scraping for an unrecognised source type.
 
-- [ ] Add a test for a source with registered credentials that returns zero events — assert `_try_credentialed_scrape` IS called, closing the coverage gap where the existing tests use an unregistered source ("Teamup") that short-circuits inside `_try_credentialed_scrape` before reaching the Playwright login.
+- [x] Added test_credentialed_fallback_proceeds_past_guard_for_registered_source to TestCredentialedFallbackGate class; patches get_strategy to return a strategy with credentials and initial_navigation, confirms _run_credentialed_bookup_or_outlook is called. — 2026-06-21
   - Files: tests/test_stage2_scraping.py, tournament_scheduler/pipeline/scraper_strategies.py
   - Approach: Patch `get_strategy` to return a strategy object with `requires_credentials=True` and `credential_env_vars=["BOOKUP_EMAIL","BOOKUP_PASSWORD"]`; patch `_run_ical_scraper` to return `[]`; assert that `_try_credentialed_scrape` is called once. Use the class `TestCredentialedFallback` that already groups the two related tests at lines 911–953.
 
@@ -61,4 +61,11 @@ Key context:
 **Findings:** Fix confirmed; the else branch now sets deterministic_raised  True preventing spurious credentialed scraping for unknown source types.
 LESSONS: none
 **Files:** stage2_scraping.py (+1/-0)
+**Commit:** ccb35e1 (hockey)
+
+### 2026-06-21 — Added test_credentialed_fallback_proceeds_past_guard_for_registered_source to TestCredentialedFallbackGate class; patches get_strategy to return a strategy with credentials and initial_navigation, confirms _run_credentialed_bookup_or_outlook is called.
+**Rationale:** Patching _try_credentialed_scrape entirely (as in existing tests) cannot test the guard inside it; instead patched scraper_credentialed.get_strategy and _run_credentialed_bookup_or_outlook to exercise the full code path.
+**Findings:** Test passes; coverage now exercises the path past the short-circuit guard inside _try_credentialed_scrape for a source with registered credentials.
+LESSONS: none
+**Files:** tests/test_stage2_scraping.py (+44/-0)
 **Commit:** [pending — fill after commit]

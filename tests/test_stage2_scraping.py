@@ -952,6 +952,50 @@ class TestCredentialedFallbackGate:
 
         mock_cred.assert_called_once()
 
+    def test_credentialed_fallback_proceeds_past_guard_for_registered_source(self, tmp_path, monkeypatch):
+        """When the source has credentials registered AND initial_navigation, _run_credentialed_bookup_or_outlook is called.
+
+        The existing tests use 'Teamup' which has no credential_env_vars and therefore
+        short-circuits at line 40 inside _try_credentialed_scrape.  This test uses a
+        source for which get_strategy returns a strategy that requires credentials and
+        has initial_navigation steps, confirming the credentialed path is actually
+        exercised (not just the outer dispatch).
+        """
+        from tournament_scheduler.pipeline.scraper_strategies import CalendarEngine, ScraperStrategy
+
+        fake_strategy = ScraperStrategy(
+            engine=CalendarEngine.BOOKUP_SPA,
+            url="https://bookup.example.com",
+            credential_env_vars=["BOOKUP_EMAIL", "BOOKUP_PASSWORD"],
+            initial_navigation=[{"action": "fill", "selector": "#email", "text": "BOOKUP_EMAIL"}],
+        )
+
+        monkeypatch.setenv("BOOKUP_EMAIL", "test@example.com")
+        monkeypatch.setenv("BOOKUP_PASSWORD", "secret")
+
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Bookup", "type": SOURCE_ICAL, "url": "https://bookup.example.com/ical"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[],
+        ), patch(
+            "tournament_scheduler.pipeline.scraper_credentialed.get_strategy",
+            return_value=fake_strategy,
+        ), patch(
+            "tournament_scheduler.pipeline.scraper_credentialed._run_credentialed_bookup_or_outlook",
+            return_value=([], ""),
+        ) as mock_cred_run:
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_cred_run.assert_called_once()
+
 
 # ---------------------------------------------------------------------------
 # Consistent source_result dict shape across all three construction branches
