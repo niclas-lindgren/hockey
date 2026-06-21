@@ -115,6 +115,51 @@ def test_cancelled_tournaments_excluded_from_clump():
     assert clump_issues == []
 
 
+def test_same_day_multi_age_group_counts_as_one_hosting_day():
+    """4 tournaments across 2 days (2 per day) = 2 distinct days → no clump."""
+    tournaments = [
+        _make_tournament("Kongsberg", 2027, 3, 5, age_group="U10"),
+        _make_tournament("Kongsberg", 2027, 3, 5, age_group="U12"),
+        _make_tournament("Kongsberg", 2027, 3, 12, age_group="U10"),
+        _make_tournament("Kongsberg", 2027, 3, 12, age_group="U12"),
+    ]
+    plan = _make_plan(tournaments=tournaments)
+    result = generate_critic_summary(plan)
+    clump_issues = [i for i in result if "Kongsberg" in i and "hosts" in i]
+    assert clump_issues == [], (
+        "Two hosting days should not trigger a clump even with 4 raw tournaments"
+    )
+
+
+def test_three_distinct_hosting_days_triggers_clump():
+    """3 tournaments across 3 separate days = 3 distinct days → clump flagged."""
+    tournaments = [
+        _make_tournament("Ringerike", 2027, 4, 3),
+        _make_tournament("Ringerike", 2027, 4, 10),
+        _make_tournament("Ringerike", 2027, 4, 17),
+    ]
+    plan = _make_plan(tournaments=tournaments)
+    result = generate_critic_summary(plan)
+    clump_issues = [i for i in result if "Ringerike" in i and "hosts" in i]
+    assert len(clump_issues) >= 1, "Three distinct hosting days should trigger a clump"
+    assert "3" in clump_issues[0], "Issue should mention the count of 3"
+
+
+def test_same_day_plus_one_extra_day_is_two_hosting_days():
+    """3 tournaments: 2 on same day + 1 on different day = 2 distinct days → no clump."""
+    tournaments = [
+        _make_tournament("Skien", 2027, 5, 1, age_group="U10"),
+        _make_tournament("Skien", 2027, 5, 1, age_group="U8"),
+        _make_tournament("Skien", 2027, 5, 8, age_group="U12"),
+    ]
+    plan = _make_plan(tournaments=tournaments)
+    result = generate_critic_summary(plan)
+    clump_issues = [i for i in result if "Skien" in i and "hosts" in i]
+    assert clump_issues == [], (
+        "Two distinct hosting days should not trigger a clump"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Game count outlier detection
 # ---------------------------------------------------------------------------

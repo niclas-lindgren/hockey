@@ -15,7 +15,7 @@
   - Files: tournament_scheduler/cli/plan_critic.py
   - Approach: After extracting club/year/month from the issue string, find the latest distinct date in that month for that club, then collect all tournament IDs whose date matches that day and emit a move proposal for each, rather than selecting only the single last tournament ID (tids[-1]).
 
-- [ ] Update tests for generate_critic_summary hosting-day logic
+- [x] Added 4 new test cases: same-day multi-age-group counts as one day (no clump), 3 distinct days triggers clump, 2 on same day + 1 other  2 days (no clump), and existing tests still pass. — 2026-06-21
   - Files: tests/test_plan_critic.py
   - Approach: Add test cases where a club hosts 4 tournaments across 2 days (should not flag) and 3 tournaments across 3 separate days (should flag at threshold 2); adjust any existing fixture that assumes raw tournament count drives the threshold.
 
@@ -56,4 +56,11 @@ LESSONS: load_plan must restore fairness_gate (and game_count_spread, team_game_
 **Findings:** All 687 tests pass; suggest_moves emits one move per tournament on the latest hosting day.
 LESSONS: none
 **Files:** tournament_scheduler/cli/plan_critic.py (+46/-25)
+**Commit:** 2c033b0 (hockey)
+
+### 2026-06-21 — Added 4 new test cases: same-day multi-age-group counts as one day (no clump), 3 distinct days triggers clump, 2 on same day + 1 other  2 days (no clump), and existing tests still pass.
+**Rationale:** All 4 new tests pass with the distinct-day counting logic from task 1.
+**Findings:** All tests pass; 4 new hosting-day tests confirm the threshold is based on distinct dates.
+LESSONS: none
+**Files:** tests/test_plan_critic.py (+45/-0)
 **Commit:** [pending — fill after commit]
