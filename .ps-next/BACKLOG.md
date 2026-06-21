@@ -2,9 +2,8 @@
 
 ## Open
 
-- [184] [ ] Game count imbalance check compares across age groups — should only compare within the same age group (e.g. U7 vs U7, not U7 vs U12). Fix the critic/rules check so the spread calculation is scoped per age group.
-
 ## Done
+- [184] [x] Game count imbalance check compares across age groups — should only compare within the same age group (e.g. U7 vs U7, not U7 vs U12). Fix the critic/rules check so the spread calculation is scoped per age group. (2026-06-21)
 - [185] [x] Hosting count per month check compares across age groups — should only flag over-hosting when a single club hosts too many tournaments of the same age group in a month, not total across all age groups. Fix the critic/rules check so the monthly hosting spread is scoped per age group. (2026-06-21)
 - [183] [x] Fix plan critic and auto-adjust to count hosting *days* not tournaments — changed clump check to distinct (host_club, date) pairs per month, suggest_moves now moves all tournaments on a day together, tests updated (2026-06-21)
 - [182] [x] Add monthly hosting-day constraint to Stage 3 planner — exposed max_hosting_days_per_month in Innstillinger sheet, forwarded through Stage 1, enforced as distinct-day cap in season_planner.py, added unit tests (2026-06-21)
