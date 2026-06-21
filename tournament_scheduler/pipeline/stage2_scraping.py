@@ -380,6 +380,7 @@ def _scrape_source(
             events = _run_ical_scraper(url, name, start_date, end_date, source_type, calendar_cache, location_filter=_location_filter)
         else:
             scraper_error = f"Ukjent kildetype '{source_type}'."
+            deterministic_raised = True
     except Exception as exc:  # noqa: BLE001
         scraper_error = str(exc)
         deterministic_raised = True
