@@ -298,7 +298,7 @@ class BrowserWorker:
             self._page.goto(url, timeout=GOTO_TIMEOUT_MS, wait_until="networkidle")
         except Exception:
             try:
-                self._page.goto(url, timeout=GOTO_RETRY_TIMEOUT_MS)
+                self._page.goto(url, timeout=GOTO_RETRY_TIMEOUT_MS, wait_until="domcontentloaded")
             except Exception as exc:
                 return {"ok": False, "error": f"goto feilet: {exc}"}
         time.sleep(wait_ms / 1000.0)

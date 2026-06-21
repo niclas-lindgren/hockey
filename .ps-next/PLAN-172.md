@@ -11,7 +11,7 @@
   - Files: tournament_scheduler/pipeline/browser_worker.py
   - Approach: Define GOTO_TIMEOUT_MS = 30_000 and GOTO_RETRY_TIMEOUT_MS = 60_000 as module-level constants at the top of browser_worker.py, replacing all hardcoded 30_000 values in cmd_goto with these named constants for clarity.
 
-- [ ] Fix cmd_goto retry to use a longer timeout and lighter wait_until
+- [x] Added wait_until"domcontentloaded" to the retry goto call so the fallback navigation no longer waits for full network idle, enabling recovery from slow but eventually responsive pages. — 2026-06-21
   - Files: tournament_scheduler/pipeline/browser_worker.py
   - Approach: Update the retry goto call (line ~297) to use timeout=GOTO_RETRY_TIMEOUT_MS (60_000ms) and add wait_until="domcontentloaded" so the fallback navigation does not wait for full network idle, allowing recovery from pages that are slow but eventually respond.
 
@@ -46,4 +46,11 @@ Key context:
 **Findings:** Both goto calls in cmd_goto now reference named constants; retry uses 60s instead of 30s.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/browser_worker.py (+6/-2)
+**Commit:** dedb048 (hockey)
+
+### 2026-06-21 — Added wait_until"domcontentloaded" to the retry goto call so the fallback navigation no longer waits for full network idle, enabling recovery from slow but eventually responsive pages.
+**Rationale:** none
+**Findings:** Retry goto now uses domcontentloaded instead of full networkidle — combined with the 60s timeout from task 1, this gives the fallback a real chance to succeed on slow pages.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/browser_worker.py (+1/-1)
 **Commit:** [pending — fill after commit]
