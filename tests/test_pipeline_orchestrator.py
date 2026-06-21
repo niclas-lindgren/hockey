@@ -10,6 +10,7 @@ import pytest
 from tournament_scheduler.cli.pipeline_orchestrator import (
     _MAX_REFINEMENT_ITERATIONS,
     _compute_verdict_tone,
+    _run_approval_gate,
     _run_refinement_loop,
 )
 from tournament_scheduler.models import SeasonPlan
@@ -543,3 +544,109 @@ class TestRunRefinementLoop:
         assert any("no effective changes" in msg for msg in log_calls), (
             f"Expected 'no effective changes' in log; got: {log_calls}"
         )
+
+
+# ---------------------------------------------------------------------------
+# _run_approval_gate — unit tests
+# ---------------------------------------------------------------------------
+
+
+def _make_gate_checkpoint(gate_status: str, gate_score: int = 80) -> dict[str, Any]:
+    """Return a minimal plan_checkpoint dict with fairness_gate embedded."""
+    plan_dict: dict[str, Any] = {
+        "fairness_gate": {"status": gate_status, "score": gate_score},
+        "tournaments": [],
+    }
+    return {"plan": plan_dict, "warnings": []}
+
+
+def _make_console() -> MagicMock:
+    return MagicMock()
+
+
+class TestRunApprovalGate:
+    """Tests for blocking/non-blocking behaviour of _run_approval_gate."""
+
+    # Patch generate_critic_summary at its source module — it is imported lazily
+    # inside _run_approval_gate, so patching the orchestrator module directly
+    # would not work (the name is not present at module level).
+    _CRITIC_PATH = "tournament_scheduler.cli.plan_critic.generate_critic_summary"
+
+    def test_blocks_when_strict_and_fail(self) -> None:
+        """strict=True + status='fail' must return False (pipeline blocked)."""
+        checkpoint = _make_gate_checkpoint("fail", gate_score=30)
+        log_calls: list[str] = []
+        with patch(self._CRITIC_PATH, return_value=[]) as _mock_critic:
+            result = _run_approval_gate(
+                MagicMock(), checkpoint, MagicMock(), strict=True,
+                console=_make_console(), log_fn=log_calls.append,
+            )
+        assert result is False
+        assert any("FAILED" in msg for msg in log_calls), (
+            f"Expected FAILED in log; got: {log_calls}"
+        )
+
+    def test_allows_when_non_strict_and_fail(self) -> None:
+        """strict=False + status='fail' must return True (pipeline continues)."""
+        checkpoint = _make_gate_checkpoint("fail", gate_score=30)
+        log_calls: list[str] = []
+        with patch(self._CRITIC_PATH, return_value=[]):
+            result = _run_approval_gate(
+                MagicMock(), checkpoint, MagicMock(), strict=False,
+                console=_make_console(), log_fn=log_calls.append,
+            )
+        assert result is True
+
+    def test_allows_when_strict_and_warn(self) -> None:
+        """strict=True + status='warn' must return True (warn never blocks)."""
+        checkpoint = _make_gate_checkpoint("warn", gate_score=65)
+        with patch(self._CRITIC_PATH, return_value=["issue A"]):
+            result = _run_approval_gate(
+                MagicMock(), checkpoint, MagicMock(), strict=True,
+                console=_make_console(), log_fn=lambda _: None,
+            )
+        assert result is True
+
+    def test_allows_when_strict_and_pass(self) -> None:
+        """strict=True + status='pass' must return True."""
+        checkpoint = _make_gate_checkpoint("pass", gate_score=100)
+        with patch(self._CRITIC_PATH, return_value=[]):
+            result = _run_approval_gate(
+                MagicMock(), checkpoint, MagicMock(), strict=True,
+                console=_make_console(), log_fn=lambda _: None,
+            )
+        assert result is True
+
+    def test_allows_when_non_strict_and_pass(self) -> None:
+        """strict=False + status='pass' must return True."""
+        checkpoint = _make_gate_checkpoint("pass", gate_score=100)
+        with patch(self._CRITIC_PATH, return_value=[]):
+            result = _run_approval_gate(
+                MagicMock(), checkpoint, MagicMock(), strict=False,
+                console=_make_console(), log_fn=lambda _: None,
+            )
+        assert result is True
+
+    def test_warn_status_calls_critic(self) -> None:
+        """Warn status must call generate_critic_summary and surface issues."""
+        checkpoint = _make_gate_checkpoint("warn")
+        console = _make_console()
+        with patch(self._CRITIC_PATH, return_value=["problem X"]) as mock_critic:
+            _run_approval_gate(
+                MagicMock(), checkpoint, MagicMock(), strict=True,
+                console=console, log_fn=lambda _: None,
+            )
+        mock_critic.assert_called_once()
+        # Console should have printed the issue
+        printed = " ".join(str(c) for c in console.print.call_args_list)
+        assert "problem X" in printed
+
+    def test_none_plan_does_not_raise(self) -> None:
+        """If plan_checkpoint has no 'plan' key the gate should still return True."""
+        checkpoint: dict[str, Any] = {}
+        with patch(self._CRITIC_PATH, return_value=[]):
+            result = _run_approval_gate(
+                MagicMock(), checkpoint, MagicMock(), strict=True,
+                console=_make_console(), log_fn=lambda _: None,
+            )
+        assert result is True
