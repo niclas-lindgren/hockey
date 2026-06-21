@@ -14,7 +14,7 @@
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Add an optional `calendars_path: str | None = None` parameter to `export()`; replace the `has_scrape_data` condition with `bool(calendars_path and os.path.exists(calendars_path))` so the link is shown whenever the file actually exists rather than relying on meta counts.
 
-- [ ] Update stage4_export.py to pass the generated calendars.html path into html_exporter.export()
+- [x] stage4_export.py already passes _calendars_path as calendars_path to HtmlExporter().export() — implemented alongside task 2 in commit e67ba38. — 2026-06-21
   - Files: tournament_scheduler/pipeline/stage4_export.py
   - Approach: After generating calendars.html, pass its absolute path as `calendars_path=` when calling `HtmlExporter().export()` for both season_plan.html and season_plan_report.html.
 
@@ -48,4 +48,11 @@ LESSONS: The _meta sub-dict from ScrapedDataCache does not carry total_events/so
 **Findings:** All 657 tests pass. html_exporter.py now accepts explicit calendars_path rather than inferring from output_files.
 LESSONS: none
 **Files:** html_exporter.py (+9/-3)
+**Commit:** e67ba38 (hockey)
+
+### 2026-06-21 — stage4_export.py already passes _calendars_path as calendars_path to HtmlExporter().export() — implemented alongside task 2 in commit e67ba38.
+**Rationale:** Implemented together with the calendars_path parameter addition; no separate code change needed.
+**Findings:** calendars_path_calendars_path is wired at stage4_export.py line 214.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/stage4_export.py (+2/-0 in e67ba38)
 **Commit:** [pending — fill after commit]
