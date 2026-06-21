@@ -2,11 +2,10 @@
 
 ## Open
 
-- [170] [ ] Fix crash in cancellation_workflow.py ~line 230-234 — result.detailed_exclusions and set difference both used without None guard; crashes if the scheduler fails
-
 - [169] [ ] Fix _run_approval_gate always returning True (pipeline_orchestrator.py ~line 304) — gate is a no-op so critical issues can never block the pipeline
 
 ## Done
+- [170] [x] Fix crash in cancellation_workflow.py ~line 230-234 — result.detailed_exclusions and set difference both used without None guard; crashes if the scheduler fails (2026-06-21)
 - [171] [x] Fix credentialed fallback never triggered on zero events in stage2_scraping.py ~line 340 — deterministic_raised is only True on exception, not on empty result, so silent zero-event returns skip the fallback (2026-06-21)
 - [172] [x] Fix browser_worker.py ~line 300 retry goto using same 30s timeout — fallback navigation uses identical timeout so it cannot recover from slow page loads (2026-06-21)
 - [179] [x] Fix calendars.html navbar link — the exported calendars.html is not linked in the navbar; update the HTML generation script to include it (2026-06-21)
