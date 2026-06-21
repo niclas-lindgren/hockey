@@ -23,7 +23,7 @@
   - Files: `tournament_scheduler/cli/plan_critic.py`
   - Approach: Extend `_club_month_count` and `host_month_to_tids` keys to `(host_club, year, month, age_group)`. Parse the age_group out of the clump issue string (or look it up via `host_month_to_tids`) so that target-month selection only considers months where that same age group has capacity.
 
-- [ ] Add regression tests for per-age-group clump scoping
+- [x] Added test_u10_clump_triggers_while_u12_on_same_days_does_not: verifies U10 with 3 days triggers a clump while U12 with 1 day on the same dates does not, and the issue message references U10 only. The negative test (test_three_age_groups_on_three_days_no_clump) was already added in task 1. — 2026-06-21
   - Files: `tests/test_plan_critic.py`
   - Approach: Add a test where one club hosts 3 U10 tournaments on 3 separate days in the same month alongside U12 tournaments on those same days — the U10 sequence should trigger a clump while U12 remains under the threshold. Also add a negative test confirming that 3 hosting days across 3 different age groups (one per day) does NOT trigger a clump.
 
@@ -65,4 +65,11 @@ LESSONS: none
 **Findings:** All 49 plan_critic and auto_adjust tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/cli/plan_critic.py (+34/-22), tests/test_auto_adjust.py (+18/-18)
+**Commit:** e68509a (hockey)
+
+### 2026-06-21 — Added test_u10_clump_triggers_while_u12_on_same_days_does_not: verifies U10 with 3 days triggers a clump while U12 with 1 day on the same dates does not, and the issue message references U10 only. The negative test (test_three_age_groups_on_three_days_no_clump) was already added in task 1.
+**Rationale:** The negative test was already present from task 1, only the positive co-age-group test was missing.
+**Findings:** All 7 clump/age_group tests pass including the new regression test.
+LESSONS: none
+**Files:** tests/test_plan_critic.py (+24/-0)
 **Commit:** [pending — fill after commit]

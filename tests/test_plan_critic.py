@@ -179,6 +179,30 @@ def test_three_age_groups_on_three_days_no_clump():
     )
 
 
+def test_u10_clump_triggers_while_u12_on_same_days_does_not():
+    """U10 clump is flagged while U12 on the same days stays under the threshold.
+
+    3 U10 tournaments on 3 separate days triggers a U10 clump.
+    1 U12 tournament (on one of those same days) does not trigger a U12 clump.
+    The issue message must reference U10, not U12.
+    """
+    tournaments = [
+        # U10 on 3 separate days → clump
+        _make_tournament("Ringerike", 2027, 10, 7, age_group="U10"),
+        _make_tournament("Ringerike", 2027, 10, 14, age_group="U10"),
+        _make_tournament("Ringerike", 2027, 10, 21, age_group="U10"),
+        # U12 on one day only → no clump
+        _make_tournament("Ringerike", 2027, 10, 7, age_group="U12"),
+    ]
+    plan = _make_plan(tournaments=tournaments)
+    result = generate_critic_summary(plan)
+    clump_issues = [i for i in result if "Ringerike" in i and "hosts" in i]
+    assert len(clump_issues) == 1, "Only U10 should trigger a clump, not U12"
+    assert "U10" in clump_issues[0], "Issue should reference U10"
+    assert "U12" not in clump_issues[0], "Issue should not reference U12"
+    assert "3" in clump_issues[0], "Issue should report count of 3"
+
+
 # ---------------------------------------------------------------------------
 # Game count outlier detection
 # ---------------------------------------------------------------------------
