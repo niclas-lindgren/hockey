@@ -48,6 +48,10 @@ import time
 from datetime import datetime
 from typing import Any
 
+# Navigation timeout constants
+GOTO_TIMEOUT_MS = 30_000   # initial page.goto — networkidle wait
+GOTO_RETRY_TIMEOUT_MS = 60_000  # retry goto — longer to recover from slow loads
+
 
 def _now_iso() -> str:
     return datetime.now().isoformat()
@@ -291,10 +295,10 @@ class BrowserWorker:
         url = params.get("url", "")
         wait_ms = int(params.get("wait_ms", 3000))
         try:
-            self._page.goto(url, timeout=30_000, wait_until="networkidle")
+            self._page.goto(url, timeout=GOTO_TIMEOUT_MS, wait_until="networkidle")
         except Exception:
             try:
-                self._page.goto(url, timeout=30_000)
+                self._page.goto(url, timeout=GOTO_RETRY_TIMEOUT_MS)
             except Exception as exc:
                 return {"ok": False, "error": f"goto feilet: {exc}"}
         time.sleep(wait_ms / 1000.0)
