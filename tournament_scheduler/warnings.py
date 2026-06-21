@@ -36,14 +36,26 @@ def scan_game_count_warnings(
     if not planner._team_game_counts:
         return
 
-    max_count = max(planner._team_game_counts.values())
-    min_count = min(planner._team_game_counts.values())
-    spread = max_count - min_count
+    # Compute spread per age group so that U7 is only compared with U7, etc.
+    teams_by_age_group: dict = {}
+    for team in planner.roster.teams:
+        teams_by_age_group.setdefault(team.age_group, []).append(team)
 
-    if spread > planner.max_game_count_spread:
-        for key, count in planner._team_game_counts.items():
-            if count == max_count or count == min_count:
-                planner._game_count_warnings.append((key, count, spread, "spread"))
+    for age_group, ag_teams in teams_by_age_group.items():
+        ag_counts = {
+            planner._team_key(t): planner._team_game_counts.get(planner._team_key(t), 0)
+            for t in ag_teams
+            if planner._team_key(t) in planner._team_game_counts
+        }
+        if not ag_counts:
+            continue
+        max_count = max(ag_counts.values())
+        min_count = min(ag_counts.values())
+        spread = max_count - min_count
+        if spread > planner.max_game_count_spread:
+            for key, count in ag_counts.items():
+                if count == max_count or count == min_count:
+                    planner._game_count_warnings.append((key, count, spread, "spread"))
 
     if window_end is not None and planner._team_last_date:
         for key, last_date in planner._team_last_date.items():

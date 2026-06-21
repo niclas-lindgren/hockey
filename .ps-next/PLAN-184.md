@@ -15,7 +15,7 @@
   - Files: tournament_scheduler/season_planner.py
   - Approach: After building `public_team_game_counts` (line ~325), group counts by `team.age_group` using `self.roster.by_age_group()` or by filtering `public_team_game_counts` keys against teams per age group. Compute spread (max - min) within each age group and store in `plan.game_count_spread_by_age_group`. Keep the global `plan.game_count_spread` update but derive it as `max(per_age_group_spreads.values())` so it still reflects the worst-case group.
 
-- [ ] Fix scan_game_count_warnings to compare within age groups
+- [x] Replaced global spread check with per-age-group spread calculation so U7 is only compared against U7, not against U12. — 2026-06-21
   - Files: tournament_scheduler/warnings.py
   - Approach: In `scan_game_count_warnings`, replace the global `max(planner._team_game_counts.values()) - min(...)` with a loop over `planner.roster.age_groups()`, grouping `planner._team_game_counts` entries by age group and computing and comparing spread per group. Emit one warning entry per age group that exceeds the threshold, naming the affected age group in the message.
 
@@ -69,4 +69,11 @@ LESSONS: none
 **Findings:** global game_count_spread is now derived as max of per-age-group spreads so the worst-case group still surfaces.
 LESSONS: none
 **Files:** tournament_scheduler/season_planner.py (+16/-2)
+**Commit:** b8162d0 (hockey)
+
+### 2026-06-21 — Replaced global spread check with per-age-group spread calculation so U7 is only compared against U7, not against U12.
+**Rationale:** none
+**Findings:** Warnings now loop per age_group using planner.roster.teams grouped by age_group; each group's max-min spread is compared against max_game_count_spread independently.
+LESSONS: none
+**Files:** tournament_scheduler/warnings.py (+20/-8)
 **Commit:** [pending — fill after commit]
