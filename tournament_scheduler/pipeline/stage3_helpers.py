@@ -191,6 +191,7 @@ def _make_planner(
     fairness_thresholds: dict[str, float] | None = None,
     target_tournament_count: int | None = None,
     seed: int | None = None,
+    max_hosting_days_per_month: int = 2,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner` with derived tournament sizing.
 
@@ -215,6 +216,7 @@ def _make_planner(
         target_tournament_count=target_tournament_count,
         division_skill_band=division_skill_band,
         max_hosting_deviation=max_hosting_deviation,
+        max_hosting_days_per_month=max_hosting_days_per_month,
         events_by_club=events_by_club or None,
         fairness_thresholds=fairness_thresholds or None,
         seed=seed,

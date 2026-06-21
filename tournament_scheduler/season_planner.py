@@ -107,6 +107,7 @@ class SeasonPlanner:
         max_early_finish_gap_days: int = 60,
         division_skill_band: int = 2,
         max_hosting_deviation: int = 1,
+        max_hosting_days_per_month: int = 2,
         max_month_deviation_ratio: float = 0.5,
         events_by_club: Optional[Dict[str, List[CalendarEvent]]] = None,
         fairness_thresholds: Optional[Dict[str, float]] = None,
@@ -127,6 +128,7 @@ class SeasonPlanner:
         self.max_early_finish_gap_days = max_early_finish_gap_days
         self.division_skill_band = division_skill_band
         self.max_hosting_deviation = max_hosting_deviation
+        self.max_hosting_days_per_month = max_hosting_days_per_month
 
         duplicate_labels = {
             label for label, count in Counter(team.label for team in roster.teams).items() if count > 1
