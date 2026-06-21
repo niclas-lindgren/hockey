@@ -19,7 +19,7 @@
   - Files: tournament_scheduler/warnings.py
   - Approach: In `scan_game_count_warnings`, replace the global `max(planner._team_game_counts.values()) - min(...)` with a loop over `planner.roster.age_groups()`, grouping `planner._team_game_counts` entries by age group and computing and comparing spread per group. Emit one warning entry per age group that exceeds the threshold, naming the affected age group in the message.
 
-- [ ] Fix plan_critic to report per-age-group max/min teams
+- [x] Replaced flat max/min team lookup in generate_critic_summary with per-age-group loop using game_count_spread_by_age_group; each age group with spread > 4 emits its own issue naming the outlier teams within that group. — 2026-06-21
   - Files: tournament_scheduler/cli/plan_critic.py
   - Approach: In `generate_critic_summary`, replace the flat `max(team_game_counts, ...)` / `min(team_game_counts, ...)` lookup with a loop over age groups (inferred from the SeasonPlan or from team keys). For each age group where spread exceeds 4, emit a separate outlier entry naming the age group and the offending teams within it.
 
@@ -76,4 +76,11 @@ LESSONS: none
 **Findings:** Warnings now loop per age_group using planner.roster.teams grouped by age_group; each group's max-min spread is compared against max_game_count_spread independently.
 LESSONS: none
 **Files:** tournament_scheduler/warnings.py (+20/-8)
+**Commit:** 743ec48 (hockey)
+
+### 2026-06-21 — Replaced flat max/min team lookup in generate_critic_summary with per-age-group loop using game_count_spread_by_age_group; each age group with spread > 4 emits its own issue naming the outlier teams within that group.
+**Rationale:** Used label-to-age-group mapping built from plan.tournaments since plan_critic has no roster access.
+**Findings:** team-label-to-age-group lookup handles both plain labels and 'label (Club)' public key formats.
+LESSONS: team public keys in team_game_counts may be plain 'label' or 'label (Club)' — strip parenthetical suffix before age-group lookup
+**Files:** tournament_scheduler/cli/plan_critic.py (+57/-11)
 **Commit:** [pending — fill after commit]
