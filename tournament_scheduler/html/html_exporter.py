@@ -49,7 +49,7 @@ from .renderers.fairness import (
     render_fairness_adjustments_html,
 )
 from .renderers.review import analyze_review_summary, render_review_summary_html
-from .renderers.judgment import analyze_opinionated_judgment, render_opinionated_judgment_html
+from .renderers.judgment import analyze_opinionated_judgment
 from .renderers.heatmap import build_club_color_maps
 
 # ---------------------------------------------------------------------------
@@ -197,12 +197,6 @@ class HtmlExporter:
             club_stats=club_stats,
             team_travel=team_travel,
         )
-        judgment_html = render_opinionated_judgment_html(
-            plan,
-            team_game_counts=team_game_counts,
-            club_stats=club_stats,
-            team_travel=team_travel,
-        )
         report_overview_html = self._report_overview_html(
             plan,
             source_count=source_count,
@@ -216,7 +210,6 @@ class HtmlExporter:
             fairness_gate_html=fairness_gate_html,
             fairness_adjustments_html=fairness_adjustments_html,
             review_summary_html=review_summary_html,
-            judgment_html=judgment_html,
             team_stats_html=TEAM_STATS,
             travel_stats_html=TRAVEL_STATS,
             heatmap_html=HEATMAP,
@@ -368,7 +361,6 @@ class HtmlExporter:
         fairness_gate_html: str,
         fairness_adjustments_html: str,
         review_summary_html: str,
-        judgment_html: str,
         team_stats_html: str,
         travel_stats_html: str,
         heatmap_html: str,
@@ -595,7 +587,6 @@ class HtmlExporter:
             "$REPORT_TOURNAMENT_TABLE$": tournament_table,
             "$REPORT_DIAGNOSTICS$": diagnostics_html,
             "$REPORT_HEATMAP$": heatmap_html,
-            "$REPORT_JUDGMENT$": judgment_html,
             "$REPORT_SCORES$": scores_html,
             "$REPORT_METRICS$": metrics_html,
             "$REPORT_CLUB_DASHBOARD$": club_dashboard_html,
