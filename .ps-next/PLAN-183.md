@@ -11,7 +11,7 @@
   - Files: tournament_scheduler/cli/plan_critic.py
   - Approach: Replace the existing `defaultdict(int)` that counts raw tournaments per (host_club, year, month) with a `defaultdict(set)` that collects distinct dates; the threshold check becomes `len(day_set) > 2`. Keep the issue message wording consistent so existing regex in suggest_moves still matches.
 
-- [ ] Update suggest_moves to move an entire hosting day
+- [x] suggest_moves now finds the latest distinct date in the clumped month, collects all tournament IDs on that date, and emits one move proposal per tournament — the whole hosting day moves together to the same new_date. — 2026-06-21
   - Files: tournament_scheduler/cli/plan_critic.py
   - Approach: After extracting club/year/month from the issue string, find the latest distinct date in that month for that club, then collect all tournament IDs whose date matches that day and emit a move proposal for each, rather than selecting only the single last tournament ID (tids[-1]).
 
@@ -49,4 +49,11 @@ Key patterns:
 **Findings:** All 687 tests pass; generate_critic_summary now counts hosting days not raw tournament count; load_plan restores fairness_gate field.
 LESSONS: load_plan must restore fairness_gate (and game_count_spread, team_game_counts) from plan_data or generate_critic_summary will silently return no fairness issues
 **Files:** tests/test_auto_adjust.py (+11/-4), tournament_scheduler/cli/plan_critic.py (+16/-5), tournament_scheduler/pipeline/tournament_updater.py (+3/-0)
+**Commit:** 3c41547 (hockey)
+
+### 2026-06-21 — suggest_moves now finds the latest distinct date in the clumped month, collects all tournament IDs on that date, and emits one move proposal per tournament — the whole hosting day moves together to the same new_date.
+**Rationale:** Found the latest date by iterating tids; same target_arena and new_date used for all; loop emits one entry per day_tid.
+**Findings:** All 687 tests pass; suggest_moves emits one move per tournament on the latest hosting day.
+LESSONS: none
+**Files:** tournament_scheduler/cli/plan_critic.py (+46/-25)
 **Commit:** [pending — fill after commit]

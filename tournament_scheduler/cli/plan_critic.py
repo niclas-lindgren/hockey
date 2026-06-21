@@ -228,7 +228,7 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
             continue
 
         # ------------------------------------------------------------------
-        # Hosting clumps — move one tournament from the clumped month +7d
+        # Hosting clumps — move the entire latest hosting day out of the month
         # ------------------------------------------------------------------
         clump_match = re.match(r"(.+) hosts (\d+) tournaments in (\w+) (\d{4})", issue)
         if clump_match:
@@ -238,20 +238,38 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
             # Convert month name to number
             month_num = list(calendar.month_name).index(month_name)
             tids = host_month_to_tids.get((club, year, month_num), [])
-            # Suggest moving the last tournament in the clumped month
-            target_tid = tids[-1] if tids else ""
-            # Find the target tournament's arena so we can check for free dates
-            target_arena = None
-            target_date = None
+
+            # Find the latest distinct hosting date in the clumped month
+            latest_date = None
             for t in tournaments:
-                if t.id == target_tid:
-                    target_date = getattr(t, "date", None)
+                if t.id in tids:
+                    t_date = getattr(t, "date", None)
+                    if t_date and (latest_date is None or t_date > latest_date):
+                        latest_date = t_date
+
+            # Collect all tournament IDs on that latest date (the whole hosting day)
+            day_tids: List[str] = []
+            if latest_date is not None:
+                for t in tournaments:
+                    if t.id in tids and getattr(t, "date", None) == latest_date:
+                        day_tids.append(t.id)
+
+            if not day_tids:
+                day_tids = [tids[-1]] if tids else []
+
+            # Determine the new date once for the whole hosting day (use first
+            # tournament's arena as the representative slot to check availability).
+            first_day_tid = day_tids[0] if day_tids else None
+            target_arena = None
+            for t in tournaments:
+                if first_day_tid and t.id == first_day_tid:
                     target_arena = getattr(t, "arena", None)
                     break
+
             # Find a free weekend in a month where this club has ≤ 1 tournament
-            # (so adding one stays under the >2 threshold).  Prefer the nearest such month.
+            # (so adding one stays under the >2 threshold).  Prefer the nearest.
             new_date = None
-            if target_date:
+            if latest_date:
                 from datetime import date as _date
                 plan_end = getattr(plan, "end_date", None)
                 # Collect months where club already has ≤ 1 tournament, sorted by proximity
@@ -290,23 +308,26 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
                                 break
                         candidate += timedelta(days=1)
                 if new_date is None:
-                    new_date = (target_date + timedelta(weeks=1)).isoformat()
-            # Mark the chosen target slot as occupied so subsequent moves in this
-            # same suggest_moves call don't also target the same (arena, date).
+                    new_date = (latest_date + timedelta(weeks=1)).isoformat()
+
+            # Emit one move proposal per tournament in the hosting day.
+            # Mark the chosen slot occupied so subsequent moves in this call
+            # don't also target the same (arena, date).
             if new_date and target_arena:
-                arena_date_to_tid[(target_arena, new_date)] = target_tid
-            moves.append(
-                {
-                    "tournament_id": target_tid,
-                    "new_date": new_date,
-                    "reason": (
-                        f"{club} hosts too many tournaments in {month_name} {year}; "
-                        "move one to a month where this club has capacity (≤1 tournament)."
-                    ),
-                    "can_auto_fix": True,
-                    "issue": issue,
-                }
-            )
+                arena_date_to_tid[(target_arena, new_date)] = day_tids[0] if day_tids else ""
+            for day_tid in day_tids:
+                moves.append(
+                    {
+                        "tournament_id": day_tid,
+                        "new_date": new_date,
+                        "reason": (
+                            f"{club} hosts too many tournaments in {month_name} {year}; "
+                            "move one to a month where this club has capacity (≤1 tournament)."
+                        ),
+                        "can_auto_fix": True,
+                        "issue": issue,
+                    }
+                )
             continue
 
         # ------------------------------------------------------------------
