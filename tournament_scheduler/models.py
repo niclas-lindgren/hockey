@@ -252,6 +252,12 @@ class SeasonPlan:
     # Difference between the team with the most games and the team with
     # the fewest games (max - min of team_game_counts values).
     game_count_spread: int = 0
+    # Per-age-group game count spread: same metric as game_count_spread but
+    # computed independently for each age group so that the critic can flag
+    # fairness issues without cross-age-group noise.
+    # Keys are age-group strings (e.g. "U10"); values are the max-min spread
+    # for teams within that age group.
+    game_count_spread_by_age_group: Dict[str, int] = field(default_factory=dict)
     # Structured fairness gate summarising pass/warn/fail status for the
     # main roster-based season fairness metrics.
     fairness_gate: Dict[str, object] = field(default_factory=dict)
