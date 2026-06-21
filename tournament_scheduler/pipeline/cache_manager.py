@@ -13,6 +13,7 @@ The HTML calendar viewer reads from this cache.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from datetime import datetime, timedelta
@@ -23,6 +24,22 @@ from typing import Any
 CACHE_DIR = "cache"
 CACHE_FILE = "scraped_data.json"
 DEFAULT_TTL_HOURS = 6
+
+
+def _compute_config_fingerprint(
+    url: str,
+    source_kind: str,
+    location_filter: str | None,
+) -> str:
+    """Return an MD5 hex digest of the config fields that affect scraping.
+
+    When any of *url*, *source_kind*, or *location_filter* changes the digest
+    changes, so stored cache entries with the old fingerprint are treated as
+    stale by :meth:`ScrapedDataCache.is_config_match`.
+    """
+    filter_part = location_filter or ""
+    raw = f"{url}|{source_kind}|{filter_part}"
+    return hashlib.md5(raw.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +131,8 @@ class ScrapedDataCache:
             url: str = source_result.get("url", "")
             events: list[dict[str, Any]] = source_result.get("events", [])
             blocked: bool = source_result.get("blocked", False)
+            source_kind: str = source_result.get("type", "")
+            location_filter: str | None = source_result.get("location_filter")
 
             entry = {
                 "name": name,
@@ -123,6 +142,7 @@ class ScrapedDataCache:
                 "event_count": len(events),
                 "blocked": blocked,
                 "events": events,
+                "config_fingerprint": _compute_config_fingerprint(url, source_kind, location_filter),
             }
 
             sources_data[name] = entry
@@ -159,6 +179,33 @@ class ScrapedDataCache:
             return now - scraped_at > self.ttl
         except (ValueError, TypeError):
             return True
+
+    def is_config_match(
+        self,
+        source_name: str,
+        url: str,
+        source_kind: str,
+        location_filter: str | None = None,
+    ) -> bool:
+        """Return True if the stored config fingerprint matches the current config.
+
+        A mismatch means the source's configuration has changed since the cache
+        entry was written (e.g. the URL or location_filter changed), so the
+        caller should treat the entry as a cache miss regardless of its age.
+
+        Returns False if the source has no stored fingerprint (legacy entries
+        written before this feature was added are conservatively treated as
+        mismatches).
+        """
+        cache = self.read()
+        entry = cache.get("sources", {}).get(source_name)
+        if not entry:
+            return False
+        stored = entry.get("config_fingerprint")
+        if not stored:
+            return False
+        expected = _compute_config_fingerprint(url, source_kind, location_filter)
+        return stored == expected
 
     def get_source_events(self, source_name: str) -> list[dict[str, Any]]:
         """Get cached events for a single source."""

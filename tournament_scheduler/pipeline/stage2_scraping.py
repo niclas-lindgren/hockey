@@ -378,6 +378,7 @@ def _scrape_source(
                 else None
             )
             events = _run_ical_scraper(url, name, start_date, end_date, source_type, calendar_cache, location_filter=_location_filter)
+            result["location_filter"] = _location_filter
         else:
             scraper_error = f"Ukjent kildetype '{source_type}'."
             deterministic_raised = True
@@ -423,7 +424,7 @@ def _scrape_source(
                 "event_pattern": strategy.event_pattern,
             }
 
-    result["events"] = _events_to_dicts(events)
+    result["events"] = _events_to_dicts(events, club_name=club_for_source_name(name))
     result["event_count"] = len(events)
     return result
 

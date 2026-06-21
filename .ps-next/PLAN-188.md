@@ -11,7 +11,7 @@
 - [x] Verified that scraper_ical.py already accepts and forwards location_filter to ICalScraper.scrape_calendar, and stage2_scraping.py already fetches location_filter from CLUB_REGISTRY and passes it to _run_ical_scraper — no code changes needed. — 2026-06-21
   - Files: tournament_scheduler/pipeline/stage2_scraping.py, tournament_scheduler/pipeline/scraper_ical.py
   - Approach: In `_run_ical_scraper` (stage2_scraping.py) and any helper in scraper_ical.py that calls into CalendarCache, pass the `location_filter` value already fetched from CLUB_REGISTRY so the updated `_get_cache_key` receives it.
-- [ ] Store config fingerprint in ScrapedDataCache per-source entries
+- [x] Added _compute_config_fingerprint helper and config_fingerprint field to per-source cache entries in ScrapedDataCache.build_from_checkpoint; added is_config_match method; propagated location_filter through stage2 source_result dict so build_from_checkpoint can include it in the fingerprint. — 2026-06-21
   - Files: tournament_scheduler/pipeline/cache_manager.py
   - Approach: Add a `config_fingerprint` field (md5 of relevant config: url, location_filter, source kind) to each per-source entry written by `build_from_checkpoint`; on cache read in `is_stale` or a new `is_config_match` method, compare stored fingerprint against freshly computed one and treat mismatch as a cache miss.
 - [ ] Invalidate ScrapedDataCache entries on config fingerprint mismatch
@@ -47,4 +47,11 @@ LESSONS: none
 **Findings:** Full location_filter propagation path confirmed in place: stage2_scraping.py:380 passes it to _run_ical_scraper which passes it to ICalScraper.scrape_calendar.
 LESSONS: none
 **Files:** no files changed — already implemented
+**Commit:** d5ab609 (hockey)
+
+### 2026-06-21 — Added _compute_config_fingerprint helper and config_fingerprint field to per-source cache entries in ScrapedDataCache.build_from_checkpoint; added is_config_match method; propagated location_filter through stage2 source_result dict so build_from_checkpoint can include it in the fingerprint.
+**Rationale:** Stored location_filter in source_result at the ical scraper dispatch point in stage2_scraping.py so it flows into the checkpoint and then into cache_manager without requiring CLUB_REGISTRY import in cache_manager.
+**Findings:** config_fingerprint is now stored per source entry and is_config_match returns False for legacy entries without a fingerprint (conservative invalidation).
+LESSONS: Legacy cache entries without config_fingerprint are treated as mismatches by is_config_match (returns False); callers should handle this as a cache miss.
+**Files:** cache_manager.py (+47/-0), stage2_scraping.py (+2/-1)
 **Commit:** [pending — fill after commit]
