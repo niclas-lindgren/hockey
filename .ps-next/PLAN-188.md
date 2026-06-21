@@ -8,7 +8,7 @@
 - [x] Extended _get_cache_key, get, and set in CalendarCache to accept an optional location_filter parameter included in the pipe-delimited hash string; updated ICalScraper.scrape_calendar to pass location_filter to both cache.get and cache.set. — 2026-06-21
   - Files: tournament_scheduler/utils/calendar_cache.py
   - Approach: Extend `_get_cache_key` to accept an optional `location_filter: str | None` parameter and include it in the pipe-delimited string before hashing; update all call sites in calendar_cache.py to pass the value through.
-- [ ] Propagate location_filter into CalendarCache calls from iCal scraper path
+- [x] Verified that scraper_ical.py already accepts and forwards location_filter to ICalScraper.scrape_calendar, and stage2_scraping.py already fetches location_filter from CLUB_REGISTRY and passes it to _run_ical_scraper — no code changes needed. — 2026-06-21
   - Files: tournament_scheduler/pipeline/stage2_scraping.py, tournament_scheduler/pipeline/scraper_ical.py
   - Approach: In `_run_ical_scraper` (stage2_scraping.py) and any helper in scraper_ical.py that calls into CalendarCache, pass the `location_filter` value already fetched from CLUB_REGISTRY so the updated `_get_cache_key` receives it.
 - [ ] Store config fingerprint in ScrapedDataCache per-source entries
@@ -40,4 +40,11 @@ Two separate caching layers exist: `tournament_scheduler/utils/calendar_cache.py
 **Findings:** cache.get and cache.set in ical_scraper.py now pass location_filter so different filters produce distinct cache entries; calendar_scraper.py callers unaffected (default None).
 LESSONS: none
 **Files:** ical_scraper.py (+6/-4), calendar_cache.py (+23/-6)
+**Commit:** 889d252 (hockey)
+
+### 2026-06-21 — Verified that scraper_ical.py already accepts and forwards location_filter to ICalScraper.scrape_calendar, and stage2_scraping.py already fetches location_filter from CLUB_REGISTRY and passes it to _run_ical_scraper — no code changes needed.
+**Rationale:** Already implemented as part of prior work; the full propagation path (CLUB_REGISTRY -> stage2 -> scraper_ical -> ICalScraper -> cache) was complete.
+**Findings:** Full location_filter propagation path confirmed in place: stage2_scraping.py:380 passes it to _run_ical_scraper which passes it to ICalScraper.scrape_calendar.
+LESSONS: none
+**Files:** no files changed — already implemented
 **Commit:** [pending — fill after commit]
