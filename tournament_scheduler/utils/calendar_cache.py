@@ -39,7 +39,14 @@ class CalendarCache:
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.ttl = timedelta(minutes=ttl_minutes)
 
-    def _get_cache_key(self, url: str, calendar_name: str, start_date: datetime, end_date: datetime) -> str:
+    def _get_cache_key(
+        self,
+        url: str,
+        calendar_name: str,
+        start_date: datetime,
+        end_date: datetime,
+        location_filter: Optional[str] = None,
+    ) -> str:
         """Generate cache key for a calendar request.
 
         Args:
@@ -47,11 +54,14 @@ class CalendarCache:
             calendar_name: Name of calendar
             start_date: Start date
             end_date: End date
+            location_filter: Optional location filter string; included in the
+                key so that different filters produce distinct cache entries.
 
         Returns:
             Cache key (hex hash)
         """
-        key_str = f"{url}|{calendar_name}|{start_date.isoformat()}|{end_date.isoformat()}"
+        filter_part = location_filter if location_filter is not None else ""
+        key_str = f"{url}|{calendar_name}|{start_date.isoformat()}|{end_date.isoformat()}|{filter_part}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
     def get(
@@ -59,7 +69,8 @@ class CalendarCache:
         url: str,
         calendar_name: str,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
+        location_filter: Optional[str] = None,
     ) -> Optional[List[CalendarEvent]]:
         """Get cached events if available and not stale.
 
@@ -68,11 +79,13 @@ class CalendarCache:
             calendar_name: Name of calendar
             start_date: Start date
             end_date: End date
+            location_filter: Optional location filter; must match the value
+                used when the entry was stored, or a cache miss is returned.
 
         Returns:
             List of CalendarEvent objects if cache hit, None otherwise
         """
-        cache_key = self._get_cache_key(url, calendar_name, start_date, end_date)
+        cache_key = self._get_cache_key(url, calendar_name, start_date, end_date, location_filter)
         cache_file = self.cache_dir / f"{cache_key}.json"
 
         if not cache_file.exists():
@@ -110,7 +123,8 @@ class CalendarCache:
         calendar_name: str,
         start_date: datetime,
         end_date: datetime,
-        events: List[CalendarEvent]
+        events: List[CalendarEvent],
+        location_filter: Optional[str] = None,
     ) -> None:
         """Cache calendar events.
 
@@ -120,8 +134,11 @@ class CalendarCache:
             start_date: Start date
             end_date: End date
             events: List of CalendarEvent objects to cache
+            location_filter: Optional location filter used when fetching these
+                events; stored in the cache key so different filters are
+                cached independently.
         """
-        cache_key = self._get_cache_key(url, calendar_name, start_date, end_date)
+        cache_key = self._get_cache_key(url, calendar_name, start_date, end_date, location_filter)
         cache_file = self.cache_dir / f"{cache_key}.json"
 
         # Serialize events

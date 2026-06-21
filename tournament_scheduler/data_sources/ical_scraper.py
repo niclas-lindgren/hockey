@@ -69,7 +69,7 @@ class ICalScraper(CalendarScraper):
 
         # Check cache first (use iCal URL as the "url" parameter)
         ical_url = self._feed_url()
-        cached_events = self.cache.get(ical_url, calendar_name, start_date, end_date)
+        cached_events = self.cache.get(ical_url, calendar_name, start_date, end_date, location_filter)
         if cached_events is not None:
             console.print(f"  [green]✓[/green] Bruker cachet {calendar_name} kalenderdata ([cyan]{len(cached_events)}[/cyan] hendelser)")
             return cached_events
@@ -98,9 +98,10 @@ class ICalScraper(CalendarScraper):
                 end_dt = event.get('DTEND').dt if event.get('DTEND') else None
                 summary = str(event.get('SUMMARY', ''))
 
+                location = str(event.get('LOCATION', ''))
+
                 # Apply location filter if specified
                 if location_filter is not None:
-                    location = str(event.get('LOCATION', ''))
                     if location_filter.lower() not in location.lower():
                         continue
 
@@ -125,7 +126,8 @@ class ICalScraper(CalendarScraper):
                     date=event_date_str,
                     name=summary,
                     datetime=event_datetime,
-                    duration_hours=duration_hours
+                    duration_hours=duration_hours,
+                    location=location,
                 ))
 
             # Deduplicate
@@ -140,7 +142,7 @@ class ICalScraper(CalendarScraper):
             console.print(f"  [green]✓[/green] Skrapte [cyan]{len(unique_events)}[/cyan] hendelser fra {calendar_name}")
 
             # Cache the results
-            self.cache.set(ical_url, calendar_name, start_date, end_date, unique_events)
+            self.cache.set(ical_url, calendar_name, start_date, end_date, unique_events, location_filter)
 
             return unique_events
 
