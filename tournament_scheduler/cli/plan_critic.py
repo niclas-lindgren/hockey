@@ -446,22 +446,24 @@ def count_critic_issues_from_dict(plan_dict: dict) -> int:
     if spread > 4:
         count += 1
 
-    # Hosting clumps
-    host_month_counts: dict = defaultdict(int)
+    # Hosting clumps — scoped per age group so that hosting one tournament per
+    # age group per month does not trigger a false-positive clump warning.
+    host_month_days: dict = defaultdict(set)
     for t in plan_dict.get("tournaments") or []:
         if t.get("cancelled"):
             continue
         host_club = t.get("host_club")
         date_str = t.get("date")
-        if host_club and date_str:
+        age_group = t.get("age_group")
+        if host_club and date_str and age_group:
             try:
                 from datetime import date as _date
                 d = _date.fromisoformat(date_str)
-                host_month_counts[(host_club, d.year, d.month)] += 1
+                host_month_days[(host_club, d.year, d.month, age_group)].add(d)
             except (ValueError, TypeError):
                 pass
-    for cnt in host_month_counts.values():
-        if cnt > 2:
+    for day_set in host_month_days.values():
+        if len(day_set) > 2:
             count += 1
 
     # Low month balance

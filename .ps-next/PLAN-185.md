@@ -15,7 +15,7 @@
   - Files: `tournament_scheduler/cli/plan_critic.py`
   - Approach: Change `host_month_days` key from `(host_club, t_date.year, t_date.month)` to `(host_club, t_date.year, t_date.month, age_group)` so that day-deduplication and the >2 threshold are evaluated per age group. Retrieve `age_group` via `getattr(t, "age_group", None)` and skip entries where it is missing.
 
-- [ ] Update `count_critic_issues_from_dict` to count per age group
+- [x] Scoped count_critic_issues_from_dict's hosting clump check to (host_club, year, month, age_group) using a set of dates for day-deduplication, matching the generate_critic_summary fix from task 1. — 2026-06-21
   - Files: `tournament_scheduler/cli/plan_critic.py`
   - Approach: Change `host_month_counts` key from `(host_club, d.year, d.month)` to `(host_club, d.year, d.month, age_group)` by reading `t.get("age_group")` from each serialized tournament dict before incrementing the counter. Skip entries with a missing age_group rather than conflating them.
 
@@ -51,4 +51,11 @@ Running pytest against the updated plan_critic module returns no false-positive 
 **Findings:** All 23 plan_critic tests pass including the new test_three_age_groups_on_three_days_no_clump.
 LESSONS: none
 **Files:** tests/test_plan_critic.py (+19/-0), tournament_scheduler/cli/plan_critic.py (+15/-6)
+**Commit:** 0a5738a (hockey)
+
+### 2026-06-21 — Scoped count_critic_issues_from_dict's hosting clump check to (host_club, year, month, age_group) using a set of dates for day-deduplication, matching the generate_critic_summary fix from task 1.
+**Rationale:** Mirrored the same approach used in task 1 for consistency. Both functions now use defaultdict(set) keyed by age_group to count distinct hosting days.
+**Findings:** All 23 plan_critic tests pass.
+LESSONS: none
+**Files:** tournament_scheduler/cli/plan_critic.py (+8/-6)
 **Commit:** [pending — fill after commit]
