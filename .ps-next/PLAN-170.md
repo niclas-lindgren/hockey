@@ -13,7 +13,7 @@
   - Files: tournament_scheduler/pipeline/cancellation_workflow.py
   - Approach: Confirm that the guards `set(result.available_dates) if result else set()` on line 229 and `(result.detailed_exclusions if result else [])` on line 234 cover all cases where result is None after the broadened try/except; add `or []` fallback to detailed_exclusions access if result is truthy but detailed_exclusions is unexpectedly falsy.
 
-- [ ] Add test cases for scheduler failure paths in suggest_makeup_dates
+- [x] Added two new test cases in TestSuggestMakeupDates: one for _make_lightweight_scheduler raising RuntimeError and one for find_available_dates raising RuntimeError, both confirming suggest_makeup_dates returns [] without crashing. — 2026-06-21
   - Files: tests/test_cancellation_workflow.py
   - Approach: Add two new test cases in the existing test file: one that patches _make_lightweight_scheduler to raise an exception (verifying the method returns an empty list without crashing), and one that patches find_available_dates to raise (confirming the same graceful-return behaviour), following the MagicMock/patch patterns already used in the file.
 
@@ -50,4 +50,11 @@ LESSONS: none
 **Findings:** detailed_exclusions defaults to [] in SchedulingResult so the existing guard is sufficient; or [] fallback added for extra safety.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/cancellation_workflow.py (+1/-1)
+**Commit:** pending — fill after commit
+
+### 2026-06-21 — Added two new test cases in TestSuggestMakeupDates: one for _make_lightweight_scheduler raising RuntimeError and one for find_available_dates raising RuntimeError, both confirming suggest_makeup_dates returns [] without crashing.
+**Rationale:** none
+**Findings:** Both new tests pass; total test count for test_cancellation_workflow.py increased from 20 to 22.
+LESSONS: none
+**Files:** tests/test_cancellation_workflow.py (+45/-0)
 **Commit:** pending — fill after commit

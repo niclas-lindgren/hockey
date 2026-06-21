@@ -321,6 +321,51 @@ class TestSuggestMakeupDates:
         for s in suggestions:
             assert s.date != t3.date, f"t3's date {t3.date} should be excluded (not cancelled)"
 
+    def test_scheduler_construction_failure_returns_empty(
+        self, multi_tournament_plan, tmp_path: Any
+    ):
+        """If _make_lightweight_scheduler raises, suggest_makeup_dates returns [] without crashing."""
+        plan, t1, _t2, _t3 = multi_tournament_plan
+        state = make_state_with_plan(plan, tmp_path)
+        wf = CancellationWorkflow(state)
+
+        with patch.object(
+            wf,
+            "_make_lightweight_scheduler",
+            side_effect=RuntimeError("Scheduler init failed"),
+        ):
+            suggestions = wf.suggest_makeup_dates(t1, plan)
+
+        assert suggestions == [], (
+            "Expected empty list when scheduler construction fails, got: "
+            f"{suggestions}"
+        )
+
+    def test_find_available_dates_failure_returns_empty(
+        self, multi_tournament_plan, tmp_path: Any
+    ):
+        """If find_available_dates raises, suggest_makeup_dates returns [] without crashing."""
+        plan, t1, _t2, _t3 = multi_tournament_plan
+        state = make_state_with_plan(plan, tmp_path)
+        wf = CancellationWorkflow(state)
+
+        mock_scheduler = MagicMock()
+        mock_scheduler.find_available_dates.side_effect = RuntimeError(
+            "Calendar fetch failed"
+        )
+
+        with patch.object(
+            wf,
+            "_make_lightweight_scheduler",
+            return_value=mock_scheduler,
+        ):
+            suggestions = wf.suggest_makeup_dates(t1, plan)
+
+        assert suggestions == [], (
+            "Expected empty list when find_available_dates fails, got: "
+            f"{suggestions}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Test 3: Apply makeup
