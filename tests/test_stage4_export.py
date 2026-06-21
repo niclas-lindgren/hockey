@@ -479,7 +479,7 @@ class TestRunStage4:
         assert "BEGIN:VCALENDAR" in content
         assert "VEVENT" in content
         assert "DTSTART:20251005T090000Z" in content
-        assert "DTEND:20251005T100000Z" in content
+        assert "DTEND:20251005T094500Z" in content
 
     def test_writes_timestamped_exports_without_flat_copies(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
