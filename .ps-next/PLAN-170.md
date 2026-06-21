@@ -9,7 +9,7 @@
   - Files: tournament_scheduler/pipeline/cancellation_workflow.py
   - Approach: In suggest_makeup_dates, initialise result = None before the try block, then wrap the _make_lightweight_scheduler() call (line 211) and the find_available_dates call together in a single try/except so that any scheduler initialisation failure is caught and logged, matching the existing exception-handling pattern for find_available_dates.
 
-- [ ] Verify existing None guards on lines 229 and 234 are sufficient for all scheduler failure paths
+- [x] Confirmed existing None guards on lines 229 and 233 are sufficient; SchedulingResult.detailed_exclusions always defaults to [] so result.detailed_exclusions is never None when result is truthy. Added or [] fallback as extra defensive measure. — 2026-06-21
   - Files: tournament_scheduler/pipeline/cancellation_workflow.py
   - Approach: Confirm that the guards `set(result.available_dates) if result else set()` on line 229 and `(result.detailed_exclusions if result else [])` on line 234 cover all cases where result is None after the broadened try/except; add `or []` fallback to detailed_exclusions access if result is truthy but detailed_exclusions is unexpectedly falsy.
 
@@ -43,4 +43,11 @@ SchedulingResult.detailed_exclusions is typed as List[Tuple[date, str]] (no Opti
 **Findings:** resultNone initialisation and unified try/except prevent NameError when scheduler construction fails; all 20 cancellation workflow tests still pass.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/cancellation_workflow.py (+3/-4)
+**Commit:** pending — fill after commit
+
+### 2026-06-21 — Confirmed existing None guards on lines 229 and 233 are sufficient; SchedulingResult.detailed_exclusions always defaults to [] so result.detailed_exclusions is never None when result is truthy. Added or [] fallback as extra defensive measure.
+**Rationale:** SchedulingResult dataclass defines detailed_exclusions: List[Tuple[date,str]]  field(default_factorylist), so the truthy-result guard already ensures a list; the or [] fallback adds a belt-and-suspenders defence against any future subclass overriding the field.
+**Findings:** detailed_exclusions defaults to [] in SchedulingResult so the existing guard is sufficient; or [] fallback added for extra safety.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/cancellation_workflow.py (+1/-1)
 **Commit:** pending — fill after commit

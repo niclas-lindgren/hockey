@@ -230,7 +230,7 @@ class CancellationWorkflow:
 
         # Collect conflict reasons from the scheduler for transparency.
         conflict_by_date: dict[date, list[dict[str, Any]]] = {}
-        for excl_date, reason in (result.detailed_exclusions if result else []):
+        for excl_date, reason in (result.detailed_exclusions if result else []) or []:
             conflict_by_date.setdefault(excl_date, []).append({
                 "date": excl_date.isoformat(),
                 "reason": reason,
