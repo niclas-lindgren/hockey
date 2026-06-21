@@ -99,7 +99,56 @@ After success, read `.pipeline/stage3_planning.json` and verify:
 - No two tournaments with overlapping player pools are scheduled on the same weekend
 - `rules_report` section (if present) shows no critical violations
 
-If the plan is valid (tournaments non-empty, no critical rule violations), proceed directly to Stage 4 without asking the user. Only stop if something looks wrong (empty plan, critical violations, or structural errors).
+If the plan is invalid (empty plan, critical rule violations, or structural errors), stop and report the issue to the user.
+
+If the plan is valid, run the verdict command to capture the judgment tone:
+
+```bash
+python3 -m tournament_scheduler.cli.rvv_cli verdict --work-dir .pipeline
+```
+
+Parse the `tone=` line from the output. The possible values are `rough`, `mixed`, and `strong`.
+
+Store:
+- `initial_tone` — the tone value read here
+- `refinement_iterations` — counter, start at 0
+
+**Tone-gated refinement loop (up to 3 iterations):**
+
+While `tone == "rough"` and `refinement_iterations < 3`:
+
+1. Run auto-adjust:
+
+   ```bash
+   python3 -m tournament_scheduler.cli.rvv_cli auto-adjust --work-dir .pipeline --max-iterations 3
+   ```
+
+2. Re-run Stage 4 export:
+
+   ```bash
+   python3 -m tournament_scheduler.pipeline.stage4_export [--work-dir .pipeline] [--export-dir export] [--no-timestamped-export]
+   ```
+
+3. Re-check tone:
+
+   ```bash
+   python3 -m tournament_scheduler.cli.rvv_cli verdict --work-dir .pipeline
+   ```
+
+   Parse the new `tone=` value.
+
+4. Increment `refinement_iterations`.
+
+5. If `tone` is no longer `"rough"`, exit the loop early.
+
+If `tone` is `mixed` or `strong` (either initially or after refinement), proceed to Stage 4.
+
+**After the refinement loop, report to the user:**
+
+- Initial tone: `<initial_tone>`
+- Refinement iterations run: `<refinement_iterations>` (0 if no refinement was needed)
+- Final tone: `<tone>`
+- If `refinement_iterations >= 3` and `tone` is still `"rough"`, note that the cap was reached and the plan may still need manual review.
 
 ### Stage 4 — Export
 
