@@ -2,9 +2,8 @@
 
 ## Open
 
-- [183] Fix plan critic and auto-adjust to count hosting *days* not tournaments: `generate_critic_summary` and `suggest_moves` in `plan_critic.py` currently flag clubs with >2 tournaments in a month, but multiple age-group tournaments on the *same day* at the same arena represent one hosting duty, not several. Change the clump check to count distinct `(host_club, date)` pairs per month (not raw tournament count). A club hosting 4 tournaments across 2 days should read as 2 hosting days — not flagged. A club hosting 3 tournaments across 3 separate days should be flagged at threshold 2. Update `suggest_moves` to propose moving the last *hosting day* rather than the last individual tournament, and move all tournaments on that day together to avoid partial-day splits. Acceptance: same-day consecutive tournaments at one arena do not trigger the clump warning; multi-day clumps still trigger correctly; auto-adjust convergence test runs to completion without cycling.
-
 ## Done
+- [183] [x] Fix plan critic and auto-adjust to count hosting *days* not tournaments — changed clump check to distinct (host_club, date) pairs per month, suggest_moves now moves all tournaments on a day together, tests updated (2026-06-21)
 - [182] [x] Add monthly hosting-day constraint to Stage 3 planner — exposed max_hosting_days_per_month in Innstillinger sheet, forwarded through Stage 1, enforced as distinct-day cap in season_planner.py, added unit tests (2026-06-21)
 - [181] [x] Tone-gated auto-adjust refinement loop — added TestToneGatedOrchestration (4 tests) to test_auto_adjust.py covering rough-triggers-loop, cap-at-3, early-exit-on-improvement, and no-adjust-on-mixed/strong; run.md Stage 3 verified complete (2026-06-21)
 - [180] [x] Remove "Min ærlige dom" judgment section and consolidate into hero — deleted render_opinionated_judgment_html, drove hero overall_status from judgment tone, moved 4 detail cards into hero (2026-06-21)
