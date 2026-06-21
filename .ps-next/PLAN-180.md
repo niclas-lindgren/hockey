@@ -17,7 +17,7 @@
   - Files: `tournament_scheduler/html/html_exporter.py`
   - Approach: Replace the `status_rank` logic around lines 396-403 that reads `plan.fairness_gate.get("status")` with a direct mapping from the `tone` key of the `analyze_opinionated_judgment` result (`rough→fail`, `mixed→warn`, `strong→pass`), keeping the `blocked`/`cancelled` override to `warn` if needed.
 
-- [ ] Add a `$REPORT_JUDGMENT_CARDS$` placeholder to the hero in `report_overview.html` and remove `$REPORT_JUDGMENT$`
+- [x] Added $REPORT_JUDGMENT_CARDS$ placeholder inside the hero div below $REPORT_NOTE$ in report_overview.html. $REPORT_JUDGMENT$ was already removed in task 1. — 2026-06-21
   - Files: `tournament_scheduler/html/templates/report_overview.html`
   - Approach: Remove the `$REPORT_JUDGMENT$` line that appears after the hero div; add a `$REPORT_JUDGMENT_CARDS$` placeholder inside the hero div (below `$REPORT_NOTE$`) where the 4 detail cards will be injected.
 
@@ -57,4 +57,11 @@ LESSONS: none
 **Findings:** overall_status now comes from tone key of analyze_opinionated_judgment result; fairness gate still used for action items; all tests pass.
 LESSONS: none
 **Files:** html_exporter.py (+2/-1)
+**Commit:** 44b50ce (hockey)
+
+### 2026-06-21 — Added $REPORT_JUDGMENT_CARDS$ placeholder inside the hero div below $REPORT_NOTE$ in report_overview.html. $REPORT_JUDGMENT$ was already removed in task 1.
+**Rationale:** none
+**Findings:** $REPORT_JUDGMENT_CARDS$ now sits inside the hero div below $REPORT_NOTE$ ready for injection in the next task.
+LESSONS: none
+**Files:** report_overview.html (+1)
 **Commit:** [pending — fill after commit]
