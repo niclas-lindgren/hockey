@@ -27,7 +27,7 @@
   - Files: `input.xlsx`
   - Approach: Open the workbook and append a new row to the Innstillinger sheet with `felt = "max_hosting_days_per_month"` and `verdi = 2`, following the existing key/value layout; save the file.
 
-- [ ] Add unit tests for the monthly hosting-day constraint in `test_season_planner.py`
+- [x] Added TestHostingDaysConstraint class with 3 tests: large penalty when all clubs at cap, no penalty when below cap, and candidate date not counted against cap. All tests pass. — 2026-06-21
   - Files: `tests/test_season_planner.py`
   - Approach: Write test cases that construct a minimal `SeasonPlanner` with `max_hosting_days_per_month=2`, schedule enough tournaments for one club to hit the cap in a single month, and assert that `_score_candidate_date` returns a large penalty for a date that would exceed the cap. Also add a regression test confirming the constraint is not triggered when hosting days are below the threshold.
 
@@ -71,4 +71,11 @@ LESSONS: load_effective_config in stage1_config.py must also be updated to pass 
 **Findings:** Row added successfully; stage1_helpers._parse_config will now read and forward this value.
 LESSONS: none
 **Files:** input.xlsx (binary, row added)
+**Commit:** 3e4a26b (hockey)
+
+### 2026-06-21 — Added TestHostingDaysConstraint class with 3 tests: large penalty when all clubs at cap, no penalty when below cap, and candidate date not counted against cap. All tests pass.
+**Rationale:** none
+**Findings:** All 3 constraint tests pass. Full test suite (excluding pre-existing test_auto_adjust.py failure) passes.
+LESSONS: none
+**Files:** tests/test_season_planner.py (+59)
 **Commit:** [pending — fill after commit]

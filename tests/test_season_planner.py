@@ -2280,3 +2280,62 @@ class TestFairnessGate:
 
         assert gate["status"] in {"warn", "fail"}
         assert any(metric["status"] == "fail" for metric in gate["metrics"])
+
+
+class TestHostingDaysConstraint:
+    """Unit tests for the max_hosting_days_per_month scoring constraint."""
+
+    def _make_planner(self, max_days: int = 2):
+        clubs = ["Jar", "Holmen"]
+        age_groups = ["U10"]
+        roster = _build_roster(clubs, age_groups)
+        free_dates = all_weekend_dates(datetime(2027, 9, 1), datetime(2027, 11, 30))
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+        return SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            max_hosting_days_per_month=max_days,
+        )
+
+    def test_large_penalty_when_all_clubs_at_cap(self):
+        """_score_candidate_date returns >= 1e6 when all clubs have hit the monthly cap."""
+        planner = self._make_planner(max_days=2)
+        # Both clubs already host 2 distinct October days (neither is the candidate).
+        oct_key = (2027, 10)
+        planner._hosting_days_by_club_month = {
+            ("Jar", oct_key): {date(2027, 10, 2), date(2027, 10, 9)},
+            ("Holmen", oct_key): {date(2027, 10, 16), date(2027, 10, 23)},
+        }
+        candidate = date(2027, 10, 30)
+        teams = list(planner.roster.teams)
+        score = planner._score_candidate_date(candidate, "U10", teams, 1.0)
+        assert score >= 1e6, f"Expected large penalty, got {score}"
+
+    def test_no_penalty_when_below_cap(self):
+        """_score_candidate_date does not penalise when clubs are below the monthly cap."""
+        planner = self._make_planner(max_days=2)
+        # Both clubs have only 1 hosting day in October — still below cap of 2.
+        oct_key = (2027, 10)
+        planner._hosting_days_by_club_month = {
+            ("Jar", oct_key): {date(2027, 10, 2)},
+            ("Holmen", oct_key): {date(2027, 10, 16)},
+        }
+        candidate = date(2027, 10, 30)
+        teams = list(planner.roster.teams)
+        score = planner._score_candidate_date(candidate, "U10", teams, 1.0)
+        assert score < 1e6, f"Expected no large penalty, got {score}"
+
+    def test_candidate_date_itself_not_counted_against_cap(self):
+        """A club hosting on the candidate date itself is not double-counted."""
+        planner = self._make_planner(max_days=2)
+        # Jar has 2 days but one of them IS the candidate — so effective count is 1.
+        candidate = date(2027, 10, 30)
+        oct_key = (2027, 10)
+        planner._hosting_days_by_club_month = {
+            ("Jar", oct_key): {date(2027, 10, 2), candidate},
+            ("Holmen", oct_key): {date(2027, 10, 16)},
+        }
+        teams = list(planner.roster.teams)
+        score = planner._score_candidate_date(candidate, "U10", teams, 1.0)
+        assert score < 1e6, f"Candidate date should not count against the cap; got {score}"
