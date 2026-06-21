@@ -115,6 +115,12 @@ class TournamentUpdater:
             end_date=_parse_date(plan_data.get("end_date")),
             manual_adjustments=dict(plan_data.get("manual_adjustments", {})),
             arena_day_collisions=list(plan_data.get("arena_day_collisions", [])),
+            pairwise_matchup_score=float(plan_data.get("pairwise_matchup_score", 0.0)),
+            diversity_score=float(plan_data.get("diversity_score", 0.0)),
+            month_balance_score=float(plan_data.get("month_balance_score", 0.0)),
+            fairness_gate=dict(plan_data.get("fairness_gate") or {}),
+            game_count_spread=float(plan_data.get("game_count_spread", 0.0)),
+            team_game_counts=dict(plan_data.get("team_game_counts") or {}),
         )
         return plan
 

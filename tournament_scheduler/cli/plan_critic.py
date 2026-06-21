@@ -85,19 +85,22 @@ def generate_critic_summary(plan: "SeasonPlan") -> List[str]:
         )
 
     # ------------------------------------------------------------------
-    # 5. Hosting clumps: >2 tournaments at same club in same month
+    # 5. Hosting clumps: >2 distinct hosting days at same club in same month
+    #    A "hosting day" is a unique date — multiple age-group tournaments on
+    #    the same day at the same arena count as one hosting duty.
     # ------------------------------------------------------------------
     tournaments = getattr(plan, "tournaments", []) or []
-    host_month_counts: dict = defaultdict(int)
+    host_month_days: dict = defaultdict(set)
     for t in tournaments:
         if getattr(t, "cancelled", False):
             continue
         host_club = getattr(t, "host_club", None)
         t_date = getattr(t, "date", None)
         if host_club and t_date:
-            host_month_counts[(host_club, t_date.year, t_date.month)] += 1
+            host_month_days[(host_club, t_date.year, t_date.month)].add(t_date)
 
-    for (club, year, month), count in sorted(host_month_counts.items()):
+    for (club, year, month), day_set in sorted(host_month_days.items()):
+        count = len(day_set)
         if count > 2:
             month_name = calendar.month_name[month]
             clump_issues.append(
@@ -146,7 +149,9 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
     moves: List[Dict] = []
 
     tournaments = getattr(plan, "tournaments", []) or []
-    # Build a lookup from (arena, date_iso) → tournament id for collision resolution
+    # Build a lookup from (arena, date_iso) → tournament id for collision resolution.
+    # This dict is also mutated as moves are generated so that two moves in the same
+    # call never target the same (arena, date) slot — preventing cascade conflicts.
     arena_date_to_tid: Dict[tuple, str] = {}
     for t in tournaments:
         if getattr(t, "cancelled", False):
@@ -155,6 +160,16 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
         t_arena = getattr(t, "arena", None)
         if t_date and t_arena:
             arena_date_to_tid[(t_arena, t_date.isoformat())] = t.id
+
+    # Build a lookup from (host_club, year, month) → count (for target-month selection)
+    _club_month_count: Dict[tuple, int] = defaultdict(int)
+    for t in tournaments:
+        if getattr(t, "cancelled", False):
+            continue
+        host_club = getattr(t, "host_club", None)
+        t_date = getattr(t, "date", None)
+        if host_club and t_date:
+            _club_month_count[(host_club, t_date.year, t_date.month)] += 1
 
     # Build a lookup from (host_club, year, month) → list of tournament ids
     host_month_to_tids: Dict[tuple, List[str]] = defaultdict(list)
@@ -225,21 +240,68 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
             tids = host_month_to_tids.get((club, year, month_num), [])
             # Suggest moving the last tournament in the clumped month
             target_tid = tids[-1] if tids else ""
-            # Find that tournament's current date and propose +7d
-            new_date = None
+            # Find the target tournament's arena so we can check for free dates
+            target_arena = None
+            target_date = None
             for t in tournaments:
                 if t.id == target_tid:
-                    t_date = getattr(t, "date", None)
-                    if t_date:
-                        new_date = (t_date + timedelta(weeks=1)).isoformat()
+                    target_date = getattr(t, "date", None)
+                    target_arena = getattr(t, "arena", None)
                     break
+            # Find a free weekend in a month where this club has ≤ 1 tournament
+            # (so adding one stays under the >2 threshold).  Prefer the nearest such month.
+            new_date = None
+            if target_date:
+                from datetime import date as _date
+                plan_end = getattr(plan, "end_date", None)
+                # Collect months where club already has ≤ 1 tournament, sorted by proximity
+                candidate_months = sorted(
+                    [
+                        (abs((y2 * 12 + m2) - (year * 12 + month_num)), y2, m2)
+                        for (c, y2, m2), cnt in _club_month_count.items()
+                        if c == club and cnt <= 1 and not (y2 == year and m2 == month_num)
+                    ]
+                )
+                for _dist, ty, tm in candidate_months:
+                    # Walk weekends within that month looking for a free arena slot
+                    _, last_day = calendar.monthrange(ty, tm)
+                    candidate = _date(ty, tm, 1)
+                    month_end_date = _date(ty, tm, last_day)
+                    while candidate <= month_end_date:
+                        if candidate.weekday() in (5, 6):
+                            key = (target_arena, candidate.isoformat())
+                            if key not in arena_date_to_tid:
+                                if plan_end is None or candidate <= plan_end:
+                                    new_date = candidate.isoformat()
+                                    break
+                        candidate += timedelta(days=1)
+                    if new_date:
+                        break
+                # Fall back to first free weekend after crowded month if no low-count month found
+                if new_date is None:
+                    _, last_day = calendar.monthrange(year, month_num)
+                    month_end = _date(year, month_num, last_day)
+                    candidate = month_end + timedelta(days=1)
+                    for _ in range(60):
+                        if candidate.weekday() in (5, 6):
+                            key = (target_arena, candidate.isoformat())
+                            if key not in arena_date_to_tid:
+                                new_date = candidate.isoformat()
+                                break
+                        candidate += timedelta(days=1)
+                if new_date is None:
+                    new_date = (target_date + timedelta(weeks=1)).isoformat()
+            # Mark the chosen target slot as occupied so subsequent moves in this
+            # same suggest_moves call don't also target the same (arena, date).
+            if new_date and target_arena:
+                arena_date_to_tid[(target_arena, new_date)] = target_tid
             moves.append(
                 {
                     "tournament_id": target_tid,
                     "new_date": new_date,
                     "reason": (
                         f"{club} hosts too many tournaments in {month_name} {year}; "
-                        "move one to the following weekend to distribute load."
+                        "move one to a month where this club has capacity (≤1 tournament)."
                     ),
                     "can_auto_fix": True,
                     "issue": issue,

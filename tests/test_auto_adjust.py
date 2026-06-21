@@ -9,6 +9,7 @@ import pytest
 
 from tournament_scheduler.cli.plan_critic import suggest_moves
 from tournament_scheduler.models import SeasonPlan, Tournament
+from tournament_scheduler.pipeline.stage3_planning import _plan_to_dict
 
 
 # ---------------------------------------------------------------------------
@@ -128,8 +129,10 @@ class TestSuggestMovesHostingClump:
         m = moves[0]
         assert m["can_auto_fix"] is True
         assert m["tournament_id"] == t3.id  # last in month
-        expected_new_date = (date(2027, 9, 18) + timedelta(weeks=1)).isoformat()
-        assert m["new_date"] == expected_new_date
+        # The move targets the first free weekend after the crowded month ends,
+        # not merely +7 days from the tournament date.
+        # September ends on the 30th; October 2nd (Saturday) is the first free weekend.
+        assert m["new_date"] == "2027-10-02"
 
     def test_clump_targets_last_tournament_in_month(self):
         t1 = _make_tournament("Ringerike", 2027, 10, 2)
@@ -217,7 +220,9 @@ class TestSuggestMovesUnrecognised:
 
 
 def _make_checkpoint(plan: SeasonPlan) -> dict:
-    return {"plan": plan}
+    # load_plan() in TournamentUpdater expects data["plan"] to be a serialised
+    # dict (via _plan_to_dict), not a SeasonPlan object directly.
+    return {"plan": _plan_to_dict(plan)}
 
 
 class TestCmdAutoAdjustLoopBehavior:
