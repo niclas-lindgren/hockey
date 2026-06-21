@@ -18,7 +18,7 @@
   - Files: tournament_scheduler/pipeline/stage4_export.py
   - Approach: After generating calendars.html, pass its absolute path as `calendars_path=` when calling `HtmlExporter().export()` for both season_plan.html and season_plan_report.html.
 
-- [ ] Add or update a test asserting that season_plan.html contains the calendars.html navbar link when scrape cache is present
+- [x] Fixed test_calendars_html_generated_when_scrape_cache_populated: moved total_events and source_count from _meta to top-level in the cache dict (stage4_export checks top-level keys), and added assertion that season_plan.html contains href"calendars.html". — 2026-06-21
   - Files: tests/test_stage4_export.py
   - Approach: In the existing test that checks for calendars.html generation (lines ~665-699), also assert that the rendered season_plan.html content contains an `href="calendars.html"` anchor, covering the previously missing link.
 
@@ -55,4 +55,11 @@ LESSONS: none
 **Findings:** calendars_path_calendars_path is wired at stage4_export.py line 214.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage4_export.py (+2/-0 in e67ba38)
+**Commit:** 4d8a2d2 (hockey)
+
+### 2026-06-21 — Fixed test_calendars_html_generated_when_scrape_cache_populated: moved total_events and source_count from _meta to top-level in the cache dict (stage4_export checks top-level keys), and added assertion that season_plan.html contains href"calendars.html".
+**Rationale:** Test was silently broken before — total_events was inside _meta so the top-level check always returned 0 and calendars.html was never generated. Moved keys to top-level to match ScrapedDataCache.build_from_checkpoint() output format.
+**Findings:** Both calendars_html tests now pass; full suite 657/657 pass.
+LESSONS: test_calendars_html_generated: total_events/source_count must be at top level of cache dict, not inside _meta — stage4_export uses _scrape_cache_data.get("total_events") not _scrape_cache_data["_meta"].get("total_events")
+**Files:** tests/test_stage4_export.py (+9/-4)
 **Commit:** [pending — fill after commit]

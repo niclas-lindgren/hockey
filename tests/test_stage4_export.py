@@ -663,17 +663,19 @@ class TestRunStage4:
         assert "Kritisk skjevfordeling hjemme." in report_html
 
     def test_calendars_html_generated_when_scrape_cache_populated(self, tmp_path):
-        """stage4 should write calendars.html when the scrape cache contains events."""
+        """stage4 should write calendars.html when the scrape cache contains events and link it in the navbar."""
         work_dir = tmp_path / "pipeline"
         state = PipelineState(work_dir)
-        # Populate scrape cache so generate_html has data to render
+        # Populate scrape cache so generate_html has data to render.
+        # total_events and source_count must be at the top level — stage4_export checks those keys directly,
+        # not the _meta sub-dict.
         cache = ScrapedDataCache(str(work_dir))
         cache.write({
             "_meta": {
-                "source_count": 1,
-                "total_events": 2,
                 "updated_at": "2025-01-01T00:00:00",
             },
+            "source_count": 1,
+            "total_events": 2,
             "sources": {
                 "TestClub": {
                     "events": [
@@ -688,6 +690,9 @@ class TestRunStage4:
         files = result.get("output_files", {})
         assert "calendars_html" in files
         assert Path(files["calendars_html"]).exists()
+        # The navbar in season_plan.html must contain a link to calendars.html
+        html = Path(files["html"]).read_text(encoding="utf-8")
+        assert 'href="calendars.html"' in html, "season_plan.html navbar must link to calendars.html when scrape cache is present"
 
     def test_calendars_html_absent_and_nav_link_hidden_when_no_scrape_cache(self, tmp_path):
         """When no scrape cache exists, calendars.html should not be generated and the navbar link should be hidden."""
