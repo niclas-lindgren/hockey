@@ -27,7 +27,7 @@
   - Files: tournament_scheduler/pipeline/manual_adjustment_workflow.py
   - Approach: In lines 309-311, after updating `plan.game_count_spread`, also recompute `plan.game_count_spread_by_age_group` using the same per-age-group grouping logic added in season_planner.py. Extract the grouping logic into a shared helper if needed to avoid duplication.
 
-- [ ] Update rich_output display to use per-age-group spread
+- [x] When game_count_spread_by_age_group is populated the table caption now shows per-group spreads (e.g. 'U7: 1, U12: 3 kamper'); falls back to the global spread display when the field is absent. — 2026-06-21
   - Files: tournament_scheduler/utils/rich_output.py
   - Approach: In the game count spread display block (line ~496), replace `plan.game_count_spread` with per-age-group output when `plan.game_count_spread_by_age_group` is populated, showing each age group's spread on its own line with the group label.
 
@@ -90,4 +90,11 @@ LESSONS: team public keys in team_game_counts may be plain 'label' or 'label (Cl
 **Findings:** Both game_count_spread_by_age_group and global game_count_spread are now kept in sync after manual adjustments.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/manual_adjustment_workflow.py (+24/-2)
+**Commit:** 7b31463 (hockey)
+
+### 2026-06-21 — When game_count_spread_by_age_group is populated the table caption now shows per-group spreads (e.g. 'U7: 1, U12: 3 kamper'); falls back to the global spread display when the field is absent.
+**Rationale:** none
+**Findings:** getattr with default {} guards against old checkpoint data that lacks the new field.
+LESSONS: none
+**Files:** tournament_scheduler/utils/rich_output.py (+11/-1)
 **Commit:** [pending — fill after commit]

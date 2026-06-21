@@ -493,7 +493,17 @@ class TournamentOutput:
             date_str = last_date.strftime("%Y-%m-%d") if last_date else "-"
             table.add_row(label, str(count), date_str)
 
-        if plan.game_count_spread > 0:
+        spread_by_ag = getattr(plan, "game_count_spread_by_age_group", {}) or {}
+        if spread_by_ag:
+            # Show per-age-group spreads so U7 and U12 are not conflated.
+            parts = [
+                f"{ag}: {sp}"
+                for ag, sp in sorted(spread_by_ag.items())
+                if sp > 0
+            ]
+            if parts:
+                table.caption = "Spredning per aldersgruppe — " + ", ".join(parts) + " kamper"
+        elif plan.game_count_spread > 0:
             table.caption = (
                 f"Spredning: {plan.game_count_spread} kamper "
                 f"(min={min(plan.team_game_counts.values())}, "
