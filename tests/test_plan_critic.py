@@ -230,6 +230,43 @@ def test_game_count_spread_of_four_is_ok():
     assert outlier_issues == []
 
 
+def test_game_count_outlier_scoped_per_age_group():
+    """U12 imbalance should fire; balanced U7 group should not appear in issues."""
+    # Two tournaments — one per age group — so the critic can map team labels.
+    u7_t = _make_tournament("Jar", 2027, 1, 15, age_group="U7")
+    u7_t.teams = [
+        Team(club="Jar", label="Jar U7", age_group="U7"),
+        Team(club="Holmen", label="Holmen U7", age_group="U7"),
+    ]
+    u12_t = _make_tournament("Kongsberg", 2027, 2, 5, age_group="U12")
+    u12_t.teams = [
+        Team(club="Kongsberg", label="Kongsberg U12", age_group="U12"),
+        Team(club="Skien", label="Skien U12", age_group="U12"),
+    ]
+    plan = _make_plan(
+        tournaments=[u7_t, u12_t],
+        # U7 balanced (spread 0), U12 imbalanced (spread 6)
+        team_game_counts={
+            "Jar U7": 6,
+            "Holmen U7": 6,
+            "Kongsberg U12": 12,
+            "Skien U12": 6,
+        },
+        game_count_spread=6,
+        game_count_spread_by_age_group={"U7": 0, "U12": 6},
+    )
+    result = generate_critic_summary(plan)
+    spread_issues = [i for i in result if "spread" in i.lower() or "redistribute" in i.lower()]
+    # U12 issue should fire
+    assert any("U12" in issue for issue in spread_issues), (
+        f"Expected a U12 spread issue but got: {spread_issues}"
+    )
+    # U7 should NOT appear in spread issues
+    assert not any("U7" in issue for issue in spread_issues), (
+        f"U7 is balanced — should not appear in spread issues: {spread_issues}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Fairness gate
 # ---------------------------------------------------------------------------

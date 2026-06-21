@@ -796,10 +796,16 @@ class TestPerTeamGameCounts:
         assert isinstance(plan.game_count_spread, int)
         assert plan.game_count_spread >= 0
 
-    def test_game_count_spread_equals_max_minus_min(self, planner_and_plan):
+    def test_game_count_spread_reflects_worst_age_group(self, planner_and_plan):
+        """game_count_spread should equal the maximum per-age-group spread
+        (not the global max-min across all age groups)."""
         _, plan, *_ = planner_and_plan
 
-        if plan.team_game_counts:
+        if plan.game_count_spread_by_age_group:
+            expected_spread = max(plan.game_count_spread_by_age_group.values())
+            assert plan.game_count_spread == expected_spread
+        elif plan.team_game_counts:
+            # Fallback path: no per-age-group data, global spread used.
             expected_spread = max(plan.team_game_counts.values()) - min(plan.team_game_counts.values())
             assert plan.game_count_spread == expected_spread
 
@@ -863,6 +869,59 @@ class TestPerTeamGameCounts:
         assert len(spread_warnings) == 0, (
             f"unexpected spread warnings with max_game_count_spread=10: {spread_warnings}"
         )
+
+    def test_game_count_warnings_scoped_per_age_group(self):
+        """U7 balanced, U12 imbalanced: warning fires only for U12 keys."""
+        from datetime import datetime as _dt
+
+        start, end = _dt(2026, 10, 1), _dt(2027, 4, 30)
+        free_dates = all_weekend_dates(start, end)
+
+        clubs = ["Jar", "Holmen", "Kongsberg"]
+        roster = _build_roster(clubs, ["U7", "U12"])
+        club_arenas = {club: f"{club}hallen" for club in clubs}
+
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas=club_arenas,
+            parallel_games_for_age_group={"U7": 4, "U12": 2},
+            max_game_count_spread=0,
+        )
+        # U7: all equal (spread 0); U12: large imbalance (spread 4).
+        planner._team_game_counts = {
+            "Jar U7": 6,
+            "Holmen U7": 6,
+            "Kongsberg U7": 6,
+            "Jar U12": 8,
+            "Holmen U12": 4,
+            "Kongsberg U12": 4,
+        }
+        planner._scan_game_count_warnings(start.date(), end.date())
+
+        warnings = planner.game_count_warnings
+        spread_keys = {w[0] for w in warnings if w[3] == "spread"}
+        # All warned keys must belong to U12, not U7
+        assert all("U12" in k for k in spread_keys), (
+            f"Expected only U12 keys in spread warnings; got: {spread_keys}"
+        )
+        assert any("U12" in k for k in spread_keys), (
+            f"Expected at least one U12 warning; got none. warnings={warnings}"
+        )
+
+    def test_game_count_spread_by_age_group_populated(self, planner_and_plan):
+        """game_count_spread_by_age_group should be populated for each active age group."""
+        _, plan, roster, *_ = planner_and_plan
+        active_age_groups = {
+            t.age_group for t in plan.tournaments if not getattr(t, "cancelled", False)
+        }
+        skipped = {e["age_group"] for e in plan.skipped_age_groups}
+        for ag in active_age_groups - skipped:
+            assert ag in plan.game_count_spread_by_age_group, (
+                f"Age group {ag!r} missing from game_count_spread_by_age_group"
+            )
+            assert isinstance(plan.game_count_spread_by_age_group[ag], int)
+            assert plan.game_count_spread_by_age_group[ag] >= 0
 
     def test_early_finish_warnings_with_tight_threshold(self):
         """Build a planner with a tiny max_early_finish_gap_days.

@@ -31,7 +31,7 @@
   - Files: tournament_scheduler/utils/rich_output.py
   - Approach: In the game count spread display block (line ~496), replace `plan.game_count_spread` with per-age-group output when `plan.game_count_spread_by_age_group` is populated, showing each age group's spread on its own line with the group label.
 
-- [ ] Add/update tests to validate per-age-group spread scoping
+- [x] Added three new tests: per-age-group warning scoping (U7 balanced, U12 fires), game_count_spread_by_age_group population check, and plan_critic per-age-group outlier test. Updated test_game_count_spread_equals_max_minus_min to match new worst-case-per-group semantics. — 2026-06-21
   - Files: tests/test_season_planner.py, tests/test_warnings.py
   - Approach: Add a test with a two-age-group roster (e.g. U7 and U12) where U7 teams have equal game counts but U12 teams have a large imbalance — verify the warning fires only for U12 and not U7, and that the global spread is not inflated by comparing across groups. Run `pytest` to confirm all tests pass.
 
@@ -97,4 +97,11 @@ LESSONS: none
 **Findings:** getattr with default {} guards against old checkpoint data that lacks the new field.
 LESSONS: none
 **Files:** tournament_scheduler/utils/rich_output.py (+11/-1)
+**Commit:** 614f6de (hockey)
+
+### 2026-06-21 — Added three new tests: per-age-group warning scoping (U7 balanced, U12 fires), game_count_spread_by_age_group population check, and plan_critic per-age-group outlier test. Updated test_game_count_spread_equals_max_minus_min to match new worst-case-per-group semantics.
+**Rationale:** Had to update existing spread assertion test because global spread is now max(per-ag spreads) not global max-min.
+**Findings:** none
+LESSONS: test_game_count_spread_equals_max_minus_min must use per-age-group data not global max-min — update it when changing spread formula
+**Files:** tests/test_season_planner.py (+63/-2), tests/test_plan_critic.py (+37/-0)
 **Commit:** [pending — fill after commit]
