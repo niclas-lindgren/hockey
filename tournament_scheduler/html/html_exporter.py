@@ -388,7 +388,8 @@ class HtmlExporter:
         gate_status = str(gate.get("status", "pass"))
         status_rank = {"pass": 0, "warn": 1, "fail": 2}
         cancelled_count = sum(1 for tournament in plan.tournaments if tournament.cancelled)
-        overall_status = gate_status if gate_status in status_rank else "pass"
+        _tone_to_status = {"rough": "fail", "mixed": "warn", "strong": "pass"}
+        overall_status = _tone_to_status.get(str(judgment.get("tone", "mixed")), "warn")
         if blocked and status_rank[overall_status] < status_rank["warn"]:
             overall_status = "warn"
         if cancelled_count and status_rank[overall_status] < status_rank["warn"]:

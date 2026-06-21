@@ -13,7 +13,7 @@
   - Files: `tournament_scheduler/html/renderers/judgment.py`, `tournament_scheduler/html/html_exporter.py`
   - Approach: Remove the `render_opinionated_judgment_html` function body from `judgment.py` and remove the corresponding import on line 52 of `html_exporter.py` along with the call around line 200 and the `$REPORT_JUDGMENT$` assignment around line 598. Keep `analyze_opinionated_judgment` intact as it will be reused.
 
-- [ ] Switch `overall_status` derivation from `fairness_gate.status` to judgment tone in html_exporter.py
+- [x] Replaced overall_status derivation in _report_overview_html from fairness_gate.status to judgment tone (rough→fail, mixed→warn, strong→pass). gate_status is preserved for the actions list which still reports fairness gate health. — 2026-06-21
   - Files: `tournament_scheduler/html/html_exporter.py`
   - Approach: Replace the `status_rank` logic around lines 396-403 that reads `plan.fairness_gate.get("status")` with a direct mapping from the `tone` key of the `analyze_opinionated_judgment` result (`rough→fail`, `mixed→warn`, `strong→pass`), keeping the `blocked`/`cancelled` override to `warn` if needed.
 
@@ -50,4 +50,11 @@ Running `pytest` passes with tests confirming that `render_opinionated_judgment_
 **Findings:** Function deleted from judgment.py, import updated to only pull analyze_opinionated_judgment, judgment_html call and parameter removed from html_exporter.py, $ removed from template and replacements dict; all 672 tests pass.
 LESSONS: none
 **Files:** judgment.py (-42), html_exporter.py (-10/+1), report_overview.html (-2)
+**Commit:** b44eac4 (hockey)
+
+### 2026-06-21 — Replaced overall_status derivation in _report_overview_html from fairness_gate.status to judgment tone (rough→fail, mixed→warn, strong→pass). gate_status is preserved for the actions list which still reports fairness gate health.
+**Rationale:** Kept gate_status for actions list; only overall_status derivation changed to use judgment tone.
+**Findings:** overall_status now comes from tone key of analyze_opinionated_judgment result; fairness gate still used for action items; all tests pass.
+LESSONS: none
+**Files:** html_exporter.py (+2/-1)
 **Commit:** [pending — fill after commit]
