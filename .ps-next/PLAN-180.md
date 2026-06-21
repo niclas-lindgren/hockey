@@ -25,7 +25,7 @@
   - Files: `tournament_scheduler/html/html_exporter.py`, `tournament_scheduler/html/renderers/judgment.py`
   - Approach: Add a new helper `render_judgment_cards_html(cards)` in `judgment.py` that produces a card-grid `<div>` from the 4-tuple list; call it in `html_exporter.py` after `analyze_opinionated_judgment` and assign the result to `$REPORT_JUDGMENT_CARDS$` in the replacements dict.
 
-- [ ] Update hero status label and answer text to use judgment tone label and verdict instead of fairness-gate labels
+- [x] Replaced answer_by_status/note_by_status dicts with direct sourcing from judgment['verdict'] and judgment['action_text']; updated $REPORT_STATUS_LABEL$ to use judgment['tone_label'] instead of fairness-gate derived label. — 2026-06-21
   - Files: `tournament_scheduler/html/html_exporter.py`
   - Approach: In the section that sets `$REPORT_ANSWER$` and `$REPORT_NOTE$`, source the text from the `verdict` and `action_text` fields of the `analyze_opinionated_judgment` result instead of from the fairness gate, so the hero's prose and its status class both come from the same evaluation.
 
@@ -71,4 +71,11 @@ LESSONS: none
 **Findings:** render_judgment_cards_html added to judgment.py; judgment_cards_html computed and injected via $REPORT_JUDGMENT_CARDS$ in _report_overview_html; imports verified OK.
 LESSONS: none
 **Files:** judgment.py (+12), html_exporter.py (+6/-1)
+**Commit:** 8c96a8e (hockey)
+
+### 2026-06-21 — Replaced answer_by_status/note_by_status dicts with direct sourcing from judgment['verdict'] and judgment['action_text']; updated $REPORT_STATUS_LABEL$ to use judgment['tone_label'] instead of fairness-gate derived label.
+**Rationale:** none
+**Findings:** Hero now shows tone label, verdict, and action_text from analyze_opinionated_judgment; old answer_by_status/note_by_status dicts removed (-28 lines).
+LESSONS: none
+**Files:** html_exporter.py (+3/-31)
 **Commit:** [pending — fill after commit]

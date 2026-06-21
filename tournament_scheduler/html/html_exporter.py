@@ -399,16 +399,6 @@ class HtmlExporter:
             overall_status = "warn"
 
         status_labels = {"pass": "KLAR FOR GJENNOMGANG", "warn": "M\u00c5 SJEKKES", "fail": "KREVER ENDRING"}
-        answer_by_status = {
-            "pass": "Ja, planen ({tournament_count} turneringer, {month_span}) ser brukbar ut for klubbvis gjennomgang.",
-            "warn": "Nesten \u2013 planen har {tournament_count} turneringer ({month_span}), men punktene under b\u00f8r sjekkes f\u00f8r utsending.",
-            "fail": "Ikke enn\u00e5. Planen ({tournament_count} turneringer, {month_span}) har feil eller store avvik som b\u00f8r rettes f\u00f8rst.",
-        }
-        note_by_status = {
-            "pass": "Start med klubb- og aldersgruppeoppsummeringene, og bruk detaljdiagnostikken nederst ved behov.",
-            "warn": "Prioriter varsler og klubbpunkter f\u00f8r du vurderer om planen er god nok.",
-            "fail": "Rett kritiske punkter, kj\u00f8r planlegging/eksport p\u00e5 nytt og kontroller rapporten igjen.",
-        }
 
         active_tournaments = [t for t in plan.tournaments if not t.cancelled]
         active_tournaments.sort(key=lambda t: (t.date or plan.end_date, t.age_group, t.host_club or "", t.arena))
@@ -452,26 +442,8 @@ class HtmlExporter:
             actions.append(("pass", "Ingen kritiske handlinger", "G\u00e5 videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
 
         _tournament_count = len(active_tournaments)
-        _answer_base = answer_by_status.get(overall_status, answer_by_status["warn"]).format(
-            tournament_count=_tournament_count,
-            month_span=month_span,
-        )
-        _note_base = note_by_status.get(overall_status, note_by_status["warn"])
-        _detail_parts: list[str] = []
-        if weakest_metric_name:
-            _detail_parts.append(f"Svakeste metrikk: {weakest_metric_name} ({weakest_metric['score']}%).")
-            if overall_status in {"warn", "fail"}:
-                _weakest_detail = str(weakest_metric.get("detail", "")) if weakest_metric else ""
-                if _weakest_detail:
-                    _detail_parts.append(f"Fairness-avvik: {weakest_metric_name} – {_weakest_detail}")
-        if most_travel_team and most_travel_km != "0":
-            _detail_parts.append(f"Mest reisende lag: {most_travel_team} (~{most_travel_km} km).")
-        if blocked:
-            _detail_parts.append(f"{len(blocked)} kilde(r) blokkert.")
-        if cancelled_count:
-            _detail_parts.append(f"{cancelled_count} turnering(er) avlyst.")
-        answer = _answer_base + (" " + " ".join(_detail_parts) if _detail_parts else "")
-        note = _note_base
+        answer = str(judgment.get("verdict", ""))
+        note = str(judgment.get("action_text", ""))
 
         age_rows: list[str] = []
         for age_group in display_age_groups:
@@ -578,7 +550,7 @@ class HtmlExporter:
 
         replacements = {
             "$REPORT_STATUS$": overall_status,
-            "$REPORT_STATUS_LABEL$": status_labels.get(overall_status, "STATUS"),
+            "$REPORT_STATUS_LABEL$": str(judgment.get("tone_label", status_labels.get(overall_status, "STATUS"))),
             "$REPORT_ACTION_COUNT$": str(issue_count),
             "$REPORT_ANSWER$": answer,
             "$REPORT_NOTE$": note,
