@@ -15,7 +15,7 @@
   - Files: `tournament_scheduler/season_planner.py`, `tournament_scheduler/pipeline/stage3_helpers.py`, `tournament_scheduler/pipeline/stage3_planning.py`
   - Approach: Add `max_hosting_days_per_month: int = 2` to `SeasonPlanner.__init__` and store it as `self.max_hosting_days_per_month`. In `stage3_helpers.py` `_make_planner`, extract the key `"max_hosting_days_per_month"` from the config dict (with default 2) and pass it to the constructor, following the same pattern as `max_hosting_deviation`.
 
-- [ ] Track predicted-host hosting days per club-month during date selection in `_score_candidate_date`
+- [x] Added _hosting_days_by_club_month tracking dict to SeasonPlanner, populate it during date selection using a least-total-days predicted-host heuristic, and penalise candidate dates with a 1e6 score in _score_candidate_date when all clubs would exceed max_hosting_days_per_month in that month. Also update the dict with actual hosts after tournament commitment. — 2026-06-21
   - Files: `tournament_scheduler/season_planner.py`
   - Approach: Add an instance dict `self._hosting_days_by_club_month: dict[tuple[str, tuple[int,int]], set[date]]` that records, for each `(club, (year, month))`, the set of distinct dates already assigned as host. In `_score_candidate_date`, derive the predicted host club for the candidate date (using the least-recently-hosted club heuristic already in `_assign_hosts`), look up how many distinct days that club already hosts in the candidate month, and return a very large penalty (e.g. 1e6) if adding this date would exceed `self.max_hosting_days_per_month`. Update the tracking structure after a date is committed in `build_plan`.
 
@@ -50,4 +50,11 @@ The new unit tests in `tests/test_season_planner.py` run and pass, covering both
 **Findings:** Parameter wires cleanly through all three layers with no test regressions from this change.
 LESSONS: none
 **Files:** stage3_helpers.py (+2), stage3_planning.py (+2), season_planner.py (+2)
+**Commit:** 72b59dd (hockey)
+
+### 2026-06-21 — Added _hosting_days_by_club_month tracking dict to SeasonPlanner, populate it during date selection using a least-total-days predicted-host heuristic, and penalise candidate dates with a 1e6 score in _score_candidate_date when all clubs would exceed max_hosting_days_per_month in that month. Also update the dict with actual hosts after tournament commitment.
+**Rationale:** none
+**Findings:** Tracking is populated in two phases: predicted during date selection (so penalty fires for subsequent age groups) and actual after tournament commitment. All tests pass.
+LESSONS: none
+**Files:** season_planner.py (+40)
 **Commit:** [pending — fill after commit]

@@ -162,6 +162,10 @@ class SeasonPlanner:
         self._per_team_share_warnings: List[Tuple[str, str, str, int, float]] = []
         self._feasibility_warnings: List[str] = []
         self._tournament_participations: Dict[str, int] = {self._team_key(team): 0 for team in roster.teams}
+        # Tracks distinct hosting dates per (club, year, month) during date selection
+        # so _score_candidate_date can penalise dates that would exceed
+        # max_hosting_days_per_month for the predicted host club.
+        self._hosting_days_by_club_month: Dict[Tuple[str, Tuple[int, int]], Set[date]] = {}
 
         self.max_month_deviation_ratio = max_month_deviation_ratio
         self.events_by_club = events_by_club or {}
@@ -196,6 +200,13 @@ class SeasonPlanner:
 
         self._rng.shuffle(age_groups)
 
+        # Reset hosting-day tracking so each build_plan call starts clean.
+        self._hosting_days_by_club_month = {}
+        # Simple predicted-host counter: club with fewest predicted hosting days
+        # overall is picked as the next host for each date committed in the
+        # selection phase, so the monthly cap can be enforced in scoring.
+        _predicted_host_total: Dict[str, int] = {c: 0 for c in self.club_arenas}
+
         scheduled: List[Tuple[date, str]] = []
         planned_age_groups_by_date: Dict[date, List[str]] = {}
         for age_group in age_groups:
@@ -212,6 +223,14 @@ class SeasonPlanner:
                 scheduled.append((tournament_date, age_group))
                 planned_age_groups_by_date.setdefault(tournament_date, []).append(age_group)
                 self._record_month(tournament_date)
+                # Predict the host for this date using the least-total-days heuristic
+                # and record the date so future scoring can enforce the monthly cap.
+                if _predicted_host_total:
+                    predicted_host = min(_predicted_host_total, key=_predicted_host_total.__getitem__)
+                    month_key = (tournament_date.year, tournament_date.month)
+                    club_month_key = (predicted_host, month_key)
+                    self._hosting_days_by_club_month.setdefault(club_month_key, set()).add(tournament_date)
+                    _predicted_host_total[predicted_host] += 1
 
         self._month_counts = {}
         scheduled.sort(key=lambda item: (item[0], item[1]))
@@ -278,6 +297,11 @@ class SeasonPlanner:
                     scoring_weight_term=ag_weight + date_pref_total,
                 )
             )
+            # Record actual host so the tracking dict reflects committed assignments.
+            month_key = (tournament_date.year, tournament_date.month)
+            self._hosting_days_by_club_month.setdefault(
+                (host_club, month_key), set()
+            ).add(tournament_date)
 
         expected_per_month = self._expected_monthly_load(start_date.date(), end_date.date(), len(scheduled))
         self._sequence_same_arena_day_start_times(plan)
@@ -423,6 +447,22 @@ class SeasonPlanner:
         tournament_weight: float = 0.0,
         date_preferences: Optional[List[DatePreference]] = None,
     ) -> float:
+        # Penalise dates where all clubs would exceed the monthly hosting-day cap.
+        # Predict the most likely host as the club with the fewest distinct hosting
+        # days in the candidate month so far (i.e. least loaded). If even that club
+        # already has max_hosting_days_per_month days (none of which is the candidate
+        # date itself), return a large penalty to steer date selection away.
+        if self.club_arenas and self.max_hosting_days_per_month > 0:
+            month_key = (candidate_date.year, candidate_date.month)
+            min_days = None
+            for club in self.club_arenas:
+                days = self._hosting_days_by_club_month.get((club, month_key), set())
+                day_count = len(days - {candidate_date})
+                if min_days is None or day_count < min_days:
+                    min_days = day_count
+            if min_days is not None and min_days >= self.max_hosting_days_per_month:
+                return 1e6
+
         repeat_penalty = 0.0
         participants = list(candidate_participants)
         if len(participants) >= 2:
