@@ -99,7 +99,7 @@ After success, read `.pipeline/stage3_planning.json` and verify:
 - No two tournaments with overlapping player pools are scheduled on the same weekend
 - `rules_report` section (if present) shows no critical violations
 
-Stop and ask the user to review the plan before exporting if anything looks unexpected.
+If the plan is valid (tournaments non-empty, no critical rule violations), proceed directly to Stage 4 without asking the user. Only stop if something looks wrong (empty plan, critical violations, or structural errors).
 
 ### Stage 4 — Export
 

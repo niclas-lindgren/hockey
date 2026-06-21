@@ -216,3 +216,4 @@ export/
 .pipeline/
 .ps-next/.lock
 .DS_Store
+export/.DS_Store

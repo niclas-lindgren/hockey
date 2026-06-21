@@ -1,0 +1,37 @@
+# Plan: Fix calendars.html navbar link
+
+**Goal:** Fix calendars.html navbar link — the exported calendars.html is not linked in the navbar; update the HTML generation script to include it
+**Created:** 2026-06-21
+**Intent:** Ensure organizers can navigate between all exported HTML pages via the navbar, including the scraped-calendars page, without broken or missing links.
+**Backlog-ref:** 179
+
+## Tasks
+- [ ] Reorder stage4_export.py so calendars.html is generated before html_exporter.export() is called
+  - Files: tournament_scheduler/pipeline/stage4_export.py
+  - Approach: Move the calendars.html generation block (currently lines ~243-248) to run before the HtmlExporter().export() call (~line 192), so the file's existence can be used in the navbar condition.
+
+- [ ] Update html_exporter.export() to accept a calendars_path argument and use file existence for the navbar condition
+  - Files: tournament_scheduler/html/html_exporter.py
+  - Approach: Add an optional `calendars_path: str | None = None` parameter to `export()`; replace the `has_scrape_data` condition with `bool(calendars_path and os.path.exists(calendars_path))` so the link is shown whenever the file actually exists rather than relying on meta counts.
+
+- [ ] Update stage4_export.py to pass the generated calendars.html path into html_exporter.export()
+  - Files: tournament_scheduler/pipeline/stage4_export.py
+  - Approach: After generating calendars.html, pass its absolute path as `calendars_path=` when calling `HtmlExporter().export()` for both season_plan.html and season_plan_report.html.
+
+- [ ] Add or update a test asserting that season_plan.html contains the calendars.html navbar link when scrape cache is present
+  - Files: tests/test_stage4_export.py
+  - Approach: In the existing test that checks for calendars.html generation (lines ~665-699), also assert that the rendered season_plan.html content contains an `href="calendars.html"` anchor, covering the previously missing link.
+
+## Notes
+Root cause: `html_exporter.export()` is called before `calendars.html` is generated in `stage4_export.py`, and its `has_scrape_data` check uses `meta.get("total_events")` / `meta.get("source_count")` which may be zero or None even when a calendars.html file is successfully produced. Fixing the order and switching to a file-existence check is the minimal, reliable fix.
+Constraints: none
+
+## Acceptance Criteria
+- [ ] The generated season_plan.html contains an anchor with href="calendars.html" in its navbar when the export pipeline produces a calendars.html file.
+- [ ] The generated season_plan_report.html contains an anchor with href="calendars.html" in its navbar when the export pipeline produces a calendars.html file.
+- [ ] When no calendars.html is produced by the pipeline, season_plan.html does not contain a navbar link to calendars.html (no broken link).
+- [ ] pytest passes with no regressions in tests/test_stage4_export.py after the changes.
+
+## Log
+<!-- PS:next appends entries here after each task is executed -->
+<!-- Entry format: ### YYYY-MM-DD — [task name] / **Done:** / **Rationale:** / **Findings:** / **Files:** / **Commit:** -->
