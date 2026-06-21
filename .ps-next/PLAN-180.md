@@ -29,7 +29,7 @@
   - Files: `tournament_scheduler/html/html_exporter.py`
   - Approach: In the section that sets `$REPORT_ANSWER$` and `$REPORT_NOTE$`, source the text from the `verdict` and `action_text` fields of the `analyze_opinionated_judgment` result instead of from the fairness gate, so the hero's prose and its status class both come from the same evaluation.
 
-- [ ] Write or update tests to assert that the judgment section is absent and the hero status reflects judgment tone
+- [x] Created tests/test_html_exporter.py with 7 tests across 3 classes: TestNoJudgmentSection (3 tests: old heading absent, old section id absent, placeholder resolved), TestHeroStatusFromJudgmentTone (2 tests: hero class pass for strong plan, tone label used), TestJudgmentCardsInHero (2 tests: all 4 card labels present, cards inside hero section). All 7 pass. — 2026-06-21
   - Files: `tests/test_stage4_export.py`, `tests/test_html_exporter.py` (create if absent)
   - Approach: Add a test that generates a report HTML string from a minimal plan fixture and asserts: (1) the string does not contain `render_opinionated_judgment_html` references or the old section heading; (2) the hero div class matches the expected tone-derived status; (3) the 4 card labels appear inside the hero section.
 
@@ -78,4 +78,11 @@ LESSONS: none
 **Findings:** Hero now shows tone label, verdict, and action_text from analyze_opinionated_judgment; old answer_by_status/note_by_status dicts removed (-28 lines).
 LESSONS: none
 **Files:** html_exporter.py (+3/-31)
+**Commit:** 773073c (hockey)
+
+### 2026-06-21 — Created tests/test_html_exporter.py with 7 tests across 3 classes: TestNoJudgmentSection (3 tests: old heading absent, old section id absent, placeholder resolved), TestHeroStatusFromJudgmentTone (2 tests: hero class pass for strong plan, tone label used), TestJudgmentCardsInHero (2 tests: all 4 card labels present, cards inside hero section). All 7 pass.
+**Rationale:** none
+**Findings:** All 7 new tests pass; test file creates a minimal SeasonPlan via _dict_to_plan and exports HTML to tmp_path for assertion.
+LESSONS: none
+**Files:** tests/test_html_exporter.py (+148)
 **Commit:** [pending — fill after commit]
