@@ -207,15 +207,15 @@ class CancellationWorkflow:
             if t.id != tournament.id and not t.cancelled
         }
 
-        # Build a lightweight scheduler for holiday checking.
-        scheduler = self._make_lightweight_scheduler()
-
         # Find free weekend dates in the search window.
         from datetime import datetime as dt
         search_start_dt = dt.combine(start_search, dt.min.time())
         search_end_dt = dt.combine(end_search, dt.max.time())
 
+        result = None
         try:
+            # Build a lightweight scheduler for holiday checking.
+            scheduler = self._make_lightweight_scheduler()
             result = scheduler.find_available_dates(
                 start_date=search_start_dt,
                 end_date=search_end_dt,
@@ -223,7 +223,6 @@ class CancellationWorkflow:
             )
         except Exception:
             logger.exception("Konfliktsjekk feilet under forslag til alternativdatoer.")
-            result = None
 
         # Build candidate set: free dates minus occupied dates.
         free_dates = set(result.available_dates) if result else set()
