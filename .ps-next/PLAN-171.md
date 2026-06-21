@@ -16,7 +16,7 @@ tags:
 **Backlog-ref:** 171
 
 ## Tasks
-- [ ] Audit the current fallback condition at line 394 and verify that `deterministic_raised` is correctly set only on exceptions — confirm the `else` branch (unknown source type, line 382) does not need to set `deterministic_raised = True` to prevent spurious fallback attempts for unknown types.
+- [x] Traced all 6 code paths in _scrape_source lines 356-401: styledcalendar/bookup/browser/ical scrapers leave deterministic_raisedFalse (correct — clean zero-event return warrants fallback); unknown-type else sets deterministic_raisedTrue (fixed in task 1); exception handler sets deterministic_raisedTrue (already correct). All paths are now correct. — 2026-06-21
   - Files: tournament_scheduler/pipeline/stage2_scraping.py
   - Approach: Read lines 356–400 of `_scrape_source` and trace every code path that can leave `events` empty and `deterministic_raised` False; annotate which paths are correct (zero-event clean return) and which are unintentional (unknown type, prior scraper_error set from non-exception path).
 
@@ -82,4 +82,11 @@ LESSONS: none
 **Findings:** 42 stage2 tests pass; no regressions introduced by our changes.
 LESSONS: none
 **Files:** no new files
+**Commit:** 990a97d (hockey)
+
+### 2026-06-21 — Traced all 6 code paths in _scrape_source lines 356-401: styledcalendar/bookup/browser/ical scrapers leave deterministic_raisedFalse (correct — clean zero-event return warrants fallback); unknown-type else sets deterministic_raisedTrue (fixed in task 1); exception handler sets deterministic_raisedTrue (already correct). All paths are now correct.
+**Rationale:** Pure audit — no code changes needed; task 1 already closed the only gap.
+**Findings:** All code paths are correct; the guard logic is complete and consistent.
+LESSONS: none
+**Files:** no files changed
 **Commit:** [pending — fill after commit]
