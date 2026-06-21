@@ -624,6 +624,84 @@ class TestUnifiedCache:
         assert cache["sources"]["Kongsberg"]["event_count"] == 1
         assert cache["sources"]["Kongsberg"]["events"][0]["name"] == "Practice"
 
+    def test_config_fingerprint_stored_on_fresh_scrape(self, tmp_path):
+        """A fresh scrape must write a config_fingerprint into the cache entry."""
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Practice")], ""),
+        ):
+            run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        cache = ScrapedDataCache(work_dir=work_dir).read()
+        assert "config_fingerprint" in cache["sources"]["Kongsberg"], (
+            "config_fingerprint must be stored in the unified cache entry after a scrape"
+        )
+
+    def test_fingerprint_mismatch_triggers_rescrape(self, tmp_path):
+        """A cached entry whose config_fingerprint does not match current config
+        must be discarded and the source re-scraped."""
+        from tournament_scheduler.pipeline.cache_manager import _compute_config_fingerprint
+
+        work_dir = tmp_path / "pipeline"
+        state = PipelineState(work_dir)
+        # Source uses SOURCE_OUTLOOK, url "https://example.com"
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
+        ])
+        cached_events = _events_to_dicts([_make_event("Old cached event")])
+        # Seed a cache entry with a fingerprint computed for a different URL
+        stale_fingerprint = _compute_config_fingerprint(
+            "https://old-url.com", SOURCE_OUTLOOK, None
+        )
+        sdc = ScrapedDataCache(work_dir=work_dir)
+        ts = datetime.now().isoformat()
+        sdc.write({
+            "_meta": {
+                "updated_at": ts,
+                "ttl_hours": 6,
+                "start_date": cfg["start_date"],
+                "end_date": cfg["end_date"],
+            },
+            "sources": {
+                "Kongsberg": {
+                    "name": "Kongsberg",
+                    "url": "https://old-url.com",
+                    "scrape_timestamp": ts,
+                    "ttl_hours": 6,
+                    "event_count": len(cached_events),
+                    "blocked": False,
+                    "events": cached_events,
+                    "config_fingerprint": stale_fingerprint,
+                },
+            },
+            "source_count": 1,
+            "total_events": len(cached_events),
+        })
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
+            return_value=([_make_event("Fresh event")], ""),
+        ) as mock_scraper:
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_scraper.assert_called_once()
+        assert result["cached"] == [], "fingerprint mismatch must not serve from cache"
+        assert result["sources"][0]["events"][0]["name"] == "Fresh event"
+
 
 class TestEventsToDict:
     def test_serialises_correctly(self):

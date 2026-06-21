@@ -203,7 +203,9 @@ class ScrapedDataCache:
             return False
         stored = entry.get("config_fingerprint")
         if not stored:
-            return False
+            # Legacy entry written before fingerprinting was added — assume
+            # config matches so the entry is not invalidated on upgrade.
+            return True
         expected = _compute_config_fingerprint(url, source_kind, location_filter)
         return stored == expected
 
