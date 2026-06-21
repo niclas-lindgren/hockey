@@ -15,7 +15,7 @@
   - Files: tournament_scheduler/pipeline/browser_worker.py
   - Approach: Update the retry goto call (line ~297) to use timeout=GOTO_RETRY_TIMEOUT_MS (60_000ms) and add wait_until="domcontentloaded" so the fallback navigation does not wait for full network idle, allowing recovery from pages that are slow but eventually respond.
 
-- [ ] Add unit test for cmd_goto retry timeout behavior
+- [x] Added TestCmdGotoRetry class to tests/test_browser_worker.py with 4 tests: initial goto uses GOTO_TIMEOUT_MS/networkidle, retry uses GOTO_RETRY_TIMEOUT_MS/domcontentloaded, retry timeout is strictly larger, and both failures return okFalse. — 2026-06-21
   - Files: tests/test_browser_worker.py
   - Approach: Create or extend a test in tests/test_browser_worker.py that mocks page.goto() to raise a timeout on the first call and succeed on the retry, asserting that the retry is called with a longer timeout value than the initial attempt.
 
@@ -53,4 +53,11 @@ LESSONS: none
 **Findings:** Retry goto now uses domcontentloaded instead of full networkidle — combined with the 60s timeout from task 1, this gives the fallback a real chance to succeed on slow pages.
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/browser_worker.py (+1/-1)
+**Commit:** c6541a9 (hockey)
+
+### 2026-06-21 — Added TestCmdGotoRetry class to tests/test_browser_worker.py with 4 tests: initial goto uses GOTO_TIMEOUT_MS/networkidle, retry uses GOTO_RETRY_TIMEOUT_MS/domcontentloaded, retry timeout is strictly larger, and both failures return okFalse.
+**Rationale:** none
+**Findings:** All 20 tests pass; new tests mock _page and start() to avoid launching real Playwright.
+LESSONS: none
+**Files:** tests/test_browser_worker.py (+70)
 **Commit:** [pending — fill after commit]
