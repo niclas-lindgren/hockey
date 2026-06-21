@@ -19,7 +19,7 @@
   - Files: `tournament_scheduler/cli/plan_critic.py`
   - Approach: Change `host_month_counts` key from `(host_club, d.year, d.month)` to `(host_club, d.year, d.month, age_group)` by reading `t.get("age_group")` from each serialized tournament dict before incrementing the counter. Skip entries with a missing age_group rather than conflating them.
 
-- [ ] Update `suggest_moves` hosting lookups to include age group in keys
+- [x] Extended _club_month_count and host_month_to_tids keys to (host_club, year, month, age_group) and updated the clump issue regex to parse the age_group from the new message format. Candidate month selection now filters by age_group to avoid suggesting months where that age group already has capacity issues. — 2026-06-21
   - Files: `tournament_scheduler/cli/plan_critic.py`
   - Approach: Extend `_club_month_count` and `host_month_to_tids` keys to `(host_club, year, month, age_group)`. Parse the age_group out of the clump issue string (or look it up via `host_month_to_tids`) so that target-month selection only considers months where that same age group has capacity.
 
@@ -58,4 +58,11 @@ LESSONS: none
 **Findings:** All 23 plan_critic tests pass.
 LESSONS: none
 **Files:** tournament_scheduler/cli/plan_critic.py (+8/-6)
+**Commit:** d938f46 (hockey)
+
+### 2026-06-21 — Extended _club_month_count and host_month_to_tids keys to (host_club, year, month, age_group) and updated the clump issue regex to parse the age_group from the new message format. Candidate month selection now filters by age_group to avoid suggesting months where that age group already has capacity issues.
+**Rationale:** The regex group indices shifted by 1 after adding age_group capture group — updated all group references accordingly. Tests updated to use new issue string format including age_group.
+**Findings:** All 49 plan_critic and auto_adjust tests pass.
+LESSONS: none
+**Files:** tournament_scheduler/cli/plan_critic.py (+34/-22), tests/test_auto_adjust.py (+18/-18)
 **Commit:** [pending — fill after commit]

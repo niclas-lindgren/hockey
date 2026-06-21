@@ -164,25 +164,29 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
         if t_date and t_arena:
             arena_date_to_tid[(t_arena, t_date.isoformat())] = t.id
 
-    # Build a lookup from (host_club, year, month) → count (for target-month selection)
+    # Build a lookup from (host_club, year, month, age_group) → count (for target-month
+    # selection).  Keyed per age group so candidate months are only considered when the
+    # same age group has capacity there.
     _club_month_count: Dict[tuple, int] = defaultdict(int)
     for t in tournaments:
         if getattr(t, "cancelled", False):
             continue
         host_club = getattr(t, "host_club", None)
         t_date = getattr(t, "date", None)
-        if host_club and t_date:
-            _club_month_count[(host_club, t_date.year, t_date.month)] += 1
+        age_group = getattr(t, "age_group", None)
+        if host_club and t_date and age_group:
+            _club_month_count[(host_club, t_date.year, t_date.month, age_group)] += 1
 
-    # Build a lookup from (host_club, year, month) → list of tournament ids
+    # Build a lookup from (host_club, year, month, age_group) → list of tournament ids
     host_month_to_tids: Dict[tuple, List[str]] = defaultdict(list)
     for t in tournaments:
         if getattr(t, "cancelled", False):
             continue
         host_club = getattr(t, "host_club", None)
         t_date = getattr(t, "date", None)
-        if host_club and t_date:
-            host_month_to_tids[(host_club, t_date.year, t_date.month)].append(t.id)
+        age_group = getattr(t, "age_group", None)
+        if host_club and t_date and age_group:
+            host_month_to_tids[(host_club, t_date.year, t_date.month, age_group)].append(t.id)
 
     for issue in issues:
         # ------------------------------------------------------------------
@@ -233,14 +237,15 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
         # ------------------------------------------------------------------
         # Hosting clumps — move the entire latest hosting day out of the month
         # ------------------------------------------------------------------
-        clump_match = re.match(r"(.+) hosts (\d+) tournaments in (\w+) (\d{4})", issue)
+        clump_match = re.match(r"(.+) hosts (\d+) (\S+) tournaments in (\w+) (\d{4})", issue)
         if clump_match:
             club = clump_match.group(1)
-            year = int(clump_match.group(4))
-            month_name = clump_match.group(3)
+            clump_age_group = clump_match.group(3)
+            month_name = clump_match.group(4)
+            year = int(clump_match.group(5))
             # Convert month name to number
             month_num = list(calendar.month_name).index(month_name)
-            tids = host_month_to_tids.get((club, year, month_num), [])
+            tids = host_month_to_tids.get((club, year, month_num, clump_age_group), [])
 
             # Find the latest distinct hosting date in the clumped month
             latest_date = None
@@ -275,12 +280,15 @@ def suggest_moves(plan: "SeasonPlan", issues: List[str]) -> List[Dict]:
             if latest_date:
                 from datetime import date as _date
                 plan_end = getattr(plan, "end_date", None)
-                # Collect months where club already has ≤ 1 tournament, sorted by proximity
+                # Collect months where club already has ≤ 1 tournament of the same age
+                # group, sorted by proximity.  Only months with capacity for this age
+                # group are valid targets so we don't push the clump into another month.
                 candidate_months = sorted(
                     [
                         (abs((y2 * 12 + m2) - (year * 12 + month_num)), y2, m2)
-                        for (c, y2, m2), cnt in _club_month_count.items()
-                        if c == club and cnt <= 1 and not (y2 == year and m2 == month_num)
+                        for (c, y2, m2, ag), cnt in _club_month_count.items()
+                        if c == club and ag == clump_age_group and cnt <= 1
+                        and not (y2 == year and m2 == month_num)
                     ]
                 )
                 for _dist, ty, tm in candidate_months:

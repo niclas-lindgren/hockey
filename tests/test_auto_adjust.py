@@ -122,7 +122,7 @@ class TestSuggestMovesHostingClump:
         t2 = _make_tournament("Kongsberg", 2027, 9, 11)
         t3 = _make_tournament("Kongsberg", 2027, 9, 18)
         plan = _make_plan(tournaments=[t1, t2, t3])
-        issue = "Kongsberg hosts 3 tournaments in September 2027 — consider moving one to another club"
+        issue = "Kongsberg hosts 3 U10 tournaments in September 2027 — consider moving one to another club"
         moves = suggest_moves(plan, [issue])
 
         assert len(moves) == 1
@@ -139,22 +139,22 @@ class TestSuggestMovesHostingClump:
         t2 = _make_tournament("Ringerike", 2027, 10, 9)
         t3 = _make_tournament("Ringerike", 2027, 10, 16)
         plan = _make_plan(tournaments=[t1, t2, t3])
-        issue = "Ringerike hosts 3 tournaments in October 2027 — consider moving one to another club"
+        issue = "Ringerike hosts 3 U10 tournaments in October 2027 — consider moving one to another club"
         moves = suggest_moves(plan, [issue])
 
         assert moves[0]["tournament_id"] == t3.id
 
     def test_same_day_clump_returns_one_move_per_tournament(self):
-        """When the latest hosting day has 2 tournaments, suggest_moves emits 2 proposals."""
-        # 3 distinct hosting days: Oct 2, Oct 9, Oct 16 — but Oct 16 has 2 age groups.
-        # generate_critic_summary counts 3 distinct days → clump; suggest_moves should
-        # then emit one proposal per tournament on the latest day (Oct 16).
+        """When the latest hosting day has 2 same-age-group tournaments, suggest_moves emits 2 proposals."""
+        # 3 distinct U10 hosting days: Oct 2, Oct 9, Oct 16 — and Oct 16 has 2 U10 tournaments.
+        # generate_critic_summary counts 3 distinct U10 days → clump; suggest_moves should
+        # then emit one proposal per U10 tournament on the latest day (Oct 16).
         t1 = _make_tournament("Holmen", 2027, 10, 2, age_group="U10")
         t2 = _make_tournament("Holmen", 2027, 10, 9, age_group="U10")
         t3 = _make_tournament("Holmen", 2027, 10, 16, age_group="U10")
-        t4 = _make_tournament("Holmen", 2027, 10, 16, age_group="U12")
+        t4 = _make_tournament("Holmen", 2027, 10, 16, age_group="U10")  # same day, same age group
         plan = _make_plan(tournaments=[t1, t2, t3, t4])
-        issue = "Holmen hosts 3 tournaments in October 2027 — consider moving one to another club"
+        issue = "Holmen hosts 3 U10 tournaments in October 2027 — consider moving one to another club"
         moves = suggest_moves(plan, [issue])
 
         # Both tournaments on the latest day should receive a move proposal.
@@ -173,7 +173,7 @@ class TestSuggestMovesHostingClump:
         t3 = _make_tournament("Jar", 2027, 11, 13, age_group="U10")
         t4 = _make_tournament("Jar", 2027, 11, 20, age_group="U10")
         plan = _make_plan(tournaments=[t1, t2, t3, t4])
-        issue = "Jar hosts 3 tournaments in November 2027 — consider moving one to another club"
+        issue = "Jar hosts 3 U10 tournaments in November 2027 — consider moving one to another club"
         moves = suggest_moves(plan, [issue])
 
         # The latest distinct date is Nov 20 (t4 only), so only t4 should be moved.
