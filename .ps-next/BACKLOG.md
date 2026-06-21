@@ -2,7 +2,12 @@
 
 ## Open
 
+- [187] [ ] Remove --no-timestamped-export flag from rvv-miniputt:run skill Stage 4 docs — it is not a recognized argument and causes stage4_export to fail
+
+- [186] [ ] Stage 3 should compute game_count_spread_by_age_group per age group and store it in the checkpoint instead of leaving it None; the stored global game_count_spread is misleading
+
 ## Done
+- [188] [x] Scraper cache should fingerprint relevant config (e.g. location_filter) so that a config change automatically invalidates stale cache entries instead of requiring manual cache file deletion (2026-06-21)
 - [184] [x] Game count imbalance check compares across age groups — should only compare within the same age group (e.g. U7 vs U7, not U7 vs U12). Fix the critic/rules check so the spread calculation is scoped per age group. (2026-06-21)
 - [185] [x] Hosting count per month check compares across age groups — should only flag over-hosting when a single club hosts too many tournaments of the same age group in a month, not total across all age groups. Fix the critic/rules check so the monthly hosting spread is scoped per age group. (2026-06-21)
 - [183] [x] Fix plan critic and auto-adjust to count hosting *days* not tournaments — changed clump check to distinct (host_club, date) pairs per month, suggest_moves now moves all tournaments on a day together, tests updated (2026-06-21)
