@@ -322,18 +322,32 @@ class SeasonPlanner:
         skipped_age_groups_set = {entry["age_group"] for entry in plan.skipped_age_groups}
         public_team_game_counts: Dict[str, int] = {}
         public_team_last_dates: Dict[str, date] = {}
+        # age_group -> {public_key -> game_count} for per-group spread calc
+        age_group_counts: Dict[str, Dict[str, int]] = {}
         for team in self.roster.teams:
             if team.age_group in skipped_age_groups_set:
                 continue
             key = self._team_key(team)
             public_key = team_key(team, self._duplicate_team_labels)
-            public_team_game_counts[public_key] = public_team_game_counts.get(public_key, 0) + self._team_game_counts.get(key, 0)
+            count = self._team_game_counts.get(key, 0)
+            public_team_game_counts[public_key] = public_team_game_counts.get(public_key, 0) + count
+            ag = team.age_group
+            if ag not in age_group_counts:
+                age_group_counts[ag] = {}
+            age_group_counts[ag][public_key] = age_group_counts[ag].get(public_key, 0) + count
             last = self._team_last_date.get(key)
             if last is not None and (public_key not in public_team_last_dates or last > public_team_last_dates[public_key]):
                 public_team_last_dates[public_key] = last
         plan.team_game_counts = public_team_game_counts
         plan.team_last_game_dates = public_team_last_dates
-        if public_team_game_counts:
+        per_age_group_spreads: Dict[str, int] = {}
+        for ag, counts in age_group_counts.items():
+            if counts:
+                per_age_group_spreads[ag] = max(counts.values()) - min(counts.values())
+        plan.game_count_spread_by_age_group = per_age_group_spreads
+        if per_age_group_spreads:
+            plan.game_count_spread = max(per_age_group_spreads.values())
+        elif public_team_game_counts:
             plan.game_count_spread = max(public_team_game_counts.values()) - min(public_team_game_counts.values())
 
         plan.fairness_gate = self._build_fairness_gate(plan)

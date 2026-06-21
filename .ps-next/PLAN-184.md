@@ -11,7 +11,7 @@
   - Files: tournament_scheduler/models.py
   - Approach: Add a new field `game_count_spread_by_age_group: Dict[str, int]` (default empty dict) to SeasonPlan alongside the existing global `game_count_spread`. This is the foundation that downstream components will populate and consume.
 
-- [ ] Populate per-age-group spread in season_planner.py
+- [x] Populated game_count_spread_by_age_group in season_planner.py by grouping per-team counts by age_group during the existing loop and computing max-min spread within each group. — 2026-06-21
   - Files: tournament_scheduler/season_planner.py
   - Approach: After building `public_team_game_counts` (line ~325), group counts by `team.age_group` using `self.roster.by_age_group()` or by filtering `public_team_game_counts` keys against teams per age group. Compute spread (max - min) within each age group and store in `plan.game_count_spread_by_age_group`. Keep the global `plan.game_count_spread` update but derive it as `max(per_age_group_spreads.values())` so it still reflects the worst-case group.
 
@@ -62,4 +62,11 @@ Key context:
 **Findings:** New field is a Dict[str, int] with default empty dict; doc comment explains max-min spread scoped per age group.
 LESSONS: none
 **Files:** tournament_scheduler/models.py (+6/-0)
+**Commit:** e4a3353 (hockey)
+
+### 2026-06-21 — Populated game_count_spread_by_age_group in season_planner.py by grouping per-team counts by age_group during the existing loop and computing max-min spread within each group.
+**Rationale:** none
+**Findings:** global game_count_spread is now derived as max of per-age-group spreads so the worst-case group still surfaces.
+LESSONS: none
+**Files:** tournament_scheduler/season_planner.py (+16/-2)
 **Commit:** [pending — fill after commit]
