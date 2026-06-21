@@ -305,8 +305,30 @@ class ManualAdjustmentWorkflow:
         planner._compute_game_counts(plan.tournaments)
         plan.team_game_counts = dict(planner._team_game_counts)
         plan.team_last_game_dates = dict(planner._team_last_date)
-        if planner._team_game_counts:
-            plan.game_count_spread = max(planner._team_game_counts.values()) - min(planner._team_game_counts.values())
+
+        # Recompute per-age-group spread so the critic and warnings stay in sync.
+        skipped_set = {e["age_group"] for e in plan.skipped_age_groups}
+        age_group_counts: dict = {}
+        for team in planner.roster.teams:
+            if team.age_group in skipped_set:
+                continue
+            key = planner._team_key(team)
+            count = planner._team_game_counts.get(key, 0)
+            ag = team.age_group
+            if ag not in age_group_counts:
+                age_group_counts[ag] = {}
+            age_group_counts[ag][key] = age_group_counts[ag].get(key, 0) + count
+        per_age_group_spreads: dict = {}
+        for ag, counts in age_group_counts.items():
+            if counts:
+                per_age_group_spreads[ag] = max(counts.values()) - min(counts.values())
+        plan.game_count_spread_by_age_group = per_age_group_spreads
+        if per_age_group_spreads:
+            plan.game_count_spread = max(per_age_group_spreads.values())
+        elif planner._team_game_counts:
+            plan.game_count_spread = (
+                max(planner._team_game_counts.values()) - min(planner._team_game_counts.values())
+            )
         else:
             plan.game_count_spread = 0
 

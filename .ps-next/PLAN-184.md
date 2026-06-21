@@ -23,7 +23,7 @@
   - Files: tournament_scheduler/cli/plan_critic.py
   - Approach: In `generate_critic_summary`, replace the flat `max(team_game_counts, ...)` / `min(team_game_counts, ...)` lookup with a loop over age groups (inferred from the SeasonPlan or from team keys). For each age group where spread exceeds 4, emit a separate outlier entry naming the age group and the offending teams within it.
 
-- [ ] Fix manual_adjustment_workflow to recompute per-age-group spread
+- [x] Added per-age-group spread recomputation after manual adjustments in manual_adjustment_workflow.py, mirroring the logic in season_planner.py. — 2026-06-21
   - Files: tournament_scheduler/pipeline/manual_adjustment_workflow.py
   - Approach: In lines 309-311, after updating `plan.game_count_spread`, also recompute `plan.game_count_spread_by_age_group` using the same per-age-group grouping logic added in season_planner.py. Extract the grouping logic into a shared helper if needed to avoid duplication.
 
@@ -83,4 +83,11 @@ LESSONS: none
 **Findings:** team-label-to-age-group lookup handles both plain labels and 'label (Club)' public key formats.
 LESSONS: team public keys in team_game_counts may be plain 'label' or 'label (Club)' — strip parenthetical suffix before age-group lookup
 **Files:** tournament_scheduler/cli/plan_critic.py (+57/-11)
+**Commit:** 03dd71e (hockey)
+
+### 2026-06-21 — Added per-age-group spread recomputation after manual adjustments in manual_adjustment_workflow.py, mirroring the logic in season_planner.py.
+**Rationale:** none
+**Findings:** Both game_count_spread_by_age_group and global game_count_spread are now kept in sync after manual adjustments.
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/manual_adjustment_workflow.py (+24/-2)
 **Commit:** [pending — fill after commit]
