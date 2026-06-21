@@ -10,7 +10,7 @@
   - Files: tournament_scheduler/pipeline/stage4_export.py
   - Approach: Move the calendars.html generation block (currently lines ~243-248) to run before the HtmlExporter().export() call (~line 192), so the file's existence can be used in the navbar condition.
 
-- [ ] Update html_exporter.export() to accept a calendars_path argument and use file existence for the navbar condition
+- [x] Added optional calendars_path: str  None  None parameter to HtmlExporter.export(). Replaced output_files.get("calendars_html") check with bool(calendars_path and os.path.exists(calendars_path)) so the navbar link reflects actual file existence on disk. — 2026-06-21
   - Files: tournament_scheduler/html/html_exporter.py
   - Approach: Add an optional `calendars_path: str | None = None` parameter to `export()`; replace the `has_scrape_data` condition with `bool(calendars_path and os.path.exists(calendars_path))` so the link is shown whenever the file actually exists rather than relying on meta counts.
 
@@ -41,4 +41,11 @@ Constraints: none
 **Findings:** Navbar now uses output_files["calendars_html"] presence as ground truth; all 657 tests pass.
 LESSONS: The _meta sub-dict from ScrapedDataCache does not carry total_events/source_count — those are top-level. Do not use meta.get(total_events) as a proxy for scrape-data availability.
 **Files:** html_exporter.py (+6/-6), stage4_export.py (+16/-16)
+**Commit:** 7817b98 (hockey)
+
+### 2026-06-21 — Added optional calendars_path: str  None  None parameter to HtmlExporter.export(). Replaced output_files.get("calendars_html") check with bool(calendars_path and os.path.exists(calendars_path)) so the navbar link reflects actual file existence on disk.
+**Rationale:** Using os.path.exists() on the explicit path argument is more reliable than checking the output_files dict key, and avoids coupling the navbar condition to dict naming conventions.
+**Findings:** All 657 tests pass. html_exporter.py now accepts explicit calendars_path rather than inferring from output_files.
+LESSONS: none
+**Files:** html_exporter.py (+9/-3)
 **Commit:** [pending — fill after commit]

@@ -93,6 +93,7 @@ class HtmlExporter:
         pipeline_meta: dict[str, Any] | None = None,
         round_length_for_age_group: dict[str, int] | None = None,
         age_groups: list[str] | None = None,
+        calendars_path: str | None = None,
     ) -> str:
         """Write an interactive HTML overview to *path*, return the path.
 
@@ -107,6 +108,8 @@ class HtmlExporter:
             length in minutes, used together with each tournament's
             ``start_time`` to compute and display a "HH:MM-HH:MM" time
             range via ``Tournament.end_time()``.
+        calendars_path: Absolute path to the generated calendars.html file. When provided and
+            the file exists, a navbar link to calendars.html is included.
         """
         tournaments_json = self._plan_to_json(plan, round_length_for_age_group)
 
@@ -227,9 +230,9 @@ class HtmlExporter:
         export_links_html = build_export_links_html(output_files)
 
         # Assemble pages from fragments
-        # Link to calendars.html only when the file was actually generated (output_files["calendars_html"] is set).
-        # This key is populated by stage4_export before calling HtmlExporter so the navbar reflects reality.
-        calendars_href = "calendars.html" if output_files.get("calendars_html") else ""
+        # Link to calendars.html only when the file actually exists on disk.
+        # calendars_path is passed by stage4_export after generating the file, before calling export().
+        calendars_href = "calendars.html" if (calendars_path and os.path.exists(calendars_path)) else ""
         season_plan_href = "season_plan.html"
         report_href = "season_plan_report.html"
 

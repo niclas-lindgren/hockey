@@ -190,16 +190,18 @@ def run(
         except Exception:
             pass
         # --- Calendar viewer (calendars.html) ---
-        # Generate before HtmlExporter so output_files["calendars_html"] is set and the navbar can link to it.
+        # Generate before HtmlExporter so calendars_path can be passed in and the navbar can link to it.
         # Only generate when scrape data exists — without it the file would be empty and the navbar link would be broken.
         # total_events/source_count are top-level keys in the cache, not inside _meta.
+        _calendars_path: str | None = None
         if _scrape_cache_data.get("total_events", 0) > 0 or _scrape_cache_data.get("source_count", 0) > 0:
             try:
                 _generate_calendars_html(
                     work_dir=str(state.work_dir),
                     export_dir=str(primary_export_path),
                 )
-                output_files["calendars_html"] = str(primary_export_path / "calendars.html")
+                _calendars_path = str(primary_export_path / "calendars.html")
+                output_files["calendars_html"] = _calendars_path
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"Kalendervisning feilet: {exc}")
         HtmlExporter().export(
@@ -209,6 +211,7 @@ def run(
             output_files=output_files,
             pipeline_meta=pipeline_meta,
             age_groups=configured_age_groups,
+            calendars_path=_calendars_path,
         )
         output_files["html"] = html_path
         output_files["html_report"] = str(Path(html_path).with_name(f"{Path(html_path).stem}_report{Path(html_path).suffix}"))
