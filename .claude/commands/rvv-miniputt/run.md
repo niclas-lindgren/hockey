@@ -24,11 +24,16 @@ python3 -m tournament_scheduler.pipeline.stage1_config [--input input.xlsx] [--w
 After success, read `.pipeline/stage1_config.json` and verify:
 - `teams` list is non-empty and contains all 9 RVV clubs
 - `age_groups` is populated
-- `parallel_games` config is present
 - `target_tournament_count` is a reasonable number (≥ 1)
-- `sources` list is non-empty
 
-Stop and ask the user if any of these look wrong before continuing.
+**Note:** `parallel_games` and `sources` are intentionally **not** stored in the Stage 1 checkpoint — they live exclusively in `input.xlsx` and are merged in dynamically by `load_effective_config` at runtime. Do not flag their absence as an error.
+
+To verify sources are configured, check the workbook directly:
+```python
+python3 -c "from tournament_scheduler.pipeline.input_workbook import load_workbook_config; r = load_workbook_config('input.xlsx'); print(f\"{len(r.get('sources', []))} sources: {[s['name'] for s in r.get('sources', [])]}\")"
+```
+
+Stop and ask the user if any of the above look wrong before continuing.
 
 ### Stage 2 — Scraping
 
@@ -126,7 +131,7 @@ While `tone == "rough"` and `refinement_iterations < 3`:
 2. Re-run Stage 4 export:
 
    ```bash
-   python3 -m tournament_scheduler.pipeline.stage4_export [--work-dir .pipeline] [--export-dir export] [--no-timestamped-export]
+   python3 -m tournament_scheduler.pipeline.stage4_export [--work-dir .pipeline] [--export-dir export]
    ```
 
 3. Re-check tone:
