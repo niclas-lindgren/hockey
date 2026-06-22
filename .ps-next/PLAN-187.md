@@ -11,7 +11,7 @@
 - [x] Removed the unrecognized --no-timestamped-export flag from the stage4_export command example in SKILL.md. — 2026-06-22
   - Files: /Users/niclasl/src/hockey/.agents/skills/rvv/SKILL.md
   - Approach: Locate the Stage 4 export command invocation line containing `--no-timestamped-export` and remove the flag, keeping the remaining valid arguments intact.
-- [ ] Remove --no-timestamped-export from ChatGPT command doc
+- [x] Removed --no-timestamped-export from stage4_export command in .chatgpt/commands/rvv-miniputt/run.md. — 2026-06-22
   - Files: /Users/niclasl/src/hockey/.chatgpt/commands/rvv-miniputt/run.md
   - Approach: Find the stage4_export command invocation at line ~98 and remove `[--no-timestamped-export]` from the command example.
 - [ ] Remove --no-timestamped-export from OpenCode command doc
@@ -42,4 +42,11 @@ LESSONS: none
 **Findings:** Flag removed from line 336 of SKILL.md.
 LESSONS: none
 **Files:** .agents/skills/rvv/SKILL.md (+1/-1)
+**Commit:** f146372 (hockey)
+
+### 2026-06-22 — Removed --no-timestamped-export from stage4_export command in .chatgpt/commands/rvv-miniputt/run.md.
+**Rationale:** Same fix as Claude run.md and SKILL.md — ensures all command docs match the actual stage4_export.py interface.
+**Findings:** Flag removed from line 98 of .chatgpt/commands/rvv-miniputt/run.md.
+LESSONS: none
+**Files:** .chatgpt/commands/rvv-miniputt/run.md (+1/-1)
 **Commit:** [pending — fill after commit]
