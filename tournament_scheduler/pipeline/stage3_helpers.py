@@ -68,6 +68,7 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
         "team_game_counts": dict(plan.team_game_counts),
         "team_tournament_participations": participations,
         "game_count_spread": plan.game_count_spread,
+        "game_count_spread_by_age_group": plan.game_count_spread_by_age_group,
         "fairness_gate": plan.fairness_gate,
         "team_last_game_dates": {
             k: v.isoformat() for k, v in plan.team_last_game_dates.items()
