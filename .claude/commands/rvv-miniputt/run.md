@@ -158,7 +158,7 @@ If `tone` is `mixed` or `strong` (either initially or after refinement), proceed
 ### Stage 4 — Export
 
 ```bash
-python3 -m tournament_scheduler.pipeline.stage4_export [--work-dir .pipeline] [--export-dir export] [--no-timestamped-export]
+python3 -m tournament_scheduler.pipeline.stage4_export [--work-dir .pipeline] [--export-dir export]
 ```
 
 After success, read `.pipeline/stage4_export.json` and report:

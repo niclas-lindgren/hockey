@@ -17,6 +17,7 @@
 - [x] Removed --no-timestamped-export from both the Stage 4 command example and the flags reference section in .opencode/commands/rvv-miniputt/run.md. — 2026-06-22
   - Files: /Users/niclasl/src/hockey/.opencode/commands/rvv-miniputt/run.md
   - Approach: Find all occurrences of `[--no-timestamped-export]` in Stage 4 export command examples (lines ~33 and ~60) and remove the flag from each.
+- [x] Removed --no-timestamped-export from the Stage 4 command block at line 161 of run.md. — 2026-06-22
 
 ## Notes
 The `--no-timestamped-export` flag exists in `tournament_scheduler/cli/args.py` for other subcommands (adjust, run_export) but is NOT registered in `tournament_scheduler/pipeline/stage4_export.py`'s argparse definition. That module only accepts `--work-dir` and `--export-dir`. The fix is documentation-only — no source code changes required.
@@ -56,4 +57,29 @@ LESSONS: none
 **Findings:** Removed flag from lines 33 and 60 of .opencode/commands/rvv-miniputt/run.md.
 LESSONS: The flag appeared in two places in this file — the command example and the flags reference section; removing both is necessary.
 **Files:** .opencode/commands/rvv-miniputt/run.md (+1/-2)
+**Commit:** 5bf7ecc (hockey)
+
+- 2026-06-22 Auto-verify attempt 1 found 3 failing criteria — added remediation tasks
+
+## Verification Report
+**Date:** 2026-06-22
+
+| Criterion | Verdict | Notes |
+|-----------|---------|-------|
+| The --no-timestamped-export flag is not present in any Stage 4 export command examples in all four files | FAIL | Flag still present at line 161 of .claude/commands/rvv-miniputt/run.md |
+| grep -r no-timestamped-export produces no output | FAIL | grep found 1 match in .claude/commands/rvv-miniputt/run.md:161 |
+| Stage 4 command examples contain only --work-dir and --export-dir | FAIL | .claude/commands/rvv-miniputt/run.md line 161 still includes --no-timestamped-export |
+
+**Shell checks (ps-verify-plan):** all passed
+```
+no embedded shell checks found
+```
+**Git history:** 4 tasks with matching commits / 4 tasks total
+**Tests:** not run
+
+### 2026-06-22 — Removed --no-timestamped-export from the Stage 4 command block at line 161 of run.md.
+**Rationale:** Straightforward fix — the flag was missed in the first pass.
+**Findings:** Flag removed from the second Stage 4 export command block in .claude/commands/rvv-miniputt/run.md line 161.
+LESSONS: none
+**Files:** .claude/commands/rvv-miniputt/run.md (+1/-1)
 **Commit:** [pending — fill after commit]
