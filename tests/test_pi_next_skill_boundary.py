@@ -16,3 +16,12 @@ def test_skill_documents_thin_proxy_boundary() -> None:
     assert "Do not duplicate the shared PS:next protocol" in text
     assert "harness-neutral" in text
     assert "pi-next-state.sh" in text
+
+
+def test_handoff_status_treats_continue_marker_as_blocker() -> None:
+    text = (ROOT / ".pi" / "extensions" / "pi-next.ts").read_text(encoding="utf-8")
+
+    assert "continueMarker" in text
+    assert "Safe handoff" in text
+    assert "Continue marker contents" in text
+    assert "!existsSync(cont)" in text

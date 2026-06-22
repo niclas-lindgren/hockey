@@ -119,6 +119,23 @@ function continueFile(cwd: string): string {
   return join(getPsDir(cwd), ".continue-here.md");
 }
 
+function readContinueMarker(cwd: string): string | null {
+  const file = continueFile(cwd);
+  if (!existsSync(file)) return null;
+  return readFileSync(file, "utf8").trim();
+}
+
+async function handoffSummary(cwd: string) {
+  const dirty = await git(cwd, ["status", "--short"]);
+  const planFile = getPlanFile(cwd);
+  const current = existsSync(planFile) ? extractCurrentTask(readFileSync(planFile, "utf8")) : null;
+  const lock = lockFile(cwd);
+  const cont = continueFile(cwd);
+  const continueMarker = readContinueMarker(cwd);
+  const safe = !dirty && !existsSync(lock) && !existsSync(cont);
+  return { dirty, current, lock, cont, continueMarker, safe };
+}
+
 function appendFixTask(plan: string, task: string, files: string, approach: string): string {
   const block = `- [ ] [Fix] ${task.trim()}\n  - Files: ${files.trim() || "TBD"}\n  - Approach: ${approach.trim() || "Investigate the failing criterion, patch the smallest relevant surface, and rerun verification."}\n`;
   if (!plan.includes("## Tasks")) throw new Error("PLAN.md is missing ## Tasks");
@@ -196,7 +213,7 @@ export default function piNextExtension(pi: ExtensionAPI) {
       await ctx.newSession({
         parentSession,
         withSession: async (newCtx) => {
-          await newCtx.sendUserMessage(`/skill:pi-next auto\n\nProcess up to ${limit} backlog item(s). After each archive, re-check .ps-next state and continue only if there is another open backlog item. Stop on any blocker, failed quality gate, or unsafe handoff state.`);
+          await newCtx.sendUserMessage(`/skill:pi-next auto\n\nProcess up to ${limit} backlog item(s). After each archive, re-check .ps-next state and continue only if there is another open backlog item. Stop on any blocker, failed quality gate, or unsafe handoff state, including an active .continue-here checkpoint.`);
         },
       });
     },
@@ -224,15 +241,10 @@ export default function piNextExtension(pi: ExtensionAPI) {
       try {
         const { stdout } = await runScript(ctx.cwd, "pi-next-state.sh", [ctx.cwd]);
         const state = parseState(stdout);
-        const dirty = await git(ctx.cwd, ["status", "--short"]);
-        const planFile = getPlanFile(ctx.cwd);
-        const current = existsSync(planFile) ? extractCurrentTask(readFileSync(planFile, "utf8")) : null;
-        const cont = join(getPsDir(ctx.cwd), ".continue-here.md");
-        const lock = lockFile(ctx.cwd);
-        const safe = !dirty && !existsSync(lock);
+        const summary = await handoffSummary(ctx.cwd);
         ctx.ui.notify(
-          `Safe handoff: ${safe ? "yes" : "no"}\nPLAN=${state.PLAN} unchecked=${state.UNCHECKED}\nNext=${current?.task ?? "-"}\nDirty=${dirty ? "yes" : "no"}\nLock=${existsSync(lock) ? "yes" : "no"}\nContinue marker=${existsSync(cont) ? "yes" : "no"}`,
-          safe ? "info" : "warning",
+          `Safe handoff: ${summary.safe ? "yes" : "no"}\nPLAN=${state.PLAN} unchecked=${state.UNCHECKED}\nNext=${summary.current?.task ?? "-"}\nDirty=${summary.dirty ? "yes" : "no"}\nLock=${existsSync(summary.lock) ? "yes" : "no"}\nContinue marker=${existsSync(summary.cont) ? "yes" : "no"}${summary.continueMarker ? `\nContinue marker contents=${summary.continueMarker.replace(/\n/g, "; ")}` : ""}`,
+          summary.safe ? "info" : "warning",
         );
       } catch (err) {
         ctx.ui.notify(`pi-next handoff failed: ${err instanceof Error ? err.message : String(err)}`, "error");
@@ -355,23 +367,19 @@ export default function piNextExtension(pi: ExtensionAPI) {
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       const { stdout } = await runScript(ctx.cwd, "pi-next-state.sh", [ctx.cwd]);
       const state = parseState(stdout);
-      const dirty = await git(ctx.cwd, ["status", "--short"]);
-      const planFile = getPlanFile(ctx.cwd);
-      const current = existsSync(planFile) ? extractCurrentTask(readFileSync(planFile, "utf8")) : null;
-      const cont = join(getPsDir(ctx.cwd), ".continue-here.md");
-      const lock = lockFile(ctx.cwd);
-      const safe = !dirty && !existsSync(lock);
+      const summary = await handoffSummary(ctx.cwd);
       const text = [
-        `Safe handoff: ${safe ? "yes" : "no"}`,
+        `Safe handoff: ${summary.safe ? "yes" : "no"}`,
         `PLAN=${state.PLAN}`,
         `UNCHECKED=${state.UNCHECKED}`,
-        `Next task=${current?.task ?? "-"}`,
-        `Uncommitted changes=${dirty ? "yes" : "no"}`,
-        dirty ? dirty : "",
-        `Lock=${existsSync(lock) ? readFileSync(lock, "utf8").trim().replace(/\n/g, "; ") : "none"}`,
-        `Continue marker=${existsSync(cont) ? cont : "none"}`,
+        `Next task=${summary.current?.task ?? "-"}`,
+        `Uncommitted changes=${summary.dirty ? "yes" : "no"}`,
+        summary.dirty ? summary.dirty : "",
+        `Lock=${existsSync(summary.lock) ? readFileSync(summary.lock, "utf8").trim().replace(/\n/g, "; ") : "none"}`,
+        `Continue marker=${existsSync(summary.cont) ? summary.cont : "none"}`,
+        summary.continueMarker ? `Continue marker contents=${summary.continueMarker.replace(/\n/g, "; ")}` : "",
       ].filter(Boolean).join("\n");
-      return { content: [{ type: "text", text }], details: { safe, state, currentTask: current, dirty } };
+      return { content: [{ type: "text", text }], details: { safe: summary.safe, state, currentTask: summary.current, dirty: summary.dirty, continueMarker: summary.continueMarker } };
     },
   });
 
