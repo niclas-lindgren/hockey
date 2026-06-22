@@ -14,7 +14,7 @@
 - [x] plan_critic.py now uses stored spread_by_ag with inline fallback; always checks per age group and only falls back to global spread when no age-group mapping is available — 2026-06-22
   - Files: tournament_scheduler/cli/plan_critic.py
   - Approach: Replace the fallback-to-global path in plan_critic.py (lines 118-130) so that when `plan.game_count_spread_by_age_group` is non-empty it is used directly; the global `game_count_spread` fallback is only used when the dict is absent.
-- [ ] Propagate game_count_spread_by_age_group through tournament_updater.py
+- [x] Added game_count_spread_by_age_group to load_plan() in tournament_updater.py so it's propagated when rebuilding SeasonPlan from checkpoint — 2026-06-22
   - Files: tournament_scheduler/pipeline/tournament_updater.py
   - Approach: Wherever `tournament_updater.py` builds `UpdateResult` changes from the checkpoint plan, include `game_count_spread_by_age_group` alongside the existing `game_count_spread` entry so downstream callers receive per-age-group data.
 - [ ] Add tests covering round-trip serialization and consumer behaviour
@@ -55,4 +55,11 @@ LESSONS: none
 **Findings:** The old code only ran the per-age-group path if spread_by_ag was non-empty; the new code always groups by age group and uses stored spread when available
 LESSONS: none
 **Files:** tournament_scheduler/cli/plan_critic.py (+39/-32)
+**Commit:** cf35876 (hockey)
+
+### 2026-06-22 — Added game_count_spread_by_age_group to load_plan() in tournament_updater.py so it's propagated when rebuilding SeasonPlan from checkpoint
+**Rationale:** tournament_updater.py has its own load_plan() that builds SeasonPlan directly from dict; it needed the field added alongside game_count_spread
+**Findings:** The plan_to_dict method in tournament_updater delegates to _plan_to_dict so serialization was already handled; only deserialization needed fixing
+LESSONS: none
+**Files:** tournament_scheduler/pipeline/tournament_updater.py (+1/-0)
 **Commit:** [pending — fill after commit]

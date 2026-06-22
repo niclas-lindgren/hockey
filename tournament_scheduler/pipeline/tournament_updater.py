@@ -120,6 +120,7 @@ class TournamentUpdater:
             month_balance_score=float(plan_data.get("month_balance_score", 0.0)),
             fairness_gate=dict(plan_data.get("fairness_gate") or {}),
             game_count_spread=float(plan_data.get("game_count_spread", 0.0)),
+            game_count_spread_by_age_group=dict(plan_data.get("game_count_spread_by_age_group") or {}),
             team_game_counts=dict(plan_data.get("team_game_counts") or {}),
         )
         return plan
