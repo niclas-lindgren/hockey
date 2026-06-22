@@ -87,48 +87,55 @@ def generate_critic_summary(plan: "SeasonPlan") -> List[str]:
             if _lbl and _lbl not in _team_label_to_ag:
                 _team_label_to_ag[_lbl] = _ag
 
-    # Group team_game_counts keys by age group (keys are labels or
-    # "label (Club)" strings — strip the suffix for age-group lookup).
+    # Group team_game_counts keys by age group.
+    # Keys use the format "Label (Club, AgeGroup)" — parse the embedded age
+    # group first so ambiguous labels like "Frisk Asker" don't bleed across
+    # age groups via the tournament lookup.
     def _label_to_ag(key: str) -> str:
-        # Public keys may be plain "label" or "label (Club)".
-        # Try the full key first, then strip the parenthetical suffix.
+        # Primary: parse "(Club, AgeGroup)" suffix directly from the key.
+        m = re.search(r"\(\s*[^,)]+,\s*([^)]+)\)\s*$", key)
+        if m:
+            return m.group(1).strip()
+        # Fallback for plain labels without a parenthetical suffix.
         if key in _team_label_to_ag:
             return _team_label_to_ag[key]
-        base = re.sub(r"\s*\([^)]*\)\s*$", "", key).strip()
-        return _team_label_to_ag.get(base, "")
+        return ""
 
-    if team_game_counts and spread_by_ag:
+    if team_game_counts:
         ag_to_keys: Dict[str, List[str]] = defaultdict(list)
         for k in team_game_counts:
             ag = _label_to_ag(k)
             if ag:
                 ag_to_keys[ag].append(k)
 
-        for ag, keys in sorted(ag_to_keys.items()):
-            ag_spread = spread_by_ag.get(ag, 0)
-            if ag_spread <= 4:
-                continue
-            ag_counts = {k: team_game_counts[k] for k in keys}
-            max_team = max(ag_counts, key=ag_counts.__getitem__)
-            min_team = min(ag_counts, key=ag_counts.__getitem__)
-            max_val = ag_counts[max_team]
-            min_val = ag_counts[min_team]
-            outlier_issues.append(
-                f"{ag} game count spread {ag_spread}: {max_team} plays {max_val} games "
-                f"vs {min_team}'s {min_val} — redistribute game assignments"
-            )
-    elif team_game_counts:
-        # Fallback: no per-age-group data available, use global spread.
-        game_count_spread: int = getattr(plan, "game_count_spread", 0) or 0
-        if game_count_spread > 4:
-            max_team = max(team_game_counts, key=team_game_counts.__getitem__)
-            min_team = min(team_game_counts, key=team_game_counts.__getitem__)
-            max_val = team_game_counts[max_team]
-            min_val = team_game_counts[min_team]
-            outlier_issues.append(
-                f"Game count spread {game_count_spread}: {max_team} plays {max_val} games "
-                f"vs {min_team}'s {min_val} — redistribute game assignments"
-            )
+        if ag_to_keys:
+            # Per-age-group comparison — U7 is never compared against U12.
+            for ag, keys in sorted(ag_to_keys.items()):
+                ag_counts = {k: team_game_counts[k] for k in keys}
+                max_val = max(ag_counts.values())
+                min_val = min(ag_counts.values())
+                # Use stored spread if available; compute inline otherwise.
+                ag_spread = spread_by_ag.get(ag, max_val - min_val) if spread_by_ag else (max_val - min_val)
+                if ag_spread <= 4:
+                    continue
+                max_team = max(ag_counts, key=ag_counts.__getitem__)
+                min_team = min(ag_counts, key=ag_counts.__getitem__)
+                outlier_issues.append(
+                    f"{ag} game count spread {ag_spread}: {max_team} plays {max_val} games "
+                    f"vs {min_team}'s {min_val} — redistribute game assignments"
+                )
+        else:
+            # No age-group mapping available at all — use global spread as last resort.
+            game_count_spread: int = getattr(plan, "game_count_spread", 0) or 0
+            if game_count_spread > 4:
+                max_team = max(team_game_counts, key=team_game_counts.__getitem__)
+                min_team = min(team_game_counts, key=team_game_counts.__getitem__)
+                max_val = team_game_counts[max_team]
+                min_val = team_game_counts[min_team]
+                outlier_issues.append(
+                    f"Game count spread {game_count_spread}: {max_team} plays {max_val} games "
+                    f"vs {min_team}'s {min_val} — redistribute game assignments"
+                )
 
     # ------------------------------------------------------------------
     # 5. Hosting clumps: >2 distinct hosting days at same club in same month

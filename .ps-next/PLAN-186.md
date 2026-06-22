@@ -11,7 +11,7 @@
 - [x] Added game_count_spread_by_age_group deserialization in _dict_to_plan in stage4_helpers.py — 2026-06-22
   - Files: tournament_scheduler/pipeline/stage3_helpers.py
   - Approach: In `_dict_to_plan`, read `d.get("game_count_spread_by_age_group", {})` and pass it to the `SeasonPlan` constructor, mirroring how `game_count_spread` is currently read on the adjacent line.
-- [ ] Update plan_critic.py to read game_count_spread_by_age_group from the checkpoint plan
+- [x] plan_critic.py now uses stored spread_by_ag with inline fallback; always checks per age group and only falls back to global spread when no age-group mapping is available — 2026-06-22
   - Files: tournament_scheduler/cli/plan_critic.py
   - Approach: Replace the fallback-to-global path in plan_critic.py (lines 118-130) so that when `plan.game_count_spread_by_age_group` is non-empty it is used directly; the global `game_count_spread` fallback is only used when the dict is absent.
 - [ ] Propagate game_count_spread_by_age_group through tournament_updater.py
@@ -48,4 +48,11 @@ LESSONS: none
 **Findings:** _dict_to_plan is in stage4_helpers.py not stage3_helpers.py as the plan stated
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/stage4_helpers.py (+1/-0)
+**Commit:** 3085179 (hockey)
+
+### 2026-06-22 — plan_critic.py now uses stored spread_by_ag with inline fallback; always checks per age group and only falls back to global spread when no age-group mapping is available
+**Rationale:** The code was already present as unstaged working-tree changes; staged and committed as part of this task
+**Findings:** The old code only ran the per-age-group path if spread_by_ag was non-empty; the new code always groups by age group and uses stored spread when available
+LESSONS: none
+**Files:** tournament_scheduler/cli/plan_critic.py (+39/-32)
 **Commit:** [pending — fill after commit]
