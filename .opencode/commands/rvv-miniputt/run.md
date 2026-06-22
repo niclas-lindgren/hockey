@@ -30,7 +30,7 @@ Read `.pipeline/stage3_planning.json` and verify: `plan` non-empty (tournaments 
 
 **Stage 4 — Export**
 ```bash
-python3 -m tournament_scheduler.pipeline.stage4_export [--work-dir .pipeline] [--export-dir export] [--no-timestamped-export]
+python3 -m tournament_scheduler.pipeline.stage4_export [--work-dir .pipeline] [--export-dir export]
 ```
 Read `.pipeline/stage4_export.json` and report files written under `export/` and any `errors`.
 
@@ -57,5 +57,4 @@ Flags for stage 2:
 Flags for stage 4:
 ```
 --export-dir <path>         Export directory (default: export)
---no-timestamped-export     Write exports flat instead of a timestamped subfolder
 ```

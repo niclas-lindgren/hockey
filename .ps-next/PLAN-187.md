@@ -14,7 +14,7 @@
 - [x] Removed --no-timestamped-export from stage4_export command in .chatgpt/commands/rvv-miniputt/run.md. — 2026-06-22
   - Files: /Users/niclasl/src/hockey/.chatgpt/commands/rvv-miniputt/run.md
   - Approach: Find the stage4_export command invocation at line ~98 and remove `[--no-timestamped-export]` from the command example.
-- [ ] Remove --no-timestamped-export from OpenCode command doc
+- [x] Removed --no-timestamped-export from both the Stage 4 command example and the flags reference section in .opencode/commands/rvv-miniputt/run.md. — 2026-06-22
   - Files: /Users/niclasl/src/hockey/.opencode/commands/rvv-miniputt/run.md
   - Approach: Find all occurrences of `[--no-timestamped-export]` in Stage 4 export command examples (lines ~33 and ~60) and remove the flag from each.
 
@@ -49,4 +49,11 @@ LESSONS: none
 **Findings:** Flag removed from line 98 of .chatgpt/commands/rvv-miniputt/run.md.
 LESSONS: none
 **Files:** .chatgpt/commands/rvv-miniputt/run.md (+1/-1)
+**Commit:** 477541e (hockey)
+
+### 2026-06-22 — Removed --no-timestamped-export from both the Stage 4 command example and the flags reference section in .opencode/commands/rvv-miniputt/run.md.
+**Rationale:** The flag appeared in two places (command example and flags list); both were removed to fully align docs with actual stage4_export.py interface.
+**Findings:** Removed flag from lines 33 and 60 of .opencode/commands/rvv-miniputt/run.md.
+LESSONS: The flag appeared in two places in this file — the command example and the flags reference section; removing both is necessary.
+**Files:** .opencode/commands/rvv-miniputt/run.md (+1/-2)
 **Commit:** [pending — fill after commit]
