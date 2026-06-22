@@ -4,8 +4,6 @@ STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `run:python3 -m pytest -q tests/test_rvv_cli_portability.py tests/test_pi_next_skill_boundary.py tests/test_rvv_skill_portability.py` | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `run:bash scripts/rvv-miniputt status` | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `grep:README.md contains Cross-harness usage` | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `grep:.agents/skills/rvv/SKILL.md contains Non-Pi / cross-harness usage` | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `grep:.agents/skills/pi-next/SKILL.md contains harness-neutral` | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Build plan uses the optimized season-wide date-selection pass when it produces a better schedule than the old bucketed baseline. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The rules report mentions the season-wide date-selection optimization instead of implying all date choice is purely per-age-group greedy. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Tests prove the optimized schedule improves the composite score in a crafted scenario and still passes the overlap/collision checks. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
