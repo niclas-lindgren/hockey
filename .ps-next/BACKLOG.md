@@ -1,12 +1,13 @@
 # Backlog
 
 ## Open
-- [194] [ ] [Priority 2] Refactor participant selection into a single scored objective that jointly balances club caps, game-count deficits, opponent diversity, and skill-band preferences instead of mostly ordered heuristics.
 - [195] [ ] [Priority 3] Improve host assignment by co-optimizing host club and date slot selection so the planner minimizes fallback hosts and better respects each club's real calendar capacity.
 - [196] [ ] [Priority 4] Add stronger weekend-based fairness metrics and scheduling constraints so clubs are balanced across consecutive weekends and holiday-heavy stretches, not just by month.
 - [197] [ ] [Priority 5] Introduce limited backtracking or repair logic when an early greedy choice causes later age-group collisions, duplicate matchups, or fairness gate failures.
 
 ## Done
+- [194] [x] [Priority 2] Refactor participant selection into a single scored objective that jointly balances club caps, game-count deficits, opponent diversity, and skill-band preferences instead of mostly ordered heuristics. (2026-06-22)
+
 - [193] [x] [Priority 1] Add a global date-selection optimization pass so season-wide date placement can rebalance against month load, overlapping age groups, and opponent diversity instead of relying only on per-age-group greedy buckets. (2026-06-22)
 
 - [186] [x] Stage 3 should compute game_count_spread_by_age_group per age group and store it in the checkpoint instead of leaving it None; the stored global game_count_spread is misleading (2026-06-22)

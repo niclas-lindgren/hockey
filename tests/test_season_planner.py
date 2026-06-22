@@ -7,6 +7,7 @@ from typing import Dict
 
 import pytest
 
+from tournament_scheduler import participant_selection
 from tournament_scheduler.models import (
     AGE_GROUP_OVERLAP,
     CalendarEvent,
@@ -599,12 +600,12 @@ class TestOpponentHistoryTrackingAndScoring:
         assert len(teams) >= 3
         team_a, team_b, team_c = teams[0], teams[1], teams[2]
 
-        # Reset tracking so the heuristic is driven purely by opponent history
+        # Reset tracking so the selection score is driven purely by opponent history
         # for this test, and force team_a to have already played team_b twice
         # but never team_c.
-        planner._invite_counts = {t.label: 0 for t in roster.teams}
+        planner._invite_counts = {planner._team_key(t): 0 for t in roster.teams}
         planner._grouped_with = {}
-        planner._opponent_history = {frozenset((team_a.label, team_b.label)): 2}
+        planner._opponent_history = {frozenset((planner._team_key(team_a), planner._team_key(team_b))): 2}
 
         candidates = [team_a, team_b, team_c] + [t for t in teams if t not in (team_a, team_b, team_c)]
         selected = planner._pick_least_recently_grouped(candidates, 2, "U10")
@@ -614,6 +615,124 @@ class TestOpponentHistoryTrackingAndScoring:
         # in favour of the fresher pairing with team_c.
         assert team_c in selected
         assert team_b not in selected
+
+    def test_participant_selection_score_balances_repeat_history_and_skill_band(self):
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=5),
+            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=5),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=9),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={team.club: f"{team.club}hallen" for team in roster.teams},
+            parallel_games_for_age_group={"U10": 2},
+            division_skill_band=1,
+        )
+        selected = [roster.teams[1]]
+        remaining = roster.teams[:1] + roster.teams[2:]
+
+        planner._invite_counts = {planner._team_key(team): 0 for team in roster.teams}
+        planner._grouped_with = {planner._team_key(roster.teams[2]): {planner._team_key(selected[0])}}
+        planner._opponent_history = {
+            frozenset((planner._team_key(roster.teams[2]), planner._team_key(selected[0]))): 2
+        }
+
+        fresh_score = participant_selection.participant_selection_score(
+            planner,
+            selected,
+            remaining,
+            roster.teams[0],
+            "U10",
+        )
+        repeat_skill_mismatch_score = participant_selection.participant_selection_score(
+            planner,
+            selected,
+            remaining,
+            roster.teams[2],
+            "U10",
+        )
+
+        assert repeat_skill_mismatch_score > fresh_score
+
+    def test_participant_selection_score_prioritizes_deficit_over_repeat_pressure(self):
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10"),
+            Team(club="Holmen", label="Holmen 1", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={team.club: f"{team.club}hallen" for team in roster.teams},
+            parallel_games_for_age_group={"U10": 2},
+        )
+        selected = [roster.teams[1]]
+        remaining = roster.teams
+
+        planner._invite_counts = {planner._team_key(team): 0 for team in roster.teams}
+        planner._grouped_with = {}
+        planner._opponent_history = {
+            frozenset((planner._team_key(roster.teams[0]), planner._team_key(selected[0]))): 2
+        }
+        planner._running_game_counts = {
+            planner._team_key(roster.teams[0]): 0,
+            planner._team_key(roster.teams[2]): 2,
+        }
+
+        high_deficit_score = participant_selection.participant_selection_score(
+            planner,
+            selected,
+            remaining,
+            roster.teams[0],
+            "U10",
+        )
+        lower_deficit_score = participant_selection.participant_selection_score(
+            planner,
+            selected,
+            remaining,
+            roster.teams[2],
+            "U10",
+        )
+
+        assert high_deficit_score < lower_deficit_score
+
+    def test_participant_selection_score_penalizes_far_skill_bands(self):
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=5),
+            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=6),
+            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=9),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={team.club: f"{team.club}hallen" for team in roster.teams},
+            parallel_games_for_age_group={"U10": 2},
+            division_skill_band=1,
+        )
+        selected = [roster.teams[0]]
+        remaining = roster.teams
+
+        planner._invite_counts = {planner._team_key(team): 0 for team in roster.teams}
+        planner._grouped_with = {}
+        planner._opponent_history = {}
+
+        near_band_score = participant_selection.participant_selection_score(
+            planner,
+            selected,
+            remaining,
+            roster.teams[1],
+            "U10",
+        )
+        far_band_score = participant_selection.participant_selection_score(
+            planner,
+            selected,
+            remaining,
+            roster.teams[2],
+            "U10",
+        )
+
+        assert far_band_score > near_band_score
 
     def test_global_date_selection_pass_beats_bucketed_baseline(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)

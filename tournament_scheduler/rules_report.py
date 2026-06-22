@@ -97,9 +97,8 @@ def rules_report(planner) -> List[Dict[str, str]]:
         {
             "regel": "Minst mulig gjentatte grupperinger",
             "forklaring": (
-                "Når planleggeren velger hvilke lag som skal møtes i en turnering, prioriterer den lag "
-                "som ikke har vært i samme turnering tidligere i sesongen. Målet er at hvert lag skal møte "
-                "flest mulig forskjellige motstandere gjennom sesongen."
+                "Når planleggeren velger hvilke lag som skal møtes i en turnering, regnes det ut én samlet score for hver kandidat. "
+                "Scoren balanserer klubb-tak, game-count-deficit, gjentatte motstandere og skill-band, slik at lag som både trenger flere kamper og passer inn i turneringen prioriteres først."
             ),
             "kategori": "Automatisk avgjørelse",
         },

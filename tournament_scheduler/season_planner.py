@@ -54,7 +54,9 @@ from tournament_scheduler.participant_selection import (
     normalized_invite_count as _normalized_invite_count,
     next_age_group as _next_age_group,
     participant_limit_for as _participant_limit_for,
+    participant_selection_score as _participant_selection_score,
     pick_least_recently_grouped as _pick_least_recently_grouped,
+    pick_scored_participants as _pick_scored_participants,
     pick_spread_dates as _pick_spread_dates,
     select_participants as _select_participants,
     target_tournaments_for_age_group as _target_tournaments_for_age_group,
@@ -827,6 +829,8 @@ SeasonPlanner._expected_average_for = _expected_average_for
 SeasonPlanner._deficit_score = _deficit_score
 SeasonPlanner._normalized_invite_count = _normalized_invite_count
 SeasonPlanner._pick_least_recently_grouped = _pick_least_recently_grouped
+SeasonPlanner._pick_scored_participants = _pick_scored_participants
+SeasonPlanner._participant_selection_score = staticmethod(_participant_selection_score)
 SeasonPlanner._hosting_targets_for_age_group = _hosting_targets_for_age_group
 SeasonPlanner._proportional_integer_targets = staticmethod(_proportional_integer_targets)
 SeasonPlanner._default_target_count = staticmethod(_default_target_count)

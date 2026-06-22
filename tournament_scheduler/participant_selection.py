@@ -143,40 +143,12 @@ def select_participants(planner, age_group: str) -> List[Team]:
         return []
 
     max_teams = participant_limit_for(planner, age_group, len(candidates))
-    if len(candidates) <= max_teams:
-        return cap_per_club_deficit_aware(planner, candidates, age_group)
-
-    return pick_least_recently_grouped(planner, candidates, max_teams, age_group)
+    return pick_scored_participants(planner, candidates, max_teams, age_group)
 
 
 def cap_per_club_deficit_aware(planner, teams: Sequence[Team], age_group: str) -> List[Team]:
-    """Filter `teams` by per-club caps, with a deficit override."""
-    result: List[Team] = []
-    club_counts: Dict[str, int] = {}
-    remaining = list(teams)
-
-    for index, team in enumerate(remaining):
-        club_count = club_counts.get(team.club, 0)
-        max_club = max_club_teams_for(planner, age_group, team.club)
-        if club_count < max_club:
-            club_counts[team.club] = club_count + 1
-            result.append(team)
-            continue
-
-        pending_under_cap_deficits = [
-            deficit_score(planner, t, age_group)
-            for t in remaining[index + 1 :]
-            if club_counts.get(t.club, 0) < max_club_teams_for(planner, age_group, t.club)
-        ]
-        this_deficit = deficit_score(planner, team, age_group)
-        if pending_under_cap_deficits and max(pending_under_cap_deficits) >= this_deficit:
-            continue
-
-        club_counts[team.club] = club_count + 1
-        result.append(team)
-        planner._club_cap_overrides += 1
-
-    return result
+    """Compatibility wrapper for the scored participant selector."""
+    return pick_scored_participants(planner, teams, len(teams), age_group)
 
 
 def participant_limit_for(planner, age_group: str, team_count: int) -> int:
@@ -291,98 +263,32 @@ def pick_least_recently_grouped(
     count: int,
     age_group: str,
 ) -> List[Team]:
-    """Greedily build a subset that minimizes repeat matchups."""
+    """Greedily build a subset using the shared participant-selection score."""
+    return pick_scored_participants(planner, candidates, count, age_group)
+
+
+def pick_scored_participants(
+    planner,
+    candidates: Sequence[Team],
+    count: int,
+    age_group: str,
+) -> List[Team]:
+    """Greedily build a subset by minimizing a single balance score."""
     remaining = list(candidates)
-    if not remaining:
+    if not remaining or count <= 0:
         return []
 
-    remaining.sort(
-        key=lambda t: (
-            normalized_invite_count(planner, t),
-            -deficit_score(planner, t, age_group),
-            candidates.index(t),
-        )
-    )
-    selected: List[Team] = [remaining.pop(0)]
+    candidate_order = {planner._team_key(team): index for index, team in enumerate(candidates)}
+    selected: List[Team] = []
 
     while remaining and len(selected) < count:
-        def repeat_matchup_score(team: Team) -> int:
-            total = 0
-            for s in selected:
-                pair = frozenset((planner._team_key(team), planner._team_key(s)))
-                total += planner._opponent_history.get(pair, 0)
-            return total
-
-        def overlap_score(team: Team) -> int:
-            grouped_with = planner._grouped_with.get(planner._team_key(team), set())
-            return sum(1 for s in selected if planner._team_key(s) in grouped_with)
-
-        under_cap: List[Team] = [
-            t for t in remaining
-            if sum(1 for s in selected if s.club == t.club)
-            < max_club_teams_for(planner, age_group, t.club)
-        ]
-        over_cap: List[Team] = [t for t in remaining if t not in under_cap]
-        max_under_cap_deficit = (
-            max(deficit_score(planner, t, age_group) for t in under_cap)
-            if under_cap else None
+        chosen = min(
+            remaining,
+            key=lambda team: (
+                participant_selection_score(planner, selected, remaining, team, age_group),
+                candidate_order[planner._team_key(team)],
+            ),
         )
-        eligible_over_cap = [
-            t for t in over_cap
-            if max_under_cap_deficit is None
-            or deficit_score(planner, t, age_group) > max_under_cap_deficit
-        ]
-        eligible = under_cap + eligible_over_cap
-        if not eligible:
-            eligible = remaining
-
-        selected_clubs = {s.club for s in selected}
-        eligible_over_cap_labels = {planner._team_key(t) for t in eligible_over_cap}
-
-        # Club-load penalty: push down candidates whose club is already
-        # represented in the selected set. Repeating a club becomes a
-        # fallback only after every remaining club has been used at least
-        # once, while the proportional soft cap still nudges the picker
-        # away from runaway same-club clustering.
-        def club_penalty(team: Team) -> int:
-            club_count = sum(1 for s in selected if s.club == team.club)
-            max_club = max_club_teams_for(planner, age_group, team.club)
-            base = club_count * 25
-            if club_count < max_club:
-                return base
-            if planner._team_key(team) in eligible_over_cap_labels:
-                return base + (club_count - max_club + 1) * 100
-            return base + club_count * 250  # outweighs typical match-up scores
-
-        def skill_penalty(team: Team) -> int:
-            selected_levels = [
-                planner._team_skill_levels[planner._team_key(s)]
-                for s in selected
-                if planner._team_key(s) in planner._team_skill_levels
-            ]
-            if not selected_levels:
-                return 0
-            if planner._team_key(team) not in planner._team_skill_levels:
-                return 0
-            median = sorted(selected_levels)[len(selected_levels) // 2]
-            dist = abs(team.skill_level - median)
-            if dist <= planner.division_skill_band:
-                return 0
-            return (dist - planner.division_skill_band) * 100
-
-        eligible.sort(
-            key=lambda t: (
-                0 if t.club not in selected_clubs else 1,
-                club_penalty(t),
-                normalized_invite_count(planner, t),
-                -deficit_score(planner, t, age_group) * 1000,
-                repeat_matchup_score(t),
-                overlap_score(t),
-                skill_penalty(t),
-                candidates.index(t),
-            )
-        )
-        chosen = eligible.pop(0)
         remaining.remove(chosen)
         selected.append(chosen)
 
@@ -391,6 +297,55 @@ def pick_least_recently_grouped(
             planner._club_cap_overrides += 1
 
     return selected
+
+
+def participant_selection_score(
+    planner,
+    selected: Sequence[Team],
+    remaining: Sequence[Team],
+    team: Team,
+    age_group: str,
+) -> float:
+    """Return a single score for a candidate team (lower is better)."""
+    team_key = planner._team_key(team)
+    score = float(club_diversity_penalty(planner, selected, remaining, team))
+
+    club_count = sum(1 for s in selected if s.club == team.club)
+    max_club = max_club_teams_for(planner, age_group, team.club)
+    if max_club > 0:
+        if club_count >= max_club:
+            score += (club_count - max_club + 1) * 250.0
+        else:
+            score += club_count * 20.0
+
+    deficit = deficit_score(planner, team, age_group)
+    score -= deficit * 350.0
+
+    score += normalized_invite_count(planner, team) * 8.0
+
+    repeat_matchup_total = 0.0
+    for existing in selected:
+        pair = frozenset((team_key, planner._team_key(existing)))
+        repeat_matchup_total += planner._opponent_history.get(pair, 0)
+    if selected:
+        score += (repeat_matchup_total / len(selected)) * 180.0
+
+    grouped_with = planner._grouped_with.get(team_key, set())
+    if selected:
+        score += sum(1 for s in selected if planner._team_key(s) in grouped_with) * 120.0
+
+    selected_levels = [
+        planner._team_skill_levels[planner._team_key(s)]
+        for s in selected
+        if planner._team_key(s) in planner._team_skill_levels
+    ]
+    if selected_levels and team_key in planner._team_skill_levels:
+        median = sorted(selected_levels)[len(selected_levels) // 2]
+        dist = abs(planner._team_skill_levels[team_key] - median)
+        if dist > planner.division_skill_band:
+            score += (dist - planner.division_skill_band) * 100.0
+
+    return score
 
 
 def base_team_capacity(planner, age_group: str) -> int:
