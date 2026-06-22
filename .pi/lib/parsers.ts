@@ -2,7 +2,7 @@
 // Argument parsers for rvv-miniputt slash commands
 // ---------------------------------------------------------------------------
 
-import type { RunArgs, StatusArgs, LogsArgs, CalendarsArgs } from "./types";
+import type { RunArgs, StatusArgs, LogsArgs, CalendarsArgs, ScrapeArgs, ScrapeLlmArgs } from "./types";
 import { join } from "node:path";
 import { existsSync, readdirSync } from "node:fs";
 import { cwd } from "node:process";
@@ -68,6 +68,35 @@ export function parseCalendarsArgs(args: unknown): CalendarsArgs {
     const t = tokens[i];
     if (t === "--refresh") result.refresh = true;
     else if (t === "--work-dir" && i + 1 < tokens.length) result.work_dir = tokens[++i];
+  }
+  return result;
+}
+
+export function parseScrapeArgs(args: unknown): ScrapeArgs {
+  const result: ScrapeArgs = {};
+  const tokens = normalizeArgs(args).split(/\s+/).filter(Boolean);
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === "--club" && i + 1 < tokens.length) result.club = tokens[++i];
+    else if (t === "--work-dir" && i + 1 < tokens.length) result.work_dir = tokens[++i];
+  }
+  return result;
+}
+
+export function parseScrapeLlmArgs(args: unknown): ScrapeLlmArgs {
+  const result: ScrapeLlmArgs = { cache_results: true };
+  const tokens = normalizeArgs(args).split(/\s+/).filter(Boolean);
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (t === "--club" && i + 1 < tokens.length) result.club = tokens[++i];
+    else if (t === "--work-dir" && i + 1 < tokens.length) result.work_dir = tokens[++i];
+    else if (t === "--export-dir" && i + 1 < tokens.length) result.export_dir = tokens[++i];
+    else if (t === "--endpoint" && i + 1 < tokens.length) result.endpoint = tokens[++i];
+    else if (t === "--model" && i + 1 < tokens.length) result.model = tokens[++i];
+    else if (t === "--max-iterations" && i + 1 < tokens.length) result.max_iterations = parseInt(tokens[++i], 10);
+    else if (t === "--cache-results") result.cache_results = true;
+    else if (t === "--no-cache-results") result.cache_results = false;
+    else if (t === "--debug-screenshots") result.debug_screenshots = true;
   }
   return result;
 }

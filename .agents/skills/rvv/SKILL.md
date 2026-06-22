@@ -6,7 +6,7 @@ description: RVV Miniputt season planning pipeline for Norwegian hockey clubs. R
 # RVV Miniputt — season planning pipeline
 
 This skill runs the RVV Miniputt workflow for Norwegian hockey clubs: config, scraping, planning, and export.
-Typical use: activate the skill with `/rvv-miniputt run`; the skill handles the command flow for you.
+Typical use: activate the skill with `/rvv-miniputt run`; treat it as a stage-by-stage pipeline, not a black box. Inspect the checkpoint after each stage and only continue when the output looks correct.
 
 ## Agent-callable tools
 
@@ -19,6 +19,8 @@ If you need to trigger the pipeline from the agent, use these tools:
 | `rvv_miniputt_status` | `/rvv-miniputt status` |
 | `rvv_miniputt_logs` | `/rvv-miniputt logs` |
 | `rvv_miniputt_calendars` | `/rvv-miniputt calendars` |
+| `rvv_miniputt_scrape` | `/rvv-miniputt scrape` |
+| `rvv_miniputt_scrape_llm` | `/rvv-miniputt scrape-llm` |
 
 Each tool takes the same flags as its slash command via an optional `args` string
 (e.g. `rvv_miniputt_run({ args: "--resume-from 2 --log-level verbose" })`).
@@ -49,8 +51,16 @@ The following remain Pi-specific adapters on top of the repo workflow:
 ## How to use it
 
 1. Activate the skill with `/rvv-miniputt run`
-2. Use `/rvv-miniputt status` or `/rvv-miniputt logs` to inspect results
-3. Use `/rvv-miniputt calendars` when you want calendar output from cache
+2. After each stage, review the checkpoint (`stage1_config.json`, `stage2_scraping.json`, `stage3_planning.json`, `stage4_export.json`) before proceeding
+3. In Claude, prefer the checkpoint-reviewed stage-by-stage flow from `run.md`:
+   - Stage 1: validate teams, age groups, and feasibility
+   - Stage 2: inspect blocked/zero-event sources and recover if needed
+   - Stage 3: inspect verdict tone and apply refinement if rough
+   - Stage 4: export only after the plan looks good
+4. Use `/rvv-miniputt scrape --club <navn>` for single-club troubleshooting
+5. Use `/rvv-miniputt scrape-llm --club <navn>` for blocked SPA/calendar sources
+6. Use `/rvv-miniputt status` or `/rvv-miniputt logs` to inspect results
+7. Use `/rvv-miniputt calendars` when you want calendar output from cache
 
 ## Slash commands
 
@@ -65,6 +75,8 @@ The following remain Pi-specific adapters on top of the repo workflow:
 | `/rvv-miniputt logs stats` | Show self-improvement statistics |
 | `/rvv-miniputt calendars` | Generate calendars from cache |
 | `/rvv-miniputt calendars --refresh` | Force full re-scrape + calendar generation |
+| `/rvv-miniputt scrape --club <navn>` | Troubleshoot one club's deterministic scrape |
+| `/rvv-miniputt scrape-llm --club <navn>` | Run LLM-guided scraping for a blocked source |
 | `/rvv-miniputt guide` | Interactive wizard for new users |
 
 ### `run` flags

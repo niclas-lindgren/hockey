@@ -6,6 +6,10 @@ category: RVV
 
 Run the RVV Miniputt season-scheduling pipeline by invoking each stage individually and reviewing the checkpoint before proceeding to the next stage.
 
+For focused troubleshooting, use:
+- `scripts/rvv-miniputt scrape --club <name>` for deterministic single-club scraping
+- `scripts/rvv-miniputt scrape-llm --club <name>` for LLM-guided recovery on blocked sources
+
 ## Rules
 
 - Never run `/rvv-miniputt ...` as a shell command.

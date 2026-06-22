@@ -34,5 +34,5 @@ python3 -m tournament_scheduler.cli.rvv_cli scrape --club "<name>" <user-args>
 
 ## Examples
 
-- `/rvv-miniputt:scrape --club Jar`
-- `/rvv-miniputt:scrape --club "Sandefjord" --work-dir .pipeline`
+- `scripts/rvv-miniputt scrape --club Jar`
+- `scripts/rvv-miniputt scrape --club "Sandefjord" --work-dir .pipeline`

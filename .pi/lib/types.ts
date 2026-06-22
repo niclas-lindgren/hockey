@@ -20,6 +20,22 @@ export interface CalendarsArgs {
   work_dir?: string;
 }
 
+export interface ScrapeArgs {
+  club?: string;
+  work_dir?: string;
+}
+
+export interface ScrapeLlmArgs {
+  club?: string;
+  work_dir?: string;
+  export_dir?: string;
+  endpoint?: string;
+  model?: string;
+  max_iterations?: number;
+  cache_results?: boolean;
+  debug_screenshots?: boolean;
+}
+
 export interface LogsArgs {
   subcommand: "list" | "show" | "stats";
   count?: number;

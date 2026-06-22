@@ -25,3 +25,12 @@ def test_handoff_status_treats_continue_marker_as_blocker() -> None:
     assert "Safe handoff" in text
     assert "Continue marker contents" in text
     assert "!existsSync(cont)" in text
+
+
+def test_rvv_extension_exposes_single_club_scrape_commands() -> None:
+    text = (ROOT / ".pi" / "extensions" / "rvv-miniputt.ts").read_text(encoding="utf-8")
+
+    assert 'rvv-miniputt scrape' in text
+    assert 'rvv-miniputt scrape-llm' in text
+    assert 'rvv_miniputt_scrape' in text
+    assert 'rvv_miniputt_scrape_llm' in text

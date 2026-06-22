@@ -2,7 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { parseStatusArgs, parseLogsArgs, parseCalendarsArgs } from "../lib/parsers";
+import { parseStatusArgs, parseLogsArgs, parseCalendarsArgs, parseScrapeArgs, parseScrapeLlmArgs } from "../lib/parsers";
 import { runPipeline, type PipelineRunResult } from "../lib/pipeline-runner";
 import { interactiveGuide } from "../lib/interactive-guide";
 import { LOG_LEVELS } from "../lib/types";
@@ -35,6 +35,30 @@ function buildCalendarsCommandArgs(rawArgs: unknown, cwd: string): string[] {
   const params = parseCalendarsArgs(rawArgs);
   const args = ["calendars", "--work-dir", resolve(cwd, params.work_dir ?? ".pipeline")];
   if (params.refresh) args.push("--refresh");
+  return args;
+}
+
+function buildScrapeCommandArgs(rawArgs: unknown, cwd: string): string[] {
+  const params = parseScrapeArgs(rawArgs);
+  const args = ["scrape"];
+  if (params.club) args.push("--club", params.club);
+  args.push("--work-dir", resolve(cwd, params.work_dir ?? ".pipeline"));
+  return args;
+}
+
+function buildScrapeLlmCommandArgs(rawArgs: unknown, cwd: string): string[] {
+  const params = parseScrapeLlmArgs(rawArgs);
+  const args = ["scrape-llm"];
+  if (params.club) args.push("--club", params.club);
+  args.push("--work-dir", resolve(cwd, params.work_dir ?? ".pipeline"));
+  if (params.export_dir) args.push("--export-dir", resolve(cwd, params.export_dir));
+  if (params.endpoint) args.push("--endpoint", params.endpoint);
+  if (params.model) args.push("--model", params.model);
+  if (typeof params.max_iterations === "number" && Number.isFinite(params.max_iterations)) {
+    args.push("--max-iterations", String(params.max_iterations));
+  }
+  if (params.cache_results !== false) args.push("--cache-results");
+  if (params.debug_screenshots) args.push("--debug-screenshots");
   return args;
 }
 
@@ -189,6 +213,40 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
     },
   });
 
+  // -------------------------------------------------------------------------
+  // /rvv-miniputt scrape
+  // -------------------------------------------------------------------------
+  pi.registerCommand("rvv-miniputt scrape", {
+    description:
+      "Skraper en enkelt kalenderkilde for feilsøking.\n" +
+      "Flagg: --club <navn> --work-dir <sti>",
+    getArgumentCompletions: (prefix) => {
+      const words = ["--club", "--work-dir"];
+      return words.filter((w) => w.startsWith(prefix)).map((value) => ({ value, label: value }));
+    },
+    handler: async (args, ctx) => {
+      const result = await runRepoCli(buildScrapeCommandArgs(args, ctx.cwd), ctx, 120_000);
+      ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
+    },
+  });
+
+  // -------------------------------------------------------------------------
+  // /rvv-miniputt scrape-llm
+  // -------------------------------------------------------------------------
+  pi.registerCommand("rvv-miniputt scrape-llm", {
+    description:
+      "Skraper en enkelt kalenderkilde med LLM-styrt navigering.\n" +
+      "Flagg: --club <navn> --work-dir <sti> --export-dir <sti> --endpoint <url> --model <navn>",
+    getArgumentCompletions: (prefix) => {
+      const words = ["--club", "--work-dir", "--export-dir", "--endpoint", "--model", "--max-iterations", "--cache-results", "--debug-screenshots"];
+      return words.filter((w) => w.startsWith(prefix)).map((value) => ({ value, label: value }));
+    },
+    handler: async (args, ctx) => {
+      const result = await runRepoCli(buildScrapeLlmCommandArgs(args, ctx.cwd), ctx, 300_000);
+      ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
+    },
+  });
+
   // ===========================================================================
   // Agent-callable tools
   //
@@ -278,6 +336,42 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
     }),
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const result = await runCalendars(params.args ?? "", ctx);
+      return { content: [{ type: "text", text: result.text }], details: result };
+    },
+  });
+
+  pi.registerTool({
+    name: "rvv_miniputt_scrape",
+    label: "RVV Miniputt: Scrape",
+    description:
+      "Scrape a single club's calendar for troubleshooting. " +
+      "Agent-callable equivalent of the '/rvv-miniputt scrape' slash command.",
+    promptSnippet: "Scrape a single RVV Miniputt club calendar",
+    parameters: Type.Object({
+      args: Type.Optional(Type.String({
+        description: "Same flags as '/rvv-miniputt scrape', e.g. '--club Jar --work-dir .pipeline'",
+      })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const result = await runRepoCli(buildScrapeCommandArgs(params.args ?? "", ctx.cwd), ctx, 120_000);
+      return { content: [{ type: "text", text: result.text }], details: result };
+    },
+  });
+
+  pi.registerTool({
+    name: "rvv_miniputt_scrape_llm",
+    label: "RVV Miniputt: Scrape LLM",
+    description:
+      "Scrape a single club's calendar with LLM-guided browser navigation. " +
+      "Agent-callable equivalent of the '/rvv-miniputt scrape-llm' slash command.",
+    promptSnippet: "Scrape a single RVV Miniputt club calendar with LLM navigation",
+    parameters: Type.Object({
+      args: Type.Optional(Type.String({
+        description: "Same flags as '/rvv-miniputt scrape-llm', e.g. '--club Holmen --debug-screenshots'",
+      })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const result = await runRepoCli(buildScrapeLlmCommandArgs(params.args ?? "", ctx.cwd), ctx, 300_000);
       return { content: [{ type: "text", text: result.text }], details: result };
     },
   });

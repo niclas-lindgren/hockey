@@ -51,6 +51,6 @@ Then scrape each blocked source with this command before resuming from stage 3.
 
 ## Examples
 
-- `/rvv-miniputt:scrape-llm --club Jar`
-- `/rvv-miniputt:scrape-llm --club Holmen --max-iterations 30`
-- `/rvv-miniputt:scrape-llm --club Sandefjord --debug-screenshots`
+- `scripts/rvv-miniputt scrape-llm --club Jar`
+- `scripts/rvv-miniputt scrape-llm --club Holmen --max-iterations 30`
+- `scripts/rvv-miniputt scrape-llm --club Sandefjord --debug-screenshots`
