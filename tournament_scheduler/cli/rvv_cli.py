@@ -436,7 +436,6 @@ def _cmd_review(args: argparse.Namespace) -> int:
 
 def _cmd_verdict(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt verdict`` — print tone and key scores from Stage 3 checkpoint."""
-    from ..pipeline.state import PipelineState, StageName
     from ..html.data_computation import (
         compute_club_stats,
         compute_team_game_counts,
@@ -444,19 +443,7 @@ def _cmd_verdict(args: argparse.Namespace) -> int:
     )
     from ..html.renderers.judgment import analyze_opinionated_judgment
 
-    state = PipelineState(args.work_dir)
-    plan_checkpoint = state.read_stage(StageName.PLANNING)
-    if not plan_checkpoint:
-        _console.print(
-            f"[red]✗[/red] Ingen Stage 3-checkpoint funnet i '{args.work_dir}'. "
-            "Kjør ``rvv-miniputt run`` først."
-        )
-        return 1
-
-    season_plan = plan_checkpoint.get("plan") if isinstance(plan_checkpoint, dict) else None
-    if season_plan is None:
-        _console.print("[red]✗[/red] Stage 3-checkpoint mangler 'plan'-nøkkelen.")
-        return 1
+    season_plan, _updater, _state = _load_plan_and_updater(args.work_dir)
 
     team_game_counts = compute_team_game_counts(season_plan)
     team_travel_tuple = compute_team_travel_info(season_plan)
@@ -541,12 +528,13 @@ def _load_critic_state(
     """
     from ..pipeline.state import StageName
     from .plan_critic import generate_critic_summary
+    from ..pipeline.tournament_updater import TournamentUpdater
 
-    plan_checkpoint = state.read_stage(StageName.PLANNING)
-    if not plan_checkpoint:
+    if not state.checkpoint_path(StageName.PLANNING).exists():
         return None, []
-    season_plan = plan_checkpoint.get("plan") if isinstance(plan_checkpoint, dict) else None
-    if season_plan is None:
+    try:
+        season_plan = TournamentUpdater(state=state).load_plan()
+    except ValueError:
         return None, []
     issues = generate_critic_summary(season_plan)
     return season_plan, issues
@@ -579,6 +567,9 @@ def _cmd_auto_adjust(args: argparse.Namespace) -> int:
     applied_total = 0
     manual_issues: list = []
     iteration = 0
+    # Track recently-moved IDs (window=2) to break A↔B cascade cycles
+    recently_moved: list[str] = []
+    _CYCLE_WINDOW = 2
 
     for iteration in range(1, max_iter + 1):
         # Reload checkpoint and re-run critic at the start of every iteration
@@ -611,7 +602,14 @@ def _cmd_auto_adjust(args: argparse.Namespace) -> int:
             if m["issue"] not in [mi["issue"] for mi in manual_issues]:
                 manual_issues.append(m)
 
-        if not auto_moves:
+        # Skip tournament IDs cascade-placed in recent iterations to break A↔B cycles
+        fresh_moves = [m for m in auto_moves if m["tournament_id"] not in recently_moved]
+        if not fresh_moves:
+            # All candidates were recently moved — cycle detected, clear window and retry
+            recently_moved.clear()
+            fresh_moves = auto_moves
+
+        if not fresh_moves:
             _console.print(
                 f"[yellow]![/yellow] Iterasjon {iteration}: ingen auto-fikserbare problemer "
                 f"gjenstår ({issue_count} problem(er) krever manuell behandling)."
@@ -624,7 +622,7 @@ def _cmd_auto_adjust(args: argparse.Namespace) -> int:
         )
 
         # Apply ONE move per iteration, then reload and re-evaluate
-        move = auto_moves[0]
+        move = fresh_moves[0]
         tid = move["tournament_id"]
         new_date = move["new_date"]
         reason = move["reason"]
@@ -642,9 +640,21 @@ def _cmd_auto_adjust(args: argparse.Namespace) -> int:
             export_dir=args.export_dir,
             timestamped_export=getattr(args, "timestamped_export", False),
         )
+        # Snapshot dates before replan so we can detect cascade victims afterward
+        pre_dates = {t.id: t.date for t in season_plan.tournaments}
         rc = _cmd_replan(replan_args)
         if rc == 0:
             applied_total += 1
+            # Detect all tournaments whose dates changed (both the moved one and
+            # any cascade victims) and add them to the cycle-detection window.
+            post_plan, _ = _load_critic_state(state, args.work_dir)
+            if post_plan is not None:
+                for t in getattr(post_plan, "tournaments", []):
+                    if pre_dates.get(t.id) != t.date:
+                        if t.id not in recently_moved:
+                            recently_moved.append(t.id)
+            if len(recently_moved) > _CYCLE_WINDOW * 4:
+                recently_moved = recently_moved[-(_CYCLE_WINDOW * 4):]
             # Reload and re-evaluate immediately so the next iteration starts fresh
             _, refreshed_issues = _load_critic_state(state, args.work_dir)
             remaining = len(refreshed_issues)

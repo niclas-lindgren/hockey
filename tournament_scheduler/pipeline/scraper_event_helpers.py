@@ -12,19 +12,51 @@ from typing import Any
 from ..club_registry import club_for_source_name
 from ..models import CalendarEvent
 
+# Frisk Asker's TeamUp feed uses room/surface names rather than arena names.
+# "Idrettshallen" (and variants) is Askerhallen; numbered surfaces and "FA"-prefixed
+# rooms belong to Varner Arena. Away-game entries ("FA 1 - Opponent 5") are also at
+# Varner Arena. Locker-room-only entries ("Jentegarderoben" etc.) are not classified.
+_FRISK_ASKER_ASKERHALLEN_MARKERS = {"idrettshallen"}
+_FRISK_ASKER_VARNER_MARKERS = {"1", "2", "4", "5"}  # standalone ice-surface numbers
 
-def _events_to_dicts(events: list[CalendarEvent]) -> list[dict[str, Any]]:
+
+def _classify_frisk_asker_arena(location: str) -> str | None:
+    """Return 'Askerhallen', 'Varner Arena', or None if unclassifiable."""
+    loc = location.strip().lower()
+    if not loc:
+        return None
+    if any(m in loc for m in _FRISK_ASKER_ASKERHALLEN_MARKERS):
+        return "Askerhallen"
+    # Standalone surface numbers like "1", "2", "4 og 5", "1 og 2"
+    surfaces = {p.strip() for p in loc.replace(" og ", " ").split()}
+    if surfaces and surfaces <= _FRISK_ASKER_VARNER_MARKERS:
+        return "Varner Arena"
+    # "fa 1", "fa 1 - opponent 5", "fa jentegarderoben ..." → home rooms at Varner Arena
+    if loc.startswith("fa "):
+        return "Varner Arena"
+    return None
+
+
+def _events_to_dicts(
+    events: list[CalendarEvent],
+    club_name: str | None = None,
+) -> list[dict[str, Any]]:
     """Serialise :class:`CalendarEvent` objects to plain dicts for JSON output."""
     result = []
     for e in events:
-        result.append(
-            {
-                "date": e.date,
-                "name": e.name,
-                "datetime": e.datetime.isoformat(),
-                "duration_hours": e.duration_hours,
-            }
-        )
+        d: dict[str, Any] = {
+            "date": e.date,
+            "name": e.name,
+            "datetime": e.datetime.isoformat(),
+            "duration_hours": e.duration_hours,
+        }
+        if e.location:
+            d["location"] = e.location
+            if club_name == "Frisk Asker":
+                arena = _classify_frisk_asker_arena(e.location)
+                if arena:
+                    d["arena"] = arena
+        result.append(d)
     return result
 
 

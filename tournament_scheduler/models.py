@@ -14,6 +14,7 @@ class CalendarEvent:
     name: str
     datetime: datetime
     duration_hours: float = 0.0
+    location: str = ""  # Raw LOCATION field from the source calendar
 
 
 @dataclass

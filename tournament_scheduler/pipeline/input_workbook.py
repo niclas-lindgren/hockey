@@ -84,6 +84,7 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
             wb["Kilder"],
             required_columns=("name", "type", "url"),
         )
+        sources = [s for s in sources if s.get("url")]
         if sources:
             raw["sources"] = sources
 

@@ -107,16 +107,19 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
     ),
     "Frisk Asker": ClubCalendarSource(
         club="Frisk Asker",
-        arena="Askerhallen",
+        arena="Varner Arena / Askerhallen",
         kind=CalendarSourceKind.ICAL,
         source="https://ics.teamup.com/feed/ksdwpwxysmxwnuftoy/0.ics",
         skip=False,
         note=(
-            "Teamup iCal export feed (verified working -- 976 events parsed). "
-            "Feed covers both Askerhallen and Varner Arena; location_filter "
-            "restricts output to Askerhallen only."
+            "Teamup iCal export feed. Feed covers both Varner Arena and Askerhallen. "
+            "The LOCATION field uses room/surface numbers ('1', '2', '4', '5') for "
+            "Varner Arena ice surfaces, and 'Idrettshallen' for Askerhallen. "
+            "Away-game entries use 'FA <rink> - <opponent> <locker>' format. "
+            "No location_filter — previous filter 'Askerhallen' matched nothing in "
+            "the feed (the name does not appear in LOCATION values)."
         ),
-        location_filter="Askerhallen",
+        location_filter=None,
     ),
     "Sandefjord Penguins": ClubCalendarSource(
         club="Sandefjord Penguins",
