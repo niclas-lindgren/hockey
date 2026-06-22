@@ -17,7 +17,7 @@
 - [x] Added game_count_spread_by_age_group to load_plan() in tournament_updater.py so it's propagated when rebuilding SeasonPlan from checkpoint — 2026-06-22
   - Files: tournament_scheduler/pipeline/tournament_updater.py
   - Approach: Wherever `tournament_updater.py` builds `UpdateResult` changes from the checkpoint plan, include `game_count_spread_by_age_group` alongside the existing `game_count_spread` entry so downstream callers receive per-age-group data.
-- [ ] Add tests covering round-trip serialization and consumer behaviour
+- [x] Added round-trip tests in test_stage3_helpers.py (4 tests for _plan_to_dict -> _dict_to_plan) and two plan_critic tests verifying stored spread is used over global and suppresses false positives — 2026-06-22
   - Files: tests/test_stage3_helpers.py, tests/test_plan_critic.py
   - Approach: Write a pytest round-trip test asserting that a `SeasonPlan` with a populated `game_count_spread_by_age_group` survives `_plan_to_dict` → `_dict_to_plan` with values intact; add a plan_critic test asserting it uses the per-age-group dict when present instead of the global spread.
 
@@ -62,4 +62,11 @@ LESSONS: none
 **Findings:** The plan_to_dict method in tournament_updater delegates to _plan_to_dict so serialization was already handled; only deserialization needed fixing
 LESSONS: none
 **Files:** tournament_scheduler/pipeline/tournament_updater.py (+1/-0)
+**Commit:** 3c40aa9 (hockey)
+
+### 2026-06-22 — Added round-trip tests in test_stage3_helpers.py (4 tests for _plan_to_dict -> _dict_to_plan) and two plan_critic tests verifying stored spread is used over global and suppresses false positives
+**Rationale:** Followed existing test patterns; used Team objects with age_group-embedded labels to match the label parsing logic
+**Findings:** test_stored_spread_by_age_group_used_over_global confirms stored value 7 is reported even when raw diff is 2; test_stored_spread_by_age_group_suppresses_false_positive confirms stored 0 suppresses a misleading global spread of 8
+LESSONS: none
+**Files:** tests/test_stage3_helpers.py (+46/-0), tests/test_plan_critic.py (+50/-0)
 **Commit:** [pending — fill after commit]

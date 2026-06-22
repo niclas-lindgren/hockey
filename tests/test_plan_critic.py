@@ -267,6 +267,56 @@ def test_game_count_outlier_scoped_per_age_group():
     )
 
 
+def test_stored_spread_by_age_group_used_over_global():
+    """When game_count_spread_by_age_group is set, its values are reported even
+    if the raw team_game_counts difference would give a different number.
+
+    This test sets U10 stored spread = 7 while the actual count difference is 2
+    (which would be below the threshold). The critic should report a spread issue
+    citing the stored value of 7.
+    """
+    u10_t = _make_tournament("Jar", 2027, 3, 5, age_group="U10")
+    u10_t.teams = [
+        Team(club="Jar", label="Jar U10", age_group="U10"),
+        Team(club="Holmen", label="Holmen U10", age_group="U10"),
+    ]
+    plan = _make_plan(
+        tournaments=[u10_t],
+        team_game_counts={"Jar U10": 8, "Holmen U10": 6},  # diff = 2, below threshold
+        game_count_spread=2,
+        game_count_spread_by_age_group={"U10": 7},  # stored says 7 — above threshold
+    )
+    result = generate_critic_summary(plan)
+    spread_issues = [i for i in result if "spread" in i.lower() or "redistribute" in i.lower()]
+    assert any("7" in issue for issue in spread_issues), (
+        f"Expected stored spread value 7 to be reported, got: {spread_issues}"
+    )
+
+
+def test_stored_spread_by_age_group_suppresses_false_positive():
+    """When game_count_spread_by_age_group reports 0 for an age group, no issue
+    is raised even if the global game_count_spread is high.
+
+    The stored per-age-group value is the source of truth.
+    """
+    u10_t = _make_tournament("Kongsberg", 2027, 4, 12, age_group="U10")
+    u10_t.teams = [
+        Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+        Team(club="Skien", label="Skien U10", age_group="U10"),
+    ]
+    plan = _make_plan(
+        tournaments=[u10_t],
+        team_game_counts={"Kongsberg U10": 8, "Skien U10": 8},
+        game_count_spread=8,  # misleadingly high global
+        game_count_spread_by_age_group={"U10": 0},  # per-age-group says balanced
+    )
+    result = generate_critic_summary(plan)
+    spread_issues = [i for i in result if "spread" in i.lower() or "redistribute" in i.lower()]
+    assert spread_issues == [], (
+        f"Stored per-age-group spread of 0 should suppress any spread issue: {spread_issues}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Fairness gate
 # ---------------------------------------------------------------------------

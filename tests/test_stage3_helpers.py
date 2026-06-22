@@ -8,8 +8,11 @@ import pytest
 
 from tournament_scheduler.pipeline.stage3_helpers import (
     _build_events_by_club,
+    _plan_to_dict,
     _resolve_plan_dict,
 )
+from tournament_scheduler.pipeline.stage4_helpers import _dict_to_plan
+from tournament_scheduler.models import SeasonPlan
 
 
 VALID_EVENT = {
@@ -173,3 +176,46 @@ class TestResolvePlanDict:
     def test_returns_empty_dict_for_empty_input(self):
         result = _resolve_plan_dict({})
         assert result == {}
+
+
+# ---------------------------------------------------------------------------
+# Round-trip: game_count_spread_by_age_group
+# ---------------------------------------------------------------------------
+
+
+class TestGameCountSpreadByAgeGroupRoundTrip:
+    """Ensure game_count_spread_by_age_group survives _plan_to_dict → _dict_to_plan."""
+
+    def _make_minimal_plan(self, spread_by_ag: dict) -> SeasonPlan:
+        return SeasonPlan(
+            tournaments=[],
+            team_game_counts={},
+            game_count_spread=0,
+            game_count_spread_by_age_group=spread_by_ag,
+        )
+
+    def test_populated_dict_survives_round_trip(self):
+        original = {"U7": 0, "U10": 3, "U12": 6}
+        plan = self._make_minimal_plan(original)
+        d = _plan_to_dict(plan)
+        restored = _dict_to_plan(d)
+        assert restored.game_count_spread_by_age_group == original
+
+    def test_empty_dict_survives_round_trip(self):
+        plan = self._make_minimal_plan({})
+        d = _plan_to_dict(plan)
+        restored = _dict_to_plan(d)
+        assert restored.game_count_spread_by_age_group == {}
+
+    def test_field_present_in_serialized_dict(self):
+        spread = {"U9": 2}
+        plan = self._make_minimal_plan(spread)
+        d = _plan_to_dict(plan)
+        assert "game_count_spread_by_age_group" in d
+        assert d["game_count_spread_by_age_group"] == spread
+
+    def test_missing_key_defaults_to_empty_dict_on_deserialize(self):
+        """Older checkpoints without the key should deserialize safely."""
+        d = {"tournaments": [], "game_count_spread": 0}
+        plan = _dict_to_plan(d)
+        assert plan.game_count_spread_by_age_group == {}
