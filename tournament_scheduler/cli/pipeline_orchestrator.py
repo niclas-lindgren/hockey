@@ -98,12 +98,19 @@ def _compute_verdict_tone(plan: "dict[str, Any] | Any") -> str:
     ``judgment._score_tone`` using the plan's stored metric scores.
     """
     from ..html.renderers import judgment as _judgment
+    from ..pipeline.stage4_helpers import _dict_to_plan
 
     # Unwrap checkpoint dict → SeasonPlan-like object
     if isinstance(plan, dict):
         plan_obj = plan.get("plan", plan)
     else:
         plan_obj = plan
+
+    if isinstance(plan_obj, dict):
+        try:
+            plan_obj = _dict_to_plan(plan_obj)
+        except Exception:
+            pass
 
     fairness_gate = getattr(plan_obj, "fairness_gate", {}) or {}
     if isinstance(fairness_gate, dict):
@@ -796,6 +803,7 @@ def _run_stage3(
     strict: bool,
     resume_from: int,
     log_fn: "Any",
+    iterations: int | None = None,
 ) -> "tuple[dict[str, Any] | None, bool, bool]":
     """Run Stage 3 (planning) or skip it when resuming from a later stage.
 
@@ -810,7 +818,7 @@ def _run_stage3(
     if resume_from <= 3:
         _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
         try:
-            plan = stage3_run(cfg, scraping, state, start, end, strict=strict, iterations=getattr(args, "iterations", 1))
+            plan = stage3_run(cfg, scraping, state, start, end, strict=strict, iterations=iterations or getattr(args, "iterations", 1))
             n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
             _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
             log_fn(f"Stage 3 OK: {n_tournaments} tournaments planned")
@@ -948,12 +956,49 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if stage2_failed:
         run_failed = True
 
-    plan, abort, stage3_failed = _run_stage3(args, cfg, scraping, state, start, end, strict, resume_from, _log)
-    if abort:
-        _write_run_log(args.work_dir, log_start, log_lines, success=False)
-        return 1
-    if stage3_failed:
-        run_failed = True
+    # Retry Stage 3 planning when the verdict is still rough and we actually
+    # have a populated tournament plan to improve. This gives the planner a
+    # larger search budget before we export anything.
+    max_plan_attempts = 3
+    base_iterations = max(1, int(getattr(args, "iterations", 1) or 1))
+    final_tone = "rough"
+    final_tournament_count = 0
+    plan_needs_attention = False
+
+    for attempt in range(1, max_plan_attempts + 1):
+        attempt_iterations = base_iterations + attempt - 1
+        if attempt > 1:
+            _console.print(
+                f"[dim]Nytt planforsøk {attempt}/{max_plan_attempts} (søk={attempt_iterations})[/dim]"
+            )
+        plan, abort, stage3_failed = _run_stage3(
+            args, cfg, scraping, state, start, end, strict, resume_from, _log, attempt_iterations
+        )
+        if abort:
+            _write_run_log(args.work_dir, log_start, log_lines, success=False)
+            return 1
+        if stage3_failed:
+            run_failed = True
+
+        final_tournament_count = len((plan or {}).get("plan", {}).get("tournaments", []))
+        final_tone = _compute_verdict_tone(plan or {})
+        _log(
+            f"Stage 3 attempt {attempt}/{max_plan_attempts}: tone={final_tone}, tournaments={final_tournament_count}, iterations={attempt_iterations}"
+        )
+
+        if final_tone != "rough" or final_tournament_count == 0:
+            break
+
+        if attempt < max_plan_attempts:
+            _console.print("  [yellow]⚠[/yellow] Planen er fortsatt IKKE KLAR — kjører nytt planforsøk med mer søk.")
+            _log("Plan verdict still rough; retrying Stage 3 with more search budget")
+
+    if final_tone == "rough" and final_tournament_count > 0:
+        plan_needs_attention = True
+        _console.print(
+            f"  [red]✗[/red] Planen er fortsatt IKKE KLAR etter {max_plan_attempts} forsøk — eksport kan ikke regnes som godkjent."
+        )
+        _log(f"Planning remained rough after {max_plan_attempts} attempts")
 
     # ── LLM approval gate (between Stage 3 and Stage 4) ──────────────────────
     # Only runs when RVV_APPROVAL_ENDPOINT is set (opt-in).  If not configured
@@ -979,6 +1024,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
         plan, refinement_calendars, _ = _run_refinement_and_reexport(args, plan, state, strict, _log, resume_from)
         if refinement_calendars:
             stage4_generated_calendars = refinement_calendars
+        if plan_needs_attention and plan is not None:
+            refined_tone = _compute_verdict_tone(plan)
+            if refined_tone != "rough":
+                plan_needs_attention = False
+                final_tone = refined_tone
+                _log(f"Refinement cleared rough verdict: tone={refined_tone}")
 
     # Only regenerate calendars.html here when stage4 did not already produce it
     # (e.g. stage4 was skipped via --resume-from, or no scrape data was available).
@@ -986,14 +1037,14 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if _regenerate_calendar(args, _log):
             run_failed = True
 
-    if run_failed:
+    if run_failed or plan_needs_attention:
         _console.print("\n[bold yellow]⚠ Pipeline fullført med feil.[/bold yellow]")
         _log("Pipeline completed with failures")
     else:
         _console.print("\n[bold green]✓ Pipeline fullført.[/bold green]")
         _log("Pipeline completed successfully")
-    _write_run_log(args.work_dir, log_start, log_lines, success=not run_failed)
-    return 0
+    _write_run_log(args.work_dir, log_start, log_lines, success=not (run_failed or plan_needs_attention))
+    return 1 if plan_needs_attention else 0
 
 
 

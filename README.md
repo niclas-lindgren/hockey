@@ -84,6 +84,7 @@ gitleaks detect --source . --config .gitleaks.toml --redact
 - **Portable / harness-neutral:** `scripts/rvv-miniputt ...` and `python3 -m tournament_scheduler.cli.rvv_cli ...` work from Codex, Claude, OpenCode, or a normal shell.
 - **Project command adapters:** `.claude/commands/rvv-miniputt/`, `.opencode/commands/rvv-miniputt/`, and `.codex/commands/rvv-miniputt/` provide local command wrappers around the portable repo entrypoints.
 - **Pi adapter layer:** `/rvv-miniputt ...` slash commands and agent-callable `rvv_miniputt_*` tools are Pi conveniences layered on top of the repo workflows.
+  The Pi run path now performs bounded convergence rounds: it re-runs from the earliest still-problematic stage until the output looks good or the retry cap is reached.
 - **Still Pi-specific:** the native `/rvv-miniputt guide` extension UX, live slash-command notifications, and the extension-managed `rvv_miniputt_*` tool registrations.
 
 ## More documentation

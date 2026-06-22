@@ -8,7 +8,7 @@ import { existsSync } from "node:fs";
 import { cwd } from "node:process";
 import { buildStatusText } from "./pipeline-helpers";
 import { buildLogsListText, buildLogsShowText, buildLogsStatsText } from "./log-inspector";
-import { runPipeline } from "./pipeline-runner";
+import { runPipelineConvergent } from "./pipeline-runner";
 
 export async function interactiveGuide(ctx: ExtensionCommandContext): Promise<void> {
   // ----- Step 1: Main menu -----
@@ -196,6 +196,6 @@ async function interactiveRunPipeline(ctx: ExtensionCommandContext): Promise<voi
     "info",
   );
 
-  const result = await runPipeline(argsParts.join(" "), ctx);
+  const result = await runPipelineConvergent(argsParts.join(" "), ctx);
   ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
 }

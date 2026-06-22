@@ -9,6 +9,10 @@ export interface RunArgs {
   export_dir?: string;
   log_level?: string;
   force_refresh?: boolean;
+  non_strict?: boolean;
+  allow_missing_sources?: boolean;
+  timestamped_export?: boolean;
+  iterations?: number;
 }
 
 export interface StatusArgs {

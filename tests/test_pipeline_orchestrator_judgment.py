@@ -237,6 +237,60 @@ def test_judge_called_three_times_when_all_proceed(tmp_path: Path) -> None:
     assert judge_mock.judge.call_count == 3
 
 
+def test_rough_plan_triggers_stage3_retries_and_fails(tmp_path: Path) -> None:
+    """A rough plan with tournaments should be retried before the run fails."""
+    args = _make_args(tmp_path)
+
+    rough_plan = {
+        "plan": {
+            "start_date": "2026-09-01",
+            "end_date": "2027-04-30",
+            "diversity_score": 1.0,
+            "pairwise_matchup_score": 0.34,
+            "month_balance_score": 0.87,
+            "fairness_gate": {"status": "warn", "score": 88, "metrics": []},
+            "tournaments": [
+                {
+                    "id": "t1",
+                    "date": "2026-09-05",
+                    "arena": "Arena 1",
+                    "age_group": "U10",
+                    "host_club": "Jar",
+                    "teams": [
+                        {"club": "Jar", "label": "Jar 1", "age_group": "U10"},
+                        {"club": "Holmen", "label": "Holmen 1", "age_group": "U10"},
+                    ],
+                    "games": [],
+                    "start_time": "09:00",
+                }
+            ],
+        },
+    }
+
+    with patch.dict(os.environ, _HARNESS_CLEAN):
+        with patch("tournament_scheduler.pipeline.stage1_config.run", return_value=None), patch(
+            "tournament_scheduler.pipeline.stage1_config.load_effective_config",
+            return_value=_MINIMAL_CFG,
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping.run",
+            return_value=_MINIMAL_SCRAPING,
+        ), patch(
+            "tournament_scheduler.pipeline.stage3_planning.run",
+            return_value=rough_plan,
+        ) as stage3_run, patch(
+            "tournament_scheduler.pipeline.stage4_export.run",
+            return_value=_MINIMAL_EXPORT,
+        ) as stage4_run, patch(
+            "tournament_scheduler.pipeline.calendar_viewer.generate_html",
+            return_value="export/calendars.html",
+        ):
+            result = _cmd_run(args)
+
+    assert result == 1
+    assert stage3_run.call_count == 3
+    assert stage4_run.call_count == 1
+
+
 # ---------------------------------------------------------------------------
 # _check_stage2_checkpoint unit tests
 # ---------------------------------------------------------------------------

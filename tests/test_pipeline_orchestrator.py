@@ -105,6 +105,34 @@ class TestComputeVerdictTone:
         # dict has no SeasonPlan attributes — defaults to 0s, gate_status=pass → rough
         assert result in ("rough", "mixed", "strong")
 
+    def test_accepts_plan_checkpoint_dict_with_serialised_plan(self) -> None:
+        checkpoint = {
+            "plan": {
+                "start_date": "2026-09-01",
+                "end_date": "2027-04-30",
+                "diversity_score": 1.0,
+                "pairwise_matchup_score": 0.34,
+                "month_balance_score": 0.87,
+                "fairness_gate": {"status": "warn", "score": 88, "metrics": []},
+                "tournaments": [
+                    {
+                        "id": "t1",
+                        "date": "2026-09-05",
+                        "arena": "Arena 1",
+                        "age_group": "U10",
+                        "host_club": "Jar",
+                        "teams": [
+                            {"club": "Jar", "label": "Jar 1", "age_group": "U10"},
+                            {"club": "Holmen", "label": "Holmen 1", "age_group": "U10"},
+                        ],
+                        "games": [],
+                        "start_time": "09:00",
+                    }
+                ],
+            }
+        }
+        assert _compute_verdict_tone(checkpoint) == "rough"
+
     def test_gate_status_case_insensitive(self) -> None:
         plan = _make_plan_obj(gate_status="FAIL", gate_score=40, pairwise=0.5, diversity=0.5, month_balance=0.5)
         assert _compute_verdict_tone(plan) == "rough"

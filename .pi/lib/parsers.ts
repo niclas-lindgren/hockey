@@ -19,6 +19,10 @@ export function parseRunArgs(args: unknown): RunArgs {
     else if (t === "--export-dir" && i + 1 < tokens.length) result.export_dir = tokens[++i];
     else if (t === "--log-level" && i + 1 < tokens.length) result.log_level = tokens[++i];
     else if (t === "--force-refresh") result.force_refresh = true;
+    else if (t === "--non-strict") result.non_strict = true;
+    else if (t === "--allow-missing-sources") result.allow_missing_sources = true;
+    else if (t === "--no-timestamped-export") result.timestamped_export = false;
+    else if (t === "--iterations" && i + 1 < tokens.length) result.iterations = parseInt(tokens[++i], 10);
   }
   return result;
 }
