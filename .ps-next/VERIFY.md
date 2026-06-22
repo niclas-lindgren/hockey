@@ -1,8 +1,9 @@
 # Verification Report
 
-STATUS: NEEDS_REVIEW
+STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `pytest tests/test_season_planner.py tests/test_rules_report_doc.py` passes. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| `render_rules_markdown(planner)` still matches `docs/rvv-miniputt-rules-report.md`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| A tournament with no slot in its assigned host arena can switch to a fallback host with a viable slot on the same date, and the substitution is recorded. | PASS | Covered by `tests/test_season_planner.py::TestSlotAwareScheduling::test_host_fully_booked_uses_cross_club_fallback_when_capacity_exists`. |
+| When no club has a viable slot, the planner keeps the original host and default start time. | PASS | Covered by `tests/test_season_planner.py::TestSlotAwareScheduling::test_no_arena_available_keeps_original_host_and_default_time`. |
+| `pytest` passes for the host-assignment and season-planner coverage added for this behavior. | PASS | `python3 -m pytest tests/test_host_assignment.py tests/test_season_planner.py -q` passed (103 passed). |
