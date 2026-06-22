@@ -232,25 +232,22 @@ class SeasonPlanner:
         self._fallback_host_substitutions = []
 
         scheduled_age_groups_by_date: Dict[date, List[str]] = {}
-        for (tournament_date, age_group), host_club in zip(scheduled, host_assignments):
+        scheduled_counts = Counter(age_group for _, age_group in scheduled)
+        host_targets_by_age = {
+            age_group: _hosting_targets_for_age_group(self, age_group, count)
+            for age_group, count in scheduled_counts.items()
+        }
+        host_counts_by_age: Dict[str, Dict[str, int]] = {age_group: {} for age_group in scheduled_counts}
+        used_arenas_by_date: Dict[date, Set[str]] = {}
+
+        for (tournament_date, age_group), original_host_club in zip(scheduled, host_assignments):
             self._record_month(tournament_date)
             collision = self._check_overlap_collision(tournament_date, age_group, scheduled_age_groups_by_date)
             if collision:
                 collisions.append((tournament_date, age_group, collision))
             scheduled_age_groups_by_date.setdefault(tournament_date, []).append(age_group)
 
-            arena = self.club_arenas.get(host_club, host_club)
             participants = self._select_participants(age_group)
-
-            # Reorder participants so the host club's team is first.
-            # The home team in every generated game is participants[0], so
-            # placing the arena-owning club at index 0 ensures correct home
-            # team assignment regardless of selection order.
-            home_club = _club_for_arena(arena) or host_club
-            host_teams = [t for t in participants if t.club == home_club]
-            other_teams = [t for t in participants if t.club != home_club]
-            if host_teams:
-                participants = host_teams + other_teams
 
             if len(participants) < MIN_TEAMS_PER_TOURNAMENT:
                 plan.skipped_age_groups.append(
@@ -264,14 +261,43 @@ class SeasonPlanner:
 
             self._record_grouping(participants)
             parallel_games = self._parallel_games_for(age_group)
+            provisional_games = self.generate_round_robin_games(participants, parallel_games)
+
+            candidate_hosts = self._ordered_host_candidates(
+                age_group=age_group,
+                original_host=original_host_club,
+                tournament_date=tournament_date,
+                host_targets_by_age=host_targets_by_age,
+                host_counts_by_age=host_counts_by_age,
+                used_arenas_by_date=used_arenas_by_date,
+            )
+            slot = self._find_slot_for_tournament(
+                tournament_date,
+                original_host_club,
+                age_group,
+                provisional_games,
+                candidate_hosts=candidate_hosts,
+            )
+
+            final_host_club = original_host_club
+            start_time = DEFAULT_TOURNAMENT_START_TIME
+            if slot is not None:
+                final_host_club, slot_start, _slot_end = slot
+                start_time = slot_start
+                if final_host_club != original_host_club:
+                    self._fallback_host_substitutions.append(
+                        (tournament_date, age_group, original_host_club, final_host_club)
+                    )
+
+            arena = self.club_arenas.get(final_host_club, final_host_club)
+            home_club = _club_for_arena(arena) or final_host_club
+            host_teams = [t for t in participants if t.club == home_club]
+            other_teams = [t for t in participants if t.club != home_club]
+            if host_teams:
+                participants = host_teams + other_teams
+
             games = self.generate_round_robin_games(participants, parallel_games)
             self._record_opponent_history(games)
-
-            start_time = DEFAULT_TOURNAMENT_START_TIME
-            slot = self._find_slot_for_tournament(tournament_date, host_club, age_group, games)
-            if slot is not None:
-                _slot_host_club, slot_start, _slot_end = slot
-                start_time = slot_start
 
             ag_weight = self.preferanse_vekt_by_age_group.get(age_group, 0.0)
             date_pref_total = sum(
@@ -284,7 +310,7 @@ class SeasonPlanner:
                     age_group=age_group,
                     teams=participants,
                     games=games,
-                    host_club=host_club,
+                    host_club=final_host_club,
                     start_time=start_time,
                     preferanse_vekt=ag_weight,
                     scoring_weight_term=ag_weight + date_pref_total,
@@ -293,8 +319,11 @@ class SeasonPlanner:
             # Record actual host so the tracking dict reflects committed assignments.
             month_key = (tournament_date.year, tournament_date.month)
             self._hosting_days_by_club_month.setdefault(
-                (host_club, month_key), set()
+                (final_host_club, month_key), set()
             ).add(tournament_date)
+            used_arenas_by_date.setdefault(tournament_date, set()).add(arena)
+            host_counts_by_age.setdefault(age_group, {})
+            host_counts_by_age[age_group][final_host_club] = host_counts_by_age[age_group].get(final_host_club, 0) + 1
 
         expected_per_month = self._expected_monthly_load(start_date.date(), end_date.date(), len(scheduled))
         self._sequence_same_arena_day_start_times(plan)
@@ -706,6 +735,48 @@ class SeasonPlanner:
                     else 0
                 )
                 cursor_minutes += duration_minutes + ARENA_DAY_SEQUENCE_BUFFER_MINUTES
+
+    def _ordered_host_candidates(
+        self,
+        age_group: str,
+        original_host: str,
+        tournament_date: date,
+        host_targets_by_age: Dict[str, Dict[str, int]],
+        host_counts_by_age: Dict[str, Dict[str, int]],
+        used_arenas_by_date: Dict[date, Set[str]],
+    ) -> List[str]:
+        candidates: List[str] = []
+        seen: Set[str] = set()
+        for team in self.roster.by_age_group(age_group):
+            if team.club in seen:
+                continue
+            candidates.append(team.club)
+            seen.add(team.club)
+        for club in self.roster.clubs():
+            if club in seen:
+                continue
+            candidates.append(club)
+            seen.add(club)
+        if original_host not in seen:
+            candidates.insert(0, original_host)
+            seen.add(original_host)
+
+        target_counts = host_targets_by_age.get(age_group, {})
+        actual_counts = host_counts_by_age.setdefault(age_group, {})
+        used_arenas = used_arenas_by_date.get(tournament_date, set())
+
+        def score(club: str) -> Tuple[int, int, int, int, int]:
+            arena = self.club_arenas.get(club, club)
+            actual_minus_target = actual_counts.get(club, 0) - target_counts.get(club, 0)
+            return (
+                0 if club == original_host else 1,
+                0 if arena not in used_arenas else 1,
+                actual_minus_target,
+                -target_counts.get(club, 0),
+                candidates.index(club),
+            )
+
+        return sorted(candidates, key=score)
 
     @staticmethod
     def _expected_monthly_load(window_start: date, window_end: date, tournament_count: int) -> float:

@@ -287,8 +287,8 @@ def rules_report(planner) -> List[Dict[str, str]]:
             "forklaring": (
                 "For hver turnering beregnes hvor lang tid hele turneringen tar (rundelengde × antall runder), og planleggeren "
                 "ser etter en sammenhengende ledig luke av denne lengden i vertsklubbens egen hallkalender. Tidspunkt nærmest 11:00 "
-                "foretrekkes, for å unngå svært tidlige eller sene starttider. Hvis vertsklubbens egen hall ikke har en passende "
-                "ledig luke den dagen, beholdes den opprinnelige vertsklubben og standard starttid i stedet for å låne kapasitet fra andre klubber."
+                "foretrekkes, for å unngå svært tidlige eller sene starttider. Hvis den opprinnelige vertsklubben ikke har en passende "
+                "ledig luke, prøver planleggeren andre klubber med ledig kapasitet på samme dato før den faller tilbake til standard starttid."
             ),
             "kategori": "Automatisk avgjørelse",
         })

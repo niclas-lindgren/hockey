@@ -6,11 +6,17 @@ These tests cover:
 - The end-to-end invariant: game.home.club == arena owner for all rounds
 """
 
+from datetime import datetime
+from types import SimpleNamespace
+
 import pytest
 
 from tournament_scheduler.club_registry import club_for_arena
-from tournament_scheduler.models import Team
+from tournament_scheduler.host_assignment import find_slot_for_tournament
+from tournament_scheduler.models import CalendarEvent, Team
+from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_planner import SeasonPlanner
+from tournament_scheduler.utils.date_parser import DateParser
 
 
 # ---------------------------------------------------------------------------
@@ -66,6 +72,44 @@ class TestClubForArena:
             assert result == club_name, (
                 f"club_for_arena('{entry.arena}') returned {result!r}, expected {club_name!r}"
             )
+
+
+class TestFallbackHostSlotSearch:
+    def test_uses_fallback_host_when_primary_arena_is_full(self):
+        event_date = datetime(2026, 10, 3).date()
+        planner = SimpleNamespace(
+            events_by_club={
+                "Jar": [
+                    CalendarEvent(
+                        date=event_date.strftime("%d.%m.%Y"),
+                        name="Booket hele dagen",
+                        datetime=datetime(event_date.year, event_date.month, event_date.day, 0, 0),
+                        duration_hours=24.0,
+                    )
+                ],
+                "Holmen": [],
+            },
+            round_length_for_age_group={"U10": 30},
+            club_arenas={"Jar": "Jarahallen", "Holmen": "Holmenkollen ishall"},
+            scheduler=TournamentScheduler([], [], DateParser()),
+        )
+
+        jar = Team(club="Jar", label="Jar U10", age_group="U10")
+        holmen = Team(club="Holmen", label="Holmen U10", age_group="U10")
+        kongsberg = Team(club="Kongsberg", label="Kongsberg U10", age_group="U10")
+        games = SeasonPlanner.generate_round_robin_games([jar, holmen, kongsberg], parallel_games=2)
+
+        slot = find_slot_for_tournament(
+            planner,
+            event_date,
+            "Jar",
+            "U10",
+            games,
+            candidate_hosts=["Holmen"],
+        )
+
+        assert slot is not None
+        assert slot[0] == "Holmen"
 
 
 # ---------------------------------------------------------------------------

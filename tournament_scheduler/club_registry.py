@@ -209,17 +209,23 @@ def club_for_source_name(source_name: str) -> Optional[str]:
 def club_for_arena(arena_name: str) -> Optional[str]:
     """Return the club name that owns *arena_name*, or ``None`` if not found.
 
-    Performs an exact case-insensitive match against each entry's ``arena``
-    field in :data:`CLUB_REGISTRY`. This is the authoritative reverse-lookup
-    for resolving a venue name to the owning club; downstream callers should
-    prefer this over maintaining a separate arena→club dictionary.
+    Performs a case-insensitive match against each entry's ``arena`` field in
+    :data:`CLUB_REGISTRY`. This is the authoritative reverse-lookup for
+    resolving a venue name to the owning club; downstream callers should prefer
+    this over maintaining a separate arena→club dictionary.
 
     Returns the canonical club name (as registered in :data:`CLUB_REGISTRY`)
-    on a match, or ``None`` if no entry matches.
+    on a match, or ``None`` if no entry matches. Multi-arena labels that are
+    stored as ``"Arena A / Arena B"`` are treated as aliases for each
+    individual component.
     """
     lowered = arena_name.strip().lower()
     for club_name, entry in CLUB_REGISTRY.items():
-        if entry.arena.lower() == lowered:
+        entry_lower = entry.arena.lower()
+        if entry_lower == lowered:
+            return club_name
+        parts = [part.strip() for part in entry_lower.split("/")]
+        if lowered in parts:
             return club_name
     return None
 

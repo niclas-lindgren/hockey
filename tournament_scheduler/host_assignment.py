@@ -187,14 +187,13 @@ def find_slot_for_tournament(
     age_group: str,
     games: List[Game],
     preferred_start: Optional[str] = None,
+    candidate_hosts: Optional[Sequence[str]] = None,
 ) -> Optional[Tuple[str, str, str]]:
-    """Find a time-of-day slot in the host club's own calendar.
+    """Find a time-of-day slot for the tournament, preferring the assigned host.
 
-    The *games* list must already be ordered so that the host club's team
-    appears at index 0 in the participants list that produced it (i.e. the
-    caller is responsible for applying the ``club_for_arena`` / ``host_club``
-    reordering before invoking ``generate_round_robin_games``).  This function
-    does **not** regenerate games, so no reordering is applied here.
+    The *games* list may be generated from any participant order; this helper
+    only uses it to infer the hall occupancy duration and the participant set
+    for travel-aware preferred-start heuristics.
     """
     if not planner.events_by_club:
         return None
@@ -211,39 +210,51 @@ def find_slot_for_tournament(
     if required_minutes <= 0:
         return None
 
-    if preferred_start is None:
-        unique_teams: list[Team] = []
-        seen_labels: set[str] = set()
-        for game in games:
-            for team in (game.home, game.away):
-                if team.label in seen_labels:
-                    continue
-                seen_labels.add(team.label)
-                unique_teams.append(team)
+    search_hosts = [host_club]
+    if candidate_hosts:
+        for candidate in candidate_hosts:
+            if candidate not in search_hosts:
+                search_hosts.append(candidate)
 
-        tournament = Tournament(
-            date=tournament_date,
-            arena=planner.club_arenas.get(host_club, host_club),
-            age_group=age_group,
-            teams=unique_teams,
-            host_club=host_club,
-        )
-        travel = furthest_traveling_team(tournament)
-        if travel is None:
-            preferred_start = "11:00"
-        else:
-            _, km = travel
-            if km >= 120:
-                preferred_start = "12:00"
-            elif km >= 60:
-                preferred_start = "11:30"
+    for candidate_host in search_hosts:
+        candidate_preferred_start = preferred_start
+        if candidate_preferred_start is None:
+            unique_teams: list[Team] = []
+            seen_labels: set[str] = set()
+            for game in games:
+                for team in (game.home, game.away):
+                    if team.label in seen_labels:
+                        continue
+                    seen_labels.add(team.label)
+                    unique_teams.append(team)
+
+            tournament = Tournament(
+                date=tournament_date,
+                arena=planner.club_arenas.get(candidate_host, candidate_host),
+                age_group=age_group,
+                teams=unique_teams,
+                host_club=candidate_host,
+            )
+            travel = furthest_traveling_team(tournament)
+            if travel is None:
+                candidate_preferred_start = "11:00"
             else:
-                preferred_start = "11:00"
+                _, km = travel
+                if km >= 120:
+                    candidate_preferred_start = "12:00"
+                elif km >= 60:
+                    candidate_preferred_start = "11:30"
+                else:
+                    candidate_preferred_start = "11:00"
 
-    return planner.scheduler.find_arena_slot_for_date(
-        tournament_date,
-        host_club,
-        required_minutes,
-        planner.events_by_club,
-        preferred_start=preferred_start,
-    )
+        slot = planner.scheduler.find_arena_slot_for_date(
+            tournament_date,
+            candidate_host,
+            required_minutes,
+            planner.events_by_club,
+            preferred_start=candidate_preferred_start,
+        )
+        if slot is not None:
+            return slot
+
+    return None

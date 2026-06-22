@@ -2417,7 +2417,7 @@ class TestSlotAwareScheduling:
         assert host_used == "Jar"
         assert start_time == "12:00"
 
-    def test_host_fully_booked_keeps_original_host_without_cross_club_fallback(self):
+    def test_host_fully_booked_uses_cross_club_fallback_when_capacity_exists(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
         free_dates = all_weekend_dates(start, end)
 
@@ -2428,9 +2428,8 @@ class TestSlotAwareScheduling:
         }
 
         # Every known club except Holmen is fully booked all day on every
-        # tournament date. The planner must still keep each tournament on
-        # its originally assigned host club rather than borrowing Holmen's
-        # calendar capacity.
+        # tournament date. The planner should fall back to Holmen whenever the
+        # original host cannot fit the required matchday duration.
         from tournament_scheduler.club_registry import CLUB_REGISTRY
 
         events_by_club = {}
@@ -2453,13 +2452,14 @@ class TestSlotAwareScheduling:
         planner = self._basic_planner(free_dates, events_by_club=events_by_club)
         plan = planner.build_plan(start, end)
 
-        assert planner.fallback_host_substitutions == []
         assert plan.tournaments
+        assert planner.fallback_host_substitutions
+        assert all(to_host == "Holmen" for _, _, _, to_host in planner.fallback_host_substitutions)
 
         for tournament in plan.tournaments:
-            assert tournament.host_club == original_hosts_by_tournament[(tournament.date, tournament.age_group)]
-            if tournament.host_club != "Holmen":
-                assert tournament.start_time == DEFAULT_TOURNAMENT_START_TIME
+            original_host = original_hosts_by_tournament[(tournament.date, tournament.age_group)]
+            if original_host != "Holmen":
+                assert tournament.host_club == "Holmen"
 
     def test_no_arena_available_keeps_original_host_and_default_time(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
