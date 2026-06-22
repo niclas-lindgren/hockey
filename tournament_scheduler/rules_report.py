@@ -106,9 +106,9 @@ def rules_report(planner) -> List[Dict[str, str]]:
         {
             "regel": "Jevn fordeling av turneringer over sesongen",
             "forklaring": (
-                f"Sesongvinduet deles i omtrent like store tidsbolker, og én turnering legges til hver bolk. "
-                f"Dette sikrer at turneringene er spredt jevnt utover og at ingen periode blir overbelastet. "
-                f"Måneder som avviker mer enn {int(planner.max_month_deviation_ratio * 100)}% fra forventet antall turneringer flagges som et varsel."
+                f"Sesongvinduet deles i omtrent like store tidsbolker, og planleggeren gjør i tillegg en global utjevningspass over hele sesongen "
+                "før datoene låses. Det gjør at månedslast, overlappende aldersgrupper og gjentatte matchups kan rebalanseres på tvers av grupper, "
+                f"i stedet for at hver aldersgruppe bare følger sin egen lokale bucket. Måneder som avviker mer enn {int(planner.max_month_deviation_ratio * 100)}% fra forventet antall turneringer flagges som et varsel."
             ),
             "kategori": "Automatisk avgjørelse",
         },

@@ -202,37 +202,28 @@ class SeasonPlanner:
 
         # Reset hosting-day tracking so each build_plan call starts clean.
         self._hosting_days_by_club_month = {}
-        # Simple predicted-host counter: club with fewest predicted hosting days
-        # overall is picked as the next host for each date committed in the
-        # selection phase, so the monthly cap can be enforced in scoring.
-        _predicted_host_total: Dict[str, int] = {c: 0 for c in self.club_arenas}
 
-        scheduled: List[Tuple[date, str]] = []
-        planned_age_groups_by_date: Dict[date, List[str]] = {}
-        for age_group in age_groups:
-            target_count = self._target_tournaments_for_age_group(age_group)
-            chosen_dates = self._pick_spread_dates(
-                free_dates,
-                start_date.date(),
-                end_date.date(),
-                [age_group],
-                planned_age_groups_by_date,
-                target_count=target_count,
-            )
-            for tournament_date in chosen_dates:
-                scheduled.append((tournament_date, age_group))
-                planned_age_groups_by_date.setdefault(tournament_date, []).append(age_group)
-                self._record_month(tournament_date)
-                # Predict the host for this date using the least-total-days heuristic
-                # and record the date so future scoring can enforce the monthly cap.
-                if _predicted_host_total:
-                    predicted_host = min(_predicted_host_total, key=_predicted_host_total.__getitem__)
-                    month_key = (tournament_date.year, tournament_date.month)
-                    club_month_key = (predicted_host, month_key)
-                    self._hosting_days_by_club_month.setdefault(club_month_key, set()).add(tournament_date)
-                    _predicted_host_total[predicted_host] += 1
+        target_counts = {age_group: self._target_tournaments_for_age_group(age_group) for age_group in age_groups}
+        baseline_scheduled, _ = self._build_greedy_date_schedule(
+            age_groups,
+            free_dates,
+            start_date.date(),
+            end_date.date(),
+            target_counts,
+        )
+        optimized_scheduled, _ = self._build_global_date_schedule(
+            age_groups,
+            free_dates,
+            start_date.date(),
+            end_date.date(),
+            target_counts,
+        )
+        baseline_score = self._score_date_schedule(baseline_scheduled, start_date.date(), end_date.date())
+        optimized_score = self._score_date_schedule(optimized_scheduled, start_date.date(), end_date.date())
+        scheduled = optimized_scheduled if optimized_score <= baseline_score else baseline_scheduled
 
         self._month_counts = {}
+        self._hosting_days_by_club_month = {}
         scheduled.sort(key=lambda item: (item[0], item[1]))
         host_assignments = self._assign_hosts(scheduled)
         collisions: List[Tuple[date, str, str]] = []
@@ -401,6 +392,279 @@ class SeasonPlanner:
     @property
     def month_load_warnings(self) -> List[Tuple[int, int, int, float, float]]:
         return list(self._month_load_warnings)
+
+    def _build_greedy_date_schedule(
+        self,
+        age_groups: Sequence[str],
+        free_dates: Sequence[date],
+        window_start: date,
+        window_end: date,
+        target_counts: Dict[str, int],
+    ) -> Tuple[List[Tuple[date, str]], float]:
+        """Build the existing per-age-group greedy date list on temporary state."""
+        saved_month_counts = self._month_counts
+        saved_hosting_days = self._hosting_days_by_club_month
+        try:
+            self._month_counts = {}
+            self._hosting_days_by_club_month = {}
+            scheduled: List[Tuple[date, str]] = []
+            planned_age_groups_by_date: Dict[date, List[str]] = {}
+            predicted_host_total: Dict[str, int] = {club: 0 for club in self.club_arenas}
+            total_score = 0.0
+
+            for age_group in age_groups:
+                target_count = target_counts.get(age_group, 0)
+                if target_count <= 0:
+                    continue
+
+                bucket_score = self._expected_monthly_load(window_start, window_end, target_count)
+                bucket_span = (window_end - window_start).days / target_count if target_count else 0.0
+                chosen_dates = self._pick_spread_dates(
+                    free_dates,
+                    window_start,
+                    window_end,
+                    [age_group],
+                    planned_age_groups_by_date,
+                    target_count=target_count,
+                )
+                for slot_index, tournament_date in enumerate(chosen_dates):
+                    bucket_center = window_start + timedelta(days=int((slot_index + 0.5) * bucket_span))
+                    half_span_days = max(1.0, bucket_span / 2)
+                    predicted_participants = self._select_participants(age_group)
+                    spread_penalty = abs((tournament_date - bucket_center).days) / half_span_days
+                    diversity_penalty = self._score_candidate_date(
+                        tournament_date,
+                        age_group,
+                        predicted_participants,
+                        bucket_score,
+                        tournament_weight=self.preferanse_vekt_by_age_group.get(age_group, 0.0),
+                    )
+                    same_day_penalty = len(planned_age_groups_by_date.get(tournament_date, [])) * 50.0
+                    overlap_penalty = 0.0
+                    for existing in planned_age_groups_by_date.get(tournament_date, []):
+                        if (
+                            age_group in overlapping_age_groups(existing)
+                            or existing in overlapping_age_groups(age_group)
+                        ):
+                            overlap_penalty += 100.0
+                    total_score += spread_penalty + diversity_penalty + same_day_penalty + overlap_penalty
+                    scheduled.append((tournament_date, age_group))
+                    planned_age_groups_by_date.setdefault(tournament_date, []).append(age_group)
+                    self._record_month(tournament_date)
+                    if predicted_host_total:
+                        predicted_host = min(predicted_host_total, key=predicted_host_total.__getitem__)
+                        month_key = (tournament_date.year, tournament_date.month)
+                        club_month_key = (predicted_host, month_key)
+                        self._hosting_days_by_club_month.setdefault(club_month_key, set()).add(tournament_date)
+                        predicted_host_total[predicted_host] += 1
+
+            return sorted(scheduled, key=lambda item: (item[0], item[1])), total_score
+        finally:
+            self._month_counts = saved_month_counts
+            self._hosting_days_by_club_month = saved_hosting_days
+
+    def _build_global_date_schedule(
+        self,
+        age_groups: Sequence[str],
+        free_dates: Sequence[date],
+        window_start: date,
+        window_end: date,
+        target_counts: Dict[str, int],
+    ) -> Tuple[List[Tuple[date, str]], float]:
+        """Rebuild the date list with a season-wide best-first optimisation pass."""
+        saved_state = (
+            self._month_counts,
+            self._hosting_days_by_club_month,
+            self._tournament_participations,
+            self._running_game_counts,
+            self._opponent_history,
+            self._invite_counts,
+            self._grouped_with,
+            self._team_last_date,
+            self._team_game_counts,
+            self._club_cap_overrides,
+        )
+        try:
+            self._month_counts = {}
+            self._hosting_days_by_club_month = {}
+            self._tournament_participations = {self._team_key(team): 0 for team in self.roster.teams}
+            self._running_game_counts = {}
+            self._opponent_history = {}
+            self._invite_counts = {self._team_key(team): 0 for team in self.roster.teams}
+            self._grouped_with = {}
+            self._team_last_date = {}
+            self._team_game_counts = {}
+            self._club_cap_overrides = 0
+
+            remaining_by_age_group = {ag: count for ag, count in target_counts.items() if count > 0}
+            used_dates_by_age_group: Dict[str, Set[date]] = {ag: set() for ag in remaining_by_age_group}
+            scheduled_age_groups_by_date: Dict[date, List[str]] = {}
+            predicted_host_total: Dict[str, int] = {club: 0 for club in self.club_arenas}
+            scheduled: List[Tuple[date, str]] = []
+            total_score = 0.0
+            total_days = max(1, (window_end - window_start).days)
+            expected_per_month = self._expected_monthly_load(
+                window_start,
+                window_end,
+                sum(remaining_by_age_group.values()),
+            )
+
+            while any(remaining_by_age_group.values()):
+                best_choice: Optional[Tuple[float, date, str, List[Team]]] = None
+                for age_group in age_groups:
+                    remaining = remaining_by_age_group.get(age_group, 0)
+                    if remaining <= 0:
+                        continue
+
+                    target_count = max(1, target_counts.get(age_group, 1))
+                    slot_index = target_count - remaining
+                    bucket_span = total_days / target_count
+                    bucket_center = window_start + timedelta(days=int((slot_index + 0.5) * bucket_span))
+                    half_span_days = max(1.0, bucket_span / 2)
+                    predicted_participants = list(self._select_participants(age_group))
+
+                    for tournament_date in free_dates:
+                        if tournament_date in used_dates_by_age_group.setdefault(age_group, set()):
+                            continue
+
+                        spread_penalty = abs((tournament_date - bucket_center).days) / half_span_days
+                        same_day_penalty = len(scheduled_age_groups_by_date.get(tournament_date, [])) * 50.0
+                        overlap_penalty = 0.0
+                        for existing in scheduled_age_groups_by_date.get(tournament_date, []):
+                            if (
+                                age_group in overlapping_age_groups(existing)
+                                or existing in overlapping_age_groups(age_group)
+                            ):
+                                overlap_penalty += 100.0
+
+                        diversity_penalty = self._score_candidate_date(
+                            tournament_date,
+                            age_group,
+                            predicted_participants,
+                            expected_per_month,
+                            tournament_weight=self.preferanse_vekt_by_age_group.get(age_group, 0.0),
+                        )
+                        score = spread_penalty + same_day_penalty + overlap_penalty + diversity_penalty
+                        if best_choice is None or score < best_choice[0] or (
+                            score == best_choice[0]
+                            and (tournament_date, age_group) < (best_choice[1], best_choice[2])
+                        ):
+                            best_choice = (score, tournament_date, age_group, predicted_participants)
+
+                if best_choice is None:
+                    break
+
+                score, tournament_date, age_group, participants = best_choice
+                total_score += score
+                scheduled.append((tournament_date, age_group))
+                used_dates_by_age_group.setdefault(age_group, set()).add(tournament_date)
+                scheduled_age_groups_by_date.setdefault(tournament_date, []).append(age_group)
+                if participants:
+                    self._record_grouping(participants)
+                    parallel_games = self._parallel_games_for(age_group)
+                    games = self.generate_round_robin_games(participants, parallel_games)
+                    self._record_opponent_history(games)
+                self._record_month(tournament_date)
+                if predicted_host_total:
+                    predicted_host = min(predicted_host_total, key=predicted_host_total.__getitem__)
+                    month_key = (tournament_date.year, tournament_date.month)
+                    club_month_key = (predicted_host, month_key)
+                    self._hosting_days_by_club_month.setdefault(club_month_key, set()).add(tournament_date)
+                    predicted_host_total[predicted_host] += 1
+                remaining_by_age_group[age_group] -= 1
+
+            return sorted(scheduled, key=lambda item: (item[0], item[1])), total_score
+        finally:
+            (
+                self._month_counts,
+                self._hosting_days_by_club_month,
+                self._tournament_participations,
+                self._running_game_counts,
+                self._opponent_history,
+                self._invite_counts,
+                self._grouped_with,
+                self._team_last_date,
+                self._team_game_counts,
+                self._club_cap_overrides,
+            ) = saved_state
+
+    def _score_date_schedule(
+        self,
+        scheduled: Sequence[Tuple[date, str]],
+        window_start: date,
+        window_end: date,
+    ) -> float:
+        """Score a fully chosen date list by replaying the season state."""
+        if not scheduled:
+            return 0.0
+
+        saved_state = (
+            self._month_counts,
+            self._hosting_days_by_club_month,
+            self._tournament_participations,
+            self._running_game_counts,
+            self._opponent_history,
+            self._invite_counts,
+            self._grouped_with,
+            self._team_last_date,
+            self._team_game_counts,
+            self._club_cap_overrides,
+        )
+        try:
+            self._month_counts = {}
+            self._hosting_days_by_club_month = {}
+            self._tournament_participations = {self._team_key(team): 0 for team in self.roster.teams}
+            self._running_game_counts = {}
+            self._opponent_history = {}
+            self._invite_counts = {self._team_key(team): 0 for team in self.roster.teams}
+            self._grouped_with = {}
+            self._team_last_date = {}
+            self._team_game_counts = {}
+            self._club_cap_overrides = 0
+
+            by_date: Dict[date, List[str]] = {}
+            sorted_schedule = sorted(scheduled, key=lambda item: (item[0], item[1]))
+            for tournament_date, age_group in sorted_schedule:
+                participants = list(self._select_participants(age_group))
+                if participants:
+                    self._record_grouping(participants)
+                    parallel_games = self._parallel_games_for(age_group)
+                    games = self.generate_round_robin_games(participants, parallel_games)
+                    self._record_opponent_history(games)
+                self._record_month(tournament_date)
+                by_date.setdefault(tournament_date, []).append(age_group)
+
+            expected_per_month = self._expected_monthly_load(window_start, window_end, len(sorted_schedule))
+            month_penalty = 0.0
+            if self._month_counts:
+                month_penalty = sum(abs(count - expected_per_month) for count in self._month_counts.values())
+                month_penalty /= max(1, len(self._month_counts))
+
+            overlap_penalty = 0.0
+            for groups in by_date.values():
+                for i, age_group in enumerate(groups):
+                    for other in groups[i + 1 :]:
+                        if (
+                            age_group in overlapping_age_groups(other)
+                            or other in overlapping_age_groups(age_group)
+                        ):
+                            overlap_penalty += 1.0
+
+            repeat_penalty = sum(max(0, count - 1) for count in self._opponent_history.values())
+            return month_penalty + overlap_penalty * 100.0 + repeat_penalty
+        finally:
+            (
+                self._month_counts,
+                self._hosting_days_by_club_month,
+                self._tournament_participations,
+                self._running_game_counts,
+                self._opponent_history,
+                self._invite_counts,
+                self._grouped_with,
+                self._team_last_date,
+                self._team_game_counts,
+                self._club_cap_overrides,
+            ) = saved_state
 
     def _sequence_same_arena_day_start_times(self, plan: SeasonPlan) -> None:
         groups: Dict[Tuple[date, str], List[Tournament]] = {}

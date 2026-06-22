@@ -615,6 +615,98 @@ class TestOpponentHistoryTrackingAndScoring:
         assert team_c in selected
         assert team_b not in selected
 
+    def test_global_date_selection_pass_beats_bucketed_baseline(self):
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = [
+            date(2026, 10, 18),
+            date(2026, 11, 1),
+            date(2026, 11, 21),
+            date(2026, 11, 22),
+            date(2027, 1, 9),
+            date(2027, 1, 30),
+            date(2027, 3, 28),
+            date(2027, 4, 18),
+        ]
+        age_groups = ["U10", "JU11", "U11"]
+        clubs = ["Kongsberg", "Jar", "Skien"]
+        roster = Roster(
+            teams=[
+                Team(club=club, label=f"{club} {age_group}", age_group=age_group)
+                for age_group in age_groups
+                for club in clubs
+            ]
+        )
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={club: f"{club}hallen" for club in clubs},
+            parallel_games_for_age_group={"U10": 2, "JU11": 3, "U11": 4},
+            seed=0,
+        )
+        target_counts = {age_group: planner._target_tournaments_for_age_group(age_group) for age_group in age_groups}
+
+        baseline, _ = planner._build_greedy_date_schedule(
+            age_groups,
+            free_dates,
+            start.date(),
+            end.date(),
+            target_counts,
+        )
+        optimized, _ = planner._build_global_date_schedule(
+            age_groups,
+            free_dates,
+            start.date(),
+            end.date(),
+            target_counts,
+        )
+
+        baseline_score = planner._score_date_schedule(baseline, start.date(), end.date())
+        optimized_score = planner._score_date_schedule(optimized, start.date(), end.date())
+
+        assert optimized_score < baseline_score
+
+    def test_build_plan_uses_the_optimized_date_sequence_for_that_scenario(self):
+        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
+        free_dates = [
+            date(2026, 10, 18),
+            date(2026, 11, 1),
+            date(2026, 11, 21),
+            date(2026, 11, 22),
+            date(2027, 1, 9),
+            date(2027, 1, 30),
+            date(2027, 3, 28),
+            date(2027, 4, 18),
+        ]
+        age_groups = ["U10", "JU11", "U11"]
+        clubs = ["Kongsberg", "Jar", "Skien"]
+        roster = Roster(
+            teams=[
+                Team(club=club, label=f"{club} {age_group}", age_group=age_group)
+                for age_group in age_groups
+                for club in clubs
+            ]
+        )
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={club: f"{club}hallen" for club in clubs},
+            parallel_games_for_age_group={"U10": 2, "JU11": 3, "U11": 4},
+            seed=0,
+        )
+        target_counts = {age_group: planner._target_tournaments_for_age_group(age_group) for age_group in age_groups}
+        optimized, _ = planner._build_global_date_schedule(
+            age_groups,
+            free_dates,
+            start.date(),
+            end.date(),
+            target_counts,
+        )
+
+        plan = planner.build_plan(start, end)
+        actual = [(t.date, t.age_group) for t in sorted(plan.tournaments, key=lambda t: (t.date, t.age_group))]
+
+        assert actual == optimized
+
     def test_deficit_score_uses_soft_fairness_target(self):
         roster = Roster(teams=[
             Team(club="Jar", label="Jar 1", age_group="U10"),
