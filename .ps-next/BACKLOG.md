@@ -2,9 +2,8 @@
 
 ## Open
 
-- [186] [ ] Stage 3 should compute game_count_spread_by_age_group per age group and store it in the checkpoint instead of leaving it None; the stored global game_count_spread is misleading
-
 ## Done
+- [186] [x] Stage 3 should compute game_count_spread_by_age_group per age group and store it in the checkpoint instead of leaving it None; the stored global game_count_spread is misleading (2026-06-22)
 - [187] [x] Remove --no-timestamped-export flag from rvv-miniputt:run skill Stage 4 docs — it is not a recognized argument and causes stage4_export to fail (2026-06-22)
 - [188] [x] Scraper cache should fingerprint relevant config (e.g. location_filter) so that a config change automatically invalidates stale cache entries instead of requiring manual cache file deletion (2026-06-21)
 - [184] [x] Game count imbalance check compares across age groups — should only compare within the same age group (e.g. U7 vs U7, not U7 vs U12). Fix the critic/rules check so the spread calculation is scoped per age group. (2026-06-21)
