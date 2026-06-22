@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from tournament_scheduler.club_distances import furthest_traveling_team
 from tournament_scheduler.models import Game, Team, Tournament
 from tournament_scheduler.utils.slot_finder import matchday_duration_minutes
+from tournament_scheduler.warnings import holiday_heavy_weekend_dates
 
 
 def pick_spread_dates(
@@ -45,7 +46,8 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
 
     The assignment prefers hosts whose arena is still unused on that date,
     so the planner avoids double-booking the same ice whenever an alternate
-    club is available.
+    club is available. It also prefers clubs that have not hosted on the
+    previous weekend and have fewer holiday-heavy hosting dates.
     """
     if not scheduled:
         planner._arena_day_collisions = []
@@ -63,10 +65,6 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
         age_group: {club: 0 for club in targets}
         for age_group, targets in targets_by_age.items()
     }
-    last_hosted_by_age: Dict[str, Dict[str, int]] = {
-        age_group: {club: -1 for club in targets}
-        for age_group, targets in targets_by_age.items()
-    }
 
     clubs_by_age: Dict[str, List[str]] = {}
     for team in planner.roster.teams:
@@ -78,8 +76,14 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
     all_clubs = planner.roster.clubs()
     used_arenas_by_date: Dict[date, Dict[str, Tuple[str, str]]] = {}
     collisions: List[Dict[str, str]] = []
+    last_hosted_date_by_club: Dict[str, date] = {}
+    consecutive_streak_by_club: Dict[str, int] = {}
+    holiday_heavy_host_count_by_club: Dict[str, int] = {}
+    first_date = min(tournament_date for tournament_date, _ in scheduled)
+    last_date = max(tournament_date for tournament_date, _ in scheduled)
+    holiday_heavy_dates = holiday_heavy_weekend_dates(first_date, last_date)
 
-    for i, (tournament_date, age_group) in enumerate(scheduled):
+    for tournament_date, age_group in scheduled:
         targets = targets_by_age.get(age_group, {})
         candidate_pool = list(targets) if targets else list(clubs_by_age.get(age_group, [])) or list(all_clubs)
         if not candidate_pool:
@@ -92,37 +96,32 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
             if planner.club_arenas.get(club, club) not in used_arenas
         ]
         selection_pool = available_pool or candidate_pool
-
         actual_counts = actual_by_age.get(age_group, {})
-        last_hosted_index = last_hosted_by_age.get(age_group, {})
         candidate_order = {club: idx for idx, club in enumerate(candidate_pool)}
+        is_holiday_heavy = tournament_date in holiday_heavy_dates
 
-        def _pick_host(pool: List[str]) -> str:
-            if targets:
-                deficit_clubs = [
-                    club for club in pool
-                    if actual_counts.get(club, 0) < targets.get(club, 0)
-                ]
-                if deficit_clubs:
-                    return max(
-                        deficit_clubs,
-                        key=lambda club: (
-                            targets.get(club, 0) - actual_counts.get(club, 0),
-                            -last_hosted_index.get(club, -1),
-                            targets.get(club, 0),
-                            -candidate_order.get(club, 0),
-                        ),
-                    )
-            return min(
-                pool,
-                key=lambda club: (
-                    last_hosted_index.get(club, -1),
-                    actual_counts.get(club, 0),
-                    candidate_order.get(club, 0),
-                ),
+        def _projected_streak(club: str) -> int:
+            last_date = last_hosted_date_by_club.get(club)
+            if last_date is not None and (tournament_date - last_date).days == 7:
+                return consecutive_streak_by_club.get(club, 1) + 1
+            return 1
+
+        def _score(club: str) -> Tuple[int, int, int, int, int, int, int, int]:
+            arena = planner.club_arenas.get(club, club)
+            last_date = last_hosted_date_by_club.get(club)
+            gap = (tournament_date - last_date).days if last_date is not None else 10_000
+            return (
+                0 if arena not in used_arenas else 1,
+                0 if actual_counts.get(club, 0) == 0 else 1,
+                -max(0, targets.get(club, 0) - actual_counts.get(club, 0)),
+                _projected_streak(club),
+                holiday_heavy_host_count_by_club.get(club, 0) + (1 if is_holiday_heavy else 0),
+                -gap,
+                actual_counts.get(club, 0),
+                candidate_order.get(club, 0),
             )
 
-        host = _pick_host(selection_pool)
+        host = min(selection_pool, key=_score)
         arena = planner.club_arenas.get(host, host)
         if arena in used_arenas:
             conflicting_age_group, conflicting_host_club = used_arenas[arena]
@@ -142,7 +141,14 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
 
         assignments.append(host)
         actual_counts[host] = actual_counts.get(host, 0) + 1
-        last_hosted_index[host] = i
+        previous_date = last_hosted_date_by_club.get(host)
+        if previous_date is not None and (tournament_date - previous_date).days == 7:
+            consecutive_streak_by_club[host] = consecutive_streak_by_club.get(host, 1) + 1
+        else:
+            consecutive_streak_by_club[host] = 1
+        last_hosted_date_by_club[host] = tournament_date
+        if is_holiday_heavy:
+            holiday_heavy_host_count_by_club[host] = holiday_heavy_host_count_by_club.get(host, 0) + 1
 
     planner._arena_day_collisions = collisions
     return assignments

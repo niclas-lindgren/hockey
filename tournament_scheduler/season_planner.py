@@ -89,6 +89,8 @@ DEFAULT_FAIRNESS_THRESHOLDS = {
     "min_pairwise_matchup_score": 0.25,
     "min_month_balance_score": 0.75,
     "max_same_weekend_club_load": 3,
+    "max_consecutive_weekend_club_load": 2,
+    "max_holiday_stretch_club_load": 2,
 }
 
 

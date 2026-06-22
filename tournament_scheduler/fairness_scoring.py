@@ -6,6 +6,7 @@ from typing import Dict, List
 
 from tournament_scheduler.club_distances import compute_team_travel_distances
 from tournament_scheduler.models import SeasonPlan
+from tournament_scheduler.warnings import hosting_weekend_balance_breakdown
 
 DEFAULT_FAIRNESS_THRESHOLDS = {
     "max_game_count_spread": 2,
@@ -15,6 +16,8 @@ DEFAULT_FAIRNESS_THRESHOLDS = {
     "min_pairwise_matchup_score": 0.25,
     "min_month_balance_score": 0.75,
     "max_same_weekend_club_load": 3,
+    "max_consecutive_weekend_club_load": 2,
+    "max_holiday_stretch_club_load": 2,
 }
 
 
@@ -90,6 +93,12 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         if loads:
             same_weekend_load = max(same_weekend_load, max(loads.values()))
     weekend_detail = f"maks {same_weekend_load} turneringer fra samme klubb i samme uke"
+
+    weekend_balance = hosting_weekend_balance_breakdown(planner, plan)
+    consecutive_weekend_load = int(weekend_balance.get("max_consecutive_weekend_load", 0) or 0)
+    holiday_stretch_load = int(weekend_balance.get("max_holiday_stretch_load", 0) or 0)
+    consecutive_detail = str(weekend_balance.get("consecutive_detail", ""))
+    holiday_detail = str(weekend_balance.get("holiday_detail", ""))
 
     age_group_spreads: List[float] = []
     skipped_age_groups_set = {entry["age_group"] for entry in plan.skipped_age_groups}
@@ -172,6 +181,24 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         direction="max",
         severity="warn",
         detail=weekend_detail,
+    )
+    add_metric(
+        "consecutive_weekend_club_load",
+        "Sammenhengende vertskapshelger",
+        consecutive_weekend_load,
+        thresholds.get("max_consecutive_weekend_club_load", DEFAULT_FAIRNESS_THRESHOLDS["max_consecutive_weekend_club_load"]),
+        direction="max",
+        severity="warn",
+        detail=consecutive_detail or f"Maks {consecutive_weekend_load} sammenhengende helger for samme klubb.",
+    )
+    add_metric(
+        "holiday_stretch_club_load",
+        "Feriehelgelast",
+        holiday_stretch_load,
+        thresholds.get("max_holiday_stretch_club_load", DEFAULT_FAIRNESS_THRESHOLDS["max_holiday_stretch_club_load"]),
+        direction="max",
+        severity="warn",
+        detail=holiday_detail or f"Maks {holiday_stretch_load} ferie-/helligdagshelger for samme klubb.",
     )
     add_metric(
         "arena_day_collisions",

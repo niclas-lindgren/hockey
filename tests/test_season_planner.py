@@ -27,6 +27,7 @@ from tournament_scheduler.season_planner import (
 )
 from tournament_scheduler.host_assignment import find_slot_for_tournament
 from tournament_scheduler.testing.canonical_input import OfflineScheduler, all_weekend_dates
+from tournament_scheduler.warnings import holiday_heavy_weekend_dates
 
 
 
@@ -2516,6 +2517,8 @@ class TestFairnessGate:
                 "min_pairwise_matchup_score": 0.0,
                 "min_month_balance_score": 0.0,
                 "max_same_weekend_club_load": 999,
+                "max_consecutive_weekend_club_load": 999,
+                "max_holiday_stretch_club_load": 999,
             },
         )
         plan = planner.build_plan(start, end)
@@ -2543,6 +2546,8 @@ class TestFairnessGate:
                 "min_pairwise_matchup_score": 1.0,
                 "min_month_balance_score": 1.0,
                 "max_same_weekend_club_load": 0,
+                "max_consecutive_weekend_club_load": 0,
+                "max_holiday_stretch_club_load": 0,
             },
         )
         plan = planner.build_plan(start, end)
@@ -2609,3 +2614,101 @@ class TestHostingDaysConstraint:
         teams = list(planner.roster.teams)
         score = planner._score_candidate_date(candidate, "U10", teams, 1.0)
         assert score < 1e6, f"Candidate date should not count against the cap; got {score}"
+
+
+class TestWeekendBalance:
+    def test_assign_hosts_avoids_consecutive_weekend_clumping(self):
+        clubs = ["Jar", "Holmen", "Kongsberg"]
+        age_groups = ["U10", "U11"]
+        roster = _build_roster(clubs, age_groups)
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={club: f"{club}hallen" for club in clubs},
+            parallel_games_for_age_group={"U10": 2, "U11": 2},
+        )
+        scheduled = [
+            (date(2027, 3, 20), "U10"),
+            (date(2027, 3, 27), "U11"),
+            (date(2027, 4, 3), "U10"),
+            (date(2027, 4, 10), "U11"),
+            (date(2027, 4, 17), "U10"),
+            (date(2027, 4, 24), "U11"),
+        ]
+
+        assignments = planner._assign_hosts(scheduled)
+
+        assert assignments[0] != assignments[1]
+        assert assignments[1] != assignments[2]
+        assert assignments[2] != assignments[3]
+
+    def test_fairness_gate_includes_weekend_balance_metrics(self):
+        club = "Jar"
+        other_club = "Holmen"
+        jar_team = Team(club=club, label="Jar U10", age_group="U10")
+        holmen_team = Team(club=other_club, label="Holmen U10", age_group="U10")
+        holiday_dates = sorted(holiday_heavy_weekend_dates(date(2027, 3, 1), date(2027, 4, 30)))
+        assert len(holiday_dates) >= 5
+        tournaments = [
+            Tournament(
+                date=holiday_dates[0],
+                arena=f"{club}hallen",
+                age_group="U10",
+                teams=[jar_team, holmen_team],
+                host_club=club,
+            ),
+            Tournament(
+                date=holiday_dates[2],
+                arena=f"{club}hallen",
+                age_group="U10",
+                teams=[jar_team, holmen_team],
+                host_club=club,
+            ),
+            Tournament(
+                date=holiday_dates[4],
+                arena=f"{club}hallen",
+                age_group="U10",
+                teams=[jar_team, holmen_team],
+                host_club=club,
+            ),
+        ]
+        roster = Roster(teams=[jar_team, holmen_team])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={club: f"{club}hallen", other_club: f"{other_club}hallen"},
+            fairness_thresholds={
+                "max_game_count_spread": 999,
+                "max_hosting_deviation": 999,
+                "max_team_travel_km": 9999,
+                "min_diversity_score": 0.0,
+                "min_pairwise_matchup_score": 0.0,
+                "min_month_balance_score": 0.0,
+                "max_same_weekend_club_load": 999,
+                "max_consecutive_weekend_club_load": 2,
+                "max_holiday_stretch_club_load": 2,
+            },
+        )
+        plan = SeasonPlan(
+            tournaments=tournaments,
+            start_date=holiday_dates[0],
+            end_date=holiday_dates[4],
+            diversity_score=1.0,
+            pairwise_matchup_score=1.0,
+            month_balance_score=1.0,
+            game_count_spread=0,
+        )
+
+        planner._compute_game_counts(plan.tournaments)
+        planner._scan_hosting_warnings(plan)
+        gate = planner._build_fairness_gate(plan)
+
+        weekend_metric = next(metric for metric in gate["metrics"] if metric["key"] == "consecutive_weekend_club_load")
+        holiday_metric = next(metric for metric in gate["metrics"] if metric["key"] == "holiday_stretch_club_load")
+
+        assert weekend_metric["status"] in {"warn", "fail"}
+        assert holiday_metric["status"] in {"warn", "fail"}
+        assert "sammenhengende" in weekend_metric["detail"]
+        assert "ferie" in holiday_metric["detail"]
+        assert any("sammenhengende vertskapshelger" in warning for warning in planner.hosting_warnings)
+        assert any("ferie-/helligdagshelger" in warning for warning in planner.hosting_warnings)

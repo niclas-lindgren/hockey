@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, timedelta
 from typing import Dict, List, Optional, Sequence, Set
+
+import holidays
 
 from tournament_scheduler.models import SeasonPlan, Team, Tournament
 
@@ -23,6 +25,102 @@ def compute_game_counts(planner, tournaments: Sequence[Tournament]) -> None:
                 last = planner._team_last_date.get(key)
                 if last is None or tournament.date > last:
                     planner._team_last_date[key] = tournament.date
+
+
+def holiday_heavy_weekend_dates(start_date: date, end_date: date) -> Set[date]:
+    """Return weekend dates that sit in holiday weeks or just before holidays."""
+    holiday_calendar = holidays.Norway()
+    heavy_dates: Set[date] = set()
+    extended_end = end_date + timedelta(days=10)
+
+    current = start_date
+    while current <= extended_end:
+        if current in holiday_calendar:
+            week_start = current - timedelta(days=current.weekday())
+            for i in range(7):
+                week_day = week_start + timedelta(days=i)
+                if start_date <= week_day <= end_date and week_day.weekday() in (5, 6):
+                    heavy_dates.add(week_day)
+
+            days_since_monday = current.weekday()
+            saturday = current - timedelta(days=days_since_monday + 2)
+            sunday = current - timedelta(days=days_since_monday + 1)
+            for weekend_day in (saturday, sunday):
+                if start_date <= weekend_day <= end_date and weekend_day.weekday() in (5, 6):
+                    heavy_dates.add(weekend_day)
+        current += timedelta(days=1)
+
+    return heavy_dates
+
+
+def hosting_weekend_balance_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
+    """Return weekend-adjacent hosting diagnostics for the fairness gate."""
+    rows: List[Dict[str, object]] = []
+    host_dates_by_club: Dict[str, List[date]] = {}
+
+    for tournament in plan.tournaments:
+        if getattr(tournament, "cancelled", False):
+            continue
+        host_club = getattr(tournament, "host_club", None)
+        tournament_date = getattr(tournament, "date", None)
+        if host_club and tournament_date:
+            host_dates_by_club.setdefault(host_club, []).append(tournament_date)
+
+    if not host_dates_by_club:
+        return {
+            "max_consecutive_weekend_load": 0,
+            "max_holiday_stretch_load": 0,
+            "detail": "Ingen vertskap å vurdere for helgelast.",
+            "club_breakdown": [],
+        }
+
+    plan_start = plan.start_date or min(min(dates) for dates in host_dates_by_club.values())
+    plan_end = plan.end_date or max(max(dates) for dates in host_dates_by_club.values())
+    holiday_heavy_dates = holiday_heavy_weekend_dates(plan_start, plan_end)
+
+    max_consecutive = 0
+    max_holiday = 0
+    max_consecutive_detail = ""
+    max_holiday_detail = ""
+
+    for club, dates in sorted(host_dates_by_club.items()):
+        unique_dates = sorted(set(dates))
+        consecutive = 0
+        longest_streak = 0
+        previous_date: Optional[date] = None
+        for tournament_date in unique_dates:
+            if previous_date is not None and (tournament_date - previous_date).days == 7:
+                consecutive += 1
+            else:
+                consecutive = 1
+            longest_streak = max(longest_streak, consecutive)
+            previous_date = tournament_date
+
+        holiday_load = sum(1 for tournament_date in unique_dates if tournament_date in holiday_heavy_dates)
+        rows.append(
+            {
+                "club": club,
+                "hosting_days": len(unique_dates),
+                "consecutive_weekend_load": longest_streak,
+                "holiday_stretch_load": holiday_load,
+            }
+        )
+        if longest_streak >= max_consecutive:
+            max_consecutive = longest_streak
+            max_consecutive_detail = f"{club} har {longest_streak} sammenhengende helger som vertskap."
+        if holiday_load >= max_holiday:
+            max_holiday = holiday_load
+            max_holiday_detail = f"{club} har {holiday_load} turnering(er) i ferie-/helligdagshelger."
+
+    details = [part for part in (max_consecutive_detail, max_holiday_detail) if part]
+    return {
+        "max_consecutive_weekend_load": max_consecutive,
+        "max_holiday_stretch_load": max_holiday,
+        "consecutive_detail": max_consecutive_detail,
+        "holiday_detail": max_holiday_detail,
+        "detail": " ".join(details) if details else "Helgelast ser balansert ut.",
+        "club_breakdown": rows,
+    }
 
 
 def scan_game_count_warnings(
@@ -254,6 +352,21 @@ def scan_hosting_warnings(planner, plan: SeasonPlan) -> None:
                 f"(forventet ~{float(row.get('expected', 0.0)):.1f} basert på "
                 f"{row.get('teams')} lag i aldersgruppen, avvik {deviation:.1f} > "
                 f"{planner.max_hosting_deviation})"
+            )
+
+    weekend_breakdown = hosting_weekend_balance_breakdown(planner, plan)
+    for row in weekend_breakdown.get("club_breakdown", []):
+        if not isinstance(row, dict):
+            continue
+        if float(row.get("consecutive_weekend_load", 0) or 0) > planner.fairness_thresholds.get("max_consecutive_weekend_club_load", 2):
+            planner._hosting_warnings.append(
+                f"{row.get('club')} har {row.get('consecutive_weekend_load')} sammenhengende vertskapshelger "
+                f"(terskel {planner.fairness_thresholds.get('max_consecutive_weekend_club_load', 2)})"
+            )
+        if float(row.get("holiday_stretch_load", 0) or 0) > planner.fairness_thresholds.get("max_holiday_stretch_club_load", 2):
+            planner._hosting_warnings.append(
+                f"{row.get('club')} har {row.get('holiday_stretch_load')} ferie-/helligdagshelger som vertskap "
+                f"(terskel {planner.fairness_thresholds.get('max_holiday_stretch_club_load', 2)})"
             )
 
 

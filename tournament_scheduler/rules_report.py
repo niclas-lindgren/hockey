@@ -120,6 +120,14 @@ def rules_report(planner) -> List[Dict[str, str]]:
             "kategori": "Automatisk avgjørelse",
         },
         {
+            "regel": "Helgebelastning og feriehelger",
+            "forklaring": (
+                f"Når flere klubber er aktuelle som vertskap på samme dato, foretrekker planleggeren klubber som ikke har hatt vertskap på forrige helg, "
+                f"og som har færre ferie-/helligdagshelger allerede. Fairness-gaten kan slå ut når samme klubb får mer enn {planner.fairness_thresholds.get('max_consecutive_weekend_club_load', 2)} sammenhengende vertskapshelger eller mer enn {planner.fairness_thresholds.get('max_holiday_stretch_club_load', 2)} ferie-/helligdagshelger."
+            ),
+            "kategori": "Automatisk avgjørelse",
+        },
+        {
             "regel": "Jevnt antall kamper per lag",
             "forklaring": (
                 f"Planleggeren teller opp alle kamper hvert lag spiller i løpet av sesongen. Forskjellen mellom laget med flest "
