@@ -132,7 +132,7 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         hosting_deviation,
         thresholds.get("max_hosting_deviation", planner.max_hosting_deviation),
         direction="max",
-        severity="fail",
+        severity="warn" if missing_calendar_clubs else "fail",
         detail=hosting_detail or "Aldersgruppevis fordeling av hjemmeturneringer ligger innenfor terskelen.",
     )
     add_metric(

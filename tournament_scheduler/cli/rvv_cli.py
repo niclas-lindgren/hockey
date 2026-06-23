@@ -491,21 +491,18 @@ def _cmd_verdict(args: argparse.Namespace) -> int:
 
 def _cmd_critic(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt critic`` — print plan critic issues for existing Stage 3 checkpoint."""
-    from ..pipeline.state import PipelineState, StageName
+    from ..pipeline.state import PipelineState
+    from ..pipeline.tournament_updater import TournamentUpdater
     from .plan_critic import generate_critic_summary
 
     state = PipelineState(args.work_dir)
-    plan_checkpoint = state.read_stage(StageName.PLANNING)
-    if not plan_checkpoint:
+    try:
+        season_plan = TournamentUpdater(state=state).load_plan()
+    except ValueError:
         _console.print(
             f"[red]✗[/red] Ingen Stage 3-checkpoint funnet i '{args.work_dir}'. "
             "Kjør ``rvv-miniputt run`` først."
         )
-        return 1
-
-    season_plan = plan_checkpoint.get("plan") if isinstance(plan_checkpoint, dict) else None
-    if season_plan is None:
-        _console.print("[red]✗[/red] Stage 3-checkpoint mangler 'plan'-nøkkelen.")
         return 1
 
     issues = generate_critic_summary(season_plan)
