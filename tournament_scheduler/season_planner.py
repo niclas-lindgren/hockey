@@ -606,7 +606,13 @@ class SeasonPlanner:
                     predicted_host_total[predicted_host] += 1
                 remaining_by_age_group[age_group] -= 1
 
-            return sorted(scheduled, key=lambda item: (item[0], item[1])), total_score
+            repaired_schedule, repaired_score = self._repair_date_schedule(
+                scheduled,
+                free_dates,
+                window_start,
+                window_end,
+            )
+            return repaired_schedule, repaired_score
         finally:
             (
                 self._month_counts,
@@ -620,6 +626,64 @@ class SeasonPlanner:
                 self._team_game_counts,
                 self._club_cap_overrides,
             ) = saved_state
+
+    def _repair_date_schedule(
+        self,
+        scheduled: Sequence[Tuple[date, str]],
+        free_dates: Sequence[date],
+        window_start: date,
+        window_end: date,
+        max_passes: int = 3,
+    ) -> Tuple[List[Tuple[date, str]], float]:
+        """Apply a small hill-climbing repair pass to a tentative date schedule.
+
+        The planner is mostly greedy, so this helper gives it a narrow chance to
+        revisit earlier choices when a later collision or repeat penalty makes a
+        local swap score better.
+        """
+        if not scheduled:
+            return [], 0.0
+
+        best_schedule = sorted(scheduled, key=lambda item: (item[0], item[1]))
+        best_score = self._score_date_schedule(best_schedule, window_start, window_end)
+        free_dates_sorted = sorted(set(free_dates))
+        if len(best_schedule) < 2 or len(free_dates_sorted) < 2:
+            return best_schedule, best_score
+
+        for _ in range(max(1, max_passes)):
+            improved = False
+            age_group_dates: Dict[str, Set[date]] = {}
+            for tournament_date, age_group in best_schedule:
+                age_group_dates.setdefault(age_group, set()).add(tournament_date)
+
+            for index, (current_date, age_group) in enumerate(best_schedule):
+                used_dates = age_group_dates.get(age_group, set())
+                for candidate_date in free_dates_sorted:
+                    if candidate_date == current_date or candidate_date in used_dates:
+                        continue
+
+                    candidate_schedule = list(best_schedule)
+                    candidate_schedule[index] = (candidate_date, age_group)
+                    candidate_schedule.sort(key=lambda item: (item[0], item[1]))
+                    candidate_score = self._score_date_schedule(
+                        candidate_schedule,
+                        window_start,
+                        window_end,
+                    )
+                    if candidate_score + 1e-9 < best_score or (
+                        abs(candidate_score - best_score) <= 1e-9 and candidate_schedule < best_schedule
+                    ):
+                        best_schedule = candidate_schedule
+                        best_score = candidate_score
+                        improved = True
+                        break
+                if improved:
+                    break
+
+            if not improved:
+                break
+
+        return best_schedule, best_score
 
     def _score_date_schedule(
         self,

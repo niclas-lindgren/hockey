@@ -827,6 +827,36 @@ class TestOpponentHistoryTrackingAndScoring:
 
         assert actual == optimized
 
+    def test_repair_date_schedule_can_resolve_a_greedy_overlap(self):
+        start, end = datetime(2026, 10, 1), datetime(2026, 11, 30)
+        free_dates = [date(2026, 10, 18), date(2026, 11, 1), date(2026, 11, 22)]
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Holmen", label="Holmen U10", age_group="U10"),
+            Team(club="Jar", label="Jar JU11", age_group="JU11"),
+            Team(club="Holmen", label="Holmen JU11", age_group="JU11"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={"Jar": "Jarahallen", "Holmen": "Holmenhallen"},
+            parallel_games_for_age_group={"U10": 2, "JU11": 2},
+            seed=0,
+        )
+        bad_schedule = [(date(2026, 10, 18), "U10"), (date(2026, 10, 18), "JU11")]
+
+        repaired, repaired_score = planner._repair_date_schedule(
+            bad_schedule,
+            free_dates,
+            start.date(),
+            end.date(),
+        )
+        original_score = planner._score_date_schedule(bad_schedule, start.date(), end.date())
+
+        assert repaired_score < original_score
+        assert len({tournament_date for tournament_date, _ in repaired}) == len(repaired)
+        assert repaired[0][0] != repaired[1][0]
+
     def test_deficit_score_uses_soft_fairness_target(self):
         roster = Roster(teams=[
             Team(club="Jar", label="Jar 1", age_group="U10"),
