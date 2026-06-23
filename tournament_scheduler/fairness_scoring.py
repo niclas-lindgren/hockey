@@ -132,26 +132,23 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         hosting_deviation,
         thresholds.get("max_hosting_deviation", planner.max_hosting_deviation),
         direction="max",
-        severity="warn" if missing_calendar_clubs else "fail",
+        severity="fail",
         detail=hosting_detail or "Aldersgruppevis fordeling av hjemmeturneringer ligger innenfor terskelen.",
     )
-    add_metric(
-        "missing_calendar_clubs",
-        "Manglende kalenderdata",
-        len(missing_calendar_clubs),
-        0,
-        direction="max",
-        severity="warn",
-        detail=(
-            f"Kalenderdata mangler for {', '.join(missing_calendar_clubs)}; disse klubbene er utelatt fra hjemmebanebelastningen."
-            if missing_calendar_clubs
-            else "Alle klubber har kalenderdata tilgjengelig for hjemmebanebelastningsvurdering."
-        ),
-    )
-    if metrics and metrics[-1].get("key") == "missing_calendar_clubs":
-        metrics[-1]["excluded_clubs"] = missing_calendar_clubs
-    if metrics and metrics[-2].get("key") == "hosting_deviation":
-        metrics[-2]["age_group_breakdown"] = hosting_breakdown.get("age_group_breakdown", [])
+    if metrics and metrics[-1].get("key") == "hosting_deviation":
+        metrics[-1]["age_group_breakdown"] = hosting_breakdown.get("age_group_breakdown", [])
+    notes: List[Dict[str, object]] = []
+    if missing_calendar_clubs:
+        notes.append(
+            {
+                "key": "missing_calendar_clubs",
+                "label": "Manglende kalenderdata",
+                "detail": (
+                    f"Kalenderdata mangler for {', '.join(missing_calendar_clubs)}; disse klubbene er utelatt fra hjemmebanebelastningen."
+                ),
+                "excluded_clubs": missing_calendar_clubs,
+            }
+        )
     add_metric(
         "travel_distance",
         "Reisebelastning",
@@ -242,5 +239,6 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         "status": overall_status,
         "score": overall_score,
         "metrics": metrics,
+        "notes": notes,
         "thresholds": dict(thresholds),
     }

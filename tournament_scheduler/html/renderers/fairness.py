@@ -22,13 +22,30 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
         return ""
 
     metrics = fairness_gate.get("metrics", [])
-    if not metrics:
+    notes = fairness_gate.get("notes", [])
+    if not metrics and not notes:
         return ""
 
     status = str(fairness_gate.get("status", "pass")).lower()
     score = int(fairness_gate.get("score", 0) or 0)
     status_labels = {"pass": "PASS", "warn": "VARSEL", "fail": "FEIL"}
     status_label = status_labels.get(status, "PASS")
+
+    note_blocks = []
+    for note in (notes if isinstance(notes, list) else []):
+        if not isinstance(note, dict):
+            continue
+        if note.get("key") != "missing_calendar_clubs":
+            continue
+        excluded = note.get("excluded_clubs") or []
+        excluded_text = ", ".join(_html.escape(str(club)) for club in excluded)
+        note_blocks.append(
+            '<div class="fairness-gate-note">'
+            f'<strong>{_html.escape(str(note.get("label", "Informasjon")))}</strong>: '
+            f'{_html.escape(str(note.get("detail", "")))}'
+            + (f' <span class="fairness-gate-note-extra">Utelatt: {excluded_text}</span>' if excluded_text else "")
+            + '</div>'
+        )
 
     metric_cards = []
     breakdown_blocks = []
@@ -85,6 +102,7 @@ def render_fairness_gate_html(fairness_gate: dict[str, Any] | None) -> str:
         '</div>'
         f'<span class="fairness-gate-status fairness-gate-status--{status}">{status_label}</span>'
         '</div>'
+        f'{"".join(note_blocks)}'
         f'<div class="fairness-gate-grid">{"".join(metric_cards)}</div>'
         f'{"".join(breakdown_blocks)}'
         '</div>'

@@ -2003,13 +2003,13 @@ class TestProportionalHosting:
         planner._scan_hosting_warnings(plan)
         gate = planner._build_fairness_gate(plan)
         hosting_metric = next(metric for metric in gate["metrics"] if metric["key"] == "hosting_deviation")
-        missing_metric = next(metric for metric in gate["metrics"] if metric["key"] == "missing_calendar_clubs")
+        missing_note = next(note for note in gate.get("notes", []) if note["key"] == "missing_calendar_clubs")
 
         assert hosting_metric["status"] == "pass"
-        assert gate["status"] == "warn"
-        assert missing_metric["status"] == "warn"
-        assert "Sandefjord" in missing_metric["detail"]
-        assert any("Sandefjord" in warning for warning in planner.hosting_warnings)
+        assert gate["status"] == "pass"
+        assert missing_note["excluded_clubs"] == ["Sandefjord"]
+        assert "Sandefjord" in missing_note["detail"]
+        assert planner.hosting_warnings == []
 
     def test_hosting_warnings_property_returns_list(self, free_dates, season_window):
         """hosting_warnings should always return a list."""

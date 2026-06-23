@@ -353,11 +353,6 @@ def scan_hosting_warnings(planner, plan: SeasonPlan) -> None:
         return
 
     breakdown = hosting_fairness_breakdown(planner, plan)
-    missing_calendar_clubs = breakdown.get("missing_calendar_clubs", [])
-    if missing_calendar_clubs:
-        planner._hosting_warnings.append(
-            f"Kalenderdata mangler for: {', '.join(missing_calendar_clubs)}; disse klubbene er utelatt fra hjemmebanebelastningen."
-        )
     for row in breakdown.get("age_group_breakdown", []):
         if not isinstance(row, dict):
             continue
