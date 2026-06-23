@@ -205,18 +205,6 @@ class TestSeasonPlanner:
         assert plan.arena_counts.get("_age_group_overlap_collisions", 0) == 0
         assert planner_and_plan[0].collisions == []
 
-    def test_avoids_duplicate_arena_assignments_on_the_same_day(self, planner_and_plan):
-        _, plan, *_ = planner_and_plan
-
-        seen = set()
-        for tournament in plan.tournaments:
-            key = (tournament.date, tournament.arena)
-            assert key not in seen, f"duplicate arena/day assignment found: {key}"
-            seen.add(key)
-
-        assert plan.arena_day_collisions == []
-        assert plan.arena_counts.get("_arena_day_collisions", 0) == 0
-
     def test_same_arena_same_day_tournaments_are_sequenced(self, season_window):
         start, end = season_window
         free_dates = [start.date()]

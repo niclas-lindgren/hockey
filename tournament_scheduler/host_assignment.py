@@ -44,10 +44,10 @@ def default_target_count(num_free_dates: int) -> int:
 def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
     """Assign a host club to each scheduled `(date, age_group)`.
 
-    The assignment prefers hosts whose arena is still unused on that date,
-    so the planner avoids double-booking the same ice whenever an alternate
-    club is available. It also prefers clubs that have not hosted on the
-    previous weekend and have fewer holiday-heavy hosting dates.
+    The assignment prefers hosts that still help balance per-age-group hosting,
+    and it keeps the weekend/holiday streak logic. Same arena on the same day
+    is allowed as long as the planner can sequence the tournaments without an
+    actual overlap.
     """
     if not scheduled:
         planner._arena_day_collisions = []
@@ -74,8 +74,6 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
 
     assignments: List[str] = []
     all_clubs = planner.roster.clubs()
-    used_arenas_by_date: Dict[date, Dict[str, Tuple[str, str]]] = {}
-    collisions: List[Dict[str, str]] = []
     last_hosted_date_by_club: Dict[str, date] = {}
     consecutive_streak_by_club: Dict[str, int] = {}
     holiday_heavy_host_count_by_club: Dict[str, int] = {}
@@ -90,12 +88,6 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
             assignments.append("")
             continue
 
-        used_arenas = used_arenas_by_date.setdefault(tournament_date, {})
-        available_pool = [
-            club for club in candidate_pool
-            if planner.club_arenas.get(club, club) not in used_arenas
-        ]
-        selection_pool = available_pool or candidate_pool
         actual_counts = actual_by_age.get(age_group, {})
         candidate_order = {club: idx for idx, club in enumerate(candidate_pool)}
         is_holiday_heavy = tournament_date in holiday_heavy_dates
@@ -106,12 +98,10 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
                 return consecutive_streak_by_club.get(club, 1) + 1
             return 1
 
-        def _score(club: str) -> Tuple[int, int, int, int, int, int, int, int]:
-            arena = planner.club_arenas.get(club, club)
+        def _score(club: str) -> Tuple[int, int, int, int, int, int, int]:
             last_date = last_hosted_date_by_club.get(club)
             gap = (tournament_date - last_date).days if last_date is not None else 10_000
             return (
-                0 if arena not in used_arenas else 1,
                 0 if actual_counts.get(club, 0) == 0 else 1,
                 -max(0, targets.get(club, 0) - actual_counts.get(club, 0)),
                 _projected_streak(club),
@@ -121,24 +111,7 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
                 candidate_order.get(club, 0),
             )
 
-        host = min(selection_pool, key=_score)
-        arena = planner.club_arenas.get(host, host)
-        if arena in used_arenas:
-            conflicting_age_group, conflicting_host_club = used_arenas[arena]
-            collisions.append(
-                {
-                    "date": tournament_date.isoformat(),
-                    "arena": arena,
-                    "age_group": age_group,
-                    "host_club": host,
-                    "conflicting_age_group": conflicting_age_group,
-                    "conflicting_host_club": conflicting_host_club,
-                    "reason": "same_arena_same_day",
-                }
-            )
-        else:
-            used_arenas[arena] = (age_group, host)
-
+        host = min(candidate_pool, key=_score)
         assignments.append(host)
         actual_counts[host] = actual_counts.get(host, 0) + 1
         previous_date = last_hosted_date_by_club.get(host)
@@ -150,7 +123,7 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
         if is_holiday_heavy:
             holiday_heavy_host_count_by_club[host] = holiday_heavy_host_count_by_club.get(host, 0) + 1
 
-    planner._arena_day_collisions = collisions
+    planner._arena_day_collisions = []
     return assignments
 
 

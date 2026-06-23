@@ -2,12 +2,10 @@
 // Pipeline helpers — stage running, checkpoint I/O, status display
 // ---------------------------------------------------------------------------
 
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { createInterface } from "node:readline";
 import { join, resolve } from "node:path";
-
-const execFileAsync = promisify(execFile);
 
 export const STAGE_ORDER = ["config", "scraping", "planning", "export"];
 
@@ -23,15 +21,43 @@ export async function runStage(
   cwd: string,
   module: string,
   args: string[],
+  onOutput?: (event: { stream: "stdout" | "stderr"; line: string }) => void,
 ): Promise<{ stdout: string; stderr: string }> {
   const python = resolve(cwd, "venv", "bin", "python3");
   const exe = existsSync(python) ? python : "python3";
-  const { stdout, stderr } = await execFileAsync(
-    exe,
-    ["-m", module, ...args],
-    { cwd, maxBuffer: 4 * 1024 * 1024 },
-  );
-  return { stdout: stdout.trim(), stderr: stderr.trim() };
+  return await new Promise((resolvePromise, rejectPromise) => {
+    const child = spawn(exe, ["-m", module, ...args], {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    const stdoutLines: string[] = [];
+    const stderrLines: string[] = [];
+
+    const stdoutInterface = createInterface({ input: child.stdout! });
+    const stderrInterface = createInterface({ input: child.stderr! });
+
+    stdoutInterface.on("line", (line) => {
+      stdoutLines.push(line);
+      onOutput?.({ stream: "stdout", line });
+    });
+    stderrInterface.on("line", (line) => {
+      stderrLines.push(line);
+      onOutput?.({ stream: "stderr", line });
+    });
+
+    child.on("error", rejectPromise);
+    child.on("close", (code) => {
+      stdoutInterface.close();
+      stderrInterface.close();
+      if (code === 0) {
+        resolvePromise({ stdout: stdoutLines.join("\n").trim(), stderr: stderrLines.join("\n").trim() });
+        return;
+      }
+      const stderrText = stderrLines.join("\n").trim();
+      rejectPromise(new Error(stderrText || `Stage module ${module} exited with code ${code ?? "unknown"}`));
+    });
+  });
 }
 
 /** Read a JSON checkpoint file; return null if it doesn't exist. */

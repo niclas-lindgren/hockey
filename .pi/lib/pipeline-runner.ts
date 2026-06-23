@@ -313,6 +313,13 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
         cwdPath,
         "tournament_scheduler.pipeline.stage4_export",
         [...baseArgs, "--export-dir", timestampedExportDir],
+        (event) => {
+          if (event.stream !== "stdout") return;
+          const line = event.line.trim();
+          if (!line.startsWith("[progress]")) return;
+          const message = line.replace(/^\[progress\]\s*/, "");
+          onProgress?.({ stage: "export", status: "start", message });
+        },
       );
       if (verbose) logger.logStageOutput("export", stdout, stderr);
       if (stdout) lines.push(stdout);

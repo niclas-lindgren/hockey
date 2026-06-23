@@ -11,7 +11,7 @@ import math
 import random
 from collections import Counter
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 from tournament_scheduler.fairness_model import SeasonFairnessModel
 from tournament_scheduler.game_generation import (
@@ -241,8 +241,6 @@ class SeasonPlanner:
             for age_group, count in scheduled_counts.items()
         }
         host_counts_by_age: Dict[str, Dict[str, int]] = {age_group: {} for age_group in scheduled_counts}
-        used_arenas_by_date: Dict[date, Set[str]] = {}
-
         for (tournament_date, age_group), original_host_club in zip(scheduled, host_assignments):
             self._record_month(tournament_date)
             collision = self._check_overlap_collision(tournament_date, age_group, scheduled_age_groups_by_date)
@@ -272,7 +270,6 @@ class SeasonPlanner:
                 tournament_date=tournament_date,
                 host_targets_by_age=host_targets_by_age,
                 host_counts_by_age=host_counts_by_age,
-                used_arenas_by_date=used_arenas_by_date,
             )
             slot = self._find_slot_for_tournament(
                 tournament_date,
@@ -324,7 +321,6 @@ class SeasonPlanner:
             self._hosting_days_by_club_month.setdefault(
                 (final_host_club, month_key), set()
             ).add(tournament_date)
-            used_arenas_by_date.setdefault(tournament_date, set()).add(arena)
             host_counts_by_age.setdefault(age_group, {})
             host_counts_by_age[age_group][final_host_club] = host_counts_by_age[age_group].get(final_host_club, 0) + 1
 
@@ -810,7 +806,6 @@ class SeasonPlanner:
         tournament_date: date,
         host_targets_by_age: Dict[str, Dict[str, int]],
         host_counts_by_age: Dict[str, Dict[str, int]],
-        used_arenas_by_date: Dict[date, Set[str]],
     ) -> List[str]:
         candidates: List[str] = []
         seen: Set[str] = set()
@@ -830,14 +825,11 @@ class SeasonPlanner:
 
         target_counts = host_targets_by_age.get(age_group, {})
         actual_counts = host_counts_by_age.setdefault(age_group, {})
-        used_arenas = used_arenas_by_date.get(tournament_date, set())
 
-        def score(club: str) -> Tuple[int, int, int, int, int]:
-            arena = self.club_arenas.get(club, club)
+        def score(club: str) -> Tuple[int, int, int, int]:
             actual_minus_target = actual_counts.get(club, 0) - target_counts.get(club, 0)
             return (
                 0 if club == original_host else 1,
-                0 if arena not in used_arenas else 1,
                 actual_minus_target,
                 -target_counts.get(club, 0),
                 candidates.index(club),

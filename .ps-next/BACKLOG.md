@@ -1,6 +1,7 @@
 # Backlog
 
 ## Open
+- [198] Fix host assignment to be age-group aware so arena reuse is allowed across different age groups on the same day, and consecutive-host streaks are only constrained within the same age group. (2026-06-23)
 ## Done
 - [197] [x] [Priority 5] Introduce limited backtracking or repair logic when an early greedy choice causes later age-group collisions, duplicate matchups, or fairness gate failures. (2026-06-23)
 

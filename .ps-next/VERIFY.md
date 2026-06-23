@@ -4,6 +4,6 @@ STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| The fairness gate reports weekend-balance metrics for consecutive weekends and holiday-heavy stretches. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Host assignment returns a host sequence that avoids consecutive-weekend clumping when multiple valid hosts exist. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Tests pass for the new weekend-balance regression coverage. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| A season plan with one club missing calendar data no longer gets `fairness_gate.status = fail` solely because that club hosted 0 tournaments. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The plan reports an explicit warning or metric naming the excluded club(s). | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Tests covering the missing-calendar case pass. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |

@@ -17,6 +17,7 @@ File paths are written to the Stage 4 checkpoint.
 from __future__ import annotations
 
 import os
+import sys
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -83,7 +84,11 @@ def run(
     dict
         Checkpoint data with output file paths.
     """
+    def _progress(message: str) -> None:
+        print(f"[progress] {message}", file=sys.stdout, flush=True)
+
     state.write_stage(StageName.EXPORT, {}, status=StageStatus.RUNNING)
+    _progress("Klarmaker eksport: laster plan og forbereder filer")
 
     plan_dict = plan_checkpoint.get("plan", {})
     if not plan_dict:
@@ -118,6 +123,7 @@ def run(
 
     # --- Excel ---
     try:
+        _progress("Eksporterer Excel-arbeidsbok")
         excel_path = str(primary_export_path / f"{basename}.xlsx")
         rules_report = plan_checkpoint.get("rules_report")
         SeasonPlanExporter().export(
@@ -132,6 +138,7 @@ def run(
 
     # --- iCal ---
     try:
+        _progress("Eksporterer iCal-feed")
         ical_path = str(primary_export_path / f"{basename}.ics")
         ICalExporter(round_length_for_age_group=round_length_for_age_group).export_tournament_summary(plan, ical_path)
         output_files["ical"] = ical_path
@@ -140,6 +147,7 @@ def run(
 
     # --- CSV ---
     try:
+        _progress("Eksporterer CSV-filer")
         csv_path = str(primary_export_path / f"{basename}.csv")
         games_path, overview_path = CsvExporter().export(plan, csv_path)
         output_files["csv_games"] = games_path
@@ -149,6 +157,7 @@ def run(
 
     # --- HTML ---
     try:
+        _progress("Genererer HTML-rapport")
         html_path = str(primary_export_path / f"{basename}.html")
         # Collect pipeline metadata for metrics section
         pipeline_meta: dict[str, Any] = {}
@@ -196,6 +205,7 @@ def run(
         _calendars_path: str | None = None
         if _scrape_cache_data.get("total_events", 0) > 0 or _scrape_cache_data.get("source_count", 0) > 0:
             try:
+                _progress("Genererer kalenderoversikt")
                 _generate_calendars_html(
                     work_dir=str(state.work_dir),
                     export_dir=str(primary_export_path),
@@ -220,6 +230,7 @@ def run(
 
     # --- Spond ---
     try:
+        _progress("Genererer Spond-eksport")
         spond_path = str(primary_export_path / f"{basename}_spond.xlsx")
         schedule_path = str(primary_export_path / f"{basename}_spond_games.xlsx")
         exporter = SpondExporter()
@@ -240,6 +251,7 @@ def run(
 
     # --- Per-club review packets ---
     try:
+        _progress("Genererer klubbreview-pakker")
         review_dir = primary_export_path / "review_packets"
         clubs = sorted({team.club for tournament in plan.tournaments for team in tournament.teams})
         ReviewPacketExporter().export(
@@ -259,10 +271,12 @@ def run(
 
     if errors and strict:
         state.write_stage(StageName.EXPORT, checkpoint, status=StageStatus.FAILED)
+        _progress("Eksport feilet")
         raise Stage4Error("\n".join(errors))
 
     status = StageStatus.DONE if not errors else StageStatus.FAILED
     state.write_stage(StageName.EXPORT, checkpoint, status=status)
+    _progress("Eksport ferdig")
     return checkpoint
 
 
