@@ -1,9 +1,9 @@
 # Backlog
 
 ## Open
-- [197] [ ] [Priority 5] Introduce limited backtracking or repair logic when an early greedy choice causes later age-group collisions, duplicate matchups, or fairness gate failures.
-
 ## Done
+- [197] [x] [Priority 5] Introduce limited backtracking or repair logic when an early greedy choice causes later age-group collisions, duplicate matchups, or fairness gate failures. (2026-06-23)
+
 - [196] [x] [Priority 4] Add stronger weekend-based fairness metrics and scheduling constraints so clubs are balanced across consecutive weekends and holiday-heavy stretches, not just by month. (2026-06-22)
 
 - [195] [x] [Priority 3] Improve host assignment by co-optimizing host club and date slot selection so the planner minimizes fallback hosts and better respects each club's real calendar capacity. (2026-06-22)
