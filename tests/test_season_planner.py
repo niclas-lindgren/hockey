@@ -127,6 +127,29 @@ class TestSeasonPlanner:
             if gaps:
                 assert max(gaps) <= 3 * (sum(gaps) / len(gaps))
 
+    def test_split_age_group_targets_place_tournaments_before_and_after_christmas(self, season_window):
+        start, end = season_window
+        free_dates = all_weekend_dates(start, end)
+        roster = _build_roster(["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"], ["U10"])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={club: f"{club}hallen" for club in ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]},
+            parallel_games_for_age_group={"U10": 3},
+            target_tournament_counts_by_age_group={"U10": {"total": 6, "before_christmas": 2, "after_christmas": 4}},
+        )
+
+        plan = planner.build_plan(start, end)
+        split_date = date(start.year, 12, 24)
+        before = [t for t in plan.tournaments if t.date < split_date]
+        after = [t for t in plan.tournaments if t.date >= split_date]
+
+        assert planner._target_tournaments_for_age_group("U10") == 6
+        assert planner._target_tournaments_for_age_group("U10", period="before_christmas") == 2
+        assert planner._target_tournaments_for_age_group("U10", period="after_christmas") == 4
+        assert len(before) == 2
+        assert len(after) == 4
+
     def test_every_arena_hosts_at_least_one_tournament_before_any_repeats(self, planner_and_plan):
         _, plan, roster, clubs, club_arenas = planner_and_plan
 

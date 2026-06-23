@@ -96,16 +96,34 @@ def pick_spread_dates(
     return sorted(chosen)
 
 
-def target_tournaments_for_age_group(planner, age_group: str) -> int:
-    """Return the number of tournaments to aim for in `age_group`."""
+def target_tournaments_for_age_group(planner, age_group: str, period: Optional[str] = None) -> int:
+    """Return the number of tournaments to aim for in `age_group`.
+
+    When *period* is ``"before_christmas"`` or ``"after_christmas"`` and the
+    planner has an explicit per-age-group split target, the returned value uses
+    that half-season participation target as the default for teams in the age
+    group.
+    """
     teams = planner.roster.by_age_group(age_group)
     if len(teams) < MIN_TEAMS_PER_TOURNAMENT:
         return 0
 
-    total_target = sum(
-        (t.target_tournament_count or planner.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT)
-        for t in teams
-    )
+    age_group_targets = getattr(planner, "target_tournament_counts_by_age_group", {}) or {}
+    age_group_target = age_group_targets.get(age_group, {}) if isinstance(age_group_targets, dict) else {}
+    period_target = None
+    if period == "before_christmas":
+        period_target = age_group_target.get("before_christmas")
+    elif period == "after_christmas":
+        period_target = age_group_target.get("after_christmas")
+    default_target = period_target
+    if default_target is None:
+        default_target = age_group_target.get("total")
+    if default_target is None and age_group_target.get("before_christmas") is not None and age_group_target.get("after_christmas") is not None:
+        default_target = age_group_target["before_christmas"] + age_group_target["after_christmas"]
+    if default_target is None:
+        default_target = planner.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
+
+    total_target = sum((t.target_tournament_count or default_target) for t in teams)
     capacity = min(len(teams), max_teams_for(planner, age_group))
     return max(1, math.ceil(total_target / capacity))
 

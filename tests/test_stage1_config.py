@@ -37,13 +37,30 @@ def _write_input_workbook(path: Path, raw: dict | None = None) -> None:
 
     if "age_groups" in raw:
         age_groups = wb.create_sheet("Aldersgrupper")
-        age_groups.append(["age_group", "parallel_games", "round_length_minutes"])
+        header_cols = ["age_group", "parallel_games", "round_length_minutes"]
+        target_by_age = raw.get("target_tournament_counts_by_age_group", {})
+        has_age_targets = any(target_by_age.get(age_group) for age_group in raw["age_groups"])
+        if has_age_targets:
+            header_cols.extend([
+                "deltakelser_per_lag",
+                "deltakelser_per_lag_før_jul",
+                "deltakelser_per_lag_etter_jul",
+            ])
+        age_groups.append(header_cols)
         for age_group in raw["age_groups"]:
-            age_groups.append([
+            row = [
                 age_group,
                 raw.get("parallel_games", {}).get(age_group, 3),
                 raw.get("round_length_minutes", {}).get(age_group, 10),
-            ])
+            ]
+            if has_age_targets:
+                target = target_by_age.get(age_group, {})
+                row.extend([
+                    target.get("total"),
+                    target.get("before_christmas"),
+                    target.get("after_christmas"),
+                ])
+            age_groups.append(row)
 
     teams = wb.create_sheet("Lag")
     header_cols = ["club", "label", "age_group"]
@@ -179,6 +196,14 @@ class TestValidateConfig:
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("deltakelser_per_lag" in e for e in errors)
 
+    def test_age_group_target_counts_are_validated(self):
+        raw = _make_valid_raw()
+        raw["target_tournament_counts_by_age_group"] = {
+            "U10": {"total": 5, "before_christmas": 3, "after_christmas": 1},
+        }
+        errors = validate_config(raw, _DUMMY_INPUT_PATH)
+        assert any("inkonsistent" in e for e in errors)
+
     def test_teams_file_found_relative_to_input_dir(self, tmp_path):
         """A teams file that exists relative to the input dir passes validation."""
         (tmp_path / "teams.xlsx").touch()
@@ -281,6 +306,27 @@ class TestRunStage1:
         # Team with target=6
         jar1 = next(t for t in teams if t["label"] == "Jar 1")
         assert jar1["target_tournament_count"] == 6
+
+    def test_run_preserves_per_age_group_target_tournament_counts(self, tmp_path):
+        """The per-age-group target columns in the Aldersgrupper sheet are preserved."""
+        raw = _make_valid_raw()
+        raw["age_groups"] = ["U7", "U10"]
+        raw["parallel_games"] = {"U7": 4, "U10": 3}
+        raw["target_tournament_counts_by_age_group"] = {
+            "U7": {"total": 8, "before_christmas": 3, "after_christmas": 5},
+            "U10": {"total": 10, "before_christmas": 4, "after_christmas": 6},
+        }
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file, raw)
+
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(input_file, state)
+        effective = load_effective_config(state, input_path=input_file)
+
+        assert result["target_tournament_counts_by_age_group"] == raw["target_tournament_counts_by_age_group"]
+        assert effective["target_tournament_counts_by_age_group"] == raw["target_tournament_counts_by_age_group"]
+        checkpoint = state.read_stage(StageName.CONFIG)
+        assert checkpoint["target_tournament_counts_by_age_group"] == raw["target_tournament_counts_by_age_group"]
 
     def test_run_rejects_json_input(self, tmp_path):
         input_file = tmp_path / "legacy.json"

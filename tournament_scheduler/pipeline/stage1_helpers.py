@@ -129,6 +129,57 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
                 f"positivt heltall (f.eks. 6), fikk: {target_raw!r}."
             )
 
+    target_by_age = raw.get("target_tournament_counts_by_age_group")
+    if target_by_age is not None:
+        if not isinstance(target_by_age, dict):
+            errors.append(
+                "'target_tournament_counts_by_age_group' må være et objekt med aldersgruppe-nøkler."
+            )
+        else:
+            for ag, cfg in target_by_age.items():
+                if ag not in KNOWN_AGE_GROUPS:
+                    valid = ", ".join(sorted(KNOWN_AGE_GROUPS))
+                    errors.append(
+                        f"Ukjent aldersgruppe '{ag}' i 'target_tournament_counts_by_age_group'. "
+                        f"Gyldige verdier: {valid}."
+                    )
+                    continue
+                if not isinstance(cfg, dict):
+                    errors.append(
+                        f"'target_tournament_counts_by_age_group[\"{ag}\"]' må være et objekt med "
+                        "nøklene 'total', 'before_christmas' og/eller 'after_christmas'."
+                    )
+                    continue
+                total = cfg.get("total")
+                before = cfg.get("before_christmas")
+                after = cfg.get("after_christmas")
+                if total is None and before is None and after is None:
+                    errors.append(
+                        f"'target_tournament_counts_by_age_group[\"{ag}\"]' mangler verdier. "
+                        "Oppgi minst 'total' eller begge 'before_christmas' og 'after_christmas'."
+                    )
+                    continue
+                for field_name, value in (("total", total), ("before_christmas", before), ("after_christmas", after)):
+                    if value is None:
+                        continue
+                    if not isinstance(value, int) or value < 1:
+                        errors.append(
+                            f"'target_tournament_counts_by_age_group[\"{ag}\"].{field_name}' må være et "
+                            f"positivt heltall, fikk: {value!r}."
+                        )
+                if before is not None and after is not None and total is None:
+                    continue
+                if before is not None and after is not None and total is not None and total != before + after:
+                    errors.append(
+                        f"'target_tournament_counts_by_age_group[\"{ag}\"]' er inkonsistent: "
+                        f"total={total} må være lik before_christmas + after_christmas ({before + after})."
+                    )
+                if (before is None) ^ (after is None):
+                    errors.append(
+                        f"'target_tournament_counts_by_age_group[\"{ag}\"]' må oppgi både "
+                        "'before_christmas' og 'after_christmas' når split-feltene brukes."
+                    )
+
     # --- Teams / roster ---
     if "teams" not in raw:
         errors.append(
@@ -247,7 +298,7 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     """Build the Stage 1 checkpoint dict with only **computed** fields.
 
     Human-editable fields (start_date, end_date, age_groups, parallel_games,
-    target_tournament_count / deltakelser_per_lag, sources) are intentionally excluded — they live only in ``input.xlsx``.
+    target_tournament_count / deltakelser_per_lag, target_tournament_counts_by_age_group, sources) are intentionally excluded — they live only in ``input.xlsx``.
     """
 
     # Round length (minutes) — explicit values override federation defaults
@@ -281,6 +332,11 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     target_raw = raw.get("deltakelser_per_lag", raw.get("target_tournament_count"))
     if target_raw is not None:
         result["target_tournament_count"] = int(target_raw)
+    target_by_age = raw.get("target_tournament_counts_by_age_group")
+    if target_by_age:
+        result["target_tournament_counts_by_age_group"] = {
+            ag: dict(cfg) for ag, cfg in target_by_age.items()
+        }
 
     mhdpm_raw = raw.get("max_hosting_days_per_month", raw.get("maxHostingDaysPerMonth"))
     result["maxHostingDaysPerMonth"] = int(mhdpm_raw) if mhdpm_raw is not None else 2

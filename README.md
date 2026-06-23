@@ -64,6 +64,7 @@ With `--timestamped-export`, exports are written to a timestamped subfolder for 
 
 Set `deltakelser_per_lag` in the workbook `Innstillinger` sheet to tune the soft per-team tournament-participation target (default: 6).
 The legacy key `target_tournament_count` also works for backward compatibility.
+Per-age-group participation targets can be set in `Aldersgrupper`, including optional `deltakelser_per_lag_før_jul` / `deltakelser_per_lag_etter_jul` split values.
 
 ## Secret scanning
 
@@ -92,3 +93,4 @@ gitleaks detect --source . --config .gitleaks.toml --redact
 - [Pipeline guide](docs/rvv-miniputt-pipeline.md)
 - [Rules report](docs/rvv-miniputt-rules-report.md)
 - `./scripts/rules-report.sh` or `make rules-report` — regenerate the report and run the sync tests
+- [Kampveileder 3 mot 3](https://www.hockey.no/contentassets/9f67f790b75f4362a8bb2fb1524923fc/kampveileder-for-3-mot-3-spill---u7ju7---u11ju11.pdf)

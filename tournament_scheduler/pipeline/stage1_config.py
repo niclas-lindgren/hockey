@@ -68,8 +68,8 @@ def load_effective_config(
 
     Reads the canonical ``input.xlsx`` workbook for human-editable fields
     (``start_date``, ``end_date``, ``age_groups``, ``parallel_games``,
-    ``sources``) and merges in the computed fields (``teams``,
-    ``round_length_minutes``) from the Stage 1 checkpoint.
+    participation targets, ``sources``) and merges in the computed fields
+    (``teams``, ``round_length_minutes``) from the Stage 1 checkpoint.
 
     Returns a dict with the same shape that downstream stages expect,
     so callers see no API change.
@@ -91,6 +91,8 @@ def load_effective_config(
     # Accept Norwegian alias deltakelser_per_lag; prefer it over the English key.
     target_ttc = raw.get("target_tournament_count")
     merged["target_tournament_count"] = raw.get("deltakelser_per_lag", target_ttc)
+    if raw.get("target_tournament_counts_by_age_group"):
+        merged["target_tournament_counts_by_age_group"] = raw["target_tournament_counts_by_age_group"]
     merged["sources"] = raw.get("sources", [])
 
     # Age groups: explicit input workbook value only; downstream can fall back
@@ -118,11 +120,13 @@ def run(
 ) -> dict[str, Any]:
     """Parse and validate *input_path*, write the Stage 1 checkpoint.
 
-    The checkpoint stores only **computed** fields (``teams`` expanded from a
-    file reference, ``round_length_minutes`` with federation defaults applied).
-    Human-editable fields (``start_date``, ``end_date``, ``age_groups``,
-    ``parallel_games``, ``sources``) live exclusively in ``input.xlsx``.
-    Use :func:`load_effective_config` to merge both sources transparently.
+    The checkpoint stores the normalized roster/config fields (``teams`` expanded
+    from a file reference, ``round_length_minutes`` with federation defaults
+    applied, and any per-age-group participation targets parsed from the
+    workbook). Human-editable fields (``start_date``, ``end_date``,
+    ``age_groups``, ``parallel_games``, ``sources``) live exclusively in
+    ``input.xlsx``. Use :func:`load_effective_config` to merge both sources
+    transparently.
 
     Parameters
     ----------
