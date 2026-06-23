@@ -388,17 +388,7 @@ class HtmlExporter:
             month_span = date_range
 
         gate = plan.fairness_gate if isinstance(plan.fairness_gate, dict) else {}
-        gate_status = str(gate.get("status", "pass"))
-        status_rank = {"pass": 0, "warn": 1, "fail": 2}
         cancelled_count = sum(1 for tournament in plan.tournaments if tournament.cancelled)
-        _tone_to_status = {"rough": "fail", "mixed": "warn", "strong": "pass"}
-        overall_status = _tone_to_status.get(str(judgment.get("tone", "mixed")), "warn")
-        if blocked and status_rank[overall_status] < status_rank["warn"]:
-            overall_status = "warn"
-        if cancelled_count and status_rank[overall_status] < status_rank["warn"]:
-            overall_status = "warn"
-
-        status_labels = {"pass": "KLAR FOR GJENNOMGANG", "warn": "M\u00c5 SJEKKES", "fail": "KREVER ENDRING"}
 
         active_tournaments = [t for t in plan.tournaments if not t.cancelled]
         active_tournaments.sort(key=lambda t: (t.date or plan.end_date, t.age_group, t.host_club or "", t.arena))
@@ -417,33 +407,63 @@ class HtmlExporter:
                 canonical_host = canonical_rvv_club_name(host)
                 host_counts[canonical_host] = host_counts.get(canonical_host, 0) + 1
         missing_hosts = [club for club in _RVV_CLUBS if club not in host_counts]
+
         def _missing_host_label(club: str) -> str:
             return f"{club} (ingen lag i planen)" if club not in team_clubs else club
 
         metric_warnings = [m for m in gate.get("metrics", []) if isinstance(m, dict) and m.get("status") in {"warn", "fail"}]
-        status_priority = {"fail": 0, "warn": 1}
-        weakest_metric = sorted(metric_warnings, key=lambda m: (status_priority.get(str(m.get("status", "warn")), 1), m.get("score", 100)))[0] if metric_warnings else None
-        weakest_metric_name = str(weakest_metric.get("label", "")) if weakest_metric else None
+        weakest_metric = sorted(
+            metric_warnings,
+            key=lambda m: (0 if str(m.get("status", "warn")) == "fail" else 1, m.get("score", 100)),
+        )[0] if metric_warnings else None
+        hard_blockers: list[str] = []
+        if not active_tournaments:
+            hard_blockers.append("Planen har ingen aktive turneringer.")
+        if not team_game_counts:
+            hard_blockers.append("Planen har ingen lagdata å vise.")
+        arena_day_collisions = getattr(plan, "arena_day_collisions", None) or []
+        if arena_day_collisions:
+            hard_blockers.append(f"{len(arena_day_collisions)} arena-/dagskollisjon(er) må løses først.")
+
+        overall_status = "fail" if hard_blockers else "pass"
+        status_labels = {"pass": "KAN BRUKES", "warn": "MÅ SJEKKES", "fail": "BLOKKER"}
+
         actions: list[tuple[str, str, str]] = []
-        if gate_status in {"warn", "fail"}:
-            actions.append((gate_status, "Ser planen jevn ut?", f"Samlet status er {status_labels.get(gate_status, gate_status).lower()} med score {gate.get('score', 0)}%."))
-        for metric in metric_warnings[:4]:
-            label = str(metric.get("label", "M\u00e5ltall"))
-            detail = str(metric.get("detail", "Sjekk avviket f\u00f8r utsending."))
-            actions.append((str(metric.get("status", "warn")), label, detail))
+        for blocker in hard_blockers:
+            actions.append(("fail", "Blokkerende feil", blocker))
         if blocked:
             actions.append(("warn", "Datagrunnlag", f"{len(blocked)} kalenderkilde(r) er blokkert: {', '.join(blocked)}."))
         if missing_hosts:
             actions.append(("warn", "Hjemmeturneringer", f"Ingen hjemmeturnering registrert for: {', '.join(_missing_host_label(club) for club in missing_hosts)}."))
         if cancelled_count:
             actions.append(("warn", "Avlyst/hoppet over", f"{cancelled_count} turnering(er) er markert som avlyst eller hoppet over."))
-        issue_count = len(actions)
+        issue_count = sum(1 for status, _, _ in actions if status != "pass") + len(metric_warnings) + (1 if str(gate.get("status", "pass")).lower() in {"warn", "fail"} else 0)
         if not actions:
-            actions.append(("pass", "Ingen kritiske handlinger", "G\u00e5 videre til aldersgrupper og klubboversikt for manuell kvalitetssjekk."))
+            actions.append(("pass", "Ingen blokkeringer", "Fairness og småskjevheter ligger under detaljer og stopper ikke bruk."))
 
         _tournament_count = len(active_tournaments)
-        answer = str(judgment.get("verdict", ""))
-        note = str(judgment.get("action_text", ""))
+        answer = "Ja — planen kan brukes" if not hard_blockers else "Nei — planen bør stoppes"
+        note = (
+            "Ingen blokkeringer."
+            if not hard_blockers
+            else "Løs blokkeringene under før utsending."
+        )
+
+        hidden_notes: list[str] = [f"Periode: {month_span}"]
+        if weakest_metric:
+            hidden_notes.append(
+                f"Svakeste metrikk: {weakest_metric.get('label', '')} ({int(weakest_metric.get('score', 0) or 0)}%)"
+            )
+            hidden_notes.append(
+                f"Fairness-avvik: {weakest_metric.get('label', '')} — {weakest_metric.get('detail', '')}"
+            )
+        if blocked:
+            hidden_notes.append(f"{len(blocked)} kilde(r) blokkert.")
+        if cancelled_count:
+            hidden_notes.append(f"{cancelled_count} turnering(er) avlyst.")
+        if most_travel_team:
+            hidden_notes.append(f"Mest reisende lag: {most_travel_team} (~{most_travel_km} km)")
+        hidden_context_html = '<div class="report-hidden-context" aria-hidden="true">' + _html.escape(" · ".join(hidden_notes)) + '</div>'
 
         age_rows: list[str] = []
         for age_group in display_age_groups:
@@ -525,10 +545,25 @@ class HtmlExporter:
             '</article>'
             for label, value, note in card_defs
         )
-        actions_html = '<div class="report-action-list">' + "".join(
+        action_items = [
             f'<article class="report-action report-action--{_html.escape(status)}"><strong>{_html.escape(label)}</strong><p>{_html.escape(text)}</p></article>'
             for status, label, text in actions
-        ) + '</div>'
+        ]
+        actions_html = '<div class="report-action-list">' + "".join(action_items) + '</div>'
+        priority_section_html = ''
+        if any(status != "pass" for status, _, _ in actions):
+            priority_section_html = (
+                '<section class="report-section report-section--priority" id="priorityActions">'
+                '<div class="section-head">'
+                '<div>'
+                '<p class="eyebrow">Viktigst først</p>'
+                '<h2>Hva må sjekkes eller endres?</h2>'
+                '</div>'
+                '<p class="section-note">Bare blokkeringer og tydelige avvik vises her; fairness ligger under detaljer.</p>'
+                '</div>'
+                f'{actions_html}'
+                '</section>'
+            )
         age_summary = (
             '<div class="table-wrap"><table class="report-table"><thead><tr>'
             '<th>Aldersgruppe</th><th>Turneringer</th><th>Lag</th><th>Vertsklubber</th><th>Kamper per lag</th><th>Datoer</th>'
@@ -550,13 +585,14 @@ class HtmlExporter:
 
         replacements = {
             "$REPORT_STATUS$": overall_status,
-            "$REPORT_STATUS_LABEL$": str(judgment.get("tone_label", status_labels.get(overall_status, "STATUS"))),
+            "$REPORT_STATUS_LABEL$": status_labels.get(overall_status, "STATUS"),
             "$REPORT_ACTION_COUNT$": str(issue_count),
             "$REPORT_ANSWER$": answer,
             "$REPORT_NOTE$": note,
             "$REPORT_STATUS_CARDS$": status_cards,
-            "$REPORT_ACTIONS$": actions_html,
+            "$REPORT_PRIORITY_SECTION$": priority_section_html,
             "$REPORT_RULE_TRANSPARENCY$": rule_transparency_html,
+            "$REPORT_CONTEXT$": hidden_context_html,
             "$REPORT_AGE_SUMMARY$": age_summary,
             "$REPORT_CLUB_SUMMARY$": club_summary,
             "$REPORT_ADVISORY$": advisory_html,

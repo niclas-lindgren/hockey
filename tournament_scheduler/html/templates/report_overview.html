@@ -8,7 +8,7 @@
       <p class="report-hero-note">$REPORT_NOTE$</p>
       $REPORT_JUDGMENT_CARDS$
     </div>
-    <span class="report-status-pill report-status-pill--$REPORT_STATUS$">$REPORT_STATUS_LABEL$ · $REPORT_ACTION_COUNT$ punkt(er)</span>
+    <span class="report-status-pill report-status-pill--$REPORT_STATUS$">$REPORT_STATUS_LABEL$ · $REPORT_ACTION_COUNT$ observasjoner</span>
   </div>
 
   $REPORT_HEATMAP$
@@ -17,16 +17,7 @@
     $REPORT_STATUS_CARDS$
   </div>
 
-  <section class="report-section report-section--priority" id="priorityActions">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">Viktigst først</p>
-        <h2>Hva må sjekkes eller endres?</h2>
-      </div>
-      <p class="section-note">Varsler og handlinger vises her før resten av vurderingen.</p>
-    </div>
-    $REPORT_ACTIONS$
-  </section>
+  $REPORT_PRIORITY_SECTION$
 
   <section class="report-section" id="ageGroupSummary">
     <div class="section-head">
@@ -62,6 +53,7 @@
   </section>
 
   <details class="report-section report-section--collapsible" id="detaljerAccordion">
+    $REPORT_CONTEXT$
     <summary class="section-head">
       <div>
         <p class="eyebrow">Mer informasjon</p>
