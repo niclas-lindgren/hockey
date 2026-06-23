@@ -70,7 +70,7 @@ def analyze_opinionated_judgment(
     total_hosted = sum(host_counts.values())
     top_host_share = top_host_count / total_hosted if total_hosted else 0.0
 
-    age_group_host_summaries: list[str] = []
+    age_group_host_summaries: list[tuple[str, int, int]] = []
     age_group_game_spreads: list[tuple[str, int, int, int]] = []
     team_age_groups: dict[str, str] = {}
     for tournament in tournaments:
@@ -88,7 +88,7 @@ def analyze_opinionated_judgment(
                 age_host_counts[host] = age_host_counts.get(host, 0) + 1
         if age_host_counts and age_tournaments:
             top_age_host, top_age_host_count = max(age_host_counts.items(), key=lambda item: (item[1], item[0]))
-            age_group_host_summaries.append(f"{age_group}: {top_age_host} {top_age_host_count}/{len(age_tournaments)}")
+            age_group_host_summaries.append((age_group, top_age_host_count, len(age_tournaments)))
 
     counts = list(team_game_counts.values())
     spread = max(counts) - min(counts) if counts else 0
@@ -142,18 +142,18 @@ def analyze_opinionated_judgment(
 
     if pairwise >= 0.9 and diversity >= 0.9:
         matchup_text = (
-            f"Matchupene er varierte: {int(round(pairwise * 100))}% av kampene er nye møtepar. "
-            "Det gir et ryddig kampbilde."
+            f"Motstanderbildet er bredt: {int(round(pairwise * 100))}% av kampene er nye møtepar. "
+            "Jeg viser dette tallet fordi det er den tydeligste styrken her."
         )
     elif pairwise >= 0.8:
         matchup_text = (
-            f"Matchupene er ganske varierte: {int(round(pairwise * 100))}% av kampene er nye møtepar. "
-            "Det fungerer, men noen gjentakelser er fortsatt der."
+            f"Motstanderbildet er ganske bredt: {int(round(pairwise * 100))}% av kampene er nye møtepar. "
+            "Det fungerer, men det er fortsatt litt gjentakelse."
         )
     else:
         matchup_text = (
-            f"Det er for mye gjentakelse: bare {int(round(pairwise * 100))}% av kampene er nye møtepar, "
-            "så lagene møter ofte de samme motstanderne igjen."
+            f"Motstanderbildet er litt snevert: bare {int(round(pairwise * 100))}% av kampene er nye møtepar. "
+            "Jeg viser dette tallet fordi det er den tydeligste svakheten her."
         )
 
     if age_group_game_spreads:
@@ -169,7 +169,7 @@ def analyze_opinionated_judgment(
         f"{max_team or 'ingen lag'} har {max_games} kamper, {min_team or 'ingen lag'} har {min_games}, og spredningen er {spread}."
     )
     if age_spread_text:
-        load_text += f" Per aldersgruppe: {age_spread_text}."
+        load_text += f" De tre mest ujevne aldersgruppene er: {age_spread_text}."
     if month_balance >= 0.9 and spread <= 1:
         load_text += " Det ser veldig kontrollert ut over hele sesongen."
     elif month_balance >= 0.8:
@@ -188,7 +188,15 @@ def analyze_opinionated_judgment(
     else:
         hosting_text = "Hjemmeturneringene ser balansert ut og gir et ryddig sesongbilde."
     if age_group_host_summaries:
-        hosting_text += f" Per aldersgruppe: {', '.join(age_group_host_summaries[:3])}."
+        top_host_groups = ", ".join(
+            f"{age_group} {top_count}/{total_count}"
+            for age_group, top_count, total_count in sorted(
+                age_group_host_summaries,
+                key=lambda item: (item[1] / item[2] if item[2] else 0.0, item[1], item[0]),
+                reverse=True,
+            )[:3]
+        )
+        hosting_text += f" De mest skjeve aldersgruppene er: {top_host_groups}."
 
     if team_travel and farthest_km:
         travel_age = f" ({farthest_age_group})" if farthest_age_group else ""

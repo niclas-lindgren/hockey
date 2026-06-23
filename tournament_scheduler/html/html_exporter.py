@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from tournament_scheduler.club_distances import furthest_traveling_team
-from ..models import SeasonPlan
+from ..models import SeasonPlan, team_key
 
 from .data_computation import (
     ICON_CALENDAR,
@@ -122,6 +122,13 @@ class HtmlExporter:
 
         # Team game counts
         team_game_counts = compute_team_game_counts(plan)
+        label_to_identities: dict[str, set[tuple[str, str]]] = {}
+        for tournament in plan.tournaments:
+            for game in tournament.games:
+                for team_obj in (game.home, game.away):
+                    identity = (getattr(team_obj, "club", ""), getattr(team_obj, "age_group", ""))
+                    label_to_identities.setdefault(team_obj.label, set()).add(identity)
+        duplicate_labels = {label for label, ids in label_to_identities.items() if len(ids) > 1}
         team_game_counts_json = json.dumps(team_game_counts, ensure_ascii=False)
 
         # Travel info
@@ -392,6 +399,13 @@ class HtmlExporter:
 
         active_tournaments = [t for t in plan.tournaments if not t.cancelled]
         active_tournaments.sort(key=lambda t: (t.date or plan.end_date, t.age_group, t.host_club or "", t.arena))
+        label_to_identities: dict[str, set[tuple[str, str]]] = {}
+        for tournament in active_tournaments:
+            for game in tournament.games:
+                for team_obj in (game.home, game.away):
+                    identity = (getattr(team_obj, "club", ""), getattr(team_obj, "age_group", ""))
+                    label_to_identities.setdefault(team_obj.label, set()).add(identity)
+        duplicate_labels = {label for label, ids in label_to_identities.items() if len(ids) > 1}
         host_counts: dict[str, int] = {}
         team_clubs = sorted(
             {
@@ -468,9 +482,13 @@ class HtmlExporter:
         age_rows: list[str] = []
         for age_group in display_age_groups:
             tournaments = [t for t in active_tournaments if t.age_group == age_group]
-            labels = sorted({team.label for tournament in tournaments for team in tournament.teams})
+            age_team_objs = sorted(
+                {team.label: team for tournament in tournaments for team in tournament.teams}.values(),
+                key=lambda t: (t.club, t.label),
+            )
+            labels = [team.label for team in age_team_objs]
             hosts = sorted({canonical_rvv_club_name(t.host_club or "") for t in tournaments if t.host_club})
-            game_counts = [team_game_counts.get(label, 0) for label in labels]
+            game_counts = [team_game_counts.get(team_key(team, duplicate_labels), 0) for team in age_team_objs]
             spread = f"{min(game_counts)}\u2013{max(game_counts)}" if game_counts else "-"
             first_date = fmt_date(min((t.date for t in tournaments if t.date), default=None))
             last_date = fmt_date(max((t.date for t in tournaments if t.date), default=None))
