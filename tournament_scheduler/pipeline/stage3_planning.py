@@ -109,7 +109,8 @@ def run(
     n_iters = max(1, iterations)
     seeds: list[int | None] = [None] if n_iters == 1 else list(range(n_iters))
 
-    for seed in seeds:
+    for idx, seed in enumerate(seeds, start=1):
+        print(f"[plan] Forsøk {idx}/{n_iters} (seed={seed if seed is not None else 'default'})", flush=True)
         planner = _make_planner(
             roster,
             pg_config,
@@ -125,8 +126,10 @@ def run(
         )
         plan = planner.build_plan(start_date, end_date)
         if plan is None or not plan.tournaments:
+            print(f"[plan] Forsøk {idx}/{n_iters}: ingen plan kunne bygges", flush=True)
             continue
         score = int(_build_fairness_gate(planner, plan).get("score", 0))
+        print(f"[plan] Forsøk {idx}/{n_iters}: fairness score={score}", flush=True)
         if score > best_score:
             best_score = score
             best_plan = plan

@@ -194,21 +194,27 @@ class SeasonPlanner:
         return team_key(team, self._duplicate_team_labels)
 
     def build_plan(self, start_date: datetime, end_date: datetime) -> SeasonPlan:
+        print("[plan] Henter tilgjengelige datoer...", flush=True)
         scheduling_result = self.scheduler.find_available_dates(start_date, end_date)
         free_dates = sorted(scheduling_result.available_dates)
+        print(f"[plan] Fant {len(free_dates)} fridager i vinduet {start_date.date()}–{end_date.date()}", flush=True)
 
         plan = SeasonPlan(tournaments=[], start_date=start_date.date(), end_date=end_date.date())
 
         age_groups = self.roster.age_groups()
         if not age_groups:
+            print("[plan] Ingen aldersgrupper i rosteren — returnerer tom plan.", flush=True)
             return plan
 
         self._rng.shuffle(age_groups)
+        print(f"[plan] Aldergrupper: {', '.join(age_groups)}", flush=True)
 
         # Reset hosting-day tracking so each build_plan call starts clean.
         self._hosting_days_by_club_month = {}
 
         target_counts = {age_group: self._target_tournaments_for_age_group(age_group) for age_group in age_groups}
+        print(f"[plan] Mål per aldersgruppe: {', '.join(f'{ag}={target_counts[ag]}' for ag in age_groups)}", flush=True)
+        print("[plan] Bygger grov dato-plan...", flush=True)
         baseline_scheduled, _ = self._build_greedy_date_schedule(
             age_groups,
             free_dates,
@@ -216,6 +222,8 @@ class SeasonPlanner:
             end_date.date(),
             target_counts,
         )
+        print(f"[plan] Grov dato-plan klar ({len(baseline_scheduled)} turneringer)", flush=True)
+        print("[plan] Bygger sesong-optimalisert dato-plan...", flush=True)
         optimized_scheduled, _ = self._build_global_date_schedule(
             age_groups,
             free_dates,
@@ -223,14 +231,22 @@ class SeasonPlanner:
             end_date.date(),
             target_counts,
         )
+        print(f"[plan] Optimalisert dato-plan klar ({len(optimized_scheduled)} turneringer)", flush=True)
+        print("[plan] Optimalisering: ferdig — kjører reparasjon og finjustering...", flush=True)
         baseline_score = self._score_date_schedule(baseline_scheduled, start_date.date(), end_date.date())
         optimized_score = self._score_date_schedule(optimized_scheduled, start_date.date(), end_date.date())
         scheduled = optimized_scheduled if optimized_score <= baseline_score else baseline_scheduled
+        print(
+            f"[plan] Valgte {'optimalisert' if scheduled is optimized_scheduled else 'grov'} plan (score {optimized_score:.1f} vs {baseline_score:.1f})",
+            flush=True,
+        )
 
         self._month_counts = {}
         self._hosting_days_by_club_month = {}
         scheduled.sort(key=lambda item: (item[0], item[1]))
+        print("[plan] Fordeler verter og tidspunkter (kan ta litt tid)...", flush=True)
         host_assignments = self._assign_hosts(scheduled)
+        print(f"[plan] Verter fordelt ({len(host_assignments)}/{len(scheduled)})", flush=True)
         collisions: List[Tuple[date, str, str]] = []
         self._fallback_host_substitutions = []
 
@@ -241,7 +257,10 @@ class SeasonPlanner:
             for age_group, count in scheduled_counts.items()
         }
         host_counts_by_age: Dict[str, Dict[str, int]] = {age_group: {} for age_group in scheduled_counts}
-        for (tournament_date, age_group), original_host_club in zip(scheduled, host_assignments):
+        print("[plan] Bygger turneringer, verter og kamper...", flush=True)
+        for index, ((tournament_date, age_group), original_host_club) in enumerate(zip(scheduled, host_assignments), start=1):
+            if index == 1 or index % 10 == 0:
+                print(f"[plan] Ferdigstiller turnering {index}/{len(scheduled)} ({age_group} {tournament_date})", flush=True)
             self._record_month(tournament_date)
             collision = self._check_overlap_collision(tournament_date, age_group, scheduled_age_groups_by_date)
             if collision:
@@ -539,8 +558,15 @@ class SeasonPlanner:
                 sum(remaining_by_age_group.values()),
             )
 
+            total_remaining = sum(remaining_by_age_group.values())
+            placed_count = 0
             while any(remaining_by_age_group.values()):
                 best_choice: Optional[Tuple[float, date, str, List[Team]]] = None
+                if placed_count == 0 or placed_count % 10 == 0:
+                    print(
+                        f"[plan] Optimalisering: {placed_count}/{total_remaining} turneringer plassert...",
+                        flush=True,
+                    )
                 for age_group in age_groups:
                     remaining = remaining_by_age_group.get(age_group, 0)
                     if remaining <= 0:
@@ -602,13 +628,17 @@ class SeasonPlanner:
                     self._hosting_days_by_club_month.setdefault(club_month_key, set()).add(tournament_date)
                     predicted_host_total[predicted_host] += 1
                 remaining_by_age_group[age_group] -= 1
+                placed_count += 1
 
+            print(f"[plan] Optimalisering: ferdig ({placed_count}/{total_remaining})", flush=True)
+            print("[plan] Optimalisering: starter reparasjonspassasje...", flush=True)
             repaired_schedule, repaired_score = self._repair_date_schedule(
                 scheduled,
                 free_dates,
                 window_start,
                 window_end,
             )
+            print(f"[plan] Optimalisering: reparasjon ferdig ({len(repaired_schedule)}/{total_remaining})", flush=True)
             return repaired_schedule, repaired_score
         finally:
             (
@@ -647,7 +677,9 @@ class SeasonPlanner:
         if len(best_schedule) < 2 or len(free_dates_sorted) < 2:
             return best_schedule, best_score
 
-        for _ in range(max(1, max_passes)):
+        total_passes = max(1, max_passes)
+        for pass_index in range(1, total_passes + 1):
+            print(f"[plan] Optimalisering: reparasjonspassasje {pass_index}/{total_passes}...", flush=True)
             improved = False
             age_group_dates: Dict[str, Set[date]] = {}
             for tournament_date, age_group in best_schedule:
@@ -678,7 +710,9 @@ class SeasonPlanner:
                     break
 
             if not improved:
+                print(f"[plan] Optimalisering: reparasjonspassasje {pass_index}/{total_passes} ga ingen forbedring", flush=True)
                 break
+            print(f"[plan] Optimalisering: reparasjonspassasje {pass_index}/{total_passes} ga forbedring", flush=True)
 
         return best_schedule, best_score
 

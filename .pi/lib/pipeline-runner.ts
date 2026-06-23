@@ -277,6 +277,13 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
         cwdPath,
         "tournament_scheduler.pipeline.stage3_planning",
         stage3Args,
+        (event) => {
+          if (event.stream !== "stdout") return;
+          const line = event.line.trim();
+          if (!line.startsWith("[plan]")) return;
+          const message = line.replace(/^\[plan\]\s*/, "");
+          onProgress?.({ stage: "planning", status: "start", message });
+        },
       );
       if (verbose) logger.logStageOutput("planning", stdout, stderr);
       if (stdout) lines.push(stdout);

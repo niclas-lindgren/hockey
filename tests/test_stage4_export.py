@@ -294,20 +294,18 @@ class TestRunStage4:
         assert 'id="reportOverview"' in report_html
         assert 'Kan planen brukes?' in report_html
         assert 'Hva må sjekkes eller endres?' in report_html
-        assert 'ser brukbar ut for klubbvis gjennomgang.' in report_html or 'punktene under' in report_html or 'feil eller store avvik' in report_html
+        assert 'Ja — planen kan brukes' in report_html or 'Nei — planen bør stoppes' in report_html
         assert 'Hva skjer per aldersgruppe?' in report_html
         assert 'Hva må hver klubb vurdere?' in report_html
         assert 'Turneringer som skal gjennomgås' in report_html
         assert 'Detaljerte måltall og kontroller' in report_html
         assert 'Klubben bør sjekke' in report_html
-        assert 'Egen vurdering' in report_html
-        assert 'Dette er en separat tolkning av tallene' in report_html
-        assert 'Min ærlige dom på hele planen' in report_html
+        assert 'Vis hvorfor' in report_html
+        assert 'report-status-pill' in report_html
         assert report_html.index('id="reportOverview"') < report_html.index('Ser planen jevn ut?')
         assert report_html.index('Hva må sjekkes eller endres?') < report_html.index('Detaljerte måltall og kontroller')
         assert report_html.index('Ser planen jevn ut?') < report_html.index('Detaljerte måltall og kontroller')
-        assert report_html.index('id="opinionatedJudgment"') < report_html.index('id="detailedDiagnosticsIntro"')
-        assert report_html.index('id="reportOverview"') < report_html.index('Egen vurdering')
+        assert report_html.index('id="reportOverview"') < report_html.index('Vis hvorfor')
         assert old_gate_label not in report_html
         assert old_adjustment_label not in report_html
         assert 'Rådgivende kontroll' in report_html
@@ -339,8 +337,9 @@ class TestRunStage4:
         assert 'debug-dashboard' not in html.lower()
         assert not re.search(r"[\U0001F300-\U0001FAFF]", html)
         assert not re.search(r"[\U0001F300-\U0001FAFF]", report_html)
-        # Hero verdict pill must contain the action count — plan has 1 missing-host action.
-        assert '1 punkt(er)' in report_html
+        # Hero verdict pill should be present and use a plain-language decision.
+        assert 'report-status-pill' in report_html
+        assert 'KAN BRUKES' in report_html or 'BLOKKER' in report_html
 
     def test_review_summary_collapses_when_it_only_repeats_main_assessment(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")

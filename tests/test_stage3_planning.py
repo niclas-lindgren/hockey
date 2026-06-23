@@ -122,8 +122,18 @@ class TestRunStage3:
         assert "llm_confidence" not in result
         assert "llm_skipped" not in result
 
+    def test_emits_more_progress_after_optimization(self, tmp_path, capsys):
+        state = PipelineState(tmp_path / "pipeline")
+        run(
+            _make_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+        )
 
-
+        out = capsys.readouterr().out
+        assert "[plan] Optimalisering: ferdig" in out
+        assert "[plan] Optimalisering: starter reparasjonspassasje..." in out
+        assert "[plan] Verter fordelt" in out
 
     def test_marks_checkpoint_done(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")

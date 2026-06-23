@@ -3,7 +3,6 @@ removing the separate 'Min ærlige dom' judgment section."""
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -102,28 +101,28 @@ class TestNoJudgmentSection:
         )
 
 
-class TestHeroStatusFromJudgmentTone:
-    """Hero section status class must be derived from judgment tone, not fairness_gate."""
+class TestHeroStatusFromDirectDecision:
+    """Hero section should surface a direct can-use decision."""
 
-    def test_hero_class_contains_pass_for_strong_plan(self, tmp_path):
-        """A plan with high scores should yield tone 'strong' -> status 'pass'."""
+    def test_hero_class_contains_pass_for_usable_plan(self, tmp_path):
+        """A plan without hard blockers should yield status 'pass'."""
         html = _export_report_html(tmp_path)
-        # The hero div uses report-hero--<status>
         assert 'report-hero--pass' in html, (
-            "Hero div should carry report-hero--pass class for a high-quality plan"
+            "Hero div should carry report-hero--pass class for a usable plan"
         )
 
-    def test_hero_tone_label_not_fairness_gate_label(self, tmp_path):
+    def test_hero_uses_simple_yes_no_language(self, tmp_path):
         html = _export_report_html(tmp_path)
-        # Tone labels from judgment: SOLID / BLANDET / IKKE KLAR
-        # Old fairness-gate labels: KLAR FOR GJENNOMGANG / MÅ SJEKKES / KREVER ENDRING
-        assert "SOLID" in html or "BLANDET" in html or "IKKE KLAR" in html, (
-            "Hero should display a judgment tone label (SOLID/BLANDET/IKKE KLAR)"
+        assert "Ja — planen kan brukes" in html or "Nei — planen bør stoppes" in html, (
+            "Hero should display a direct yes/no decision"
+        )
+        assert "KAN BRUKES" in html or "BLOKKER" in html, (
+            "Hero pill should use plain-language decision labels"
         )
 
 
-class TestJudgmentCardsInHero:
-    """The 4 judgment detail cards must appear inside the hero section."""
+class TestJudgmentCardsHiddenBehindToggle:
+    """The 4 judgment cards should be tucked behind an expandable toggle."""
 
     CARD_LABELS = ["Matchup", "Belastning", "Hjemmeturneringer", "Reise"]
 
@@ -132,17 +131,7 @@ class TestJudgmentCardsInHero:
         for label in self.CARD_LABELS:
             assert label in html, f"Judgment card label '{label}' not found in report HTML"
 
-    def test_cards_appear_inside_hero_section(self, tmp_path):
+    def test_cards_are_hidden_under_toggle(self, tmp_path):
         html = _export_report_html(tmp_path)
-        # Hero section starts with report-overview and ends before the first other section
-        hero_match = re.search(
-            r'<div class="report-hero[^"]*">(.*?)</div>\s*<span class="report-status-pill',
-            html,
-            re.DOTALL,
-        )
-        assert hero_match is not None, "Could not locate hero section in report HTML"
-        hero_html = hero_match.group(1)
-        for label in self.CARD_LABELS:
-            assert label in hero_html, (
-                f"Judgment card label '{label}' should be inside the hero section"
-            )
+        assert 'judgment-toggle' in html, "Judgment cards should be wrapped in an expandable toggle"
+        assert 'Vis hvorfor' in html, "Toggle summary text should explain that more detail is available"

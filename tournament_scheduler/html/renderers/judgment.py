@@ -140,16 +140,21 @@ def analyze_opinionated_judgment(
     else:
         verdict = "Dette er ikke en plan jeg ville sendt ut ennå; den trenger mer arbeid før den kan forsvares som helhet."
 
-    matchup_text = (
-        f"Matchupene er {('sterke' if pairwise >= 0.9 and diversity >= 0.9 else 'greie' if pairwise >= 0.8 else 'for smale')}: "
-        f"{int(round(pairwise * 100))}% nye paringer og {int(round(diversity * 100))}% dekning på tvers av motstandere."
-    )
     if pairwise >= 0.9 and diversity >= 0.9:
-        matchup_text += " Her har planen faktisk et veldig ryddig kampbilde."
+        matchup_text = (
+            f"Matchupene er varierte: {int(round(pairwise * 100))}% av kampene er nye møtepar. "
+            "Det gir et ryddig kampbilde."
+        )
     elif pairwise >= 0.8:
-        matchup_text += " Det fungerer, men jeg ville fortsatt passet på gjentakelser."
+        matchup_text = (
+            f"Matchupene er ganske varierte: {int(round(pairwise * 100))}% av kampene er nye møtepar. "
+            "Det fungerer, men noen gjentakelser er fortsatt der."
+        )
     else:
-        matchup_text += " Her er det for mye gjentakelse til at jeg ville vært fornøyd."
+        matchup_text = (
+            f"Det er for mye gjentakelse: bare {int(round(pairwise * 100))}% av kampene er nye møtepar, "
+            "så lagene møter ofte de samme motstanderne igjen."
+        )
 
     if age_group_game_spreads:
         age_spread_text = ", ".join(
@@ -216,14 +221,16 @@ def analyze_opinionated_judgment(
 
 
 def render_judgment_cards_html(cards: list[tuple[str, str]]) -> str:
-    """Render the 4 judgment detail cards as a hero card-grid div.
-
-    Each card is a (label, text) tuple produced by analyze_opinionated_judgment.
-    """
+    """Render the judgment cards behind an optional expandable summary."""
     if not cards:
         return ""
     card_html = "".join(
         f'<article class="judgment-card"><span>{_html.escape(label)}</span><p>{_html.escape(text)}</p></article>'
         for label, text in cards
     )
-    return f'<div class="judgment-grid judgment-grid--hero">{card_html}</div>'
+    return (
+        '<details class="judgment-toggle">'
+        '<summary class="judgment-toggle-summary">Vis hvorfor</summary>'
+        f'<div class="judgment-grid judgment-grid--hero">{card_html}</div>'
+        '</details>'
+    )
