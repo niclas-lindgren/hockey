@@ -191,6 +191,7 @@ def _make_planner(
     events_by_club: dict[str, list[CalendarEvent]] | None = None,
     fairness_thresholds: dict[str, float] | None = None,
     target_tournament_count: int | None = None,
+    target_tournament_counts_by_age_group: dict[str, dict[str, int]] | None = None,
     seed: int | None = None,
     max_hosting_days_per_month: int = 2,
 ) -> SeasonPlanner:
@@ -215,7 +216,7 @@ def _make_planner(
         parallel_games_for_age_group=pg_config or None,
         round_length_for_age_group=round_length_config or None,
         target_tournament_count=target_tournament_count,
-        target_tournament_counts_by_age_group=config.get("target_tournament_counts_by_age_group"),
+        target_tournament_counts_by_age_group=target_tournament_counts_by_age_group,
         division_skill_band=division_skill_band,
         max_hosting_deviation=max_hosting_deviation,
         max_hosting_days_per_month=max_hosting_days_per_month,

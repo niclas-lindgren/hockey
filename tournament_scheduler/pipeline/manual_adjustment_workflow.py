@@ -274,6 +274,8 @@ class ManualAdjustmentWorkflow:
             round_length_config,
             events_by_club,
             cfg.get("fairness_thresholds", {}),
+            cfg.get("target_tournament_count"),
+            cfg.get("target_tournament_counts_by_age_group"),
         )
 
     def _prime_planner(self, planner, plan: SeasonPlan) -> None:

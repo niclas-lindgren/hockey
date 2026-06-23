@@ -933,7 +933,6 @@ class SeasonPlanner:
         after_dates = [d for d in free_dates if d >= split_date]
         before_weight = max(1, len(before_dates))
         after_weight = max(1, len(after_dates))
-        explicit_split = self._has_split_tournament_targets()
 
         before_counts: Dict[str, int] = {}
         after_counts: Dict[str, int] = {}
@@ -945,14 +944,11 @@ class SeasonPlanner:
                 continue
 
             targets = self.target_tournament_counts_by_age_group.get(age_group, {})
-            if explicit_split and (targets.get("before_christmas") is not None or targets.get("after_christmas") is not None):
-                split_before_weight = targets.get("before_christmas") or 0
-                split_after_weight = targets.get("after_christmas") or 0
-                if split_before_weight > 0 and split_after_weight > 0:
-                    total_weight = split_before_weight + split_after_weight
-                    before = int(round(total * split_before_weight / total_weight))
-                else:
-                    before = int(round(total * before_weight / (before_weight + after_weight)))
+            split_before_weight = targets.get("before_christmas") or 0
+            split_after_weight = targets.get("after_christmas") or 0
+            if split_before_weight > 0 and split_after_weight > 0:
+                total_weight = split_before_weight + split_after_weight
+                before = int(round(total * split_before_weight / total_weight))
             else:
                 before = int(round(total * before_weight / (before_weight + after_weight)))
 

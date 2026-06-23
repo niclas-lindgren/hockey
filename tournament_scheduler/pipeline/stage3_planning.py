@@ -101,6 +101,7 @@ def run(
     events_by_club = _build_events_by_club(scraping_result)
     fairness_thresholds = config.get("fairness_thresholds", {})
     target_tournament_count = config.get("target_tournament_count")
+    target_tournament_counts_by_age_group = config.get("target_tournament_counts_by_age_group")
 
     best_plan: SeasonPlan | None = None
     best_planner: SeasonPlanner | None = None
@@ -121,6 +122,7 @@ def run(
             events_by_club,
             fairness_thresholds,
             target_tournament_count,
+            target_tournament_counts_by_age_group,
             seed=seed,
             max_hosting_days_per_month=max_hosting_days_per_month,
         )

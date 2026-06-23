@@ -28,7 +28,7 @@ Stage 1 imports the workbook sheets into the internal config dict and then runs 
 
 ### Optional workbook sheets
 
-- `Aldersgrupper` — columns `age_group`, `parallel_games`, `round_length_minutes`
+- `Aldersgrupper` — columns `age_group`, `parallel_games`, `round_length_minutes`, `deltakelser_per_lag_før_jul`, `deltakelser_per_lag_etter_jul`
 - `Kilder` — columns `name`, `type`, `url`
 
 ### `Innstillinger` rows
@@ -43,6 +43,7 @@ Optional rows:
 - `deltakelser_per_lag` — mykt mål for antall turneringsdeltakelser per lag (standard 6).
   Internt lagret som `target_tournament_count`. Det gamle feltnavnet `target_tournament_count`
   fungerer fortsatt i `Innstillinger`-arket for bakoverkompatibilitet.
+- `Aldersgrupper` kan i tillegg ha `deltakelser_per_lag_før_jul` og `deltakelser_per_lag_etter_jul` for per-age-group halvsesongmål.
 
 ### `Aldersgrupper` rows
 

@@ -39,8 +39,7 @@ Columns:
 - `age_group`
 - `parallel_games`
 - `round_length_minutes` (optional)
-- `deltakelser_per_lag` (optional) — per-age-group total target, falls back to the top-level `Innstillinger` value when omitted
-- `deltakelser_per_lag_før_jul` / `deltakelser_per_lag_etter_jul` (optional) — split the age-group target before and after Christmas; when both are present they should sum to `deltakelser_per_lag`
+- `deltakelser_per_lag_før_jul` / `deltakelser_per_lag_etter_jul` (optional) — split the age-group target before and after Christmas; both values are required when an age-group target is set
 - `preferanse_vekt` (optional) — age-group-specific date preference weight
 
 The English aliases `target_tournament_count`, `target_tournament_count_before_christmas`, and `target_tournament_count_after_christmas` are also accepted for compatibility.

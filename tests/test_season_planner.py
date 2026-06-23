@@ -136,7 +136,7 @@ class TestSeasonPlanner:
             roster=roster,
             club_arenas={club: f"{club}hallen" for club in ["Jar", "Holmen", "Kongsberg", "Skien", "Jutul", "Ringerike"]},
             parallel_games_for_age_group={"U10": 3},
-            target_tournament_counts_by_age_group={"U10": {"total": 6, "before_christmas": 2, "after_christmas": 4}},
+            target_tournament_counts_by_age_group={"U10": {"before_christmas": 2, "after_christmas": 4}},
         )
 
         plan = planner.build_plan(start, end)

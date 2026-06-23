@@ -42,7 +42,6 @@ def _write_input_workbook(path: Path, raw: dict | None = None) -> None:
         has_age_targets = any(target_by_age.get(age_group) for age_group in raw["age_groups"])
         if has_age_targets:
             header_cols.extend([
-                "deltakelser_per_lag",
                 "deltakelser_per_lag_før_jul",
                 "deltakelser_per_lag_etter_jul",
             ])
@@ -56,7 +55,6 @@ def _write_input_workbook(path: Path, raw: dict | None = None) -> None:
             if has_age_targets:
                 target = target_by_age.get(age_group, {})
                 row.extend([
-                    target.get("total"),
                     target.get("before_christmas"),
                     target.get("after_christmas"),
                 ])
@@ -199,10 +197,10 @@ class TestValidateConfig:
     def test_age_group_target_counts_are_validated(self):
         raw = _make_valid_raw()
         raw["target_tournament_counts_by_age_group"] = {
-            "U10": {"total": 5, "before_christmas": 3, "after_christmas": 1},
+            "U10": {"before_christmas": 3, "after_christmas": 1},
         }
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
-        assert any("inkonsistent" in e for e in errors)
+        assert errors == []
 
     def test_teams_file_found_relative_to_input_dir(self, tmp_path):
         """A teams file that exists relative to the input dir passes validation."""
@@ -313,8 +311,8 @@ class TestRunStage1:
         raw["age_groups"] = ["U7", "U10"]
         raw["parallel_games"] = {"U7": 4, "U10": 3}
         raw["target_tournament_counts_by_age_group"] = {
-            "U7": {"total": 8, "before_christmas": 3, "after_christmas": 5},
-            "U10": {"total": 10, "before_christmas": 4, "after_christmas": 6},
+            "U7": {"before_christmas": 3, "after_christmas": 5},
+            "U10": {"before_christmas": 4, "after_christmas": 6},
         }
         input_file = tmp_path / "input.xlsx"
         _write_input_workbook(input_file, raw)

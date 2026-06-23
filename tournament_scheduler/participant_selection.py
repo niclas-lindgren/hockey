@@ -110,17 +110,15 @@ def target_tournaments_for_age_group(planner, age_group: str, period: Optional[s
 
     age_group_targets = getattr(planner, "target_tournament_counts_by_age_group", {}) or {}
     age_group_target = age_group_targets.get(age_group, {}) if isinstance(age_group_targets, dict) else {}
-    period_target = None
-    if period == "before_christmas":
-        period_target = age_group_target.get("before_christmas")
-    elif period == "after_christmas":
-        period_target = age_group_target.get("after_christmas")
-    default_target = period_target
-    if default_target is None:
-        default_target = age_group_target.get("total")
-    if default_target is None and age_group_target.get("before_christmas") is not None and age_group_target.get("after_christmas") is not None:
-        default_target = age_group_target["before_christmas"] + age_group_target["after_christmas"]
-    if default_target is None:
+    before_target = age_group_target.get("before_christmas")
+    after_target = age_group_target.get("after_christmas")
+    if period == "before_christmas" and before_target is not None:
+        default_target = before_target
+    elif period == "after_christmas" and after_target is not None:
+        default_target = after_target
+    elif before_target is not None and after_target is not None:
+        default_target = before_target + after_target
+    else:
         default_target = planner.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
 
     total_target = sum((t.target_tournament_count or default_target) for t in teams)

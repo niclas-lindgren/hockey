@@ -147,38 +147,23 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
                 if not isinstance(cfg, dict):
                     errors.append(
                         f"'target_tournament_counts_by_age_group[\"{ag}\"]' må være et objekt med "
-                        "nøklene 'total', 'before_christmas' og/eller 'after_christmas'."
+                        "nøklene 'before_christmas' og 'after_christmas'."
                     )
                     continue
-                total = cfg.get("total")
                 before = cfg.get("before_christmas")
                 after = cfg.get("after_christmas")
-                if total is None and before is None and after is None:
+                if before is None or after is None:
                     errors.append(
-                        f"'target_tournament_counts_by_age_group[\"{ag}\"]' mangler verdier. "
-                        "Oppgi minst 'total' eller begge 'before_christmas' og 'after_christmas'."
+                        f"'target_tournament_counts_by_age_group[\"{ag}\"]' må oppgi både "
+                        "'before_christmas' og 'after_christmas'."
                     )
                     continue
-                for field_name, value in (("total", total), ("before_christmas", before), ("after_christmas", after)):
-                    if value is None:
-                        continue
+                for field_name, value in (("before_christmas", before), ("after_christmas", after)):
                     if not isinstance(value, int) or value < 1:
                         errors.append(
                             f"'target_tournament_counts_by_age_group[\"{ag}\"].{field_name}' må være et "
                             f"positivt heltall, fikk: {value!r}."
                         )
-                if before is not None and after is not None and total is None:
-                    continue
-                if before is not None and after is not None and total is not None and total != before + after:
-                    errors.append(
-                        f"'target_tournament_counts_by_age_group[\"{ag}\"]' er inkonsistent: "
-                        f"total={total} må være lik before_christmas + after_christmas ({before + after})."
-                    )
-                if (before is None) ^ (after is None):
-                    errors.append(
-                        f"'target_tournament_counts_by_age_group[\"{ag}\"]' må oppgi både "
-                        "'before_christmas' og 'after_christmas' når split-feltene brukes."
-                    )
 
     # --- Teams / roster ---
     if "teams" not in raw:
