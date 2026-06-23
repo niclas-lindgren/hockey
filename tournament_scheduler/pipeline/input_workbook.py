@@ -36,8 +36,7 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
       preference-weight values; exceeded values trigger a :class:`UserWarning`.
     - ``Aldersgrupper``: columns ``age_group``, ``parallel_games``, optional
       ``round_length_minutes``, optional ``preferanse_vekt`` (float, default 0.0),
-      optional ``deltakelser_per_lag`` / ``target_tournament_count`` and the
-      split fields ``deltakelser_per_lag_før_jul`` /
+      and the split fields ``deltakelser_per_lag_før_jul`` /
       ``target_tournament_count_before_christmas`` plus
       ``deltakelser_per_lag_etter_jul`` /
       ``target_tournament_count_after_christmas``.
@@ -193,11 +192,6 @@ def _read_age_groups(
                 )
             preferanse_vekt[age_group] = vekt
 
-        target_total = None
-        for key in ("deltakelser_per_lag", "target_tournament_count"):
-            if row.get(key) not in (None, ""):
-                target_total = int(row[key])
-                break
         target_before = None
         for key in ("deltakelser_per_lag_før_jul", "target_tournament_count_before_christmas"):
             if row.get(key) not in (None, ""):
@@ -208,10 +202,8 @@ def _read_age_groups(
             if row.get(key) not in (None, ""):
                 target_after = int(row[key])
                 break
-        if target_total is not None or target_before is not None or target_after is not None:
+        if target_before is not None or target_after is not None:
             entry: dict[str, int] = {}
-            if target_total is not None:
-                entry["total"] = target_total
             if target_before is not None:
                 entry["before_christmas"] = target_before
             if target_after is not None:
