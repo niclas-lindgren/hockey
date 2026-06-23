@@ -80,6 +80,7 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
     hosting_breakdown = planner._hosting_fairness_breakdown(plan)
     hosting_deviation = float(hosting_breakdown.get("max_deviation", 0.0))
     hosting_detail = str(hosting_breakdown.get("detail", ""))
+    missing_calendar_clubs = list(hosting_breakdown.get("missing_calendar_clubs", []))
 
     same_weekend_load = 0
     weekend_loads: Dict[tuple[int, int], Dict[str, int]] = {}
@@ -134,8 +135,23 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         severity="fail",
         detail=hosting_detail or "Aldersgruppevis fordeling av hjemmeturneringer ligger innenfor terskelen.",
     )
-    if metrics and metrics[-1].get("key") == "hosting_deviation":
-        metrics[-1]["age_group_breakdown"] = hosting_breakdown.get("age_group_breakdown", [])
+    add_metric(
+        "missing_calendar_clubs",
+        "Manglende kalenderdata",
+        len(missing_calendar_clubs),
+        0,
+        direction="max",
+        severity="warn",
+        detail=(
+            f"Kalenderdata mangler for {', '.join(missing_calendar_clubs)}; disse klubbene er utelatt fra hjemmebanebelastningen."
+            if missing_calendar_clubs
+            else "Alle klubber har kalenderdata tilgjengelig for hjemmebanebelastningsvurdering."
+        ),
+    )
+    if metrics and metrics[-1].get("key") == "missing_calendar_clubs":
+        metrics[-1]["excluded_clubs"] = missing_calendar_clubs
+    if metrics and metrics[-2].get("key") == "hosting_deviation":
+        metrics[-2]["age_group_breakdown"] = hosting_breakdown.get("age_group_breakdown", [])
     add_metric(
         "travel_distance",
         "Reisebelastning",

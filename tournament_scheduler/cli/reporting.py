@@ -112,6 +112,13 @@ def _build_status_text(work_dir: Path) -> str:
                         lines.append("    Critic: no issues")
                 except Exception:
                     pass
+                gate = plan_dict.get("fairness_gate") if isinstance(plan_dict.get("fairness_gate"), dict) else {}
+                for metric in gate.get("metrics", []) if isinstance(gate, dict) else []:
+                    if isinstance(metric, dict) and metric.get("key") == "missing_calendar_clubs":
+                        excluded = metric.get("excluded_clubs") or []
+                        if excluded:
+                            lines.append(f"    Manglende kalenderdata (utelatt fra belastningsvurdering): {', '.join(excluded)}")
+                        break
         if label.startswith("Stage 4"):
             output_files = data.get("output_files") or {}
             for key, path in output_files.items():

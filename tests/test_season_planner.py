@@ -1968,6 +1968,61 @@ class TestProportionalHosting:
             f"got: {warnings}"
         )
 
+    def test_missing_calendar_clubs_are_not_counted_as_hosting_failures(self):
+        """Clubs without scraped calendars should be noted, not fail hosting fairness."""
+        start = datetime(2026, 10, 1)
+        end = datetime(2026, 10, 31)
+        jar = Team(club="Jar", label="Jar 1", age_group="U10")
+        sandefjord = Team(club="Sandefjord", label="Sandefjord 1", age_group="U10")
+        roster = Roster(teams=[jar, sandefjord])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={"Jar": "Jarhallen", "Sandefjord": "Bugårdshallen"},
+            parallel_games_for_age_group={"U10": 3},
+            max_hosting_deviation=0,
+            events_by_club={
+                "Jar": [
+                    CalendarEvent(
+                        date="03.10.2026",
+                        name="Jar hall booking",
+                        datetime=datetime(2026, 10, 3, 10, 0),
+                        duration_hours=1.0,
+                    )
+                ]
+            },
+        )
+        plan = SeasonPlan(
+            tournaments=[
+                Tournament(
+                    date=date(2026, 10, 3),
+                    arena="Jarhallen",
+                    age_group="U10",
+                    teams=[jar, sandefjord],
+                    games=[Game(home=jar, away=sandefjord, parallel_slot=0, round_number=1)],
+                    host_club="Jar",
+                )
+            ],
+            start_date=start.date(),
+            end_date=end.date(),
+            diversity_score=1.0,
+            pairwise_matchup_score=1.0,
+            month_balance_score=1.0,
+            game_count_spread=0,
+        )
+
+        planner._compute_game_counts(plan.tournaments)
+        planner._scan_hosting_warnings(plan)
+        gate = planner._build_fairness_gate(plan)
+        hosting_metric = next(metric for metric in gate["metrics"] if metric["key"] == "hosting_deviation")
+        missing_metric = next(metric for metric in gate["metrics"] if metric["key"] == "missing_calendar_clubs")
+
+        assert hosting_metric["status"] == "pass"
+        assert gate["status"] == "warn"
+        assert missing_metric["status"] == "warn"
+        assert "Sandefjord" in missing_metric["detail"]
+        assert any("Sandefjord" in warning for warning in planner.hosting_warnings)
+
     def test_hosting_warnings_property_returns_list(self, free_dates, season_window):
         """hosting_warnings should always return a list."""
         start, end = season_window

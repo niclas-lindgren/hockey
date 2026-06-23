@@ -173,6 +173,7 @@ class SeasonPlanner:
 
         self.max_month_deviation_ratio = max_month_deviation_ratio
         self.events_by_club = events_by_club or {}
+        self.available_calendar_clubs = set(self.events_by_club.keys())
         self.fairness_thresholds = dict(DEFAULT_FAIRNESS_THRESHOLDS)
         if fairness_thresholds:
             self.fairness_thresholds.update(fairness_thresholds)

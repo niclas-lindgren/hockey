@@ -283,12 +283,20 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
     max_deviation = 0.0
     max_detail = ""
     tournaments_by_age: Dict[str, List[Tournament]] = {}
+    available_calendar_clubs = set(
+        getattr(planner, "available_calendar_clubs", getattr(planner, "events_by_club", {}).keys())
+    )
+    missing_calendar_clubs = (
+        sorted({team.club for team in planner.roster.teams if team.club not in available_calendar_clubs})
+        if available_calendar_clubs
+        else []
+    )
     for tournament in plan.tournaments:
         tournaments_by_age.setdefault(tournament.age_group, []).append(tournament)
 
     for age_group in sorted(tournaments_by_age):
         tournaments = tournaments_by_age[age_group]
-        age_teams = planner.roster.by_age_group(age_group)
+        age_teams = [team for team in planner.roster.by_age_group(age_group) if team.club in available_calendar_clubs]
         club_team_counts: Dict[str, int] = {}
         for team in age_teams:
             club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
@@ -329,10 +337,13 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
         detail = f"Aldersgruppevis fordeling av hjemmeturneringer: {examples}. Størst avvik: {max_detail}"
     else:
         detail = "Ingen data om hjemmeturneringer å vurdere."
+    if missing_calendar_clubs:
+        detail += f" Kalenderdata mangler for: {', '.join(missing_calendar_clubs)}; disse klubbene er utelatt fra belastningsvurderingen."
     return {
         "max_deviation": max_deviation,
         "detail": detail,
         "age_group_breakdown": rows,
+        "missing_calendar_clubs": missing_calendar_clubs,
     }
 
 
@@ -342,6 +353,11 @@ def scan_hosting_warnings(planner, plan: SeasonPlan) -> None:
         return
 
     breakdown = hosting_fairness_breakdown(planner, plan)
+    missing_calendar_clubs = breakdown.get("missing_calendar_clubs", [])
+    if missing_calendar_clubs:
+        planner._hosting_warnings.append(
+            f"Kalenderdata mangler for: {', '.join(missing_calendar_clubs)}; disse klubbene er utelatt fra hjemmebanebelastningen."
+        )
     for row in breakdown.get("age_group_breakdown", []):
         if not isinstance(row, dict):
             continue
