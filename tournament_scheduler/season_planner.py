@@ -242,7 +242,7 @@ class SeasonPlanner:
                 target_counts,
             )
             print(f"[plan] Optimalisert dato-plan klar ({len(optimized_scheduled)} turneringer)", flush=True)
-            print("[plan] Optimalisering: ferdig — kjører reparasjon og finjustering...", flush=True)
+            print("[plan] Optimalisering: ferdig — kjører finjustering og forbedringsanalyse...", flush=True)
             baseline_score = self._score_date_schedule(baseline_scheduled, season_start_date, season_end_date)
             optimized_score = self._score_date_schedule(optimized_scheduled, season_start_date, season_end_date)
             scheduled = optimized_scheduled if optimized_score <= baseline_score else baseline_scheduled
@@ -654,14 +654,14 @@ class SeasonPlanner:
             placed_count += 1
 
         print(f"[plan] Optimalisering: ferdig ({placed_count}/{total_remaining})", flush=True)
-        print("[plan] Optimalisering: starter reparasjonspassasje...", flush=True)
+        print("[plan] Optimalisering: starter forbedringsanalyse...", flush=True)
         repaired_schedule, repaired_score = self._repair_date_schedule(
             scheduled,
             free_dates,
             window_start,
             window_end,
         )
-        print(f"[plan] Optimalisering: reparasjon ferdig ({len(repaired_schedule)}/{total_remaining})", flush=True)
+        print(f"[plan] Optimalisering: forbedring ferdig ({len(repaired_schedule)}/{total_remaining})", flush=True)
         if saved_state is not None:
             (
                 self._month_counts,
@@ -702,7 +702,7 @@ class SeasonPlanner:
 
         total_passes = max(1, max_passes)
         for pass_index in range(1, total_passes + 1):
-            print(f"[plan] Optimalisering: reparasjonspassasje {pass_index}/{total_passes}...", flush=True)
+            print(f"[plan] Optimalisering: forbedringsrunde {pass_index}/{total_passes}...", flush=True)
             improved = False
             age_group_dates: Dict[str, Set[date]] = {}
             for tournament_date, age_group in best_schedule:
@@ -733,9 +733,9 @@ class SeasonPlanner:
                     break
 
             if not improved:
-                print(f"[plan] Optimalisering: reparasjonspassasje {pass_index}/{total_passes} ga ingen forbedring", flush=True)
+                print(f"[plan] Optimalisering: forbedringsrunde {pass_index}/{total_passes} ga ingen forbedring", flush=True)
                 break
-            print(f"[plan] Optimalisering: reparasjonspassasje {pass_index}/{total_passes} ga forbedring", flush=True)
+            print(f"[plan] Optimalisering: forbedringsrunde {pass_index}/{total_passes} ga forbedring", flush=True)
 
         return best_schedule, best_score
 

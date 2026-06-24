@@ -76,7 +76,7 @@ Stage 2 supports multiple source types:
 
 - `outlook` / `html` — Playwright-based browser scraping
 - `ical` / `google` — HTTP/iCal scraping
-- JS-heavy sites that fail deterministic scraping — can be retried with `rvv-miniputt scrape-llm`
+- JS-heavy sites that fail deterministic scraping — use the Pi ScraperAgent (`.pi/lib/scraper-agent.ts`) or another harness for LLM-guided scraping
 
 ### BookUp credentials
 
@@ -166,7 +166,7 @@ Typical recovery loop:
 
 1. fix `input.xlsx` or source credentials
 2. rerun `rvv-miniputt run`
-3. if a JS source is still blocked, try `rvv-miniputt scrape-llm --club NAME`
+3. if a JS source is still blocked, use Pi, Claude Code, Codex, or OpenCode for LLM-driven scraping
 4. rebuild calendars with `rvv-miniputt calendars`
 
 ## Headless / CI usage

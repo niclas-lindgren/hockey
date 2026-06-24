@@ -18,8 +18,15 @@ dependencies = [
     "rich>=14.0",
 ]
 
+[project.optional-dependencies]
+desktop = [
+    "keyring>=25.0",
+    "pyinstaller>=6.0",
+]
+
 [project.scripts]
 rvv-miniputt = "tournament_scheduler.cli.rvv_cli:main"
+rvv-miniputt-desktop-backend = "tournament_scheduler.desktop_server:main"
 
 [tool.setuptools.packages.find]
 include = ["tournament_scheduler*"]

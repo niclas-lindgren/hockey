@@ -8,6 +8,13 @@ It runs a four-stage workflow that:
 3. builds a season plan
 4. exports Excel, CSV, iCal, HTML, and Spond files
 
+## Desktop app prototype
+
+For non-technical users, the repo now has an Electron desktop-app scaffold in `apps/desktop/`.
+It launches a bundled/local Python backend, stores credentials/API keys through the OS keychain when available, runs the existing RVV Miniputt pipeline, and shows logs/results in a normal app window.
+
+See [`docs/desktop-app.md`](docs/desktop-app.md) for development and packaging steps.
+
 ## Installation
 
 Prerequisites:

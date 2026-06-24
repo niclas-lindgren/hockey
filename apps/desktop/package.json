@@ -1,0 +1,44 @@
+{
+  "name": "rvv-miniputt-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop shell for RVV Miniputt",
+  "main": "src/main.js",
+  "scripts": {
+    "doctor": "node scripts/doctor.js",
+    "setup:python": "node scripts/setup-python.js",
+    "cleanup": "node scripts/cleanup.js",
+    "reinstall": "node scripts/cleanup.js",
+    "prestart": "node scripts/ensure-python.js && node scripts/doctor.js",
+    "start": "node scripts/start.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "no.rvv.miniputt",
+    "productName": "RVV Miniputt",
+    "files": [
+      "src/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../../dist/desktop-backend/",
+        "to": "backend/",
+        "filter": ["**/*"]
+      }
+    ],
+    "mac": {
+      "target": "dmg"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

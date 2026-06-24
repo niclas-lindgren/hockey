@@ -65,8 +65,7 @@ def _now_iso() -> str:
 # on-demand during the run flow, page snapshots returned by this worker
 # (html, iframe_html, interactive element labels) are forwarded to the TS
 # extension layer and ultimately into LLM prompts (see
-# `.pi/lib/scraper-agent.ts::userMessage` and
-# `tournament_scheduler/pipeline/llm_scraper.py::_extract_events_via_llm`).
+# `.pi/lib/scraper-agent.ts::userMessage`).
 # To avoid the entered credential values ever reaching the LLM:
 #   1. (primary, this module) `_sanitize_html()` blanks `value="..."`
 #      attributes on password/email/username input fields before HTML is
@@ -78,16 +77,12 @@ def _now_iso() -> str:
 #      the same substrings from `snapshot.html`/`iframe_html`/interactive
 #      text again before building the LLM user message, in case a path here
 #      is missed.
-#   4. (scrape-llm CLI path) `_redact_credential_values()` in llm_scraper.py
-#      applies the same substring scrub to `visible_text` and the LLM prompt
-#      built in `_extract_events_via_llm()`.
 #
 # Longer-term alternative (out of scope for this fix): out-of-band browser
 # auth — establish a persistent authenticated browser profile/cookie session
-# once, outside the LLM loop (e.g. via `initial_navigation` /
-# `_detect_and_login()` in llm_scraper.py running headfully once to save
-# storage state), so no login UI/credential state is ever captured in a
-# snapshot or fed to the LLM at all.
+# once, outside the LLM loop (e.g. via `initial_navigation` running headfully
+# once to save storage state), so no login UI/credential state is ever
+# captured in a snapshot or fed to the LLM at all.
 
 # Matches `value="..."` / `value='...'` attributes on <input> elements whose
 # tag also declares a credential-related type or known field id/name, so we

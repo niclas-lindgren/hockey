@@ -126,53 +126,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline work directory (default: .pipeline)",
     )
 
-    # scrape-llm — LLM-guided browser scraper for JS-rendered SPAs
-    scrape_llm = sub.add_parser(
-        "scrape-llm",
-        help="Scrape a single club's calendar with LLM-guided browser navigation (for BookUp SPA, StyledCalendar, etc.)",
-    )
-    scrape_llm.add_argument(
-        "--club", required=True,
-        help="Club/source name (e.g. 'Sandefjord Penguins', 'Tønsberg', 'Jutul')",
-    )
-    scrape_llm.add_argument(
-        "--work-dir", default=".pipeline",
-        help="Pipeline work directory (default: .pipeline)",
-    )
-    scrape_llm.add_argument(
-        "--export-dir",
-        default="export",
-        help="Export output directory for screenshots (default: export)",
-    )
-    scrape_llm.add_argument(
-        "--endpoint",
-        default=None,
-        help="LLM API endpoint URL (default: http://host.lima.internal:1234)",
-    )
-    scrape_llm.add_argument(
-        "--model",
-        default=None,
-        help="LLM model name (default: qwen2.5-32b-instruct)",
-    )
-    scrape_llm.add_argument(
-        "--max-iterations",
-        type=int,
-        default=20,
-        help="Max LLM-guided interaction cycles (default: 20)",
-    )
-    scrape_llm.add_argument(
-        "--cache-results",
-        action="store_true",
-        default=True,
-        help="Cache scraped events to .pipeline/cache/scraped_data.json (default: true)",
-    )
-    scrape_llm.add_argument(
-        "--debug-screenshots",
-        action="store_true",
-        default=False,
-        help="Save PNG screenshots at each navigation step to export/debug-screenshots/",
-    )
-
     # recovery-targets — list blocked/zero-event sources from Stage 2 checkpoint
     recovery = sub.add_parser(
         "recovery-targets",
