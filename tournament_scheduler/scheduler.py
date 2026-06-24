@@ -19,7 +19,7 @@ from tournament_scheduler.excel.tournament_reader import ExcelTournamentReader
 # very early or very late.
 _OPTIMAL_SLOT_START = "11:00"
 _SLOT_SEARCH_EARLIEST = "10:00"
-_SLOT_SEARCH_LATEST = "20:00"
+_SLOT_SEARCH_LATEST = "16:00"
 
 
 class TournamentScheduler:
