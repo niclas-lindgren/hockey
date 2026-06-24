@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 import urllib.error
 import urllib.request
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 APP_NAME = "RVV Miniputt"
 SECRET_KEYS = ("BOOKUP_EMAIL", "BOOKUP_PASSWORD")
@@ -960,7 +960,7 @@ def _run_smart(payload: dict[str, Any]) -> None:
                 break
 
         # ── Stage 4: Export ────────────────────────────────────────
-        rc4 = _run_stage("stage4", ["--no-timestamped-export"], env, work_dir, input_path, export_dir)
+        rc4 = _run_stage("stage4", [], env, work_dir, input_path, export_dir)
         cp4 = _checkpoint_summary("stage4", work_dir)
         with _STATE_LOCK:
             _STATE.append(f"")
@@ -1015,10 +1015,13 @@ def _run_smart(payload: dict[str, Any]) -> None:
             _STATE.finished_at = time.time()
 
 
-def _list_exports() -> dict[str, Any]:
+def _list_exports(export_dir_override: str | None = None) -> dict[str, Any]:
     """List all export subfolders in the configured export dir."""
-    settings = _load_json(_settings_path(), {})
-    export_dir = settings.get("export_dir", "export")
+    if export_dir_override:
+        export_dir = export_dir_override
+    else:
+        settings = _load_json(_settings_path(), {})
+        export_dir = settings.get("export_dir", "export")
     exp_path = Path(export_dir)
 
     if not exp_path.exists() or not exp_path.is_dir():
@@ -1064,10 +1067,13 @@ def _list_exports() -> dict[str, Any]:
     return {"exports": exports, "export_dir": str(exp_path)}
 
 
-def _list_export_files(subfolder: str) -> dict[str, Any]:
+def _list_export_files(subfolder: str, export_dir_override: str | None = None) -> dict[str, Any]:
     """List files in a specific export subfolder."""
-    settings = _load_json(_settings_path(), {})
-    export_dir = settings.get("export_dir", "export")
+    if export_dir_override:
+        export_dir = export_dir_override
+    else:
+        settings = _load_json(_settings_path(), {})
+        export_dir = settings.get("export_dir", "export")
     target = Path(export_dir) / subfolder
 
     if not target.exists() or not target.is_dir():
@@ -1110,6 +1116,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:  # noqa: N802
         self._send(204, {})
+
+    def _query_param(self, key: str, default: str | None = None) -> str | None:
+        """Extract and URL-decode a query parameter from the request URL."""
+        qs = urlparse(self.path).query
+        if not qs:
+            return default
+        for part in qs.split("&"):
+            if "=" in part:
+                k, v = part.split("=", 1)
+                if k == key:
+                    return unquote(v)
+        return default
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
@@ -1154,11 +1172,12 @@ class Handler(BaseHTTPRequestHandler):
                 "key_configured": bool(cfg["api_key"]),
             })
         elif path == "/exports":
-            self._send(200, _list_exports())
+            override = self._query_param("dir")
+            self._send(200, _list_exports(export_dir_override=override))
         elif len(parts) == 3 and parts[1] == "exports":
-            # GET /exports/<subfolder> — list files in a specific export
             subfolder = parts[2]
-            self._send(200, _list_export_files(subfolder))
+            override = self._query_param("dir")
+            self._send(200, _list_export_files(subfolder, export_dir_override=override))
         else:
             self._send(404, {"error": "not found"})
 

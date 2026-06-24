@@ -118,7 +118,8 @@ async function showLatestExport() {
       </div>`
     ).join('');
   } catch {
-    const exports = await api('/exports');
+    const exportDir = encodeURIComponent($('export-dir').value || 'export');
+    const exports = await api('/exports?dir=' + exportDir);
     const latest = exports.exports?.[0];
     if (latest) {
       list.innerHTML = latest.files.map(f =>
@@ -138,16 +139,15 @@ async function fetchExportHistory() {
   const container = $('export-history');
   const list = $('export-list');
   try {
-    const data = await api('/exports');
+    const exportDir = encodeURIComponent($('export-dir').value || 'export');
+    const data = await api('/exports?dir=' + exportDir);
     const exports = data.exports || [];
-    if (exports.length <= 1) {
+    if (exports.length === 0) {
       container.style.display = 'none';
       return;
     }
     container.style.display = 'block';
-    // Skip most recent (shown in result panel), show the rest
-    const older = exports.slice(1);
-    list.innerHTML = older.map(exp =>
+    list.innerHTML = exports.map(exp =>
       `<div class="export-folder" onclick="fetchExportFolder('${escHtml(exp.folder)}', this)">
         <span class="export-folder-name">📁 ${escHtml(exp.folder)}</span>
         <span class="export-folder-count">${exp.file_count} filer</span>
@@ -158,15 +158,21 @@ async function fetchExportHistory() {
   }
 }
 
+function showExports() {
+  // Show the result panel for the latest export, and export history for everything
+  showLatestExport();
+  fetchExportHistory();
+}
+
 async function fetchExportFolder(folder, el) {
-  // Toggle expansion
   const next = el.nextElementSibling;
   if (next && next.classList.contains('export-files')) {
     next.remove();
     return;
   }
   try {
-    const data = await api('/exports/' + encodeURIComponent(folder));
+    const exportDir = encodeURIComponent($('export-dir').value || 'export');
+    const data = await api('/exports/' + encodeURIComponent(folder) + '?dir=' + exportDir);
     const filesDiv = document.createElement('div');
     filesDiv.className = 'export-files';
     filesDiv.innerHTML = (data.files || []).map(f =>
@@ -377,13 +383,42 @@ async function init() {
   pollStatus();
   enableResultButtons(false);
 
+  async function savePaths() {
+    try {
+      await api('/settings', {
+        method: 'POST',
+        body: JSON.stringify({
+          settings: {
+            input_path: $('input-path').value,
+            export_dir: $('export-dir').value,
+            allow_missing_sources: $('allow-missing').checked,
+          },
+          secrets: {}
+        })
+      });
+    } catch { /* silent */ }
+  }
+
   $('choose-input').addEventListener('click', async () => {
     const file = await window.rvvDesktop.chooseFile();
-    if (file) $('input-path').value = file;
+    if (file) {
+      $('input-path').value = file;
+      await savePaths();
+    }
   });
   $('choose-export').addEventListener('click', async () => {
     const folder = await window.rvvDesktop.chooseFolder();
-    if (folder) $('export-dir').value = folder;
+    if (folder) {
+      $('export-dir').value = folder;
+      await savePaths();
+      showExports();
+    }
+  });
+  // Auto-save on manual edits too
+  $('input-path').addEventListener('change', () => savePaths());
+  $('export-dir').addEventListener('change', () => {
+    savePaths();
+    showExports();
   });
   $('save-settings').addEventListener('click', () => saveSettings().catch(err => alert(err.message)));
   $('test-llm').addEventListener('click', () => testLlmConnection().catch(err => alert(err.message)));
@@ -391,6 +426,8 @@ async function init() {
   $('open-html').addEventListener('click', () => window.rvvDesktop.openPath(resultPath('season_plan.html')));
   $('open-export').addEventListener('click', () => window.rvvDesktop.openPath($('export-dir').value || 'export'));
   $('result-panel-close').addEventListener('click', () => { $('result-panel').style.display = 'none'; });
+  $('export-history-close').addEventListener('click', () => { $('export-history').style.display = 'none'; });
+  $('show-exports').addEventListener('click', () => showExports());
   $('copy-log').addEventListener('click', async () => {
     const text = $('log').textContent;
     try {
