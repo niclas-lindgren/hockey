@@ -21,6 +21,7 @@
   "build": {
     "appId": "no.rvv.miniputt",
     "productName": "RVV Miniputt",
+    "artifactName": "RVV-Miniputt-${os}-${arch}.${ext}",
     "files": [
       "src/**/*"
     ],
@@ -31,14 +32,40 @@
         "filter": ["**/*"]
       }
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "niclasl",
+      "repo": "hockey",
+      "releaseType": "release"
+    },
     "mac": {
-      "target": "dmg"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        }
+      ]
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
     },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }
