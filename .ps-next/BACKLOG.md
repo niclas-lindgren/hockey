@@ -1,6 +1,8 @@
 # Backlog
 
 ## Open
+
+- [202] [ ] Sketch and document a minimal RVV deployment architecture for a small user group (e.g. Vercel/Cloudflare frontend + Python job runner backend + storage), including tradeoffs and recommended hosting options.
 - [198] Fix host assignment to be age-group aware so arena reuse is allowed across different age groups on the same day, and consecutive-host streaks are only constrained within the same age group. (2026-06-23)
 ## Done
 - [199] [x] Expand input.xlsx target tournament configuration from a single global target to per-age-group targets, split into before-Christmas and after-Christmas counts (e.g. 5 before / 5 after). (2026-06-23)
