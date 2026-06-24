@@ -221,6 +221,12 @@ async function pollStatus() {
       }
     }
 
+    // Refresh scraping status after install completes
+    if (!status.running && status.exit_code === 0 &&
+        lines.some(l => l.includes('Nettleser lastet ned'))) {
+      setTimeout(checkScrapingStatus, 1000);
+    }
+
     $('smart-run').disabled = !!status.running;
 
     if (status.running) {
@@ -259,6 +265,55 @@ async function startSmartRun() {
 }
 
 // ── Stage status (idle) ───────────────────────────────────────
+
+// ── Playwright / scraping setup ────────────────────────────────
+
+async function checkScrapingStatus() {
+  try {
+    const data = await api('/playwright/status');
+    const statusEl = $('scraping-status');
+    const hintEl = $('scraping-hint');
+    const btn = $('install-scraping');
+
+    if (data.chromium_installed) {
+      statusEl.textContent = '✅ Klar';
+      statusEl.style.color = '#107c10';
+      hintEl.textContent = `Chromium ${data.chromium_size_mb} MB — kan skrape alle kilder`;
+      btn.style.display = 'none';
+    } else if (data.package_installed) {
+      statusEl.textContent = '⚠ Mangler nettleser';
+      statusEl.style.color = '#bf7300';
+      hintEl.textContent = 'Playwright er installert, men Chromium-nettleseren mangler.';
+      btn.style.display = '';
+      btn.textContent = '⬇ Last ned Chromium (~200 MB)';
+    } else {
+      statusEl.textContent = '❌ Ikke tilgjengelig';
+      statusEl.style.color = '#d13438';
+      hintEl.textContent = 'Playwright mangler. Kjør: pip install playwright && playwright install chromium';
+      btn.style.display = 'none';
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+async function startScrapingInstall() {
+  const btn = $('install-scraping');
+  btn.disabled = true;
+  btn.textContent = 'Laster ned...';
+  $('scraping-status').textContent = '⬇ Laster ned...';
+  $('scraping-status').style.color = '#bf7300';
+  $('scraping-hint').textContent = 'Se loggen for fremdrift';
+  try {
+    await api('/playwright/install', { method: 'POST' });
+  } catch (err) {
+    btn.disabled = false;
+    btn.textContent = '⬇ Prøv igjen';
+    $('scraping-status').textContent = '❌ Feilet';
+    $('scraping-hint').textContent = err.message;
+  }
+}
 
 async function fetchStageStatus() {
   try {
@@ -378,6 +433,7 @@ async function init() {
   await waitForBackend();
   await loadSettings().catch(err => console.error(err));
   await fetchStageStatus();
+  checkScrapingStatus();
 
   pollTimer = setInterval(pollStatus, 1500);
   pollStatus();
@@ -427,6 +483,7 @@ async function init() {
   $('open-export').addEventListener('click', () => window.rvvDesktop.openPath($('export-dir').value || 'export'));
   $('result-panel-close').addEventListener('click', () => { $('result-panel').style.display = 'none'; });
   $('export-history-close').addEventListener('click', () => { $('export-history').style.display = 'none'; });
+  $('install-scraping').addEventListener('click', () => startScrapingInstall().catch(err => alert(err.message)));
   $('show-exports').addEventListener('click', () => showExports());
   $('copy-log').addEventListener('click', async () => {
     const text = $('log').textContent;

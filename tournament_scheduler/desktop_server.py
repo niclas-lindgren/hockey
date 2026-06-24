@@ -1093,6 +1093,125 @@ def _list_export_files(subfolder: str, export_dir_override: str | None = None) -
     return {"exists": True, "files": files, "path": str(target)}
 
 
+# ── Playwright / browser scraping ──────────────────────────────────
+
+
+def _playwright_chromium_paths() -> list[Path]:
+    """Return possible paths where Playwright installs Chromium."""
+    home = Path.home()
+    candidates = [
+        home / "Library" / "Caches" / "ms-playwright",          # macOS
+        home / ".cache" / "ms-playwright",                       # Linux
+        Path(os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "")),   # custom
+    ]
+    return [p for p in candidates if p.exists()]
+
+
+def _playwright_available() -> bool:
+    """Check if Playwright + Chromium are installed."""
+    try:
+        import playwright  # noqa: F401
+    except ImportError:
+        return False
+
+    for cache_dir in _playwright_chromium_paths():
+        if not cache_dir.exists():
+            continue
+        try:
+            for entry in cache_dir.iterdir():
+                if entry.name.startswith("chromium"):
+                    return True
+        except PermissionError:
+            continue
+    return False
+
+
+def _run_playwright_install() -> None:
+    """Install Playwright Chromium browser, streaming output to _STATE."""
+    with _STATE_LOCK:
+        _STATE.running = True
+        _STATE.exit_code = None
+        _STATE.started_at = time.time()
+        _STATE.finished_at = None
+        _STATE.run_type = "command"
+        _STATE.log_lines = []
+        _STATE.error = ""
+        _STATE.append("🌐 Laster ned nettleser for kalenderskraping...")
+        _STATE.append("Dette kan ta noen minutter (ca. 200 MB).")
+        _STATE.append("")
+
+    try:
+        args = [sys.executable, "-m", "playwright", "install", "chromium"]
+        if getattr(sys, "frozen", False):
+            # In frozen build, playwright CLI is bundled
+            args = [sys.executable, "-m", "playwright", "install", "chromium"]
+
+        process = subprocess.Popen(
+            args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            with _STATE_LOCK:
+                _STATE.append(line.rstrip())
+        exit_code = process.wait()
+
+        with _STATE_LOCK:
+            _STATE.append("")
+            if exit_code == 0:
+                _STATE.append("✅ Nettleser lastet ned — kalenderskraping er klar")
+            else:
+                _STATE.append(f"❌ Nedlasting feilet (exit code {exit_code})")
+            _STATE.exit_code = exit_code
+    except Exception as exc:
+        with _STATE_LOCK:
+            _STATE.exit_code = 1
+            _STATE.error = str(exc)
+            _STATE.append(f"FEIL: {exc}")
+    finally:
+        with _STATE_LOCK:
+            _STATE.running = False
+            _STATE.finished_at = time.time()
+
+
+def _playwright_status() -> dict[str, Any]:
+    """Return structured Playwright status."""
+    try:
+        import playwright  # noqa: F401
+        pkg_ok = True
+        pkg_ver = getattr(playwright, "__version__", "?")
+    except ImportError:
+        pkg_ok = False
+        pkg_ver = ""
+
+    chromium_ok = _playwright_available()
+
+    # Estimate download size
+    size_mb = 0
+    for cache_dir in _playwright_chromium_paths():
+        if not cache_dir.exists():
+            continue
+        for entry in cache_dir.iterdir():
+            if entry.name.startswith("chromium"):
+                try:
+                    size_mb += sum(
+                        f.stat().st_size for f in entry.rglob("*") if f.is_file()
+                    )
+                except Exception:
+                    pass
+
+    return {
+        "package_installed": pkg_ok,
+        "package_version": pkg_ver,
+        "chromium_installed": chromium_ok,
+        "chromium_size_mb": round(size_mb / 1024 / 1024, 1),
+        "install_command": "python3 -m playwright install chromium",
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "RVVMiniputtDesktop/0.1"
 
@@ -1178,6 +1297,8 @@ class Handler(BaseHTTPRequestHandler):
             subfolder = parts[2]
             override = self._query_param("dir")
             self._send(200, _list_export_files(subfolder, export_dir_override=override))
+        elif path == "/playwright/status":
+            self._send(200, _playwright_status())
         else:
             self._send(404, {"error": "not found"})
 
@@ -1222,6 +1343,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._handle_llm_test(payload)
             elif path == "/llm/validate-teams":
                 self._send(200, self._handle_llm_validate_teams(payload))
+            elif path == "/playwright/install":
+                with _STATE_LOCK:
+                    if _STATE.running:
+                        self._send(409, {"error": "En kjøring pågår allerede."})
+                        return
+                threading.Thread(target=_run_playwright_install, daemon=True).start()
+                self._send(202, {"started": True})
             else:
                 self._send(404, {"error": "not found"})
         except Exception as exc:
