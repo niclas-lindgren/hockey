@@ -794,7 +794,7 @@ def _run_smart(payload: dict[str, Any]) -> None:
             # If tone is rough and we have iterations left, auto-adjust
             if tone == "rough" and adj_i < max_adjust:
                 with _STATE_LOCK:
-                    _STATE.append(f"⚠ Rå — kjører auto-justering...")
+                    _STATE.append(f"⚠ Rå — forbedringsrunde {adj_i + 1}/{max_adjust}...")
                 adj_args = ["auto-adjust", "--work-dir", work_dir,
                             "--export-dir", export_dir,
                             "--max-iterations", "1",
@@ -803,9 +803,13 @@ def _run_smart(payload: dict[str, Any]) -> None:
                 if adj_rc != 0:
                     with _STATE_LOCK:
                         _STATE.append(f"  Auto-justering feilet (exit code {adj_rc})")
-
-                # Re-run Stage 3 after adjustment
-                _run_stage("stage3", s3_args, env, work_dir, input_path, export_dir)
+                        break
+                else:
+                    with _STATE_LOCK:
+                        _STATE.append(f"  ✓ Justeringer brukt — re-evaluerer...")
+                # Do NOT re-run Stage 3. Auto-adjust already wrote the fixed
+                # plan checkpoint and re-exported. The next loop iteration
+                # re-checks the verdict on the adjusted plan.
             else:
                 # Either strong (already handled) or out of iterations
                 break
