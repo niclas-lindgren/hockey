@@ -824,6 +824,10 @@ class SeasonPlanner:
                 continue
             groups.setdefault((tournament.date, tournament.arena), []).append(tournament)
 
+        # Hard limit: tournaments must start between 10:00 and 16:00.
+        _LATEST_START_MINUTES = 16 * 60  # 16:00
+        _EARLIEST_START_MINUTES = 10 * 60  # 10:00
+
         for (_tournament_date, _arena), tournaments in groups.items():
             if len(tournaments) < 2:
                 continue
@@ -839,12 +843,16 @@ class SeasonPlanner:
                     requested = datetime.strptime(start_time, "%H:%M")
                     requested_minutes = requested.hour * 60 + requested.minute
                 except ValueError:
-                    requested_minutes = 10 * 60
+                    requested_minutes = _EARLIEST_START_MINUTES
 
                 if cursor_minutes is None:
                     cursor_minutes = requested_minutes
                 else:
                     cursor_minutes = max(cursor_minutes, requested_minutes)
+
+                # Clamp: no starting past 16:00
+                if cursor_minutes > _LATEST_START_MINUTES:
+                    cursor_minutes = _LATEST_START_MINUTES
 
                 tournament.start_time = f"{cursor_minutes // 60:02d}:{cursor_minutes % 60:02d}"
 
