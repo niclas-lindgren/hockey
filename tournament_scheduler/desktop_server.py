@@ -323,93 +323,259 @@ def _llm_completion(
         return None
 
 
-def _llm_validate_teams(
-    teams: list[dict[str, Any]],
+def _llm_decide_config(
+    raw_checkpoint: dict[str, Any],
     known_clubs: list[str],
-    llm: dict[str, Any] | None = None,
-) -> list[dict[str, Any]]:
-    """Ask the LLM to validate team club names against the registry.
+    llm_cfg: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """LLM analyzes the full Stage 1 config and decides how to proceed.
 
-    Returns a list of issues (same shape as _validate_teams_against_registry)
-    or an empty list if LLM is not available.
+    Returns {"decision": str, "issues": list, "fixes": list, "summary_nb": str}.
+    decision: "proceed" | "fix_and_proceed" | "stop"
+    When LLM is unavailable, returns a fallback dict based on deterministic checks.
     """
-    if llm is None:
-        llm = _llm_config()
-    if not llm.get("enabled"):
-        return []
+    fallback: dict[str, Any] = {"decision": "proceed", "issues": [], "fixes": [], "summary_nb": ""}
 
-    # Only send teams with potentially problematic club names
+    if llm_cfg is None:
+        llm_cfg = _llm_config()
+
+    data = raw_checkpoint.get("data", raw_checkpoint)
+    teams = data.get("teams", [])
+
+    if not teams:
+        return {**fallback, "decision": "stop", "summary_nb": "Ingen lag funnet i konfigurasjonen."}
+
+    # ── Deterministic pre-check: unknown club names ───────────────
     known_set = set(known_clubs)
-    questionable = [t for t in teams if t.get("club", "") not in known_set]
-    if not questionable:
-        return []
+    unknown_clubs = [t for t in teams if t.get("club", "") not in known_set]
+    has_unknown = bool(unknown_clubs)
+
+    if not llm_cfg.get("enabled"):
+        # No LLM — use deterministic check only
+        if has_unknown:
+            return {
+                "decision": "stop",
+                "issues": [{"type": "unknown_club", "club": t["club"],
+                            "team": t.get("label", ""), "age": t.get("age_group", "")}
+                           for t in unknown_clubs],
+                "fixes": [],
+                "summary_nb": f"{len(unknown_clubs)} lag har ukjente klubbnavn. Åpne input.xlsx og rett.",
+            }
+        return fallback
+
+    # ── LLM-driven analysis ───────────────────────────────────────
+    known_str = ", ".join(sorted(known_clubs))
+
+    # Full team list for the LLM — each row shows club, label, age_group
+    team_rows = "\n".join(
+        f"  {t.get('age_group', '?'):5s} | club={t.get('club', '?'):30s} | {t.get('label', '?')}"
+        for t in teams
+    )
 
     prompt = (
-        "Du er en norsk hockey-planleggingsassistent. "
-        "Du får en liste med lag fra en ishockeyklubb, der klubbnavnet "
-        "(feltet 'club') ikke finnes i klubbregisteret. "
-        f"Gyldige klubber: {', '.join(sorted(known_clubs))}.\n\n"
-        "For hvert lag, avgjør:\n"
-        "1. Hvilken klubb i registeret laget sannsynligvis tilhører.\n"
-        "2. Om laget er et kombinasjonslag (spillere fra flere klubber).\n"
-        "3. Hva som bør gjøres: bruk en eksisterende klubb, eller be brukeren rette.\n\n"
-        "Svar med JSON: {"
-        '"issues": [{"club": "<original club name>", '
-        '"suggested_club": "<best match or ''>", '
-        '"is_combined_team": true/false, '
-        '"explanation_nb": "<kort forklaring på norsk>"}]}\n\n'
-        "Lag:\n"
+        "Du er en norsk ishockey-planleggingsassistent for Region Viken Vest.\n"
+        "Analyser konfigurasjonen for en ny sesongplan. Sjekk HVER ENKELT lags club-felt.\n\n"
+        f"GYLDIGE KLUBBER (kun disse er akseptert): {known_str}\n\n"
+        f"ALLE LAG ({len(teams)} stk):\n{team_rows}\n\n"
+        "VIKTIG: Sjekk at klubbnavnet til HVERT ENKELT lag finnes i listen over gyldige klubber.\n"
+        "Dersom et lag har club='Jar/Jutul' eller lignende kombinasjonsnavn, er dette ugyldig.\n"
+        "\n"
+        "Oppgaver:\n"
+        "1. Sjekk ALLE club-verdier mot listen over gyldige klubber.\n"
+        "2. For ugyldige navn (f.eks. 'Jar/Jutul'): foreslå riktig klubb.\n"
+        "3. Vurder om lagfordelingen ser fornuftig ut (nok lag per aldersgruppe).\n"
+        "4. Gi en kort status på norsk.\n\n"
+        "Svar kun med JSON på dette formatet, INGEN annen tekst:\n"
+        "{\n"
+        '  "decision": "proceed" | "fix_and_proceed" | "stop",\n'
+        '  "issues": [{"type": "club_name",\n'
+        '    "detail_nb": "Laget X har ukjent klubb Y",\n'
+        '    "club": "opprinnelig klubbnavn"}],\n'
+        '  "fixes": [{"club": "opprinnelig", "suggested_club": "rettet klubb"}],\n'
+        '  "summary_nb": "Kort status på norsk"\n'
+        "}\n"
     )
-    for t in questionable:
-        prompt += f"- club={t.get('club', '?')}, label={t.get('label', '?')}, age={t.get('age_group', '?')}\n"
 
     response = _llm_completion([
-        {"role": "system", "content": "Du svarer kun med gyldig JSON, ingen annen tekst."},
+        {"role": "system", "content": "Du er en norsk ishockey-ekspert. Svar kun med gyldig JSON."},
         {"role": "user", "content": prompt},
-    ], llm=llm)
+    ], llm=llm_cfg)
 
     if not response:
-        return []
+        # LLM failed — fall back to deterministic
+        if has_unknown:
+            return {
+                "decision": "stop",
+                "issues": [{"type": "unknown_club", "club": t["club"],
+                            "team": t.get("label", "")} for t in unknown_clubs],
+                "fixes": [],
+                "summary_nb": f"{len(unknown_clubs)} lag har ukjente klubbnavn. Kan ikke fortsette.",
+            }
+        return fallback
 
     try:
         result = json.loads(response)
-        return result.get("issues", [])
+        return {
+            "decision": result.get("decision", "proceed"),
+            "issues": result.get("issues", []),
+            "fixes": result.get("fixes", []),
+            "summary_nb": result.get("summary_nb", ""),
+        }
     except (json.JSONDecodeError, KeyError):
-        return []
+        return fallback
 
 
-def _llm_assess_verdict(
-    verdict_data: dict[str, Any],
-    llm: dict[str, Any] | None = None,
-) -> str | None:
-    """Ask the LLM to produce a short Norwegian assessment of the plan verdict."""
-    if llm is None:
-        llm = _llm_config()
-    if not llm.get("enabled"):
-        return None
+def _llm_decide_scraping(
+    cp2_summary: dict[str, Any],
+    llm_cfg: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """LLM assesses Stage 2 scraping quality and decides whether to proceed.
 
-    tone = verdict_data.get("tone_label", verdict_data.get("tone", "?"))
-    pairwise = verdict_data.get("pairwise_matchup_score", "?")
-    diversity = verdict_data.get("diversity_score", "?")
-    month_balance = verdict_data.get("month_balance_score", "?")
-    gate = verdict_data.get("fairness_gate_status", "?")
-    gate_score = verdict_data.get("fairness_gate_score", "?")
+    Returns {"decision": str, "assessment_nb": str, "missing_sources": list}.
+    decision: "proceed" | "partial" | "stop"
+    """
+    fallback: dict[str, Any] = {"decision": "proceed", "assessment_nb": "", "missing_sources": []}
+
+    if llm_cfg is None:
+        llm_cfg = _llm_config()
+
+    blocked = cp2_summary.get("blocked", [])
+    has_zero = cp2_summary.get("has_zero_event_sources", False)
+
+    if not llm_cfg.get("enabled"):
+        # No LLM — deterministic
+        if blocked:
+            return {**fallback, "decision": "partial",
+                    "missing_sources": blocked,
+                    "assessment_nb": f"{len(blocked)} kilder blokkert. Planlegger uten disse."}
+        return fallback
 
     prompt = (
-        "Du er en norsk hockey-planleggingsassistent. Vurder denne sesongplanen:\n\n"
+        "Du er en norsk ishockey-planleggingsassistent. Vurder skrapingen:\n\n"
+        f"Kilder totalt: {cp2_summary.get('source_count', '?')}\n"
+        f"Hendelser totalt: {cp2_summary.get('total_events', '?')}\n"
+        f"Blokkerte: {blocked}\n"
+        f"Har null-hendelse-kilder: {'ja' if has_zero else 'nei'}\n\n"
+        "Skal vi gå videre til planlegging?\n"
+        "Svar med JSON:\n"
+        "{\n"
+        '  "decision": "proceed" | "partial" | "stop",\n'
+        '  "assessment_nb": "Kort vurdering på norsk",\n'
+        '  "missing_sources": ["kilde1", "kilde2"]\n'
+        "}\n"
+    )
+
+    response = _llm_completion([
+        {"role": "system", "content": "Du er en norsk ishockey-ekspert. Svar kun med gyldig JSON."},
+        {"role": "user", "content": prompt},
+    ], llm=llm_cfg)
+
+    if not response:
+        return {**fallback, "missing_sources": blocked}
+
+    try:
+        result = json.loads(response)
+        return {
+            "decision": result.get("decision", "partial" if blocked else "proceed"),
+            "assessment_nb": result.get("assessment_nb", ""),
+            "missing_sources": result.get("missing_sources", blocked),
+        }
+    except (json.JSONDecodeError, KeyError):
+        return {**fallback, "missing_sources": blocked}
+
+
+def _llm_decide_plan(
+    verdict_data: dict[str, Any],
+    llm_cfg: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """LLM evaluates the plan verdict and decides next action.
+
+    Returns {"decision": str, "reasoning_nb": str, "confidence": str}.
+    decision: "export" | "adjust" | "review"
+    """
+    fallback: dict[str, Any] = {
+        "decision": "export",
+        "reasoning_nb": "",
+        "confidence": "medium",
+    }
+
+    if llm_cfg is None:
+        llm_cfg = _llm_config()
+
+    tone = verdict_data.get("tone_label", verdict_data.get("tone", "?"))
+    gate = verdict_data.get("fairness_gate_status", "?")
+
+    if not llm_cfg.get("enabled"):
+        # No LLM — deterministic rule
+        if gate == "fail":
+            return {**fallback, "decision": "adjust",
+                    "reasoning_nb": "Fairness-gate feilet — prøver justering."}
+        if tone == "strong":
+            return {**fallback, "decision": "export"}
+        return {**fallback, "decision": "adjust",
+                "reasoning_nb": "Planen er ikke sterk nok — prøver justering."}
+
+    prompt = (
+        "Du er en norsk ishockey-planleggingsassistent. Vurder sesongplanen:\n\n"
         f"Tone: {tone}\n"
-        f"Parvis-matchup-score: {pairwise}\n"
-        f"Diversitetsscore: {diversity}\n"
-        f"Månedsbalanse: {month_balance}\n"
-        f"Fairness-gate: {gate} (score: {gate_score})\n\n"
-        "Gi en kort vurdering på norsk (2-3 setninger). Er planen god nok til å eksportere? "
-        "Hvis ikke, hva bør justeres?"
+        f"Parvis-matchup-score: {verdict_data.get('pairwise_matchup_score', '?')}\n"
+        f"Diversitetsscore: {verdict_data.get('diversity_score', '?')}\n"
+        f"Månedsbalanse: {verdict_data.get('month_balance_score', '?')}\n"
+        f"Fairness-gate: {gate} (score: {verdict_data.get('fairness_gate_score', '?')})\n\n"
+        "Hva bør vi gjøre?\n"
+        "- 'export': planen er god nok, eksporter.\n"
+        "- 'adjust': prøv auto-justering for å fikse problemer.\n"
+        "- 'review': stopp og la brukeren vurdere manuelt.\n\n"
+        "Svar med JSON:\n"
+        "{\n"
+        '  "decision": "export" | "adjust" | "review",\n'
+        '  "reasoning_nb": "Kort begrunnelse på norsk (2-3 setninger)",\n'
+        '  "confidence": "high" | "medium" | "low"\n'
+        "}\n"
+    )
+
+    response = _llm_completion([
+        {"role": "system", "content": "Du er en norsk ishockey-ekspert. Svar kun med gyldig JSON."},
+        {"role": "user", "content": prompt},
+    ], llm=llm_cfg)
+
+    if not response:
+        return fallback
+
+    try:
+        result = json.loads(response)
+        return {
+            "decision": result.get("decision", "export"),
+            "reasoning_nb": result.get("reasoning_nb", ""),
+            "confidence": result.get("confidence", "medium"),
+        }
+    except (json.JSONDecodeError, KeyError):
+        return fallback
+
+
+def _llm_analyze_error(
+    stage: str,
+    error_text: str,
+    context: dict[str, Any] | None = None,
+    llm_cfg: dict[str, Any] | None = None,
+) -> str | None:
+    """LLM explains a pipeline error in Norwegian."""
+    if llm_cfg is None:
+        llm_cfg = _llm_config()
+    if not llm_cfg.get("enabled"):
+        return None
+
+    prompt = (
+        f"En feil oppstod under {stage} i en ishockey-sesongplanlegger.\n\n"
+        f"Feilmelding:\n{error_text[:1000]}\n\n"
+        "Forklar på norsk hva som gikk galt og hvordan brukeren kan fikse det. "
+        "Vær konkret. Maks 3 setninger."
     )
 
     return _llm_completion([
-        {"role": "system", "content": "Du er en hjelpsom norsk ishockey-assistent. Svar konsist på norsk."},
+        {"role": "system", "content": "Du er en hjelpsom norsk ishockey-ekspert. Svar kort og konkret på norsk."},
         {"role": "user", "content": prompt},
-    ], llm=llm)
+    ], llm=llm_cfg)
 
 
 def _resolve_paths(payload: dict[str, Any]) -> tuple[str, str, str]:
@@ -488,10 +654,12 @@ def _count_checkpoint_issues(checkpoint: dict[str, Any] | None) -> int:
 
 def _checkpoint_summary(stage: str, work_dir: str) -> dict[str, Any]:
     """Produce a human-readable summary of a checkpoint for the frontend."""
-    cp = _load_checkpoint(stage, work_dir)
-    if cp is None:
+    raw = _load_checkpoint(stage, work_dir)
+    if raw is None:
         return {"exists": False}
 
+    # All checkpoints store data under the "data" key
+    cp = raw.get("data", raw)
     result: dict[str, Any] = {"exists": True}
 
     if stage == "stage1":
@@ -624,109 +792,76 @@ def _run_smart(payload: dict[str, Any]) -> None:
                 _STATE.append(f"❌ Stage 1 feilet — avbryter")
             raise RuntimeError("Stage 1 feilet")
 
-        # ── Semantic validation: check teams against club registry ────
+        # ── Semantic validation with LLM ───────────────────────────
         raw_cp1 = _load_checkpoint("stage1", work_dir)
         if raw_cp1:
-            club_issues = _validate_teams_against_registry(raw_cp1)
-            if club_issues:
-                from tournament_scheduler.club_registry import CLUB_REGISTRY as _CR
-                llm_cfg = _llm_config()
-                llm_issues: list[dict[str, Any]] = []
+            from tournament_scheduler.club_registry import CLUB_REGISTRY as _CR
+            llm_cfg = _llm_config()
+            known_clubs = sorted(_CR.keys())
 
-                # Try LLM-assisted resolution first
-                if llm_cfg["enabled"]:
-                    with _STATE_LOCK:
-                        _STATE.append(f"")
-                        _STATE.append(f"🔍 Spør LLM om hjelp med ukjente klubbnavn...")
-                    data = raw_cp1.get("data", raw_cp1)
-                    teams = data.get("teams", [])
-                    llm_issues = _llm_validate_teams(
-                        teams, sorted(_CR.keys()), llm=llm_cfg
-                    )
+            if llm_cfg["enabled"]:
+                with _STATE_LOCK:
+                    _STATE.append(f"🔍 Analyserer konfigurasjon med KI...")
 
-                has_llm_fix = False
-                for li in llm_issues:
-                    suggested = li.get("suggested_club", "")
-                    if suggested and suggested in _CR:
-                        has_llm_fix = True
+            config_decision = _llm_decide_config(raw_cp1, known_clubs, llm_cfg)
 
-                if has_llm_fix:
-                    # Apply LLM suggestions
-                    data = raw_cp1.get("data", raw_cp1)
-                    teams_list = data.get("teams", [])
-                    fix_map: dict[str, str] = {}
-                    for li in llm_issues:
-                        orig = li.get("club", "")
-                        suggested = li.get("suggested_club", "")
-                        if orig and suggested and suggested in _CR:
-                            fix_map[orig] = suggested
+            # If no LLM, use deterministic fallback for unknown clubs
+            if not llm_cfg.get("enabled"):
+                club_issues = _validate_teams_against_registry(raw_cp1)
+                if club_issues:
+                    config_decision = {
+                        "decision": "stop",
+                        "issues": [{"type": "unknown_club", "club": i["club"],
+                                    "team": i["team"].get("label", ""),
+                                    "age": i["team"].get("age_group", "")}
+                                   for i in club_issues],
+                        "fixes": [],
+                        "summary_nb": f"{len(club_issues)} lag har ukjente klubbnavn.",
+                    }
 
+            # Log the LLM's config summary
+            if config_decision.get("summary_nb"):
+                with _STATE_LOCK:
+                    _STATE.append(f"  💬 {config_decision['summary_nb']}")
+
+            # Log any issues found
+            config_issues = config_decision.get("issues", [])
+            if config_issues:
+                with _STATE_LOCK:
+                    for iss in config_issues:
+                        _STATE.append(f"  ⚠ {iss.get('detail_nb', iss.get('type', '?'))}")
+
+            # Apply LLM-suggested fixes
+            config_fixes = config_decision.get("fixes", [])
+            if config_fixes:
+                data = raw_cp1.get("data", raw_cp1)
+                teams_list = data.get("teams", [])
+                fix_map = {f["club"]: f["suggested_club"] for f in config_fixes
+                           if f.get("club") and f.get("suggested_club") in _CR}
+                if fix_map:
                     applied = 0
                     for t in teams_list:
                         club = t.get("club", "")
                         if club in fix_map:
                             t["club"] = fix_map[club]
                             applied += 1
-
                     if applied:
-                        checkpoint_path = Path(work_dir) / STAGE_CHECKPOINT_FILES["stage1"]
-                        checkpoint_path.write_text(
-                            json.dumps(raw_cp1, indent=2, ensure_ascii=False),
-                            encoding="utf-8",
-                        )
+                        cp_path = Path(work_dir) / STAGE_CHECKPOINT_FILES["stage1"]
+                        cp_path.write_text(json.dumps(raw_cp1, indent=2, ensure_ascii=False), encoding="utf-8")
                         with _STATE_LOCK:
-                            _STATE.append(f"")
-                            _STATE.append(f"🤖 LLM rettet {applied} klubbnavn:")
+                            _STATE.append(f"  🤖 Rettet {applied} klubbnavn:")
                             for orig, fixed in fix_map.items():
-                                _STATE.append(f"  • {orig} → {fixed}")
-                            _STATE.append(f"")
-                            _STATE.append(f"✓ Fortsetter med rettede klubbnavn")
-                else:
-                    # No LLM or LLM couldn't help — show diagnostic to user
-                    with _STATE_LOCK:
-                        _STATE.append(f"")
-                        _STATE.append(f"⚠ Ukjente klubbnavn funnet — stopper og venter på deg:")
-                        _STATE.append(f"")
-                        for issue in club_issues:
-                            team = issue["team"]
-                            club = issue["club"]
-                            label = team.get("label", "?")
-                            age = team.get("age_group", "?")
-                            _STATE.append(f"  Laget '{label}' ({age}) har klubb='{club}'")
+                                _STATE.append(f"     {orig} → {fixed}")
 
-                            if "/" in club:
-                                parts = [p.strip() for p in club.split("/") if p.strip()]
-                                valid = [p for p in parts if p in _CR]
-                                _STATE.append(f"  Dette ser ut som et kombinasjonslag med spillere fra "
-                                              f"{' og '.join(parts)}.")
-                                _STATE.append(f"  Modellen støtter ikke kombinasjonslag — hvert lag må "
-                                              f"tilhøre én klubb.")
-                                if valid:
-                                    _STATE.append(f"  Hvis laget hovedsakelig hører til {valid[0]}, "
-                                                  f"endrer du klubb til '{valid[0]}' i input.xlsx.")
-                                _STATE.append(f"  Hvis laget må splittes: opprett to rader i input.xlsx "
-                                              f"(én for Jar, én for Jutul).")
-                            else:
-                                _STATE.append(f"  Ukjent klubb. Gyldige klubber: {', '.join(sorted(_CR.keys()))}")
-                            _STATE.append(f"")
+            # Act on the decision
+            if config_decision["decision"] == "stop":
+                with _STATE_LOCK:
+                    _STATE.append(f"")
+                    _STATE.append(f"✋ Kan ikke fortsette. Åpne input.xlsx, rett feilene, lagre og prøv igjen.")
+                raise RuntimeError("Konfigurasjonen har feil som må rettes manuelt")
 
-                        if llm_cfg["enabled"]:
-                            _STATE.append(f"🤖 LLM ble spurt, men kunne ikke foreslå en rettelse.")
-                            for li in llm_issues:
-                                expl = li.get("explanation_nb", "")
-                                if expl:
-                                    _STATE.append(f"  {expl}")
-
-                        _STATE.append(f"✋ Åpne input.xlsx, rett Klubb-kolonnen for lagene over, "
-                                      f"lagre, og kjør Smart kjør på nytt.")
-
-                    raise RuntimeError(
-                        f"{len(club_issues)} ukjent(e) klubbnavn i input.xlsx — "
-                        f"kan ikke fortsette før de er rettet"
-                    )
-
-        # Re-read checkpoint summary after potential LLM fixes
-        cp1 = _checkpoint_summary("stage1", work_dir)
+            # Re-read checkpoint summary after potential LLM fixes
+            cp1 = _checkpoint_summary("stage1", work_dir)
 
         # ── Stage 2: Scraping ──────────────────────────────────────
         s2_args = ["--non-strict"]
@@ -739,17 +874,24 @@ def _run_smart(payload: dict[str, Any]) -> None:
             if cp2.get("exists"):
                 _STATE.append(f"✓ Stage 2: {cp2.get('source_count', '?')} kilder, "
                               f"{cp2.get('total_events', '?')} hendelser")
-                blocked = cp2.get("blocked", [])
-                if blocked:
-                    _STATE.append(f"⚠ Blokkerte kilder ({len(blocked)}): "
-                                  f"{', '.join(blocked)}")
-                    _STATE.append(f"  Disse kalenderne er ikke tilgjengelige for planlegging.")
-            else:
-                _STATE.append(f"⚠ Stage 2: ingen checkpoint funnet")
+
         if rc2 != 0:
             with _STATE_LOCK:
                 _STATE.append(f"❌ Stage 2 feilet — avbryter")
             raise RuntimeError("Stage 2 feilet")
+
+        # ── LLM scraping assessment ─────────────────────────────────
+        if cp2.get("exists"):
+            scrape_decision = _llm_decide_scraping(cp2, _llm_config())
+            if scrape_decision.get("assessment_nb"):
+                with _STATE_LOCK:
+                    _STATE.append(f"  💬 {scrape_decision['assessment_nb']}")
+
+            missing = scrape_decision.get("missing_sources", [])
+            if missing:
+                with _STATE_LOCK:
+                    _STATE.append(f"  ⚠ Mangler kalendere: {', '.join(missing)}")
+                    _STATE.append(f"     Planen blir ufullstendig uten disse.")
 
         # ── Stage 3: Planning ──────────────────────────────────────
         with _STATE_LOCK:
@@ -767,34 +909,35 @@ def _run_smart(payload: dict[str, Any]) -> None:
             verdict = _run_verdict(work_dir, env)
             tone = verdict.get("tone", "unknown")
             tone_label = verdict.get("tone_label", tone.upper())
-            gate_status = verdict.get("fairness_gate_status", "pass")
 
             with _STATE_LOCK:
                 _STATE.append(f"")
-                _STATE.append(f"─── VURDERING (iterasjon {adj_i + 1}) ────────────")
-                _STATE.append(f"Tone: {tone_label}  |  Fairness: {gate_status}")
+                _STATE.append(f"─── VURDERING (runde {adj_i + 1}) ──────────────────")
+                _STATE.append(f"Tone: {tone_label}  |  Fairness: {verdict.get('fairness_gate_status', '?')}")
                 _STATE.append(f"Matchup: {verdict.get('pairwise_matchup_score', '?')}  |  "
                               f"Diversity: {verdict.get('diversity_score', '?')}")
                 _STATE.append(f"")
 
-            # LLM assessment (if configured)
-            llm_assessment = _llm_assess_verdict(verdict)
-            if llm_assessment:
+            # LLM decides next action
+            plan_decision = _llm_decide_plan(verdict, _llm_config())
+            decision = plan_decision["decision"]
+            reasoning = plan_decision.get("reasoning_nb", "")
+            confidence = plan_decision.get("confidence", "medium")
+
+            if reasoning:
                 with _STATE_LOCK:
-                    for line in llm_assessment.strip().split("\n"):
+                    for line in reasoning.strip().split("\n"):
                         _STATE.append(f"  💬 {line.strip()}")
                     _STATE.append(f"")
 
-            # If tone is strong or mixed — good enough, move to export
-            if tone == "strong" or gate_status == "pass":
+            if decision == "export":
                 with _STATE_LOCK:
-                    _STATE.append(f"✓ Godkjent — går videre til eksport")
+                    _STATE.append(f"✓ {confidence.upper()} — går videre til eksport")
                 break
 
-            # If tone is rough and we have iterations left, auto-adjust
-            if tone == "rough" and adj_i < max_adjust:
+            if decision == "adjust" and adj_i < max_adjust:
                 with _STATE_LOCK:
-                    _STATE.append(f"⚠ Rå — forbedringsrunde {adj_i + 1}/{max_adjust}...")
+                    _STATE.append(f"🔄 Forbedringsrunde {adj_i + 1}/{max_adjust}...")
                 adj_args = ["auto-adjust", "--work-dir", work_dir,
                             "--export-dir", export_dir,
                             "--max-iterations", "1",
@@ -807,11 +950,13 @@ def _run_smart(payload: dict[str, Any]) -> None:
                 else:
                     with _STATE_LOCK:
                         _STATE.append(f"  ✓ Justeringer brukt — re-evaluerer...")
-                # Do NOT re-run Stage 3. Auto-adjust already wrote the fixed
-                # plan checkpoint and re-exported. The next loop iteration
-                # re-checks the verdict on the adjusted plan.
+                # Auto-adjust wrote the fixed plan checkpoint.
+                # Next loop iteration re-checks the verdict on the adjusted plan.
             else:
-                # Either strong (already handled) or out of iterations
+                # decision == "review" or out of iterations
+                if decision == "review":
+                    with _STATE_LOCK:
+                        _STATE.append(f"👁️ LLM anbefaler manuell gjennomgang — eksporterer likevel")
                 break
 
         # ── Stage 4: Export ────────────────────────────────────────
@@ -835,14 +980,111 @@ def _run_smart(payload: dict[str, Any]) -> None:
             _STATE.exit_code = 0
 
     except Exception as exc:
+        error_text = str(exc)
         with _STATE_LOCK:
             _STATE.exit_code = 1
-            _STATE.error = str(exc)
-            _STATE.append(f"FEIL: {exc}")
+            _STATE.error = error_text
+            _STATE.append(f"")
+            _STATE.append(f"❌ {error_text}")
+
+        # LLM error analysis (if configured)
+        stage_map = {
+            "Stage 1": "Stage 1 (konfigurasjon)",
+            "Stage 2": "Stage 2 (skraping)",
+            "Stage 3": "Stage 3 (planlegging)",
+            "Stage 4": "Stage 4 (eksport)",
+            "KeyError": "Stage 3 (planlegging)",
+            "Unknown club": "Stage 1 (klubbnavn)",
+            "ukjent(e) klubbnavn": "Stage 1 (klubbnavn)",
+        }
+        stage_name = ""
+        for key, val in stage_map.items():
+            if key in error_text:
+                stage_name = val
+                break
+
+        if stage_name:
+            llm_explanation = _llm_analyze_error(stage_name, error_text, llm_cfg=_llm_config())
+            if llm_explanation:
+                with _STATE_LOCK:
+                    for line in llm_explanation.strip().split("\n"):
+                        _STATE.append(f"  💡 {line.strip()}")
     finally:
         with _STATE_LOCK:
             _STATE.running = False
             _STATE.finished_at = time.time()
+
+
+def _list_exports() -> dict[str, Any]:
+    """List all export subfolders in the configured export dir."""
+    settings = _load_json(_settings_path(), {})
+    export_dir = settings.get("export_dir", "export")
+    exp_path = Path(export_dir)
+
+    if not exp_path.exists() or not exp_path.is_dir():
+        return {"exports": [], "export_dir": str(exp_path)}
+
+    exports: list[dict[str, Any]] = []
+    for child in sorted(exp_path.iterdir(), key=lambda p: p.name, reverse=True):
+        if child.is_dir():
+            files = []
+            for f in sorted(child.iterdir()):
+                if f.is_file():
+                    files.append({
+                        "name": f.name,
+                        "path": str(f),
+                        "size": f.stat().st_size,
+                    })
+            exports.append({
+                "folder": child.name,
+                "path": str(child),
+                "files": files,
+                "file_count": len(files),
+            })
+        elif child.is_file() and child.suffix in (".html", ".xlsx", ".xls", ".ics", ".csv"):
+            # Also pick up flat files in the root export dir (--no-timestamped-export)
+            if exports and exports[0].get("folder") == "__flat__":
+                exports[0]["files"].append({
+                    "name": child.name,
+                    "path": str(child),
+                    "size": child.stat().st_size,
+                })
+            else:
+                exports.insert(0, {
+                    "folder": "__flat__",
+                    "path": str(exp_path),
+                    "files": [{
+                        "name": child.name,
+                        "path": str(child),
+                        "size": child.stat().st_size,
+                    }],
+                    "file_count": 1,
+                })
+
+    return {"exports": exports, "export_dir": str(exp_path)}
+
+
+def _list_export_files(subfolder: str) -> dict[str, Any]:
+    """List files in a specific export subfolder."""
+    settings = _load_json(_settings_path(), {})
+    export_dir = settings.get("export_dir", "export")
+    target = Path(export_dir) / subfolder
+
+    if not target.exists() or not target.is_dir():
+        # Try flat root
+        target = Path(export_dir)
+        if not target.exists():
+            return {"exists": False, "files": []}
+
+    files = []
+    for f in sorted(target.iterdir()):
+        if f.is_file():
+            files.append({
+                "name": f.name,
+                "path": str(f),
+                "size": f.stat().st_size,
+            })
+    return {"exists": True, "files": files, "path": str(target)}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -911,6 +1153,12 @@ class Handler(BaseHTTPRequestHandler):
                 "endpoint": cfg["endpoint"],
                 "key_configured": bool(cfg["api_key"]),
             })
+        elif path == "/exports":
+            self._send(200, _list_exports())
+        elif len(parts) == 3 and parts[1] == "exports":
+            # GET /exports/<subfolder> — list files in a specific export
+            subfolder = parts[2]
+            self._send(200, _list_export_files(subfolder))
         else:
             self._send(404, {"error": "not found"})
 
