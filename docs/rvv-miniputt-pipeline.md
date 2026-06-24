@@ -38,7 +38,7 @@ Required rows:
 - `start_date` — `YYYY-MM-DD`
 - `end_date` — `YYYY-MM-DD`
 
-Optional rows:
+Optional workbook data lives in the other sheets:
 
 - `Aldersgrupper` kan i tillegg ha `deltakelser_per_lag_før_jul` og `deltakelser_per_lag_etter_jul` for per-age-group halvsesongmål.
 
@@ -47,8 +47,10 @@ Optional rows:
 Each row configures one age group:
 
 - `age_group` — for example `U10` or `JU12`
-- `parallel_games` — federation-limited number of simultaneous games
-- `round_length_minutes` — optional override of default round length
+- `parallel_games` — explicit number of simultaneous games
+- `round_length_minutes` — optional override of round length
+
+When present, the sheet's age groups are used for cross-checking against `Lag` and the age-group keyed fields.
 
 ### `Lag` rows
 
@@ -84,7 +86,7 @@ For those sources, set the credentials expected by the configured strategy, typi
 - `BOOKUP_EMAIL`
 - `BOOKUP_PASSWORD`
 
-If credentials are missing, Stage 2 reports a blocked source instead of silently returning zero events.
+With credentials in place, Stage 2 can scrape the source and cache the events.
 
 ## Outputs
 
@@ -169,9 +171,7 @@ Typical recovery loop:
 
 ## Headless / CI usage
 
-When the pipeline runs without an active harness session (for example in a cron job or CI
-pipeline), the in-session LLM judge is not available. A headless judge backend can be
-configured instead so that inter-stage judgment still happens.
+For cron jobs or CI pipelines, configure a headless judge backend so inter-stage judgment still runs.
 
 Set `RVV_JUDGE_BACKEND` before running the pipeline:
 
@@ -191,8 +191,7 @@ export RVV_JUDGE_BACKEND=llm_bridge
 scripts/rvv-miniputt run --input input.xlsx --export-dir export
 ```
 
-If `RVV_JUDGE_BACKEND` is not set and no harness session is detected, the pipeline
-skips inter-stage judgment and logs a warning instead of failing.
+If `RVV_JUDGE_BACKEND` is not set, the pipeline logs a warning and continues.
 
 ### Required environment variables per backend
 

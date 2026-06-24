@@ -200,7 +200,7 @@ def scan_per_team_share_warnings(
 
 def scan_feasibility_warnings(planner, free_dates: Sequence[date]) -> None:
     """Check each age group's participation target against free-date capacity."""
-    from tournament_scheduler.participant_selection import MIN_TEAMS_PER_TOURNAMENT, DEFAULT_TARGET_TOURNAMENT_COUNT
+    from tournament_scheduler.participant_selection import MIN_TEAMS_PER_TOURNAMENT
 
     planner._feasibility_warnings = []
 
@@ -214,15 +214,16 @@ def scan_feasibility_warnings(planner, free_dates: Sequence[date]) -> None:
             )
             continue
 
-        capacity = min(len(teams), planner._max_teams_for(age_group))
+        capacity = min(len(teams), planner._max_teams_for(age_group)) or 1
+        inferred_target = max(1, math.ceil(len(teams) / capacity))
         total_target = sum(
-            (t.target_tournament_count or planner.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT)
+            (t.target_tournament_count or planner.target_tournament_count or inferred_target)
             for t in teams
         )
         target_count = max(1, math.ceil(total_target / capacity))
 
         targets = [
-            t.target_tournament_count or planner.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
+            t.target_tournament_count or planner.target_tournament_count or inferred_target
             for t in teams
         ]
         min_target = min(targets)

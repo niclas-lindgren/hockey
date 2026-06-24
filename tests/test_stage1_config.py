@@ -132,11 +132,12 @@ class TestValidateConfig:
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert errors
 
-    def test_unknown_age_group_in_team(self):
+    def test_team_age_group_must_exist_in_age_groups_sheet(self):
         raw = _make_valid_raw()
+        raw["age_groups"] = ["U10"]
         raw["teams"][0]["age_group"] = "U99"
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
-        assert any("U99" in e for e in errors)
+        assert any("age_groups" in e or "U99" in e for e in errors)
 
     def test_duplicate_label_produces_norwegian_error(self):
         raw = _make_valid_raw()
@@ -160,11 +161,11 @@ class TestValidateConfig:
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("parallel_games" in e for e in errors)
 
-    def test_parallel_games_exceed_federation_max(self):
+    def test_parallel_games_must_be_positive(self):
         raw = _make_valid_raw()
-        raw["parallel_games"] = {"U10": 999}
+        raw["parallel_games"] = {"U10": 0}
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
-        assert any("999" in e or "forbundets" in e for e in errors)
+        assert any("positivt heltall" in e for e in errors)
 
     def test_error_messages_are_norwegian(self):
         errors = validate_config({}, _DUMMY_INPUT_PATH)

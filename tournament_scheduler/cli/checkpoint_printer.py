@@ -41,7 +41,7 @@ _STAGE_LABELS = {
 }
 
 _STAGE_SUMMARY_KEYS: dict[str, list[str]] = {
-    "stage1_config": ["input_path", "teams", "round_length_minutes", "target_tournament_count"],
+    "stage1_config": ["input_path", "teams", "round_length_minutes", "target_tournament_counts_by_age_group"],
     "stage2_scraping": ["sources", "blocked", "cached"],
     "stage3_planning": ["plan", "rules_report"],
     "stage4_export": ["output_files", "errors"],

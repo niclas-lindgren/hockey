@@ -7,15 +7,13 @@ from datetime import date, timedelta
 from typing import Dict, List, Optional, Sequence, Set
 
 from tournament_scheduler.models import Team, overlapping_age_groups
-from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 
-DEFAULT_TARGET_TOURNAMENT_COUNT = 6
 MIN_TEAMS_PER_TOURNAMENT = 3
 
 
 def default_target_count(num_free_dates: int) -> int:
-    """Fallback when no age-group-specific target is available."""
-    return max(1, min(DEFAULT_TARGET_TOURNAMENT_COUNT, num_free_dates))
+    """Heuristic when no explicit target count is available."""
+    return max(1, num_free_dates)
 
 
 def pick_spread_dates(
@@ -119,10 +117,12 @@ def target_tournaments_for_age_group(planner, age_group: str, period: Optional[s
     elif before_target is not None and after_target is not None:
         default_target = before_target + after_target
     else:
-        default_target = planner.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT
+        capacity = min(len(teams), max_teams_for(planner, age_group)) or 1
+        inferred = max(1, math.ceil(len(teams) / capacity))
+        default_target = planner.target_tournament_count or inferred
 
     total_target = sum((t.target_tournament_count or default_target) for t in teams)
-    capacity = min(len(teams), max_teams_for(planner, age_group))
+    capacity = min(len(teams), max_teams_for(planner, age_group)) or 1
     return max(1, math.ceil(total_target / capacity))
 
 
@@ -355,5 +355,5 @@ def participant_selection_score(
 
 def base_team_capacity(planner, age_group: str) -> int:
     """Return the even team-count capacity implied by parallel games."""
-    parallel_games = planner.parallel_games_for_age_group.get(age_group, DEFAULT_PARALLEL_GAMES)
+    parallel_games = planner.parallel_games_for_age_group.get(age_group, 1)
     return max(1, parallel_games) * 2

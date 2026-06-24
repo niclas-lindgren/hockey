@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Dict, List, Sequence
 
-from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 
 
 def rules_report(planner) -> List[Dict[str, str]]:
@@ -35,11 +34,10 @@ def rules_report(planner) -> List[Dict[str, str]]:
             })
     else:
         report.append({
-            "regel": "Parallelle kamper: ingen spesifisert",
+            "regel": "Parallelle kamper: ikke eksplisitt satt",
             "forklaring": (
                 "Ingen aldersgrupper har spesifisert antall parallelle kamper. "
-                f"Planleggeren bruker et standard nivå på {DEFAULT_PARALLEL_GAMES} parallelle kamper "
-                f"og kan dermed invitere opptil {DEFAULT_PARALLEL_GAMES * 2 + 1} lag per turnering."
+                "Planleggeren bruker da et minimalt teknisk utgangspunkt og utleder kapasiteten fra laglisten."
             ),
             "kategori": "Hard krav",
         })
@@ -53,17 +51,9 @@ def rules_report(planner) -> List[Dict[str, str]]:
         {
             "regel": "Konfigurasjonsstandarder og fairness-terskler",
             "forklaring": (
-                f"Standard deltakelsesmål er {planner.target_tournament_count or 6} turneringsdeltakelser per lag, "
+                "Deltakelsesmål utledes fra lagmønsteret og kapasiteten når de ikke er satt eksplisitt, "
                 f"minimumsklubb-taket starter på {planner.max_club_teams_per_tournament} lag per klubb, og deficit-kapasitet "
                 f"kan utvides med {planner.deficit_cap_expansion}. Fairness-terskler som brukes av fairness-gaten: {thresholds_text}."
-            ),
-            "kategori": "Konfigurasjonsstandard",
-        },
-        {
-            "regel": "Standard parallel-games fallback",
-            "forklaring": (
-                f"Hvis en aldersgruppe ikke er konfigurert, brukes {DEFAULT_PARALLEL_GAMES} parallelle kamper som fallback. "
-                "Dette er bare en teknisk standard; konkrete aldersgrupper kan fortsatt ha egne konfigurerte verdier."
             ),
             "kategori": "Konfigurasjonsstandard",
         },
@@ -254,20 +244,22 @@ def rules_report(planner) -> List[Dict[str, str]]:
         },
     ])
 
-    target_val = planner.target_tournament_count or 6
+    inferred_target = planner.target_tournament_count
+    if inferred_target is None:
+        inferred_target = max(1, len(planner.roster.teams))
     all_same_target = all(
-        t.target_tournament_count is None or t.target_tournament_count == target_val for t in planner.roster.teams
+        t.target_tournament_count is None or t.target_tournament_count == inferred_target for t in planner.roster.teams
     )
     if all_same_target:
-        target_desc = f"cirka {target_val} turneringsdeltakelser per lag"
-        target_detail = f"Hver aldersgruppe planlegges mot et mykt mål på rundt {target_val} turneringsdeltakelser per lag."
+        target_desc = f"cirka {inferred_target} turneringsdeltakelser per lag"
+        target_detail = f"Hver aldersgruppe planlegges mot et mykt mål på rundt {inferred_target} turneringsdeltakelser per lag."
     else:
-        targets = {t.target_tournament_count or target_val for t in planner.roster.teams}
+        targets = {t.target_tournament_count or inferred_target for t in planner.roster.teams}
         target_range = ", ".join(sorted(str(t) for t in targets))
         target_desc = f"{min(targets)}–{max(targets)} turneringsdeltakelser per lag (varierer per lag)"
         target_detail = (
             f"Lag planlegges mot individuelle mål for turneringsdeltakelser: {target_range}. "
-            f"Lag uten eget mål bruker standarden på {target_val}. "
+            "Lag uten eget mål bruker et inferred sesongmål. "
         )
     report.append({
         "regel": f"Mykt mål: {target_desc}",

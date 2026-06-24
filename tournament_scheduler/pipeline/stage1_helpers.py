@@ -11,14 +11,6 @@ from .input_workbook import load_workbook_config
 
 from ..models import Roster, Team
 from ..roster_loader import RosterConfigError, RosterLoader
-from ..season_config import (
-    KNOWN_AGE_GROUPS,
-    FEDERATION_PARALLEL_GAMES_DEFAULTS,
-    FEDERATION_ROUND_LENGTH_DEFAULTS,
-    ParallelGamesConfig,
-    SeasonConfigError,
-    AgeGroupSettings,
-)
 
 def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
     """Validate *raw* config dict and return a list of Norwegian error messages.
@@ -62,18 +54,21 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
                 "minst 7 dager er påkrevd for å planlegge turneringer."
             )
 
-    # --- Age groups ---
+    # --- Age groups and age-group keyed settings ---
+    defined_age_groups: list[str] = []
     if "age_groups" in raw:
         raw_groups = raw["age_groups"]
         if not isinstance(raw_groups, list):
             errors.append("'age_groups' må være en liste (f.eks. [\"U10\", \"U12\"]).")
         else:
             for ag in raw_groups:
-                if ag not in KNOWN_AGE_GROUPS:
-                    valid = ", ".join(sorted(KNOWN_AGE_GROUPS))
-                    errors.append(
-                        f"Ukjent aldersgruppe '{ag}'. Gyldige verdier: {valid}."
-                    )
+                if not isinstance(ag, str) or not ag.strip():
+                    errors.append("'age_groups' må kun inneholde ikke-tomme tekststrenger.")
+                else:
+                    defined_age_groups.append(ag)
+
+    def _age_group_is_defined(ag: str) -> bool:
+        return not defined_age_groups or ag in defined_age_groups
 
     # --- Parallel games ---
     if "parallel_games" in raw:
@@ -82,22 +77,16 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
             errors.append("'parallel_games' må være et objekt (f.eks. {\"U10\": 3}).")
         else:
             for ag, count in pg.items():
-                if ag not in KNOWN_AGE_GROUPS:
-                    valid = ", ".join(sorted(KNOWN_AGE_GROUPS))
-                    errors.append(
-                        f"Ukjent aldersgruppe '{ag}' i 'parallel_games'. Gyldige verdier: {valid}."
-                    )
-                elif not isinstance(count, int) or count < 1:
+                if not isinstance(ag, str) or not ag.strip():
+                    errors.append("'parallel_games' må bruke ikke-tomme tekstnøkler for aldersgrupper.")
+                    continue
+                if not _age_group_is_defined(ag):
+                    errors.append(f"Ukjent aldersgruppe '{ag}' i 'parallel_games'.")
+                    continue
+                if not isinstance(count, int) or count < 1:
                     errors.append(
                         f"'parallel_games[\"{ag}\"]' må være et positivt heltall, fikk: {count!r}."
                     )
-                else:
-                    fed_max = FEDERATION_PARALLEL_GAMES_DEFAULTS.get(ag)
-                    if fed_max is not None and count > fed_max:
-                        errors.append(
-                            f"'parallel_games[\"{ag}\"]' = {count} overskrider "
-                            f"forbundets maksimum ({fed_max}) for {ag}."
-                        )
 
     # --- Round length (minutes) ---
     if "round_length_minutes" in raw:
@@ -108,24 +97,18 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
             )
         else:
             for ag, minutes in rl.items():
-                if ag not in KNOWN_AGE_GROUPS:
-                    valid = ", ".join(sorted(KNOWN_AGE_GROUPS))
-                    errors.append(
-                        f"Ukjent aldersgruppe '{ag}' i 'round_length_minutes'. Gyldige verdier: {valid}."
-                    )
-                elif not isinstance(minutes, int) or minutes < 1:
+                if not isinstance(ag, str) or not ag.strip():
+                    errors.append("'round_length_minutes' må bruke ikke-tomme tekstnøkler for aldersgrupper.")
+                    continue
+                if not _age_group_is_defined(ag):
+                    errors.append(f"Ukjent aldersgruppe '{ag}' i 'round_length_minutes'.")
+                    continue
+                if not isinstance(minutes, int) or minutes < 1:
                     errors.append(
                         f"'round_length_minutes[\"{ag}\"]' må være et positivt heltall, fikk: {minutes!r}."
                     )
 
-    # --- Target tournament count ---
-    target_raw = raw.get("target_tournament_count")
-    if target_raw is not None:
-        if not isinstance(target_raw, int) or target_raw < 1:
-            errors.append(
-                f"'target_tournament_count' må være et positivt heltall (f.eks. 6), fikk: {target_raw!r}."
-            )
-
+    # --- Target tournament count by age group ---
     target_by_age = raw.get("target_tournament_counts_by_age_group")
     if target_by_age is not None:
         if not isinstance(target_by_age, dict):
@@ -134,11 +117,14 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
             )
         else:
             for ag, cfg in target_by_age.items():
-                if ag not in KNOWN_AGE_GROUPS:
-                    valid = ", ".join(sorted(KNOWN_AGE_GROUPS))
+                if not isinstance(ag, str) or not ag.strip():
                     errors.append(
-                        f"Ukjent aldersgruppe '{ag}' i 'target_tournament_counts_by_age_group'. "
-                        f"Gyldige verdier: {valid}."
+                        "'target_tournament_counts_by_age_group' må bruke ikke-tomme tekstnøkler for aldersgrupper."
+                    )
+                    continue
+                if not _age_group_is_defined(ag):
+                    errors.append(
+                        f"Ukjent aldersgruppe '{ag}' i 'target_tournament_counts_by_age_group'."
                     )
                     continue
                 if not isinstance(cfg, dict):
@@ -182,7 +168,7 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
             if not teams_val:
                 errors.append("'teams' er en tom liste — legg til minst ett lag.")
             else:
-                errors.extend(_validate_team_list(teams_val))
+                errors.extend(_validate_team_list(teams_val, allowed_age_groups=defined_age_groups or None))
         else:
             errors.append(
                 "'teams' må være enten en liste med lag-objekter eller en sti til en lagfil (streng)."
@@ -232,7 +218,7 @@ def _parse_date(value: Any, field: str, errors: list[str]) -> date | None:
         return None
 
 
-def _validate_team_list(teams: list[Any]) -> list[str]:
+def _validate_team_list(teams: list[Any], *, allowed_age_groups: list[str] | None = None) -> list[str]:
     errors: list[str] = []
     required_keys = {"club", "label", "age_group"}
     valid_teams: list[tuple[int, dict[str, Any]]] = []  # (1-based index, team dict)
@@ -250,11 +236,9 @@ def _validate_team_list(teams: list[Any]) -> list[str]:
                 + "."
             )
         ag = team.get("age_group")
-        if ag and ag not in KNOWN_AGE_GROUPS:
-            valid = ", ".join(sorted(KNOWN_AGE_GROUPS))
+        if allowed_age_groups is not None and ag not in allowed_age_groups:
             errors.append(
-                f"{prefix} ('{team.get('label', '?')}'): ukjent aldersgruppe '{ag}'. "
-                f"Gyldige verdier: {valid}."
+                f"{prefix} ('{team.get('label', '?')}'): aldersgruppen '{ag}' finnes ikke i 'age_groups'."
             )
     # Detect duplicate labels within the same age group.
     # The same label is allowed across different age groups — team_key() handles
@@ -280,15 +264,13 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     """Build the Stage 1 checkpoint dict with only **computed** fields.
 
     Human-editable fields (start_date, end_date, age_groups, parallel_games,
-    target_tournament_count, target_tournament_counts_by_age_group, sources) are intentionally excluded — they live only in ``input.xlsx``.
+    target_tournament_counts_by_age_group, sources) are intentionally excluded —
+    they live only in ``input.xlsx``.
     """
 
-    # Round length (minutes) — explicit values override federation defaults
-    rl_dict: dict[str, int] = dict(FEDERATION_ROUND_LENGTH_DEFAULTS)
-    if "round_length_minutes" in raw:
-        rl_raw = raw["round_length_minutes"]
-        if isinstance(rl_raw, dict):
-            rl_dict.update({k: int(v) for k, v in rl_raw.items()})
+    rl_dict: dict[str, int] = {}
+    if "round_length_minutes" in raw and isinstance(raw["round_length_minutes"], dict):
+        rl_dict.update({k: int(v) for k, v in raw["round_length_minutes"].items()})
 
     # Teams — expand from file reference if needed
     teams_val = raw["teams"]
@@ -309,17 +291,11 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
 
     if "fairness_thresholds" in raw:
         result["fairness_thresholds"] = dict(raw["fairness_thresholds"])
-    target_raw = raw.get("target_tournament_count")
-    if target_raw is not None:
-        result["target_tournament_count"] = int(target_raw)
     target_by_age = raw.get("target_tournament_counts_by_age_group")
     if target_by_age:
         result["target_tournament_counts_by_age_group"] = {
             ag: dict(cfg) for ag, cfg in target_by_age.items()
         }
-
-    mhdpm_raw = raw.get("max_hosting_days_per_month", raw.get("maxHostingDaysPerMonth"))
-    result["maxHostingDaysPerMonth"] = int(mhdpm_raw) if mhdpm_raw is not None else 2
 
     return result
 

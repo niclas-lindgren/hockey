@@ -28,9 +28,9 @@ files can be loaded and a clear Norwegian-language error is raised when a
 `.yaml`/`.yml` file is requested.
 
 Malformed entries (missing files, unparseable JSON/YAML, wrong top-level
-shape, empty clubs, duplicate or blank team labels, unknown age groups,
-etc.) raise `RosterConfigError` with a Norwegian-language message, so both
-the scriptable CLI (`cli/season_command.py`) and the interactive flow
+shape, empty clubs, duplicate or blank team labels, etc.) raise
+`RosterConfigError` with a Norwegian-language message, so both the scriptable
+CLI (`cli/season_command.py`) and the interactive flow
 (`tournament_scheduler_interactive.py`) can catch and render errors
 consistently via `TournamentOutput.print_error` / Norwegian console output.
 """
@@ -40,7 +40,7 @@ import os
 
 
 from tournament_scheduler.models import Roster, Team
-from tournament_scheduler.season_config import KNOWN_AGE_GROUPS, _YAML_AVAILABLE, yaml
+from tournament_scheduler.season_config import _YAML_AVAILABLE, yaml
 
 
 class RosterConfigError(ValueError):
@@ -129,12 +129,6 @@ class RosterLoader:
                     raise RosterConfigError(
                         f"Ugyldig aldersgruppe for klubb '{club}': {age_group!r}. "
                         "Aldersgruppe må være en ikke-tom tekststreng."
-                    )
-
-                if age_group not in KNOWN_AGE_GROUPS:
-                    raise RosterConfigError(
-                        f"Ukjent aldersgruppe '{age_group}' for klubb '{club}'. "
-                        f"Gyldige aldersgrupper er: {', '.join(sorted(KNOWN_AGE_GROUPS))}."
                     )
 
                 if not isinstance(labels, list) or not labels:

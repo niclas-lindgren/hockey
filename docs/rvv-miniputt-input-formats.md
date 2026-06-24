@@ -11,8 +11,8 @@ JSON is still used internally for stage checkpoints, caches, logs, and exports, 
 | Format | Decision | Reason |
 | --- | --- | --- |
 | Excel workbook | Standard input | Familiar for organizers, supports multiple sheets for related data, works with existing `openpyxl` dependency, and can be validated by the existing Stage 1 rules. |
-| CSV | Not supported as primary input | The RVV config needs multiple related tables and per-age-group settings; a CSV bundle would be easier to break and harder to validate. |
-| JSON root config | Removed as operator input | Good for machines, but too brittle for non-technical organizers and no longer the project standard. |
+| CSV | Not used as the primary input | The RVV config needs multiple related tables and per-age-group settings; the Excel workbook fits that shape better. |
+| JSON root config | Internal format only | Good for machines, but the Excel workbook is the operator-facing standard. |
 
 ## Workbook sheets
 
@@ -37,6 +37,8 @@ Columns:
 - `deltakelser_per_lag_før_jul` / `deltakelser_per_lag_etter_jul` (optional) — split the age-group target before and after Christmas; both values are required when an age-group target is set
 - `preferanse_vekt` (optional) — age-group-specific date preference weight
 
+When `Aldersgrupper` is present, it becomes the declared set of age groups and Stage 1 checks that the other sheets reference those values.
+
 The English aliases `target_tournament_count_before_christmas` and `target_tournament_count_after_christmas` are also accepted for compatibility.
 
 ### `Lag`
@@ -56,3 +58,4 @@ Columns:
 - `url`
 
 Empty rows are ignored. Stage 1 surfaces validation errors in Norwegian after importing the workbook.
+

@@ -63,7 +63,6 @@ from tournament_scheduler.participant_selection import (
 )
 from tournament_scheduler.rules_report import rules_report as _rules_report
 from tournament_scheduler.scheduler import TournamentScheduler
-from tournament_scheduler.season_config import DEFAULT_PARALLEL_GAMES
 from tournament_scheduler.utils.slot_finder import matchday_duration_minutes
 from tournament_scheduler.warnings import (
     compute_game_counts as _compute_game_counts,
@@ -77,7 +76,6 @@ from tournament_scheduler.warnings import (
 )
 
 
-DEFAULT_TARGET_TOURNAMENT_COUNT = 6
 MIN_TEAMS_PER_TOURNAMENT = 3
 DEFAULT_TOURNAMENT_START_TIME = "10:00"
 ARENA_DAY_SEQUENCE_BUFFER_MINUTES = 5
@@ -111,7 +109,7 @@ class SeasonPlanner:
         max_game_count_spread: int = 2,
         max_early_finish_gap_days: int = 60,
         max_hosting_deviation: int = 1,
-        max_hosting_days_per_month: int = 2,
+        max_hosting_days_per_month: int | None = None,
         max_month_deviation_ratio: float = 0.5,
         events_by_club: Optional[Dict[str, List[CalendarEvent]]] = None,
         fairness_thresholds: Optional[Dict[str, float]] = None,
@@ -182,7 +180,7 @@ class SeasonPlanner:
         self._rng: random.Random = random.Random(seed)
 
     def _team_target_tournament_count(self, team: Team) -> int:
-        return team.target_tournament_count or (self.target_tournament_count or DEFAULT_TARGET_TOURNAMENT_COUNT)
+        return team.target_tournament_count or self.target_tournament_count or self._target_tournaments_for_age_group(team.age_group) or 1
 
     def _team_at_target(self, team: Team) -> bool:
         key = self._team_key(team)
@@ -1022,7 +1020,7 @@ class SeasonPlanner:
         # days in the candidate month so far (i.e. least loaded). If even that club
         # already has max_hosting_days_per_month days (none of which is the candidate
         # date itself), return a large penalty to steer date selection away.
-        if self.club_arenas and self.max_hosting_days_per_month > 0:
+        if self.club_arenas and self.max_hosting_days_per_month is not None and self.max_hosting_days_per_month > 0:
             month_key = (candidate_date.year, candidate_date.month)
             min_days = None
             for club in self.club_arenas:
@@ -1072,7 +1070,7 @@ class SeasonPlanner:
         return self._month_counts.get(key, 0) / expected_per_month
 
     def _parallel_games_for(self, age_group: str) -> int:
-        return max(1, self.parallel_games_for_age_group.get(age_group, DEFAULT_PARALLEL_GAMES))
+        return max(1, self.parallel_games_for_age_group.get(age_group, 1))
 
     def _check_overlap_collision(
         self,

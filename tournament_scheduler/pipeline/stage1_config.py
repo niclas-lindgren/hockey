@@ -9,9 +9,9 @@ Workbook input format (all fields required unless marked optional)::
     {
         "start_date": "YYYY-MM-DD",
         "end_date": "YYYY-MM-DD",
-        "age_groups": ["U10", "U12", ...],          // optional — defaults to all
+        "age_groups": ["U10", "U12", ...],          // optional
         "parallel_games": {"U10": 3, "U7": 4, ...}, // optional
-        "round_length_minutes": {"U10": 10, ...},   // optional — defaults to federation values
+        "round_length_minutes": {"U10": 10, ...},   // optional
         "teams": [                                   // list of teams (roster)
             {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
             ...
@@ -36,14 +36,6 @@ from typing import Any
 
 from ..models import Roster, Team
 from ..roster_loader import RosterConfigError, RosterLoader
-from ..season_config import (
-    KNOWN_AGE_GROUPS,
-    FEDERATION_PARALLEL_GAMES_DEFAULTS,
-    FEDERATION_ROUND_LENGTH_DEFAULTS,
-    ParallelGamesConfig,
-    SeasonConfigError,
-    AgeGroupSettings,
-)
 from .state import PipelineState, StageName, StageStatus
 from .stage1_helpers import _load_workbook_config, _parse_config, validate_config
 # ---------------------------------------------------------------------------
@@ -88,7 +80,6 @@ def load_effective_config(
     merged["start_date"] = raw.get("start_date")
     merged["end_date"] = raw.get("end_date")
     merged["parallel_games"] = raw.get("parallel_games", {})
-    merged["target_tournament_count"] = raw.get("target_tournament_count")
     if raw.get("target_tournament_counts_by_age_group"):
         merged["target_tournament_counts_by_age_group"] = raw["target_tournament_counts_by_age_group"]
     merged["sources"] = raw.get("sources", [])
@@ -105,7 +96,6 @@ def load_effective_config(
     # Preserve other computed/metadata fields from the checkpoint
     if "input_path" in ckpt:
         merged["input_path"] = ckpt["input_path"]
-    merged["maxHostingDaysPerMonth"] = ckpt.get("maxHostingDaysPerMonth", 2)
 
     return merged
 
@@ -119,12 +109,11 @@ def run(
     """Parse and validate *input_path*, write the Stage 1 checkpoint.
 
     The checkpoint stores the normalized roster/config fields (``teams`` expanded
-    from a file reference, ``round_length_minutes`` with federation defaults
-    applied, and any per-age-group participation targets parsed from the
-    workbook). Human-editable fields (``start_date``, ``end_date``,
-    ``age_groups``, ``parallel_games``, ``sources``) live exclusively in
-    ``input.xlsx``. Use :func:`load_effective_config` to merge both sources
-    transparently.
+    from a file reference, ``round_length_minutes`` from the workbook, and any
+    per-age-group participation targets parsed from the workbook).
+    Human-editable fields (``start_date``, ``end_date``, ``age_groups``,
+    ``parallel_games``, ``sources``) live exclusively in ``input.xlsx``. Use
+    :func:`load_effective_config` to merge both sources transparently.
 
     Parameters
     ----------

@@ -96,10 +96,8 @@ def run(
     round_length_config = _build_round_length(config)
     club_arenas = _build_club_arenas(config)
     max_hosting_deviation = config.get("maxHostingDeviation", 1)
-    max_hosting_days_per_month = config.get("maxHostingDaysPerMonth", 2)
     events_by_club = _build_events_by_club(scraping_result)
     fairness_thresholds = config.get("fairness_thresholds", {})
-    target_tournament_count = config.get("target_tournament_count")
     target_tournament_counts_by_age_group = config.get("target_tournament_counts_by_age_group")
 
     best_plan: SeasonPlan | None = None
@@ -119,10 +117,10 @@ def run(
             round_length_config,
             events_by_club,
             fairness_thresholds,
-            target_tournament_count,
+            None,
             target_tournament_counts_by_age_group,
             seed=seed,
-            max_hosting_days_per_month=max_hosting_days_per_month,
+            max_hosting_days_per_month=None,
         )
         plan = planner.build_plan(start_date, end_date)
         if plan is None or not plan.tournaments:

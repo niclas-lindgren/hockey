@@ -190,7 +190,7 @@ def _make_planner(
     target_tournament_count: int | None = None,
     target_tournament_counts_by_age_group: dict[str, dict[str, int]] | None = None,
     seed: int | None = None,
-    max_hosting_days_per_month: int = 2,
+    max_hosting_days_per_month: int | None = None,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner` with derived tournament sizing.
 

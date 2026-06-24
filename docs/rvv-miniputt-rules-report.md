@@ -19,12 +19,11 @@ It is based on the planner code, not on the marketing/docs wording, so it calls 
 | Parallelle kamper for U8: 4 | For aldersgruppen U8 spilles det 4 kamper samtidig per runde. Det gir plass til opptil 8 lag per turnering, og hvis lagetallet er oddetall får ett lag pause i hver runde. | Hard krav |
 | Parallelle kamper for U9: 3 | For aldersgruppen U9 spilles det 3 kamper samtidig per runde. Det gir plass til opptil 6 lag per turnering, og hvis lagetallet er oddetall får ett lag pause i hver runde. | Hard krav |
 
-### Configuration defaults / guardrails
+### Configuration and guardrails
 
 | Rule | What it does | Kind |
 |---|---|---|
-| Konfigurasjonsstandarder og fairness-terskler | Standard deltakelsesmål er 6 turneringsdeltakelser per lag, minimumsklubb-taket starter på 1 lag per klubb, og deficit-kapasitet kan utvides med 1. Fairness-terskler som brukes av fairness-gaten: max_game_count_spread=2, max_hosting_deviation=1, max_same_weekend_club_load=3, max_team_travel_km=700, min_diversity_score=0.75, min_month_balance_score=0.75, min_pairwise_matchup_score=0.25. | Konfigurasjonsstandard |
-| Standard parallel-games fallback | Hvis en aldersgruppe ikke er konfigurert, brukes 2 parallelle kamper som fallback. Dette er bare en teknisk standard; konkrete aldersgrupper kan fortsatt ha egne konfigurerte verdier. | Konfigurasjonsstandard |
+| Konfigurasjonsstandarder og fairness-terskler | Deltakelsesmål utledes fra lagmønster og kapasitet når de ikke er satt eksplisitt, minimumsklubb-taket starter på 1 lag per klubb, og deficit-kapasitet kan utvides med 1. Fairness-terskler som brukes av fairness-gaten: max_game_count_spread=2, max_hosting_deviation=1, max_same_weekend_club_load=3, max_team_travel_km=700, min_diversity_score=0.75, min_month_balance_score=0.75, min_pairwise_matchup_score=0.25. | Konfigurasjonsstandard |
 | Standard starttid: 10:00 | Når en turnering ikke får et mer spesifikt slot-forslag fra hallkalenderen, brukes 10:00 som standard starttid. Dette er hovedsakelig et teknisk utgangspunkt for planlegging og visning. | Konfigurasjonsstandard |
 | Buffer mellom turneringer i samme hall-dag: 5 min | Når flere turneringer havner i samme arena samme dag, legges det inn 5 minutter buffer mellom starttidene. Det hindrer at arrangementene overlapper tidsmessig. | Konfigurasjonsstandard |
 
@@ -42,7 +41,7 @@ It is based on the planner code, not on the marketing/docs wording, so it calls 
 | Ingen overlappende aldersgrupper | Aldersgrupper som deler spillerbase (for eksempel JU11 og U10) skal helst ikke ha turnering samme helg, fordi noen spillere tilhører begge grupper og ville blitt dobbeltbooket. Planleggeren forsøker å unngå dette; kollisjoner som ikke kan løses, rapporteres. |
 | Round-robin: alle mot alle innen turneringen | Innenfor hver turnering spiller alle inviterte lag mot hverandre nøyaktig én gang (round-robin). Turneringens størrelse og antall parallelle kamper avgjør hvor mange runder som trengs. Hjemme/borte byttes annenhver runde for rettferdig fordeling. |
 | Sikkerhetsfilter mot klubb-interne kamper | Som en ekstra sikkerhet (belt-and-suspenders) hoppes det over kamper mellom to lag fra samme klubb under round-robin-genereringen, selv om deltakerutvelgelsen allerede skal ha forhindret dette. |
-| Mykt mål: cirka 6 turneringsdeltakelser per lag | Hver aldersgruppe planlegges mot et mykt mål på rundt 6 turneringsdeltakelser per lag. Tallet er en ønsket sesongbelastning — planleggeren vil heller lage færre, bedre turneringer enn å presse inn ekstra bare for å nå målet. Dersom en aldersgruppe har for få lag eller for få ledige helger til å oppfylle målet, justeres det ned. |
+| Mykt mål: inferred sesongmål per lag | Hver aldersgruppe planlegges mot et mykt mål som utledes fra lagmønsteret og tilgjengelig kapasitet når det ikke er satt eksplisitt. Tallet er en ønsket sesongbelastning — planleggeren vil heller lage færre, bedre turneringer enn å presse inn ekstra bare for å nå målet. Dersom en aldersgruppe har for få lag eller for få ledige helger til å oppfylle målet, justeres det ned. |
 | Tidspunkt på dagen velges ut fra vertsklubbens egen hallkalender | For hver turnering beregnes hvor lang tid hele turneringen tar (rundelengde × antall runder), og planleggeren ser etter en sammenhengende ledig luke av denne lengden i vertsklubbens egen hallkalender. Tidspunkt nærmest 11:00 foretrekkes, for å unngå svært tidlige eller sene starttider. Hvis vertsklubbens egen hall ikke har en passende ledig luke den dagen, beholdes den opprinnelige vertsklubben og standard starttid i stedet for å låne kapasitet fra andre klubber. |
 
 ### Warnings / diagnostics

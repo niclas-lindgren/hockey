@@ -35,10 +35,8 @@ def pick_spread_dates(
 
 
 def default_target_count(num_free_dates: int) -> int:
-    """Fallback when no age-group-specific target is available."""
-    from tournament_scheduler.participant_selection import DEFAULT_TARGET_TOURNAMENT_COUNT
-
-    return max(1, min(DEFAULT_TARGET_TOURNAMENT_COUNT, num_free_dates))
+    """Heuristic when no age-group-specific target is available."""
+    return max(1, num_free_dates)
 
 
 def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
