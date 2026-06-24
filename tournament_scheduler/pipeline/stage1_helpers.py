@@ -118,15 +118,12 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
                         f"'round_length_minutes[\"{ag}\"]' må være et positivt heltall, fikk: {minutes!r}."
                     )
 
-    # --- Target tournament count / deltakelser per lag ---
-    # Accept both the old English key and the new Norwegian alias.
-    # If both are present, deltakelser_per_lag wins.
-    target_raw = raw.get("deltakelser_per_lag", raw.get("target_tournament_count"))
+    # --- Target tournament count ---
+    target_raw = raw.get("target_tournament_count")
     if target_raw is not None:
         if not isinstance(target_raw, int) or target_raw < 1:
             errors.append(
-                f"'deltakelser_per_lag' (eller 'target_tournament_count') må være et "
-                f"positivt heltall (f.eks. 6), fikk: {target_raw!r}."
+                f"'target_tournament_count' må være et positivt heltall (f.eks. 6), fikk: {target_raw!r}."
             )
 
     target_by_age = raw.get("target_tournament_counts_by_age_group")
@@ -283,7 +280,7 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     """Build the Stage 1 checkpoint dict with only **computed** fields.
 
     Human-editable fields (start_date, end_date, age_groups, parallel_games,
-    target_tournament_count / deltakelser_per_lag, target_tournament_counts_by_age_group, sources) are intentionally excluded — they live only in ``input.xlsx``.
+    target_tournament_count, target_tournament_counts_by_age_group, sources) are intentionally excluded — they live only in ``input.xlsx``.
     """
 
     # Round length (minutes) — explicit values override federation defaults
@@ -312,9 +309,7 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
 
     if "fairness_thresholds" in raw:
         result["fairness_thresholds"] = dict(raw["fairness_thresholds"])
-    # Accept both the old English key and the new Norwegian alias.
-    # If both are present, deltakelser_per_lag wins.
-    target_raw = raw.get("deltakelser_per_lag", raw.get("target_tournament_count"))
+    target_raw = raw.get("target_tournament_count")
     if target_raw is not None:
         result["target_tournament_count"] = int(target_raw)
     target_by_age = raw.get("target_tournament_counts_by_age_group")

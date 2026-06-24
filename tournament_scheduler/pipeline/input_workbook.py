@@ -30,8 +30,6 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
 
     Expected sheets:
     - ``Innstillinger``: columns ``felt`` and ``verdi`` for scalar settings.
-      Tournament-participation target can be set as ``deltakelser_per_lag``
-      (preferred) or the legacy ``target_tournament_count``.
       Optional ``vekt_cap`` (float, default 10.0) sets the absolute cap for
       preference-weight values; exceeded values trigger a :class:`UserWarning`.
     - ``Aldersgrupper``: columns ``age_group``, ``parallel_games``, optional

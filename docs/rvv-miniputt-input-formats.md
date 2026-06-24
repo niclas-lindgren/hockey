@@ -26,11 +26,6 @@ Common rows:
 
 - `start_date` — `YYYY-MM-DD`
 - `end_date` — `YYYY-MM-DD`
-- `deltakelser_per_lag` — mykt mål for turneringsdeltakelser per lag (positivt heltall, standard 6)
-
-  Det interne config-nøkkelen er `target_tournament_count` for bakoverkompatibilitet.
-  Begge feltnavn aksepteres i `Innstillinger`-arket, men `deltakelser_per_lag` har
-  prioritet dersom begge er satt.
 
 ### `Aldersgrupper`
 
@@ -42,7 +37,7 @@ Columns:
 - `deltakelser_per_lag_før_jul` / `deltakelser_per_lag_etter_jul` (optional) — split the age-group target before and after Christmas; both values are required when an age-group target is set
 - `preferanse_vekt` (optional) — age-group-specific date preference weight
 
-The English aliases `target_tournament_count`, `target_tournament_count_before_christmas`, and `target_tournament_count_after_christmas` are also accepted for compatibility.
+The English aliases `target_tournament_count_before_christmas` and `target_tournament_count_after_christmas` are also accepted for compatibility.
 
 ### `Lag`
 

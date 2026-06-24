@@ -68,7 +68,7 @@ def load_effective_config(
 
     Reads the canonical ``input.xlsx`` workbook for human-editable fields
     (``start_date``, ``end_date``, ``age_groups``, ``parallel_games``,
-    participation targets, ``sources``) and merges in the computed fields
+    per-age-group participation targets, ``sources``) and merges in the computed fields
     (``teams``, ``round_length_minutes``) from the Stage 1 checkpoint.
 
     Returns a dict with the same shape that downstream stages expect,
@@ -88,9 +88,7 @@ def load_effective_config(
     merged["start_date"] = raw.get("start_date")
     merged["end_date"] = raw.get("end_date")
     merged["parallel_games"] = raw.get("parallel_games", {})
-    # Accept Norwegian alias deltakelser_per_lag; prefer it over the English key.
-    target_ttc = raw.get("target_tournament_count")
-    merged["target_tournament_count"] = raw.get("deltakelser_per_lag", target_ttc)
+    merged["target_tournament_count"] = raw.get("target_tournament_count")
     if raw.get("target_tournament_counts_by_age_group"):
         merged["target_tournament_counts_by_age_group"] = raw["target_tournament_counts_by_age_group"]
     merged["sources"] = raw.get("sources", [])

@@ -98,9 +98,8 @@ A successful run writes exports under `export/` by default:
 
 With `--timestamped-export`, exports are written to a timestamped subfolder for diffable runs.
 
-Set `deltakelser_per_lag` in the workbook `Innstillinger` sheet to tune the soft per-team tournament-participation target (default: 6).
-The legacy key `target_tournament_count` also works for backward compatibility.
-Per-age-group participation targets can be set in `Aldersgrupper` with optional `deltakelser_per_lag_før_jul` / `deltakelser_per_lag_etter_jul` split values.
+Set per-age-group participation targets in the workbook `Aldersgrupper` sheet with optional `deltakelser_per_lag_før_jul` / `deltakelser_per_lag_etter_jul` split values.
+The English aliases `target_tournament_count_before_christmas` and `target_tournament_count_after_christmas` are also accepted for backward compatibility.
 
 ## Secret scanning
 

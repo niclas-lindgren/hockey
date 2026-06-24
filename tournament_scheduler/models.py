@@ -71,7 +71,7 @@ class Team:
     club: str
     label: str  # e.g. "Jar 1", "Jar 2"
     age_group: str  # e.g. "U10", "JU11"
-    target_tournament_count: Optional[int] = None  # per-team override for deltakelser_per_lag (None = use global default)
+    target_tournament_count: Optional[int] = None  # per-team override for the tournament-count target (None = use default)
 
     @property
     def name(self) -> str:

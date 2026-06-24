@@ -40,9 +40,6 @@ Required rows:
 
 Optional rows:
 
-- `deltakelser_per_lag` — mykt mål for antall turneringsdeltakelser per lag (standard 6).
-  Internt lagret som `target_tournament_count`. Det gamle feltnavnet `target_tournament_count`
-  fungerer fortsatt i `Innstillinger`-arket for bakoverkompatibilitet.
 - `Aldersgrupper` kan i tillegg ha `deltakelser_per_lag_før_jul` og `deltakelser_per_lag_etter_jul` for per-age-group halvsesongmål.
 
 ### `Aldersgrupper` rows
