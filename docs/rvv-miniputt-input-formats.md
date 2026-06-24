@@ -51,8 +51,6 @@ Columns:
 - `club`
 - `label`
 - `age_group`
-- `region` (optional) — retained metadata for cross-region teams and reports; not a scheduling constraint
-- `skill_level` (optional) — 1-10 planning hint used by participant selection
 
 ### `Kilder`
 

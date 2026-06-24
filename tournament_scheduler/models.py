@@ -66,21 +66,11 @@ class Team:
 
     Example: Team(club="Jar", label="Jar 1", age_group="U10")
 
-    ``region`` is preserved roster metadata. Cross-region teams (e.g. from
-    Oslo clubs for girls' tournaments) use their club name as the region
-    value so downstream reports can keep them distinct, but the scheduler
-    does not treat region as a hard planning constraint.
-
-    ``skill_level`` is an optional 1-10 planning hint. It is consumed by the
-    participant-selection heuristics to prefer adjacent skill bands when it
-    improves tournament quality.
     """
 
     club: str
     label: str  # e.g. "Jar 1", "Jar 2"
     age_group: str  # e.g. "U10", "JU11"
-    region: str = "RVV"  # roster metadata, e.g. "RVV", "Oslo"
-    skill_level: Optional[int] = None  # 1-10 planning hint used by participant selection
     target_tournament_count: Optional[int] = None  # per-team override for deltakelser_per_lag (None = use global default)
 
     @property

@@ -43,7 +43,6 @@ class SeasonCommand:
         if hasattr(args, 'max_club_teams') and args.max_club_teams is not None:
             max_club_teams = args.max_club_teams
         max_game_count_spread = federation_defaults.get('maxGameCountSpread', 2)
-        division_skill_band = federation_defaults.get('divisionSkillBand', 2)
         max_hosting_deviation = federation_defaults.get('maxHostingDeviation', 1)
 
         sources, club_arenas = self._build_calendar_sources()
@@ -64,7 +63,6 @@ class SeasonCommand:
             parallel_games_for_age_group=parallel_games_for_age_group,
             max_club_teams_per_tournament=max_club_teams,
             max_game_count_spread=max_game_count_spread,
-            division_skill_band=division_skill_band,
             max_hosting_deviation=max_hosting_deviation,
         )
 

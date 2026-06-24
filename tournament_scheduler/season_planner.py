@@ -110,7 +110,6 @@ class SeasonPlanner:
         deficit_cap_expansion: int = 1,
         max_game_count_spread: int = 2,
         max_early_finish_gap_days: int = 60,
-        division_skill_band: int = 2,
         max_hosting_deviation: int = 1,
         max_hosting_days_per_month: int = 2,
         max_month_deviation_ratio: float = 0.5,
@@ -135,17 +134,11 @@ class SeasonPlanner:
         self.deficit_cap_expansion = deficit_cap_expansion
         self.max_game_count_spread = max_game_count_spread
         self.max_early_finish_gap_days = max_early_finish_gap_days
-        self.division_skill_band = division_skill_band
         self.max_hosting_deviation = max_hosting_deviation
         self.max_hosting_days_per_month = max_hosting_days_per_month
 
         duplicate_labels = {
             label for label, count in Counter(team.label for team in roster.teams).items() if count > 1
-        }
-        self._team_skill_levels: Dict[str, int] = {
-            team_key(team, duplicate_labels): team.skill_level
-            for team in roster.teams
-            if team.skill_level is not None
         }
         self._duplicate_team_labels = duplicate_labels
         self._club_load_warnings: List[Tuple[str, str, str, int]] = []

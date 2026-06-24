@@ -26,8 +26,6 @@ def _plan_to_dict(plan: SeasonPlan) -> dict[str, Any]:
 
     def _team_to_dict(t: Team) -> dict[str, Any]:
         d: dict[str, Any] = {"club": t.club, "label": t.label, "age_group": t.age_group}
-        if t.skill_level is not None:
-            d["skillLevel"] = t.skill_level
         if t.target_tournament_count is not None:
             d["target_tournament_count"] = t.target_tournament_count
         return d
@@ -185,7 +183,6 @@ def _make_planner(
     roster: Roster,
     pg_config: dict[str, int],
     club_arenas: dict[str, str],
-    division_skill_band: int = 2,
     max_hosting_deviation: int = 1,
     round_length_config: dict[str, int] | None = None,
     events_by_club: dict[str, list[CalendarEvent]] | None = None,
@@ -217,7 +214,6 @@ def _make_planner(
         round_length_for_age_group=round_length_config or None,
         target_tournament_count=target_tournament_count,
         target_tournament_counts_by_age_group=target_tournament_counts_by_age_group,
-        division_skill_band=division_skill_band,
         max_hosting_deviation=max_hosting_deviation,
         max_hosting_days_per_month=max_hosting_days_per_month,
         events_by_club=events_by_club or None,
@@ -233,7 +229,6 @@ def _tournament_from_dict(data: dict[str, Any]) -> Tournament:
             club=t["club"],
             label=t["label"],
             age_group=t["age_group"],
-            skill_level=t.get("skillLevel"),
             target_tournament_count=t.get("target_tournament_count"),
         )
         for t in data.get("teams", [])

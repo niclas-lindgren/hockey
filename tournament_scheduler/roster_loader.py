@@ -22,27 +22,6 @@ Extended format (recommended) — includes federation defaults alongside clubs::
       }
     }
 
-Optionally, the extended format also supports a ``neighborClubs`` section
-for listing clubs from neighboring regions (e.g. Oslo-area clubs for girls'
-cross-region tournaments). These teams keep their ``region`` metadata so
-reports/export round-trips can distinguish them from RVV teams::
-
-    {
-      "federationDefaults": { ... },
-      "clubs": {
-        "Jar": {"U10": ["Jar 1", "Jar 2"]}
-      },
-      "neighborClubs": {
-        "Oslo": {"JU10": ["Oslo 1"]},
-        "Furuset": {"JU10": ["Furuset JU10"]}
-      }
-    }
-
-Teams from ``neighborClubs`` get their ``region`` set to the club name
-(e.g. ``"Oslo"``) so downstream tools can distinguish RVV teams from
-cross-region teams. ``skill_level`` is parsed here as well and passed
-through unchanged so the planner can use it later when forming tournaments.
-
 Both JSON and YAML config files are supported. YAML support is optional and
 only requires `pyyaml` to be installed — if it is not available, only JSON
 files can be loaded and a clear Norwegian-language error is raised when a
@@ -59,7 +38,6 @@ consistently via `TournamentOutput.print_error` / Norwegian console output.
 import json
 import os
 
-from typing import Optional
 
 from tournament_scheduler.models import Roster, Team
 from tournament_scheduler.season_config import KNOWN_AGE_GROUPS, _YAML_AVAILABLE, yaml
@@ -76,8 +54,7 @@ class RosterConfigError(ValueError):
 class RosterLoader:
     """Loads a roster config file (JSON or YAML) into a `Roster` of `Team` objects.
 
-    Expected formats — see module docstring for flat, extended, and
-    neighbor-club variants.
+    Expected formats — see module docstring for flat and extended variants.
     """
 
     @staticmethod
@@ -96,7 +73,6 @@ class RosterLoader:
         cls,
         clubs_data: dict,
         *,
-        region: str = "RVV",
         section_label: str = "clubs",
     ) -> list[Team]:
         """Parse a club-name -> age-group -> team-labels mapping into Team objects.
@@ -105,10 +81,6 @@ class RosterLoader:
         ----------
         clubs_data:
             Dict mapping club name to dict of age group -> list of team labels.
-        region:
-            Region metadata value to assign to every team parsed (default
-            ``"RVV"``). The scheduler keeps this for reporting and
-            round-tripping, not as a hard constraint.
         section_label:
             Norwegian label for the config section (used in error messages).
 
@@ -172,34 +144,12 @@ class RosterLoader:
                     )
 
                 for entry in labels:
-                    label: str
-                    skill_level: Optional[int] = None
-                    if isinstance(entry, str):
-                        label = entry
-                    elif isinstance(entry, dict):
-                        if "label" not in entry or not isinstance(entry["label"], str) or not entry["label"].strip():
-                            raise RosterConfigError(
-                                f"Ugyldig lagoppføring for klubb '{club}' / '{age_group}': "
-                                f"{entry!r}. Når et lagnavn skrives som et objekt, må det ha "
-                                'en "label"-nøkkel med en ikke-tom tekststreng, '
-                                'f.eks. {"label": "Jar 1", "skillLevel": 5}.'
-                            )
-                        label = entry["label"]
-                        sl = entry.get("skillLevel")
-                        if sl is not None:
-                            if not isinstance(sl, int) or sl < 1 or sl > 10:
-                                raise RosterConfigError(
-                                    f"Ugyldig skillLevel for '{label}' / '{club}' / '{age_group}': "
-                                    f"{sl!r}. SkillLevel må være et heltall mellom 1 og 10."
-                                )
-                            skill_level = sl
-                    else:
+                    if not isinstance(entry, str):
                         raise RosterConfigError(
                             f"Ugyldig lagoppføring for klubb '{club}' / '{age_group}': "
-                            f"{entry!r}. Forventet en tekststreng (lagnavn) eller et "
-                            'objekt med "label"-nøkkel, '
-                            f"men fikk {type(entry).__name__}."
+                            f"{entry!r}. Forventet en tekststreng (lagnavn)."
                         )
+                    label = entry
 
                     if not label.strip():
                         raise RosterConfigError(
@@ -215,7 +165,7 @@ class RosterLoader:
                         )
                     seen_labels_for_club.add(key)
 
-                    teams.append(Team(club=club, label=label, age_group=age_group, region=region, skill_level=skill_level))
+                    teams.append(Team(club=club, label=label, age_group=age_group))
 
         return teams
 
@@ -223,8 +173,8 @@ class RosterLoader:
     def from_dict(cls, data) -> Roster:
         """Build a `Roster` from an already-parsed dict, validating its contents.
 
-        Accepts the flat (legacy) format, the extended format with a ``clubs``
-        key, and the extended format with an optional ``neighborClubs`` section.
+        Accepts the flat (legacy) format and the extended format with a ``clubs``
+        key.
         """
         if not isinstance(data, dict):
             raise RosterConfigError(
@@ -240,25 +190,7 @@ class RosterLoader:
                 "Ugyldig oppsett: spillerlisten (rosteret) er tom — ingen klubber funnet."
             )
 
-        teams = cls._parse_clubs_section(clubs_data, region="RVV", section_label="clubs")
-
-        # Parse optional neighborClubs in extended format only
-        if is_extended and "neighborClubs" in data:
-            neighbor_clubs_data = data["neighborClubs"]
-            if not isinstance(neighbor_clubs_data, dict):
-                raise RosterConfigError(
-                    "Ugyldig oppsett: 'neighborClubs'-nøkkelen må inneholde "
-                    "et oppslagsverk av klubber."
-                )
-            if neighbor_clubs_data:
-                neighbor_teams = cls._parse_clubs_section(
-                    neighbor_clubs_data,
-                    section_label="neighborClubs",
-                )
-                # Re-set region for each neighbor-club team to its club name
-                for t in neighbor_teams:
-                    object.__setattr__(t, "region", t.club)
-                teams.extend(neighbor_teams)
+        teams = cls._parse_clubs_section(clubs_data, section_label="clubs")
 
         return Roster(teams=teams)
 

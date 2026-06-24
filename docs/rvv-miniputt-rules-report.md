@@ -18,7 +18,6 @@ It is based on the planner code, not on the marketing/docs wording, so it calls 
 | Parallelle kamper for U7: 4 | For aldersgruppen U7 spilles det 4 kamper samtidig per runde. Det gir plass til opptil 8 lag per turnering, og hvis lagetallet er oddetall får ett lag pause i hver runde. | Hard krav |
 | Parallelle kamper for U8: 4 | For aldersgruppen U8 spilles det 4 kamper samtidig per runde. Det gir plass til opptil 8 lag per turnering, og hvis lagetallet er oddetall får ett lag pause i hver runde. | Hard krav |
 | Parallelle kamper for U9: 3 | For aldersgruppen U9 spilles det 3 kamper samtidig per runde. Det gir plass til opptil 6 lag per turnering, og hvis lagetallet er oddetall får ett lag pause i hver runde. | Hard krav |
-| Ferdighetsnivå-bånd: ±2 | Lag med registrert ferdighetsnivå (1–10) foretrekkes sammen med lag innenfor ±2 nivåer av hverandre. Dette er en myk prioritering i participant selection, ikke en absolutt sperre. Lag uten registrert nivå påvirkes ikke. | Myk regel |
 
 ### Configuration defaults / guardrails
 
@@ -34,7 +33,7 @@ It is based on the planner code, not on the marketing/docs wording, so it calls 
 | Rule | What it does |
 |---|---|
 | Per-klubb kapasitet beregnes proporsjonalt | Planleggeren starter med et minimumstak på 1 lag per klubb, men det effektive taket beregnes proporsjonalt ut fra klubbens størrelse i aldersgruppen og kan utvides videre av deficit-logikk. Dette er en kapasitetsregel, ikke et hardt forbud mot flere lag fra samme klubb. |
-| Minst mulig gjentatte grupperinger | Når planleggeren velger hvilke lag som skal møtes i en turnering, regnes det ut én samlet score for hver kandidat. Scoren balanserer klubb-tak, game-count-deficit, gjentatte motstandere og skill-band, slik at lag som både trenger flere kamper og passer inn i turneringen prioriteres først. |
+| Minst mulig gjentatte grupperinger | Når planleggeren velger hvilke lag som skal møtes i en turnering, regnes det ut én samlet score for hver kandidat. Scoren balanserer klubb-tak, game-count-deficit og gjentatte motstandere, slik at lag som både trenger flere kamper og passer inn i turneringen prioriteres først. |
 | Jevn fordeling av turneringer over sesongen | Sesongvinduet deles i omtrent like store tidsbolker, og planleggeren gjør i tillegg en global utjevningspass over hele sesongen før datoene låses. Det gjør at månedslast, overlappende aldersgrupper og gjentatte matchups kan rebalanseres på tvers av grupper, i stedet for at hver aldersgruppe bare følger sin egen lokale bucket. Måneder som avviker mer enn 50% fra forventet antall turneringer flagges som et varsel. |
 | Rettferdig fordeling av hjemmeturneringer | Hjemmeturneringer fordeles proporsjonalt etter antall lag hver klubb stiller. Klubber med flere lag får hjemmeturnering oftere. Maksimalt tillatt avvik fra forventet antall er 1 turnering(er). |
 | Jevnt antall kamper per lag | Planleggeren teller opp alle kamper hvert lag spiller i løpet av sesongen. Forskjellen mellom laget med flest og færrest kamper skal være maksimalt 2. Lag som blir ferdige for tidlig (mer enn 60 dager før sesongslutt) flagges som et varsel. |
@@ -61,7 +60,6 @@ It is based on the planner code, not on the marketing/docs wording, so it calls 
 
 ## Important discussion point
 
-The skill-band rule is soft in the implementation: it adds a penalty during participant selection rather than blocking a team outright.
 The per-club "minimum 1" value is also not a standalone policy rule; it is just the floor used before proportional expansion.
 
 ## Primary source files

@@ -95,7 +95,6 @@ def run(
     pg_config = _build_parallel_games(config)
     round_length_config = _build_round_length(config)
     club_arenas = _build_club_arenas(config)
-    division_skill_band = config.get("divisionSkillBand", 2)
     max_hosting_deviation = config.get("maxHostingDeviation", 1)
     max_hosting_days_per_month = config.get("maxHostingDaysPerMonth", 2)
     events_by_club = _build_events_by_club(scraping_result)
@@ -116,7 +115,6 @@ def run(
             roster,
             pg_config,
             club_arenas,
-            division_skill_band,
             max_hosting_deviation,
             round_length_config,
             events_by_club,

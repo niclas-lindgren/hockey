@@ -269,7 +269,6 @@ class ManualAdjustmentWorkflow:
             roster,
             pg_config,
             club_arenas,
-            cfg.get("divisionSkillBand", 2),
             cfg.get("maxHostingDeviation", 1),
             round_length_config,
             events_by_club,

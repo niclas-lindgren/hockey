@@ -350,17 +350,6 @@ def participant_selection_score(
     if selected:
         score += sum(1 for s in selected if planner._team_key(s) in grouped_with) * 120.0
 
-    selected_levels = [
-        planner._team_skill_levels[planner._team_key(s)]
-        for s in selected
-        if planner._team_key(s) in planner._team_skill_levels
-    ]
-    if selected_levels and team_key in planner._team_skill_levels:
-        median = sorted(selected_levels)[len(selected_levels) // 2]
-        dist = abs(planner._team_skill_levels[team_key] - median)
-        if dist > planner.division_skill_band:
-            score += (dist - planner.division_skill_band) * 100.0
-
     return score
 
 

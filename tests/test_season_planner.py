@@ -628,45 +628,6 @@ class TestOpponentHistoryTrackingAndScoring:
         assert team_c in selected
         assert team_b not in selected
 
-    def test_participant_selection_score_balances_repeat_history_and_skill_band(self):
-        roster = Roster(teams=[
-            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=5),
-            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=5),
-            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=9),
-        ])
-        planner = SeasonPlanner(
-            scheduler=FakeScheduler([]),
-            roster=roster,
-            club_arenas={team.club: f"{team.club}hallen" for team in roster.teams},
-            parallel_games_for_age_group={"U10": 2},
-            division_skill_band=1,
-        )
-        selected = [roster.teams[1]]
-        remaining = roster.teams[:1] + roster.teams[2:]
-
-        planner._invite_counts = {planner._team_key(team): 0 for team in roster.teams}
-        planner._grouped_with = {planner._team_key(roster.teams[2]): {planner._team_key(selected[0])}}
-        planner._opponent_history = {
-            frozenset((planner._team_key(roster.teams[2]), planner._team_key(selected[0]))): 2
-        }
-
-        fresh_score = participant_selection.participant_selection_score(
-            planner,
-            selected,
-            remaining,
-            roster.teams[0],
-            "U10",
-        )
-        repeat_skill_mismatch_score = participant_selection.participant_selection_score(
-            planner,
-            selected,
-            remaining,
-            roster.teams[2],
-            "U10",
-        )
-
-        assert repeat_skill_mismatch_score > fresh_score
-
     def test_participant_selection_score_prioritizes_deficit_over_repeat_pressure(self):
         roster = Roster(teams=[
             Team(club="Jar", label="Jar 1", age_group="U10"),
@@ -708,43 +669,6 @@ class TestOpponentHistoryTrackingAndScoring:
         )
 
         assert high_deficit_score < lower_deficit_score
-
-    def test_participant_selection_score_penalizes_far_skill_bands(self):
-        roster = Roster(teams=[
-            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=5),
-            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=6),
-            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=9),
-        ])
-        planner = SeasonPlanner(
-            scheduler=FakeScheduler([]),
-            roster=roster,
-            club_arenas={team.club: f"{team.club}hallen" for team in roster.teams},
-            parallel_games_for_age_group={"U10": 2},
-            division_skill_band=1,
-        )
-        selected = [roster.teams[0]]
-        remaining = roster.teams
-
-        planner._invite_counts = {planner._team_key(team): 0 for team in roster.teams}
-        planner._grouped_with = {}
-        planner._opponent_history = {}
-
-        near_band_score = participant_selection.participant_selection_score(
-            planner,
-            selected,
-            remaining,
-            roster.teams[1],
-            "U10",
-        )
-        far_band_score = participant_selection.participant_selection_score(
-            planner,
-            selected,
-            remaining,
-            roster.teams[2],
-            "U10",
-        )
-
-        assert far_band_score > near_band_score
 
     def test_global_date_selection_pass_beats_bucketed_baseline(self):
         start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
@@ -1646,173 +1570,6 @@ class TestPerTeamGameCounts:
         assert all(count == 1 for club, count in club_counts.items() if club != "Jar"), club_counts
 
 
-class TestSkillLevelDivisions:
-    """Tests for skill-level-based participant selection."""
-
-    @pytest.fixture
-    def skill_roster(self):
-        """8 teams in U10 from distinct clubs, 4 low-skill (1-2) and 4 high-skill (8-10).
-
-        Each team has its own club so the hard max-1-per-club constraint does not
-        interfere with skill-level adjacency testing.
-        """
-        return Roster(teams=[
-            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=1),
-            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=2),
-            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=1),
-            Team(club="Skien", label="Skien 1", age_group="U10", skill_level=2),
-            Team(club="Jutul", label="Jutul 1", age_group="U10", skill_level=9),
-            Team(club="Ringerike", label="Ringerike 1", age_group="U10", skill_level=10),
-            Team(club="Tønsberg", label="Tønsberg 1", age_group="U10", skill_level=8),
-            Team(club="Sandefjord", label="Sandefjord 1", age_group="U10", skill_level=9),
-        ])
-
-    @pytest.fixture
-    def free_dates(self):
-        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        return all_weekend_dates(start, end)
-
-    @pytest.fixture
-    def skill_planner(self, skill_roster, free_dates):
-        club_arenas = {t.club: f"{t.club}hallen" for t in skill_roster.teams}
-        return SeasonPlanner(
-            scheduler=FakeScheduler(free_dates),
-            roster=skill_roster,
-            club_arenas=club_arenas,
-            parallel_games_for_age_group={"U10": 2},
-            division_skill_band=2,
-        )
-
-    def test_teams_without_skill_level_are_grouped_normally(self, free_dates):
-        """Plain strings with no skill_level produce identical behaviour."""
-        roster = Roster(teams=[
-            Team(club="Jar", label="Jar 1", age_group="U10"),
-            Team(club="Holmen", label="Holmen 1", age_group="U10"),
-            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),
-            Team(club="Skien", label="Skien 1", age_group="U10"),
-            Team(club="Jutul", label="Jutul 1", age_group="U10"),
-            Team(club="Ringerike", label="Ringerike 1", age_group="U10"),
-            Team(club="Tønsberg", label="Tønsberg 1", age_group="U10"),
-        ])
-        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
-        planner = SeasonPlanner(
-            scheduler=FakeScheduler(free_dates),
-            roster=roster,
-            club_arenas=club_arenas,
-            parallel_games_for_age_group={"U10": 2},
-            division_skill_band=2,
-        )
-        plan = planner.build_plan(datetime(2026, 10, 1), datetime(2027, 4, 30))
-        assert len(plan.tournaments) > 0
-        # All teams have skill_level=None so _team_skill_levels should be empty
-        assert planner._team_skill_levels == {}
-
-    def test_teams_with_skill_level_prefer_adjacent_levels(self, skill_planner):
-        """With balanced high/low groups, first tournaments should stay within band."""
-        plan = skill_planner.build_plan(datetime(2026, 10, 1), datetime(2027, 4, 30))
-        assert len(plan.tournaments) >= 4
-
-        # The first tournament should clearly contain only low- or only high-skill teams
-        first_levels = [t.skill_level for t in plan.tournaments[0].teams if t.skill_level is not None]
-        assert len(first_levels) == 4
-        # All within band-2 of each other: max - min should be <= 2
-        assert max(first_levels) - min(first_levels) <= 2, (
-            f"first tournament levels too spread: {first_levels}"
-        )
-
-        # The second tournament should have the complementary skill group
-        second_levels = [t.skill_level for t in plan.tournaments[1].teams if t.skill_level is not None]
-        assert len(second_levels) == 4
-        assert max(second_levels) - min(second_levels) <= 2, (
-            f"second tournament levels too spread: {second_levels}"
-        )
-
-        # The two groups should be distinct (one high, one low)
-        assert set(first_levels).isdisjoint(set(second_levels)) or (
-            max(first_levels) <= 2 and max(second_levels) <= 2
-        ), f"groups not cleanly separated: {first_levels} / {second_levels}"
-
-    def test_skill_penalty_is_soft_not_hard(self):
-        """When one band has too few teams, teams from other bands are selected."""
-        roster = Roster(teams=[
-            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=1),
-            Team(club="Jar", label="Jar 2", age_group="U10", skill_level=9),
-            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=10),
-            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=8),
-            Team(club="Skien", label="Skien 1", age_group="U10", skill_level=9),
-        ])
-        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
-        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = all_weekend_dates(start, end)
-        planner = SeasonPlanner(
-            scheduler=FakeScheduler(free_dates),
-            roster=roster,
-            club_arenas=club_arenas,
-            parallel_games_for_age_group={"U10": 2},
-            division_skill_band=2,
-        )
-        plan = planner.build_plan(start, end)
-        assert len(plan.tournaments) >= 1
-        # With only 1 low-skill team and 4 high-skill, the first tournament must
-        # include the low-skill team (soft constraint doesn't exclude).
-        first_teams = plan.tournaments[0].teams
-        levels = [t.skill_level for t in first_teams if t.skill_level is not None]
-        assert 1 in levels, (
-            f"low-skill team should have been selected (soft constraint): levels={sorted(levels)}"
-        )
-
-    def test_mixed_skill_and_unrated_teams(self):
-        """Unrated teams (no skill_level) are not penalised and can be selected alongside any band."""
-        roster = Roster(teams=[
-            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=5),
-            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=6),
-            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10"),  # unrated
-            Team(club="Skien", label="Skien 1", age_group="U10"),  # unrated
-        ])
-        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
-        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = all_weekend_dates(start, end)
-        planner = SeasonPlanner(
-            scheduler=FakeScheduler(free_dates),
-            roster=roster,
-            club_arenas=club_arenas,
-            parallel_games_for_age_group={"U10": 2},
-            division_skill_band=2,
-        )
-        plan = planner.build_plan(start, end)
-        assert len(plan.tournaments) >= 1
-        # All 4 teams fit in one tournament; unrated teams must be included
-        assert len(plan.tournaments[0].teams) == 4
-        unrated = [t for t in plan.tournaments[0].teams if t.skill_level is None]
-        assert len(unrated) == 2, f"unrated teams should be selected: {[t.label for t in plan.tournaments[0].teams]}"
-
-    def test_division_skill_band_configurable(self):
-        """A wide band (99) should effectively disable skill filtering."""
-        roster = Roster(teams=[
-            Team(club="Jar", label="Jar 1", age_group="U10", skill_level=1),
-            Team(club="Skiptvet", label="Skiptvet 1", age_group="U10", skill_level=10),
-            Team(club="Holmen", label="Holmen 1", age_group="U10", skill_level=2),
-            Team(club="Kongsberg", label="Kongsberg 1", age_group="U10", skill_level=9),
-        ])
-        club_arenas = {t.club: f"{t.club}hallen" for t in roster.teams}
-        start, end = datetime(2026, 10, 1), datetime(2027, 4, 30)
-        free_dates = all_weekend_dates(start, end)
-        planner = SeasonPlanner(
-            scheduler=FakeScheduler(free_dates),
-            roster=roster,
-            club_arenas=club_arenas,
-            parallel_games_for_age_group={"U10": 2},
-            division_skill_band=99,  # effectively infinite
-        )
-        plan = planner.build_plan(start, end)
-        assert len(plan.tournaments) >= 1
-        # With a huge band, level 1 and 10 can coexist
-        first_levels = sorted([t.skill_level for t in plan.tournaments[0].teams if t.skill_level is not None])
-        assert 1 in first_levels and 10 in first_levels, (
-            f"wide band should allow all levels together: {first_levels}"
-        )
-
-
 class TestProportionalHosting:
     """Tests for proportional home-tournament hosting."""
 
@@ -2233,8 +1990,8 @@ class TestRulesReport:
     def test_returns_nonempty_list_with_required_keys(self):
         """rules_report() returns a non-empty list; every entry has regel, forklaring, kategori."""
         roster = Roster(teams=[
-            Team(club="Jar", label="Jar U10", age_group="U10", skill_level=5),
-            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10", skill_level=6),
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
         ])
         club_arenas = {"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"}
         planner = SeasonPlanner(
@@ -2245,7 +2002,7 @@ class TestRulesReport:
         report = planner.rules_report()
 
         assert isinstance(report, list)
-        assert len(report) >= 8, f"expected at least 8 rules, got {len(report)}"
+        assert len(report) >= 7, f"expected at least 7 rules, got {len(report)}"
 
         for entry in report:
             assert isinstance(entry, dict), f"each entry must be a dict, got {type(entry)}"
@@ -2280,8 +2037,8 @@ class TestRulesReport:
     def test_hard_constraints_have_correct_category(self):
         """Rules with kategori='Hard krav' cover the truly blocking scheduler constraints."""
         roster = Roster(teams=[
-            Team(club="Jar", label="Jar U10", age_group="U10", skill_level=5),
-            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10", skill_level=6),
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
         ])
         club_arenas = {"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"}
         planner = SeasonPlanner(
@@ -2289,7 +2046,6 @@ class TestRulesReport:
             roster=roster,
             club_arenas=club_arenas,
             parallel_games_for_age_group={"U10": 4, "JU11": 2},
-            division_skill_band=3,
         )
         report = planner.rules_report()
 

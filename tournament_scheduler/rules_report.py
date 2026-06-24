@@ -44,16 +44,6 @@ def rules_report(planner) -> List[Dict[str, str]]:
             "kategori": "Hard krav",
         })
 
-    report.append({
-        "regel": f"Ferdighetsnivå-bånd: ±{planner.division_skill_band}",
-        "forklaring": (
-            f"Lag med registrert ferdighetsnivå (1–10) foretrekkes sammen med lag innenfor ±{planner.division_skill_band} "
-            "nivåer av hverandre. Dette er en myk prioritering i participant selection, ikke en absolutt sperre. "
-            "Lag uten registrert nivå påvirkes ikke."
-        ),
-        "kategori": "Myk regel",
-    })
-
     fairness_thresholds = planner.fairness_thresholds
     thresholds_text = ", ".join(
         f"{key}={fairness_thresholds[key]}"
@@ -98,7 +88,7 @@ def rules_report(planner) -> List[Dict[str, str]]:
             "regel": "Minst mulig gjentatte grupperinger",
             "forklaring": (
                 "Når planleggeren velger hvilke lag som skal møtes i en turnering, regnes det ut én samlet score for hver kandidat. "
-                "Scoren balanserer klubb-tak, game-count-deficit, gjentatte motstandere og skill-band, slik at lag som både trenger flere kamper og passer inn i turneringen prioriteres først."
+                "Scoren balanserer klubb-tak, game-count-deficit og gjentatte motstandere, slik at lag som både trenger flere kamper og passer inn i turneringen prioriteres først."
             ),
             "kategori": "Automatisk avgjørelse",
         },
@@ -368,7 +358,6 @@ def render_rules_markdown(planner) -> str:
     lines.extend([
         "## Important discussion point",
         "",
-        "The skill-band rule is soft in the implementation: it adds a penalty during participant selection rather than blocking a team outright.",
         "The per-club \"minimum 1\" value is also not a standalone policy rule; it is just the floor used before proportional expansion.",
         "",
         "## Primary source files",
