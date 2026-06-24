@@ -8,6 +8,42 @@ It runs a four-stage workflow that:
 3. builds a season plan
 4. exports Excel, CSV, iCal, HTML, and Spond files
 
+## Installation
+
+Prerequisites:
+- Python 3.10+
+- `python3 -m venv`
+- access to `pip`
+
+Fast path on macOS/Linux:
+
+```sh
+git clone <repo-url>
+cd hockey
+make install
+# or
+sh scripts/install.sh
+```
+
+Run `sh scripts/install.sh --help` for installer options.
+The installer uses `requirements.txt` for runtime dependencies and installs the project in editable mode from `pyproject.toml`.
+If you need the Playwright browser binaries for scraping, run:
+
+```sh
+INSTALL_PLAYWRIGHT=1 make install
+# or
+INSTALL_PLAYWRIGHT=1 sh scripts/install.sh
+```
+
+Manual install:
+
+```sh
+python3 -m venv venv
+venv/bin/python3 -m pip install --upgrade pip setuptools wheel
+venv/bin/python3 -m pip install -r requirements.txt
+venv/bin/python3 -m pip install -e .
+```
+
 ## Quick start
 
 In Pi, start the workflow with:
