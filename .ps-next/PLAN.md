@@ -1,71 +1,41 @@
-# Plan: Feed fairness gate scores from failed planning attempts as penalty hints into retries
-**Goal:** The 3-attempt Stage 3 retry loop in `_cmd_run` no longer just blindly increases `--iterations` — it reads fairness gate scores from each failed attempt and passes targeted penalty hints (relaxed thresholds) into the next attempt, so the planner can explore solutions that pass the gate rather than searching independently each time.
-**Created:** 2026-06-24
-**Intent:** The outer retry loop currently has no memory — each attempt starts fresh with only a larger search budget. Failed fairness metrics (e.g. `hosting_deviation` at score 44) are discarded. This change feeds those scores back as config adjustments so the planner can fix what went wrong.
-**Backlog-ref:** 8
+# Plan: Age-group-aware host assignment
+
+**Goal:** Host assignment treats each age group independently — same-arena same-day reuse is allowed across different age groups, and consecutive-weekend streak constraints only apply within the same age group.
+
+**Created:** 2026-06-25
+
+**Intent:** Currently `assign_hosts` and the weekend-balance warning scan track consecutive hosting streaks and last-hosted dates globally per club. This means a club hosting U7 on Saturday cannot also host U10 on the same day (they would compete for the arena), and hosting U7 one week artificially penalizes the club's streak for U10 the following week. The fix makes both the host-assignment cost function and the warning scanner age-group-aware.
+
+**Backlog-ref:** 198
 
 ## Tasks
-- [x] Add penalty-hints plumbing from `_cmd_run` retry loop through `_run_stage3` and `stage3_planning.run()` into `SeasonPlanner`
-  - Files: tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/season_planner.py
-  - Approach:
-    1. In `_cmd_run` retry loop: after each attempt where tone is "rough", extract fairness gate metrics from the plan checkpoint dict. Build `penalty_hints` by collecting any metric with `score < 100` and `status != "pass"`, storing `{metric_key: score}` pairs.
-    2. Pass `penalty_hints` into `_run_stage3()` as a new parameter.
-    3. In `_run_stage3()`, merge `penalty_hints` into the `cfg` dict under a new `"penalty_hints"` key before calling `stage3_run()`.
-    4. In `stage3_planning.run()`, extract `penalty_hints` from config and pass to `_make_planner()`.
-    5. In `SeasonPlanner.__init__()`, accept `penalty_hints: Optional[Dict[str, float]] = None` and store as `self.penalty_hints`.
-    6. Log applied hints via `_console.print` and `_log` in Norwegian so operators see which metrics triggered adjustments.
 
-- [x] Relax failing fairness thresholds based on penalty hints in the next attempt
-  - Files: tournament_scheduler/season_planner.py
-  - Approach:
-    1. In `SeasonPlanner.__init__()`, after setting `self.fairness_thresholds`, iterate over `penalty_hints`.
-    2. For `hosting_deviation_score`: if score < 100, relax `max_hosting_deviation` to `max(2.0, original * 1.5)` so the planner has more room.
-    3. For `game_count_spread_score`: if score < 100, relax `max_game_count_spread` to `max(4, original * 1.5)`.
-    4. For `month_balance_score` or `diversity_score` or `pairwise_matchup_score`: if score < 75 (below min), relax `min_*_score` by multiplying by 0.7 (lower threshold = easier to pass).
-    5. Log each relaxation via `print(f"[penalty_hints] {key}: {old} → {new}")` so the operator/run log can trace it.
-    6. The original thresholds in the config are NOT mutated — only the running instance's thresholds change, so re-running without penalty_hints uses original thresholds.
+- [ ] Make host-assignment consecutive-streak tracking per-age-group
+  - Files: tournament_scheduler/host_assignment.py
+  - Approach: Change `last_hosted_date_by_club` → `last_hosted_date_by_club_age` keyed by `(club, age_group)`. Change `consecutive_streak_by_club` → `consecutive_streak_by_club_age` with the same compound key. In `_projected_streak`, look up the streak using the current tournament's age group. The overall gap penalty (`-gap`) remains global to distribute hosting load, but streak timing is scoped per age group.
 
-- [x] Track the best plan by composite fairness score across retries in `_cmd_run`
-  - Files: tournament_scheduler/cli/pipeline_orchestrator.py
-  - Approach:
-    1. Before the retry loop, initialize `best_plan: dict[str, Any] | None = None` and `best_score: int = -1`.
-    2. After each attempt, extract the fairness gate score from the plan checkpoint (`plan.get("plan", {}).get("fairness_gate", {}).get("score", 0)`).
-    3. If `score > best_score`, store `(best_plan, best_score) = (plan, score)` and log which attempt won.
-    4. After the loop, use `best_plan` instead of `plan` for the continuation (Stage 4, refinement loop).
-    5. Log a message like `"Valgte forsøk N (score=M) over forsøk K (score=L)"` so the operator sees which attempt had the best quality.
+- [ ] Make weekend-balance warning scan per-age-group
+  - Files: tournament_scheduler/warnings.py
+  - Approach: In `scan_weekend_balance`, group host dates by `(club, age_group)` instead of just club. Compute consecutive streaks per age group. The reported max consecutive load for a club is the worst across all its age groups, but each streak is only counted within its own age group.
+
+- [ ] Update tests for age-group-aware host assignment
+  - Files: tests/test_host_assignment.py
+  - Approach: Add test cases where the same club hosts different age groups on consecutive weekends — verify no streak penalty. Add test case where same club hosts the same age group on consecutive weekends — verify streak penalty still applies. Verify same-day same-arena different-age-group assignment is allowed.
 
 ## Notes
-- This is only about the *outer* retry loop in `_cmd_run` (3 attempts with increasing iterations). The *inner* multi-seed loop in `stage3_planning.run()` already keeps the best plan across seeds — that's untouched.
-- Penalty hints should never make the threshold easier than double the original (cap relaxation).
-- Hints are ephemeral — written only to the running instance, never persisted to input.xlsx or the Stage 1 checkpoint.
-- Test by running the pipeline with intentionally tight thresholds and verifying each retry relaxes appropriately.
+
+- `_sequence_same_arena_day_start_times` in season_planner.py already handles same-day same-arena tournaments by sequencing start times — the planning side already allows this. The only fix needed is in the host-assignment cost function so it doesn't penalize arena reuse across age groups.
+- The gap component (`-gap`) in the scoring tuple should remain global (club-wide) to spread a club's hosting duties across the season. Only the streak penalty should be age-group-scoped.
+- Holiday-heavy hosting penalty should also remain global — it's a club-wide burden regardless of age group.
+- The gap-check (4th tuple element in `_score`) uses `last_hosted_date_by_club` — this should remain global to spread load.
 
 ## Acceptance Criteria
-- [ ] `penalty_hints` dict flows from `_cmd_run` → `_run_stage3` → `stage3_planning.run()` → `SeasonPlanner.__init__()` without breaking existing callers.
-- [ ] Failed fairness metrics trigger relaxed thresholds in the next attempt (verified by log output).
-- [ ] Best plan across all retries is kept, not just the last attempt.
-- [ ] Existing tests pass without changes.
-- [ ] Log output in Norwegian shows which metrics triggered hints and what was relaxed.
+
+- [ ] Verify that a club hosting U7 on weekend N and U10 on weekend N+7 does NOT introduce a consecutive-streak penalty in assign_hosts.
+- [ ] Verify that a club hosting U7 on weekend N and U7 on weekend N+7 DOES introduce a consecutive-streak penalty in assign_hosts.
+- [ ] Verify that assign_hosts allows the same arena on the same day for different age groups without penalizing the second assignment.
+- [ ] Verify that scan_weekend_balance reports per-age-group streaks, not a mixing of age groups into one global streak.
+- [ ] Verify that existing tests pass without modification and new tests pass.
 
 ## Log
-
-
-
-### 2026-06-25 — Track the best plan by composite fairness score across retries in `_cmd_run`
-**Done:** _cmd_run tracks best_plan/best_score/best_attempt across retries and selects the best one
-**Rationale:** best_plan/best_score/best_attempt initialized before retry loop. After each attempt, fairness gate score is extracted and compared. After loop, best plan is used if earlier attempt scored higher. Norwegian logging: 'Velger forsøk N (fairness-score M) — best av N'.
-**Findings:** Best-plan tracking works correctly: stores only when score > best_score, logs which attempt won, recomputes tone from the selected best plan. Pre-existing test failures in test_season_planner and test_stage3_planning unrelated.
-**Files:** tournament_scheduler/cli/pipeline_orchestrator.py
-**Commit:** not committed
-### 2026-06-25 — Relax failing fairness thresholds based on penalty hints in the next attempt
-**Done:** SeasonPlanner.__init__() relaxes thresholds based on penalty hints
-**Rationale:** After storing self.penalty_hints, the code iterates over hint keys and relaxes max_hosting_deviation (1.5x, min 2), max_game_count_spread (1.5x, min 4), min_diversity_score, min_pairwise_matchup_score, and min_month_balance_score (0.7x, min 0.3). Original config thresholds are not mutated, and relaxation is capped at 2x.
-**Findings:** All 5 metric types handled with appropriate relaxation logic. Logging via print('[penalty_hints] ...') in Norwegian. Original thresholds preserved in config dict.
-**Files:** tournament_scheduler/season_planner.py
-**Commit:** not committed
-### 2026-06-25 — Add penalty-hints plumbing from `_cmd_run` retry loop through `_run_stage3` and `stage3_planning.run()` into `SeasonPlanner`
-**Done:** penalty_hints flows from _cmd_run → _run_stage3 → stage3_planning.run() → _make_planner() → SeasonPlanner.__init__()
-**Rationale:** The retry loop in _cmd_run builds penalty_hints from failed fairness gate metrics; _run_stage3 merges them into cfg; stage3_planning.run() extracts and passes to _make_planner(); SeasonPlanner stores as self.penalty_hints and logs via _console.print/print in Norwegian.
-**Findings:** All plumbing paths verified: _cmd_run builds hints → _run_stage3 merges into cfg → stage3_planning.run() extracts from config → _make_planner() passes to SeasonPlanner.__init__(). Norwegian logging present at each hop.
-**Files:** tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/pipeline/stage3_helpers.py, tournament_scheduler/season_planner.py
-**Commit:** not committed
+<!-- pi-next appends entries here after each task -->
