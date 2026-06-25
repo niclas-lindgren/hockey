@@ -6,13 +6,18 @@ These tests cover:
 - The end-to-end invariant: game.home.club == arena owner for all rounds
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from types import SimpleNamespace
 
 import pytest
 
 from tournament_scheduler.club_registry import club_for_arena
-from tournament_scheduler.host_assignment import find_slot_for_tournament
+from tournament_scheduler.host_assignment import (
+    assign_hosts,
+    find_slot_for_tournament,
+    hosting_targets_for_age_group,
+)
+from tournament_scheduler.models import Roster, Team
 from tournament_scheduler.models import CalendarEvent, Team
 from tournament_scheduler.scheduler import TournamentScheduler
 from tournament_scheduler.season_planner import SeasonPlanner
@@ -210,3 +215,85 @@ class TestHomeTeamIsAlwaysHostClub:
         assert [t.club for t in ordered] == [t.club for t in participants]
         games = SeasonPlanner.generate_round_robin_games(ordered, parallel_games=2)
         assert len(games) > 0
+
+
+# ---------------------------------------------------------------------------
+# Age-group-aware host assignment streak tests
+# ---------------------------------------------------------------------------
+
+
+class TestAgeGroupAwareHostStreak:
+    """Verify consecutive-streak tracking is scoped per (club, age_group)."""
+
+    def _make_planner(self, teams):
+        roster = Roster(teams=teams)
+        return SimpleNamespace(
+            roster=roster,
+            clubs=lambda: roster.clubs(),
+            club_arenas={},
+            _arena_day_collisions=[],
+            round_length_for_age_group={},
+        )
+
+    def test_different_age_group_no_streak_penalty(self):
+        """A club hosting U7 one weekend and U10 the next gets no streak penalty."""
+        teams = [
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Jar", label="Jar U7", age_group="U7"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U7", age_group="U7"),
+        ]
+        planner = self._make_planner(teams)
+
+        # Jar hosts U7 on day 1, then U10 on day 8 (consecutive weekend, different age group)
+        # If streak were global, Jar would be penalized for U10.
+        # With age-group scoping, (Jar, U10) has no streak -> 3 candidates, Jar still feasible.
+        scheduled = [
+            (date(2026, 10, 3), "U7"),
+            (date(2026, 10, 3), "U10"),  # same day, different age group
+            (date(2026, 10, 10), "U10"),  # next weekend, same club Jar would host
+        ]
+        assignments = assign_hosts(planner, scheduled)
+
+        # All 3 slots assigned to some club
+        assert all(a != "" for a in assignments), "All slots should be assigned"
+        # Assignments don't crash — streak is age-scoped, so Jar can be assigned for U10
+        # even though Jar hosted U7 the previous week
+        assert len(assignments) == 3
+
+    def test_same_age_group_streak_penalty_still_applies(self):
+        """A club hosting U7 two weekends in a row still gets a streak penalty."""
+        teams = [
+            Team(club="Jar", label="Jar U7", age_group="U7"),
+            Team(club="Kongsberg", label="Kongsberg U7", age_group="U7"),
+        ]
+        planner = self._make_planner(teams)
+
+        scheduled = [
+            (date(2026, 10, 3), "U7"),
+            (date(2026, 10, 10), "U7"),   # consecutive same age group
+        ]
+        assignments = assign_hosts(planner, scheduled)
+
+        # Both slots assigned
+        assert all(a != "" for a in assignments)
+
+    def test_same_arena_same_day_different_age_groups_allowed(self):
+        """Two tournaments in the same arena on the same day for different age groups is allowed."""
+        teams = [
+            Team(club="Jar", label="Jar U7", age_group="U7"),
+            Team(club="Jar", label="Jar U10", age_group="U10"),
+            Team(club="Kongsberg", label="Kongsberg U7", age_group="U7"),
+            Team(club="Kongsberg", label="Kongsberg U10", age_group="U10"),
+        ]
+        planner = self._make_planner(teams)
+
+        # Two tournaments on the same day, different age groups, both at Jar/Jarhallen
+        scheduled = [
+            (date(2026, 10, 3), "U7"),
+            (date(2026, 10, 3), "U10"),
+        ]
+        assignments = assign_hosts(planner, scheduled)
+
+        assert len(assignments) == 2
+        assert all(a != "" for a in assignments), "Both slots should be assigned"

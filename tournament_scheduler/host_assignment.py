@@ -73,7 +73,8 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
     assignments: List[str] = []
     all_clubs = planner.roster.clubs()
     last_hosted_date_by_club: Dict[str, date] = {}
-    consecutive_streak_by_club: Dict[str, int] = {}
+    last_hosted_date_by_club_age: Dict[Tuple[str, str], date] = {}
+    consecutive_streak_by_club_age: Dict[Tuple[str, str], int] = {}
     holiday_heavy_host_count_by_club: Dict[str, int] = {}
     first_date = min(tournament_date for tournament_date, _ in scheduled)
     last_date = max(tournament_date for tournament_date, _ in scheduled)
@@ -91,9 +92,10 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
         is_holiday_heavy = tournament_date in holiday_heavy_dates
 
         def _projected_streak(club: str) -> int:
-            last_date = last_hosted_date_by_club.get(club)
+            key = (club, age_group)
+            last_date = last_hosted_date_by_club_age.get(key)
             if last_date is not None and (tournament_date - last_date).days == 7:
-                return consecutive_streak_by_club.get(club, 1) + 1
+                return consecutive_streak_by_club_age.get(key, 1) + 1
             return 1
 
         def _score(club: str) -> Tuple[int, int, int, int, int, int, int]:
@@ -112,11 +114,13 @@ def assign_hosts(planner, scheduled: Sequence[Tuple[date, str]]) -> List[str]:
         host = min(candidate_pool, key=_score)
         assignments.append(host)
         actual_counts[host] = actual_counts.get(host, 0) + 1
-        previous_date = last_hosted_date_by_club.get(host)
-        if previous_date is not None and (tournament_date - previous_date).days == 7:
-            consecutive_streak_by_club[host] = consecutive_streak_by_club.get(host, 1) + 1
+        age_key = (host, age_group)
+        previous_age_date = last_hosted_date_by_club_age.get(age_key)
+        if previous_age_date is not None and (tournament_date - previous_age_date).days == 7:
+            consecutive_streak_by_club_age[age_key] = consecutive_streak_by_club_age.get(age_key, 1) + 1
         else:
-            consecutive_streak_by_club[host] = 1
+            consecutive_streak_by_club_age[age_key] = 1
+        last_hosted_date_by_club_age[age_key] = tournament_date
         last_hosted_date_by_club[host] = tournament_date
         if is_holiday_heavy:
             holiday_heavy_host_count_by_club[host] = holiday_heavy_host_count_by_club.get(host, 0) + 1

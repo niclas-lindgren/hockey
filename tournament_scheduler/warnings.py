@@ -54,19 +54,25 @@ def holiday_heavy_weekend_dates(start_date: date, end_date: date) -> Set[date]:
 
 
 def hosting_weekend_balance_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
-    """Return weekend-adjacent hosting diagnostics for the fairness gate."""
+    """Return weekend-adjacent hosting diagnostics for the fairness gate.
+
+    Consecutive-weekend streaks are computed per age group so that hosting
+    U7 one week and U10 the next week does not create a false streak.
+    The reported max per club is the worst streak across its age groups.
+    """
     rows: List[Dict[str, object]] = []
-    host_dates_by_club: Dict[str, List[date]] = {}
+    host_dates_by_club_age: dict[tuple[str, str], list[date]] = {}
 
     for tournament in plan.tournaments:
         if getattr(tournament, "cancelled", False):
             continue
         host_club = getattr(tournament, "host_club", None)
         tournament_date = getattr(tournament, "date", None)
-        if host_club and tournament_date:
-            host_dates_by_club.setdefault(host_club, []).append(tournament_date)
+        age_group = getattr(tournament, "age_group", None)
+        if host_club and tournament_date and age_group:
+            host_dates_by_club_age.setdefault((host_club, age_group), []).append(tournament_date)
 
-    if not host_dates_by_club:
+    if not host_dates_by_club_age:
         return {
             "max_consecutive_weekend_load": 0,
             "max_holiday_stretch_load": 0,
@@ -74,16 +80,17 @@ def hosting_weekend_balance_breakdown(planner, plan: SeasonPlan) -> Dict[str, ob
             "club_breakdown": [],
         }
 
-    plan_start = plan.start_date or min(min(dates) for dates in host_dates_by_club.values())
-    plan_end = plan.end_date or max(max(dates) for dates in host_dates_by_club.values())
+    all_dates = [d for dates in host_dates_by_club_age.values() for d in dates]
+    plan_start = plan.start_date or min(all_dates)
+    plan_end = plan.end_date or max(all_dates)
     holiday_heavy_dates = holiday_heavy_weekend_dates(plan_start, plan_end)
 
-    max_consecutive = 0
-    max_holiday = 0
-    max_consecutive_detail = ""
-    max_holiday_detail = ""
+    # Aggregate per club: compute streaks per age group, report worst.
+    club_streaks: Dict[str, int] = {}
+    club_holiday: Dict[str, int] = {}
+    club_all_dates: Dict[str, set] = {}
 
-    for club, dates in sorted(host_dates_by_club.items()):
+    for (club, age_group), dates in sorted(host_dates_by_club_age.items()):
         unique_dates = sorted(set(dates))
         consecutive = 0
         longest_streak = 0
@@ -96,11 +103,25 @@ def hosting_weekend_balance_breakdown(planner, plan: SeasonPlan) -> Dict[str, ob
             longest_streak = max(longest_streak, consecutive)
             previous_date = tournament_date
 
-        holiday_load = sum(1 for tournament_date in unique_dates if tournament_date in holiday_heavy_dates)
+        club_streaks[club] = max(club_streaks.get(club, 0), longest_streak)
+        club_holiday[club] = club_holiday.get(club, 0) + sum(
+            1 for tournament_date in unique_dates if tournament_date in holiday_heavy_dates
+        )
+        club_all_dates.setdefault(club, set()).update(unique_dates)
+
+    max_consecutive = 0
+    max_holiday = 0
+    max_consecutive_detail = ""
+    max_holiday_detail = ""
+
+    for club in sorted(club_streaks):
+        longest_streak = club_streaks[club]
+        holiday_load = club_holiday[club]
+        hosting_days = len(club_all_dates[club])
         rows.append(
             {
                 "club": club,
-                "hosting_days": len(unique_dates),
+                "hosting_days": hosting_days,
                 "consecutive_weekend_load": longest_streak,
                 "holiday_stretch_load": holiday_load,
             }
