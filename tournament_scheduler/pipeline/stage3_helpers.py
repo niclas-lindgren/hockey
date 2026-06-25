@@ -191,6 +191,7 @@ def _make_planner(
     target_tournament_counts_by_age_group: dict[str, dict[str, int]] | None = None,
     seed: int | None = None,
     max_hosting_days_per_month: int | None = None,
+    penalty_hints: dict[str, float] | None = None,
 ) -> SeasonPlanner:
     """Construct a :class:`SeasonPlanner` with derived tournament sizing.
 
@@ -219,6 +220,7 @@ def _make_planner(
         events_by_club=events_by_club or None,
         fairness_thresholds=fairness_thresholds or None,
         seed=seed,
+        penalty_hints=penalty_hints,
     )
 
 

@@ -99,6 +99,7 @@ def run(
     events_by_club = _build_events_by_club(scraping_result)
     fairness_thresholds = config.get("fairness_thresholds", {})
     target_tournament_counts_by_age_group = config.get("target_tournament_counts_by_age_group")
+    penalty_hints: dict[str, float] | None = config.get("penalty_hints")
 
     best_plan: SeasonPlan | None = None
     best_planner: SeasonPlanner | None = None
@@ -121,6 +122,7 @@ def run(
             target_tournament_counts_by_age_group,
             seed=seed,
             max_hosting_days_per_month=None,
+            penalty_hints=penalty_hints,
         )
         plan = planner.build_plan(start_date, end_date)
         if plan is None or not plan.tournaments:

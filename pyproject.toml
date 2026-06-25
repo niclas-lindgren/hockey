@@ -28,5 +28,8 @@ desktop = [
 rvv-miniputt = "tournament_scheduler.cli.rvv_cli:main"
 rvv-miniputt-desktop-backend = "tournament_scheduler.desktop_server:main"
 
+[tool.pytest.ini_options]
+timeout = 30
+
 [tool.setuptools.packages.find]
 include = ["tournament_scheduler*"]

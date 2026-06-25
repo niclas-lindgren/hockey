@@ -117,6 +117,7 @@ class SeasonPlanner:
         date_preferences: Optional[List[DatePreference]] = None,
         preferanse_vekt_by_age_group: Optional[Dict[str, float]] = None,
         seed: Optional[int] = None,
+        penalty_hints: Optional[Dict[str, float]] = None,
     ):
         self.scheduler = scheduler
         self.roster = roster
@@ -173,6 +174,33 @@ class SeasonPlanner:
         self.fairness_thresholds = dict(DEFAULT_FAIRNESS_THRESHOLDS)
         if fairness_thresholds:
             self.fairness_thresholds.update(fairness_thresholds)
+        self.penalty_hints: Dict[str, float] = dict(penalty_hints or {})
+        if self.penalty_hints:
+            _hint_keys_log: list[str] = []
+            # Relax thresholds for metrics that failed, capped at 2x original
+            host_score = self.penalty_hints.get("hosting_deviation_score")
+            if host_score is not None and host_score < 100:
+                old = self.max_hosting_deviation
+                self.max_hosting_deviation = max(2, int(round(old * 1.5)))
+                _hint_keys_log.append(f"maks_vertskap_avvik: {old}→{self.max_hosting_deviation} (score={host_score})")
+            spread_score = self.penalty_hints.get("game_count_spread_score")
+            if spread_score is not None and spread_score < 100:
+                old = self.max_game_count_spread
+                self.max_game_count_spread = max(4, int(round(old * 1.5)))
+                _hint_keys_log.append(f"maks_kamper_spredning: {old}→{self.max_game_count_spread} (score={spread_score})")
+            for key, min_key, factor in [
+                ("diversity_score", "min_diversity_score", 0.7),
+                ("pairwise_matchup_score", "min_pairwise_matchup_score", 0.7),
+                ("month_balance_score", "min_month_balance_score", 0.7),
+            ]:
+                score_val = self.penalty_hints.get(key)
+                if score_val is not None and score_val < 75:
+                    old = self.fairness_thresholds.get(min_key, DEFAULT_FAIRNESS_THRESHOLDS.get(min_key, 0.75))
+                    new_val = max(0.3, old * factor)
+                    self.fairness_thresholds[min_key] = new_val
+                    _hint_keys_log.append(f"{min_key}: {old:.2f}→{new_val:.2f} (score={score_val})")
+            if _hint_keys_log:
+                print(f"[penalty_hints] {', '.join(_hint_keys_log)}")
         self.fairness_model = fairness_model or SeasonFairnessModel()
         self._fallback_host_substitutions: List[Tuple[date, str, str, str]] = []
         self.date_preferences: List[DatePreference] = date_preferences or []

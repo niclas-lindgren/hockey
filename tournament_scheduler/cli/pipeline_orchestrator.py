@@ -804,6 +804,7 @@ def _run_stage3(
     resume_from: int,
     log_fn: "Any",
     iterations: int | None = None,
+    penalty_hints: "dict[str, float] | None" = None,
 ) -> "tuple[dict[str, Any] | None, bool, bool]":
     """Run Stage 3 (planning) or skip it when resuming from a later stage.
 
@@ -811,6 +812,10 @@ def _run_stage3(
     dict, *abort* is True when the pipeline should stop (caller writes the run log
     and returns 1), and *run_failed* is True when the stage failed in non-strict
     mode (pipeline continues but ``run_failed`` should be set).
+
+    When *penalty_hints* is provided, it is injected into the config dict under the
+    key ``"penalty_hints"`` before calling the planner, so failed fairness metrics
+    from a previous attempt can relax thresholds in the next attempt.
     """
     from ..pipeline.stage3_planning import run as stage3_run
     from ..pipeline.state import StageName
@@ -818,7 +823,14 @@ def _run_stage3(
     if resume_from <= 3:
         _console.print("[bold]Stage 3:[/bold] Sesongplanlegging...")
         try:
-            plan = stage3_run(cfg, scraping, state, start, end, strict=strict, iterations=iterations or getattr(args, "iterations", 1))
+            # Inject penalty hints from a previous failed attempt into config
+            merged_cfg = dict(cfg)
+            if penalty_hints:
+                merged_cfg["penalty_hints"] = dict(penalty_hints)
+                hint_display = ", ".join(f"{k}={v}" for k, v in penalty_hints.items())
+                _console.print(f"  [dim]Straffetips: {hint_display}[/dim]")
+                log_fn(f"Stage 3 penalty hints injected: {hint_display}")
+            plan = stage3_run(merged_cfg, scraping, state, start, end, strict=strict, iterations=iterations or getattr(args, "iterations", 1))
             n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
             _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
             log_fn(f"Stage 3 OK: {n_tournaments} tournaments planned")
@@ -959,20 +971,49 @@ def _cmd_run(args: argparse.Namespace) -> int:
     # Retry Stage 3 planning when the verdict is still rough and we actually
     # have a populated tournament plan to improve. This gives the planner a
     # larger search budget before we export anything.
+    # Also feeds fairness gate scores from each failed attempt back as penalty
+    # hints into the next attempt, so the planner can relax thresholds for
+    # metrics that failed.
     max_plan_attempts = 3
     base_iterations = max(1, int(getattr(args, "iterations", 1) or 1))
     final_tone = "rough"
     final_tournament_count = 0
     plan_needs_attention = False
+    best_plan: "dict[str, Any] | None" = None
+    best_score: int = -1
+    best_attempt: int = 0
 
     for attempt in range(1, max_plan_attempts + 1):
         attempt_iterations = base_iterations + attempt - 1
+        penalty_hints: "dict[str, float]" = {}
+        if attempt > 1 and plan is not None:
+            # Build penalty hints from fairness gate metrics of the previous attempt
+            try:
+                fg = (plan.get("plan", {}) or {}).get("fairness_gate", {}) or {}
+                metrics: list = fg.get("metrics", []) or []
+                for m in metrics:
+                    if isinstance(m, dict):
+                        key = m.get("key", "")
+                        status = m.get("status", "pass")
+                        score = m.get("score", 100)
+                        if status != "pass":
+                            penalty_hints[f"{key}_score"] = float(score)
+            except Exception:
+                pass
+            if penalty_hints:
+                hint_str = ", ".join(f"{k}={v}" for k, v in penalty_hints.items())
+                _console.print(
+                    f"  [dim]Forrige forsøk: straffetips {hint_str}[/dim]"
+                )
+                _log(f"Penalty hints from attempt {attempt-1}: {hint_str}")
         if attempt > 1:
             _console.print(
-                f"[dim]Nytt planforsøk {attempt}/{max_plan_attempts} (søk={attempt_iterations})[/dim]"
+                f"[dim]Nytt planforsøk {attempt}/{max_plan_attempts} "
+                f"(søk={attempt_iterations})[/dim]"
             )
         plan, abort, stage3_failed = _run_stage3(
-            args, cfg, scraping, state, start, end, strict, resume_from, _log, attempt_iterations
+            args, cfg, scraping, state, start, end, strict, resume_from,
+            _log, attempt_iterations, penalty_hints,
         )
         if abort:
             _write_run_log(args.work_dir, log_start, log_lines, success=False)
@@ -982,16 +1023,48 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
         final_tournament_count = len((plan or {}).get("plan", {}).get("tournaments", []))
         final_tone = _compute_verdict_tone(plan or {})
+
+        # Track best plan by composite fairness score across attempts
+        if plan is not None:
+            fg = ((plan.get("plan", {}) or {}).get("fairness_gate", {}) or {})
+            attempt_score = int(fg.get("score", 0) or 0)
+            if attempt_score > best_score:
+                best_score = attempt_score
+                best_plan = plan
+                best_attempt = attempt
+
         _log(
-            f"Stage 3 attempt {attempt}/{max_plan_attempts}: tone={final_tone}, tournaments={final_tournament_count}, iterations={attempt_iterations}"
+            f"Stage 3 attempt {attempt}/{max_plan_attempts}: tone={final_tone}, "
+            f"tournaments={final_tournament_count}, iterations={attempt_iterations}, "
+            f"fairness_score={attempt_score if plan is not None else 'N/A'}"
         )
 
         if final_tone != "rough" or final_tournament_count == 0:
             break
 
         if attempt < max_plan_attempts:
-            _console.print("  [yellow]⚠[/yellow] Planen er fortsatt IKKE KLAR — kjører nytt planforsøk med mer søk.")
-            _log("Plan verdict still rough; retrying Stage 3 with more search budget")
+            _console.print(
+                "  [yellow]⚠[/yellow] Planen er fortsatt IKKE KLAR — "
+                "kjører nytt planforsøk med straffetips fra forrige runde."
+            )
+            _log("Plan verdict still rough; retrying Stage 3 with penalty hints")
+
+    # Use the best plan across all attempts, not just the last one
+    if best_plan is not None:
+        if best_attempt > 0 and best_attempt < (
+            max_plan_attempts if final_tone == "rough" else attempt
+        ):
+            _console.print(
+                f"  [green]✓[/green] Velger forsøk {best_attempt} "
+                f"(fairness-score {best_score}) — best av {max_plan_attempts}"
+            )
+            _log(
+                f"Selected attempt {best_attempt} with score {best_score} "
+                f"over {max_plan_attempts} total attempts"
+            )
+            plan = best_plan
+            # Recompute tone from the best plan
+            final_tone = _compute_verdict_tone(plan)
 
     if final_tone == "rough" and final_tournament_count > 0:
         plan_needs_attention = True

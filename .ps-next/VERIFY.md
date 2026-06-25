@@ -4,6 +4,8 @@ STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| Update `input.xlsx` handling to accept participation targets per age group with separate before-Christmas and after-Christmas values. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Reject malformed target counts and return the parsed per-age-group target structure in the checkpoint/effective config. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Return split-target schedules for the configured age groups, and make the test suite pass for both workbook parsing and planner behavior. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `penalty_hints` dict flows from `_cmd_run` → `_run_stage3` → `stage3_planning.run()` → `SeasonPlanner.__init__()` without breaking existing callers. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Failed fairness metrics trigger relaxed thresholds in the next attempt (verified by log output). | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Best plan across all retries is kept, not just the last attempt. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Existing tests pass without changes. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Log output in Norwegian shows which metrics triggered hints and what was relaxed. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
