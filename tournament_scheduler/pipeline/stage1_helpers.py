@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import date, datetime
 from pathlib import Path
@@ -11,6 +12,9 @@ from .input_workbook import load_workbook_config
 
 from ..models import Roster, Team
 from ..roster_loader import RosterConfigError, RosterLoader
+
+logger = logging.getLogger(__name__)
+
 
 def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
     """Validate *raw* config dict and return a list of Norwegian error messages.
@@ -282,6 +286,28 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
         ]
     else:
         teams_data = list(teams_val)
+
+    ignored_keys = sorted(
+        key
+        for key in raw
+        if key
+        not in {
+            "start_date",
+            "end_date",
+            "age_groups",
+            "parallel_games",
+            "round_length_minutes",
+            "teams",
+            "sources",
+            "target_tournament_counts_by_age_group",
+            "fairness_thresholds",
+        }
+    )
+    if ignored_keys:
+        logger.warning(
+            "Stage 1 ignorerer ukjente konfigurasjonsfelt: %s",
+            ", ".join(ignored_keys),
+        )
 
     result: dict[str, Any] = {
         "input_path": str(Path(input_path).resolve()),

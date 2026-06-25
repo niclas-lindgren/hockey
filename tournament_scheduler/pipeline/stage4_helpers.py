@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date
 from typing import Any
 
 from ..models import Game, SeasonPlan, Team, Tournament
+
+logger = logging.getLogger(__name__)
+
 
 def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
     """Reconstruct a :class:`SeasonPlan` from the checkpoint dict."""
@@ -24,9 +28,13 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
         team_by_label = {t.label: t for t in teams}
 
         games = []
+        tournament_id = t_dict.get("id", "")
+        date_str = t_dict.get("date", "")
         for g_dict in t_dict.get("games", []):
-            home = team_by_label.get(g_dict.get("home", ""))
-            away = team_by_label.get(g_dict.get("away", ""))
+            home_label = g_dict.get("home", "")
+            away_label = g_dict.get("away", "")
+            home = team_by_label.get(home_label)
+            away = team_by_label.get(away_label)
             if home and away:
                 games.append(
                     Game(
@@ -36,8 +44,15 @@ def _dict_to_plan(d: dict[str, Any]) -> SeasonPlan:
                         round_number=int(g_dict.get("round_number", 0)),
                     )
                 )
+            else:
+                logger.warning(
+                    "Droppet kamp i turnering %s (%s): fant ikke laglabel(s) home=%r away=%r.",
+                    tournament_id or "ukjent-id",
+                    date_str or "ukjent-dato",
+                    home_label,
+                    away_label,
+                )
 
-        date_str = t_dict.get("date", "")
         if not date_str:
             raise ValueError("Tournament date is required but missing or empty")
         tournament_date = date.fromisoformat(date_str)

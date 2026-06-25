@@ -16,6 +16,7 @@ File paths are written to the Stage 4 checkpoint.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from datetime import date, datetime
@@ -33,6 +34,9 @@ from .stage1_config import load_effective_config
 from .state import PipelineState, StageName, StageStatus
 from .stage4_helpers import _dict_to_plan
 from .calendar_viewer import generate_html as _generate_calendars_html
+
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
@@ -163,32 +167,37 @@ def run(
         pipeline_meta: dict[str, Any] = {}
         try:
             scraping_envelope = state.read_envelope(StageName.SCRAPING)
-            scraping_ckpt = scraping_envelope.get("data", {}) if scraping_envelope else None
-            if scraping_ckpt and isinstance(scraping_ckpt, dict):
-                # read_envelope() returns the full wrapper so updated_at is accessible at top level
-                sources = scraping_ckpt.get("sources", [])
-                pipeline_meta["source_count"] = len(sources)
-                pipeline_meta["total_events"] = sum(s.get("event_count", 0) for s in sources)
-                pipeline_meta["blocked"] = scraping_ckpt.get("blocked", [])
-                pipeline_meta["date_range"] = (
-                    f"{effective_config.get('start_date', '')} &ndash; {effective_config.get('end_date', '')}"
-                )
-                pipeline_meta["age_groups"] = configured_age_groups
-                updated = scraping_envelope.get("updated_at", "") if scraping_envelope else ""
-                if updated:
-                    from datetime import datetime as _dt, timezone as _tz
-                    try:
-                        delta = _dt.now(tz=_tz.utc) - _dt.fromisoformat(updated)
-                        if delta.total_seconds() < 3600:
-                            pipeline_meta["scrape_age"] = f"{int(delta.total_seconds() // 60)}m siden"
-                        elif delta.days < 1:
-                            pipeline_meta["scrape_age"] = f"{int(delta.total_seconds() // 3600)}t siden"
-                        else:
-                            pipeline_meta["scrape_age"] = f"{delta.days}d siden"
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Kunne ikke lese scraping-checkpoint for rapporten: %s", exc)
+            scraping_envelope = None
+        scraping_ckpt = scraping_envelope.get("data", {}) if scraping_envelope else None
+        if scraping_ckpt and isinstance(scraping_ckpt, dict):
+            # read_envelope() returns the full wrapper so updated_at is accessible at top level
+            sources = scraping_ckpt.get("sources", [])
+            pipeline_meta["source_count"] = len(sources)
+            pipeline_meta["total_events"] = sum(s.get("event_count", 0) for s in sources)
+            pipeline_meta["blocked"] = scraping_ckpt.get("blocked", [])
+            pipeline_meta["date_range"] = (
+                f"{effective_config.get('start_date', '')} &ndash; {effective_config.get('end_date', '')}"
+            )
+            pipeline_meta["age_groups"] = configured_age_groups
+            updated = scraping_envelope.get("updated_at", "") if scraping_envelope else ""
+            if updated:
+                from datetime import datetime as _dt, timezone as _tz
+                try:
+                    delta = _dt.now(tz=_tz.utc) - _dt.fromisoformat(updated)
+                    if delta.total_seconds() < 3600:
+                        pipeline_meta["scrape_age"] = f"{int(delta.total_seconds() // 60)}m siden"
+                    elif delta.days < 1:
+                        pipeline_meta["scrape_age"] = f"{int(delta.total_seconds() // 3600)}t siden"
+                    else:
+                        pipeline_meta["scrape_age"] = f"{delta.days}d siden"
+                except Exception as exc:
+                    logger.warning(
+                        "Kunne ikke tolke updated_at='%s' i scraping-checkpoint: %s",
+                        updated,
+                        exc,
+                    )
         # Scrape metadata from cache for navbar
         meta = None
         _scrape_cache_data: dict[str, Any] = {}
@@ -196,8 +205,8 @@ def run(
             from .cache_manager import ScrapedDataCache
             _scrape_cache_data = ScrapedDataCache(state.work_dir).read()
             meta = _scrape_cache_data.get("_meta")
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Kunne ikke lese scrape-cache for rapporten: %s", exc)
         # --- Calendar viewer (calendars.html) ---
         # Generate before HtmlExporter so calendars_path can be passed in and the navbar can link to it.
         # Only generate when scrape data exists — without it the file would be empty and the navbar link would be broken.

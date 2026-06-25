@@ -1,9 +1,10 @@
 """Tests for tournament_scheduler.pipeline.stage1_config."""
 
+import logging
 from pathlib import Path
 
-import pytest
 import openpyxl
+import pytest
 
 from tournament_scheduler.pipeline.stage1_config import (
     Stage1Error,
@@ -209,6 +210,20 @@ class TestRunStage1:
         assert "teams" in result
         assert len(result["teams"]) == 2
         assert all(not key.startswith("derived_") for key in result)
+
+    def test_run_warns_when_ignoring_unknown_config_keys(self, tmp_path, caplog):
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file)
+        workbook = openpyxl.load_workbook(input_file)
+        workbook["Innstillinger"].append(["targt_tournament_count", 7])
+        workbook.save(input_file)
+
+        state = PipelineState(tmp_path / "pipeline")
+        with caplog.at_level(logging.WARNING, logger="tournament_scheduler.pipeline.stage1_helpers"):
+            result = run(input_file, state)
+
+        assert result["teams"]
+        assert any("targt_tournament_count" in record.message for record in caplog.records)
 
     def test_run_accepts_excel_workbook_input(self, tmp_path):
         input_file = tmp_path / "input.xlsx"

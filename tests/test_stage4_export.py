@@ -1,5 +1,6 @@
 """Tests for tournament_scheduler.pipeline.stage4_export."""
 
+import logging
 from datetime import date, timedelta
 from pathlib import Path
 import json
@@ -187,6 +188,21 @@ class TestDictToPlan:
         plan_dict["tournaments"][0]["date"] = ""
         with pytest.raises(ValueError, match="date"):
             _dict_to_plan(plan_dict)
+
+    def test_warns_when_dropping_game_with_unknown_team_label(self, caplog):
+        plan_dict = _make_plan_dict()["plan"]
+        plan_dict["tournaments"][0]["teams"].append(
+            {"club": "Holmen", "label": "Holmen U10A", "age_group": "U10"}
+        )
+        plan_dict["tournaments"][0]["games"].append(
+            {"home": "Kongsberg U10A", "away": "Missing U10A", "parallel_slot": 0, "round_number": 4}
+        )
+
+        with caplog.at_level(logging.WARNING, logger="tournament_scheduler.pipeline.stage4_helpers"):
+            plan = _dict_to_plan(plan_dict)
+
+        assert len(plan.tournaments[0].games) == 1
+        assert any("Missing U10A" in record.message for record in caplog.records)
 
 
 class TestRunStage4:
@@ -771,3 +787,17 @@ class TestRunStage4:
             "Check that stage4_export.py uses read_envelope (not read_stage) for the SCRAPING stage "
             "and that datetime comparison uses timezone-aware datetimes."
         )
+
+    def test_logs_warning_when_scraping_envelope_read_fails(self, tmp_path, monkeypatch, caplog):
+        state = PipelineState(tmp_path / "pipeline")
+        monkeypatch.setattr(
+            state,
+            "read_envelope",
+            lambda _stage: (_ for _ in ()).throw(RuntimeError("boom")),
+        )
+
+        with caplog.at_level(logging.WARNING, logger="tournament_scheduler.pipeline.stage4_export"):
+            result = run(_make_plan_dict(), state, export_dir=str(tmp_path / "export"), timestamped_export=False)
+
+        assert result["output_files"]["excel"]
+        assert any("scraping-checkpoint" in record.message for record in caplog.records)
