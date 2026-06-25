@@ -51,12 +51,12 @@ def _load_real_roster_from_input_workbook():
 
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def season_window():
     return datetime(2026, 10, 1), datetime(2027, 4, 30)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def planner_and_plan(season_window):
     start, end = season_window
     free_dates = all_weekend_dates(start, end)
