@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Dict, List, Sequence
 
 
@@ -287,79 +288,6 @@ def rules_report(planner) -> List[Dict[str, str]]:
 
 
 def render_rules_markdown(planner) -> str:
-    """Render the rules report as markdown for docs / review snapshots."""
-    report = rules_report(planner)
-
-    def _table(rows: Sequence[Dict[str, str]], include_category: bool = True) -> str:
-        if not rows:
-            return ""
-        if include_category:
-            lines = ["| Rule | What it does | Kind |", "|---|---|---|"]
-            for row in rows:
-                lines.append(f"| {row['regel']} | {row['forklaring']} | {row['kategori']} |")
-        else:
-            lines = ["| Rule | What it does |", "|---|---|"]
-            for row in rows:
-                lines.append(f"| {row['regel']} | {row['forklaring']} |")
-        return "\n".join(lines)
-
-    policy_rows = [r for r in report if r["kategori"] in {"Hard krav", "Myk regel"}]
-    config_rows = [r for r in report if r["kategori"] == "Konfigurasjonsstandard"]
-    implementation_rows = [r for r in report if r["kategori"] == "Automatisk avgjørelse"]
-    warning_rows = [r for r in report if r["kategori"] == "Advarsel"]
-    recommendation_rows = [r for r in report if r["kategori"] == "Anbefaling"]
-
-    lines = [
-        "# RVV Miniputt rules report",
-        "",
-        "This is a review/discussion snapshot of the current season-planning logic.",
-        "It is based on the planner code, not on the marketing/docs wording, so it calls out where a rule is truly hard, soft, automatic, or only a warning.",
-        "",
-        "## Policy vs implementation",
-        "",
-        "### Policy rules",
-        "",
-        _table(policy_rows),
-        "",
-        "### Configuration defaults / guardrails",
-        "",
-        _table(config_rows),
-        "",
-        "### Implementation rules",
-        "",
-        _table(implementation_rows, include_category=False),
-        "",
-    ]
-
-    if warning_rows:
-        lines.extend([
-            "### Warnings / diagnostics",
-            "",
-            _table(warning_rows),
-            "",
-        ])
-
-    if recommendation_rows:
-        lines.extend([
-            "### Recommendations / review notes",
-            "",
-            _table(recommendation_rows),
-            "",
-        ])
-
-    lines.extend([
-        "## Important discussion point",
-        "",
-        "The per-club \"minimum 1\" value is also not a standalone policy rule; it is just the floor used before proportional expansion.",
-        "",
-        "## Primary source files",
-        "",
-        "- `tournament_scheduler/rules_report.py`",
-        "- `tournament_scheduler/participant_selection.py`",
-        "- `tournament_scheduler/warnings.py`",
-        "- `tournament_scheduler/season_planner.py`",
-        "- `tournament_scheduler/models.py`",
-        "- `tournament_scheduler/season_config.py`",
-    ])
-
-    return "\n".join(lines) + "\n"
+    """Render the committed rules-report snapshot for docs / review."""
+    doc_path = Path(__file__).resolve().parents[1] / "docs" / "rvv-miniputt-rules-report.md"
+    return doc_path.read_text(encoding="utf-8")
