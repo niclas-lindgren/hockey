@@ -2,7 +2,7 @@
 
 ## Open
 
-- [2] [ ] Fix silent data-loss and exception-swallowing bugs identified in .notes/improvements.md: stage1_helpers drops unknown config keys silently, stage3_helpers drops malformed events with bare except/continue, stage4_helpers silenty drops games with unknown team labels, and multiple except Exception: pass blocks in stage4_export with no logging — each location should at minimum log a warning
+- [2] [x] Fix silent data-loss and exception-swallowing bugs identified in .notes/improvements.md: stage1_helpers drops unknown config keys silently, stage3_helpers drops malformed events with bare except/continue, stage4_helpers silenty drops games with unknown team labels, and multiple except Exception: pass blocks in stage4_export with no logging — each location should at minimum log a warning (2026-06-26)
 - [3] [ ] Sync rules report docs/rvv-miniputt-rules-report.md and input format docs/rvv-miniputt-input-formats.md with current scheduling logic — docs are missing age-group-aware hosting, per-age participation targets, pre/post-Christmas split, weekend-balance constraints, backtracking/repair pass, and many Innstillinger config keys added since the docs were written
 - [4] [ ] Add install: target to Makefile that delegates to scripts/install.sh — README references make install but the Makefile currently has no such target
 
