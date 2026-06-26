@@ -4,13 +4,13 @@
 
 - [2] [x] Fix silent data-loss and exception-swallowing bugs identified in .notes/improvements.md: stage1_helpers drops unknown config keys silently, stage3_helpers drops malformed events with bare except/continue, stage4_helpers silenty drops games with unknown team labels, and multiple except Exception: pass blocks in stage4_export with no logging — each location should at minimum log a warning (2026-06-26)
 - [3] [x] Sync rules report docs/rvv-miniputt-rules-report.md and input format docs/rvv-miniputt-input-formats.md with current scheduling logic — docs are missing age-group-aware hosting, per-age participation targets, pre/post-Christmas split, weekend-balance constraints, backtracking/repair pass, and many Innstillinger config keys added since the docs were written (2026-06-26)
-- [4] [ ] Add install: target to Makefile that delegates to scripts/install.sh — README references make install but the Makefile currently has no such target
-
 - [6] [ ] Add \`rvv-miniputt scrape-merge\` CLI command that re-normalizes the Stage 2 checkpoint after harness recovery-injection: updates per-source event counts, unblocks recovered sources, recomputes scraped date range, and rewrites the checkpoint — so the harness does not need to hack cache files directly after running recovery-inject
 - [7] [ ] Add per-source event-count expectations derived from date range + age group configuration, surfaced in the Stage 2 judgment summary and checkpoint — so the harness can flag sources with suspiciously few events (e.g. Ringerike: 3 events vs expected ~16) and prioritize them for recovery
 - [9] [ ] Track the best overall plan by composite score across the 3-attempt retry loop instead of discarding earlier attempts — compare fairness gate score, pairwise_matchup_score, diversity_score, and month_balance_score across attempts, keep the best, and log which attempt won and why
 - [10] [ ] Add an optional mid-planning critic loop between Stage 3 and Stage 4: inspect the planning checkpoint, generate structured improvement hints, re-run Stage 3 with those hints baked into the config, and iterate up to N times before falling through to export — different from the post-Stage-4 refinement loop because it operates before any export artifacts exist
 ## Done
+- [202] [x] Add install: target to Makefile that delegates to scripts/install.sh — README references make install but the Makefile currently has no such target (2026-06-26)
+
 - [198] [x] Fix host assignment to be age-group aware so arena reuse is allowed across different age groups on the same day, and consecutive-host streaks are only constrained within the same age group. (2026-06-23) (2026-06-25)
 
 - [199] [x] Expand input.xlsx target tournament configuration from a single global target to per-age-group targets, split into before-Christmas and after-Christmas counts (e.g. 5 before / 5 after). (2026-06-23)
