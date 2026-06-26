@@ -271,7 +271,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_false",
         help="Write exports flat into --export-dir instead of a timestamped subfolder",
     )
-    adjust.set_defaults(timestamped_export=True)
+    adjust.set_defaults(timestamped_export=False)
 
     # review — apply club responses from review packets
     review = sub.add_parser(
@@ -300,7 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_false",
         help="Write exports flat into --export-dir instead of a timestamped subfolder",
     )
-    review.set_defaults(timestamped_export=True)
+    review.set_defaults(timestamped_export=False)
 
     # tournament — add/remove/list/cancel tournaments
     t_sub = sub.add_parser("tournament", help="Manage tournaments: list, add, remove, cancel")

@@ -142,7 +142,17 @@ class ICalScraper(CalendarScraper):
             console.print(f"  [green]✓[/green] Skrapte [cyan]{len(unique_events)}[/cyan] hendelser fra {calendar_name}")
 
             # Cache the results
-            self.cache.set(ical_url, calendar_name, start_date, end_date, unique_events, location_filter)
+            if location_filter is None:
+                self.cache.set(ical_url, calendar_name, start_date, end_date, unique_events)
+            else:
+                self.cache.set(
+                    ical_url,
+                    calendar_name,
+                    start_date,
+                    end_date,
+                    unique_events,
+                    location_filter=location_filter,
+                )
 
             return unique_events
 

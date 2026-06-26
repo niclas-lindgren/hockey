@@ -66,7 +66,7 @@ def run(
     export_dir: str | os.PathLike[str] = DEFAULT_EXPORT_DIR,
     basename: str = DEFAULT_BASENAME,
     strict: bool = True,
-    timestamped_export: bool = True,
+    timestamped_export: bool = False,
 ) -> dict[str, Any]:
     """Export the Stage 3 plan to Excel, iCal, and CSV.
 

@@ -208,7 +208,16 @@ class SeasonPlanner:
         self._rng: random.Random = random.Random(seed)
 
     def _team_target_tournament_count(self, team: Team) -> int:
-        return team.target_tournament_count or self.target_tournament_count or self._target_tournaments_for_age_group(team.age_group) or 1
+        if team.target_tournament_count is not None:
+            return team.target_tournament_count
+        if self.target_tournament_count is not None:
+            return self.target_tournament_count
+
+        age_group = team.age_group
+        team_count = max(1, len(self.roster.by_age_group(age_group)))
+        capacity = max(1, self._max_teams_for(age_group))
+        tournament_count = self._target_tournaments_for_age_group(age_group) or 1
+        return max(1, math.ceil(tournament_count * capacity / team_count))
 
     def _team_at_target(self, team: Team) -> bool:
         key = self._team_key(team)

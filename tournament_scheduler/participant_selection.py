@@ -242,10 +242,10 @@ def deficit_score(planner, team: Team, age_group: str) -> float:
 
 
 def normalized_invite_count(planner, team: Team) -> float:
-    """Return `team`'s invite count, normalized by club-size-in-age-group."""
+    """Return `team`'s invite count normalized by club-size-in-age-group."""
     key = planner._team_key(team)
     sibling_count = planner._club_age_group_team_counts.get(key, 1)
-    return planner._invite_counts.get(key, 0) * sibling_count
+    return planner._invite_counts.get(key, 0) / max(1, sibling_count)
 
 
 def club_diversity_penalty(

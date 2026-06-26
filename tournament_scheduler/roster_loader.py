@@ -37,6 +37,7 @@ consistently via `TournamentOutput.print_error` / Norwegian console output.
 
 import json
 import os
+import re
 
 
 from tournament_scheduler.models import Roster, Team
@@ -49,6 +50,14 @@ class RosterConfigError(ValueError):
     Messages are in Norwegian to match the interactive CLI's user-facing
     language conventions (see tournament_scheduler_interactive.py).
     """
+
+
+def _is_supported_age_group(age_group: str) -> bool:
+    match = re.fullmatch(r"(?:JU|U)(\d{1,2})", age_group.strip())
+    if not match:
+        return False
+    number = int(match.group(1))
+    return 7 <= number <= 13
 
 
 class RosterLoader:
@@ -129,6 +138,12 @@ class RosterLoader:
                     raise RosterConfigError(
                         f"Ugyldig aldersgruppe for klubb '{club}': {age_group!r}. "
                         "Aldersgruppe må være en ikke-tom tekststreng."
+                    )
+
+                if not _is_supported_age_group(age_group):
+                    raise RosterConfigError(
+                        f"Ukjent aldersgruppe '{age_group}' for klubb '{club}'. "
+                        "Bruk en støttet RVV-aldersgruppe (for eksempel U7–U12 eller JU8/JU10–JU13)."
                     )
 
                 if not isinstance(labels, list) or not labels:
