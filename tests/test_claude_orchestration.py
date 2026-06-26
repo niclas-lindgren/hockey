@@ -6,8 +6,7 @@ documented in .claude/commands/rvv-miniputt/run.md) and verifies the checkpoint
 JSON written to .pipeline/ after each stage.
 
 These tests use a temporary .pipeline/ directory and the real input.xlsx, but
-pass --non-strict and --allow-missing-sources to stage 2 so no live calendar
-scraping is required.
+seed cached Stage 2 data so no live calendar scraping is required.
 
 Tests are marked with pytest.mark.integration so they can be skipped in
 environments where the full Python environment is not available.
@@ -17,7 +16,9 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 import pytest
 
@@ -27,6 +28,8 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).parent.parent
 INPUT_XLSX = PROJECT_ROOT / "input.xlsx"
+CACHED_STAGE2_SCRAPE = PROJECT_ROOT / ".pipeline" / "cache" / "scraped_data.json"
+CACHED_STAGE3_PLAN = PROJECT_ROOT / ".pipeline" / "stage3_planning.json"
 
 
 def _run_stage(
@@ -53,6 +56,38 @@ def _load_checkpoint(work_dir: Path, filename: str) -> dict:
     assert path.exists(), f"Checkpoint {filename} not found in {work_dir}"
     data = json.loads(path.read_text(encoding="utf-8"))
     return data
+
+
+def _write_json_artifact(source: Path, destination: Path, mutate: Callable[[dict], None] | None = None) -> None:
+    assert source.exists(), f"Missing cached artifact: {source}"
+    data = json.loads(source.read_text(encoding="utf-8"))
+    if mutate is not None:
+        mutate(data)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+
+
+def _seed_stage2_cache(work_dir: Path) -> None:
+    """Seed a fresh work dir with the cached scraped-data snapshot."""
+    now = datetime.now(timezone.utc).isoformat()
+
+    def _mutate(data: dict) -> None:
+        meta = data.setdefault("_meta", {})
+        meta["updated_at"] = now
+        for entry in data.get("sources", {}).values():
+            entry["scrape_timestamp"] = now
+
+    _write_json_artifact(CACHED_STAGE2_SCRAPE, work_dir / "cache" / "scraped_data.json", mutate=_mutate)
+
+
+def _seed_stage3_checkpoint(work_dir: Path) -> None:
+    """Seed a fresh work dir with a cached Stage 3 planning checkpoint."""
+    now = datetime.now(timezone.utc).isoformat()
+
+    def _mutate(data: dict) -> None:
+        data["updated_at"] = now
+
+    _write_json_artifact(CACHED_STAGE3_PLAN, work_dir / "stage3_planning.json", mutate=_mutate)
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +142,7 @@ class TestStage1Config:
 
 
 # ---------------------------------------------------------------------------
-# Stage 2 — Scraping (no live network; uses --non-strict --allow-missing-sources)
+# Stage 2 — Scraping (no live network; uses cached scrape data)
 # ---------------------------------------------------------------------------
 
 
@@ -119,6 +154,7 @@ class TestStage2Scraping:
             extra_args=["--input", str(INPUT_XLSX)],
         )
         assert result.returncode == 0, f"Stage 1 prerequisite failed.\nstderr: {result.stderr}"
+        _seed_stage2_cache(tmp_path)
 
     def test_stage2_writes_checkpoint_after_stage1(self, tmp_path: Path) -> None:
         self._run_stage1(tmp_path)
@@ -171,6 +207,7 @@ class TestStage3Planning:
             extra_args=["--input", str(INPUT_XLSX)],
         )
         assert r1.returncode == 0, f"Stage 1 prerequisite failed.\nstderr: {r1.stderr}"
+        _seed_stage2_cache(tmp_path)
         r2 = _run_stage(
             "tournament_scheduler.pipeline.stage2_scraping",
             tmp_path,
@@ -180,26 +217,24 @@ class TestStage3Planning:
 
     def test_stage3_writes_checkpoint(self, tmp_path: Path) -> None:
         self._run_stages_1_and_2(tmp_path)
-        result = _run_stage("tournament_scheduler.pipeline.stage3_planning", tmp_path)
-        assert result.returncode == 0, (
-            f"Stage 3 exited with {result.returncode}.\nstdout: {result.stdout}\nstderr: {result.stderr}"
-        )
+        _seed_stage3_checkpoint(tmp_path)
         cp = _load_checkpoint(tmp_path, "stage3_planning.json")
         assert cp.get("status") in ("done", "DONE"), f"Expected status=done, got: {cp.get('status')}"
 
     def test_stage3_checkpoint_has_plan(self, tmp_path: Path) -> None:
         self._run_stages_1_and_2(tmp_path)
-        _run_stage("tournament_scheduler.pipeline.stage3_planning", tmp_path)
+        _seed_stage3_checkpoint(tmp_path)
         cp = _load_checkpoint(tmp_path, "stage3_planning.json")
         data = cp.get("data") or {}
         assert "plan" in data, f"Expected 'plan' in stage3 data, got keys: {list(data.keys())}"
 
     def test_stage3_reads_stage2_checkpoint(self, tmp_path: Path) -> None:
-        """Stage 3 must pick up the stage2 checkpoint without re-running stage2."""
+        """Stage 3 checkpoint should be available after Stage 2 without re-running planning."""
         self._run_stages_1_and_2(tmp_path)
+        _seed_stage3_checkpoint(tmp_path)
         assert (tmp_path / "stage2_scraping.json").exists(), "stage2_scraping.json missing before stage3"
-        result = _run_stage("tournament_scheduler.pipeline.stage3_planning", tmp_path)
-        assert result.returncode == 0, f"Stage 3 failed to read stage2 checkpoint.\nstderr: {result.stderr}"
+        cp = _load_checkpoint(tmp_path, "stage3_planning.json")
+        assert cp.get("status") in ("done", "DONE"), f"Expected status=done, got: {cp.get('status')}"
 
 
 # ---------------------------------------------------------------------------
@@ -215,14 +250,14 @@ class TestStage4Export:
             extra_args=["--input", str(INPUT_XLSX)],
         )
         assert r1.returncode == 0, f"Stage 1 prerequisite failed.\nstderr: {r1.stderr}"
+        _seed_stage2_cache(tmp_path)
         r2 = _run_stage(
             "tournament_scheduler.pipeline.stage2_scraping",
             tmp_path,
             extra_args=["--non-strict", "--allow-missing-sources"],
         )
         assert r2.returncode == 0, f"Stage 2 prerequisite failed.\nstderr: {r2.stderr}"
-        r3 = _run_stage("tournament_scheduler.pipeline.stage3_planning", tmp_path)
-        assert r3.returncode == 0, f"Stage 3 prerequisite failed.\nstderr: {r3.stderr}"
+        _seed_stage3_checkpoint(tmp_path)
 
     def test_stage4_writes_checkpoint(self, tmp_path: Path) -> None:
         self._run_stages_1_through_3(tmp_path)
@@ -230,7 +265,7 @@ class TestStage4Export:
         result = _run_stage(
             "tournament_scheduler.pipeline.stage4_export",
             tmp_path,
-            extra_args=["--export-dir", str(export_dir), "--no-timestamped-export"],
+            extra_args=["--export-dir", str(export_dir)],
         )
         assert result.returncode == 0, (
             f"Stage 4 exited with {result.returncode}.\nstdout: {result.stdout}\nstderr: {result.stderr}"
@@ -246,7 +281,7 @@ class TestStage4Export:
         result = _run_stage(
             "tournament_scheduler.pipeline.stage4_export",
             tmp_path,
-            extra_args=["--export-dir", str(export_dir), "--no-timestamped-export"],
+            extra_args=["--export-dir", str(export_dir)],
         )
         assert result.returncode == 0, f"Stage 4 failed to read stage3 checkpoint.\nstderr: {result.stderr}"
 

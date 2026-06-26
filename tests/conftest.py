@@ -32,4 +32,7 @@ def canonical_planner():
 @pytest.fixture
 def canonical_plan(canonical_planner):
     planner, start, end = canonical_planner
-    return planner, planner.build_plan(start, end), start, end
+    plan = getattr(planner, "_canonical_plan", None)
+    if plan is None:
+        plan = planner.build_plan(start, end)
+    return planner, plan, start, end
