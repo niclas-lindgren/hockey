@@ -153,6 +153,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline work directory (default: .pipeline)",
     )
 
+    # scrape-merge — rebuild Stage 2 checkpoint from recovered cache data
+    scrape_merge = sub.add_parser(
+        "scrape-merge",
+        help="Rebuild the Stage 2 checkpoint from recovered cache data",
+    )
+    scrape_merge.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
     # cancel
     cancel = sub.add_parser("cancel", help="Cancel a tournament and suggest/reschedule makeup dates")
     cancel.add_argument(

@@ -4,6 +4,6 @@ STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| The rules report mentions age-group-aware hosting, split targets, weekend-balance / repair behavior, and the current fairness / warning categories. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| The input-format guide lists the current workbook sheets and the real `Innstillinger` / age-group fields supported by the pipeline. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Both docs read coherently with the current codebase and do not claim unsupported JSON-root input. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `rvv-miniputt scrape-merge --work-dir <dir>` reads an existing Stage 2 checkpoint and rewrites it with recovered source counts and unblocked sources. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The rewritten Stage 2 checkpoint shows refreshed `events_by_club`, `blocked`, and scraped date-range fields. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Tests pass for the helper and CLI path. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |

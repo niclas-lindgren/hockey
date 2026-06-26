@@ -167,7 +167,9 @@ Typical recovery loop:
 1. fix `input.xlsx` or source credentials
 2. rerun `rvv-miniputt run`
 3. if a JS source is still blocked, use Pi, Claude Code, Codex, or OpenCode for LLM-driven scraping
-4. rebuild calendars with `rvv-miniputt calendars`
+4. inject the recovered events into the cache with `rvv-miniputt recovery-inject --source <navn>`
+5. normalize the Stage 2 checkpoint with `rvv-miniputt scrape-merge`
+6. rebuild calendars with `rvv-miniputt calendars`
 
 ## Headless / CI usage
 

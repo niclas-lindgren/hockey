@@ -7,6 +7,7 @@ per-source results to RVV club names.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 
 from ..club_registry import club_for_source_name
@@ -58,6 +59,39 @@ def _events_to_dicts(
                     d["arena"] = arena
         result.append(d)
     return result
+
+
+def _event_date_from_dict(event: dict[str, Any]) -> date | None:
+    """Extract a date from a serialized event dict."""
+    raw_value = event.get("date") or event.get("datetime")
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, datetime):
+        return raw_value.date()
+    if isinstance(raw_value, date):
+        return raw_value
+    if isinstance(raw_value, str):
+        try:
+            return date.fromisoformat(raw_value[:10])
+        except ValueError:
+            try:
+                return datetime.fromisoformat(raw_value).date()
+            except ValueError:
+                return None
+    return None
+
+
+def _scraped_date_range(source_results: list[dict[str, Any]]) -> tuple[str | None, str | None]:
+    """Return the min/max event date seen across a list of source results."""
+    dates: list[date] = []
+    for source_result in source_results:
+        for event in source_result.get("events", []):
+            event_date = _event_date_from_dict(event)
+            if event_date is not None:
+                dates.append(event_date)
+    if not dates:
+        return None, None
+    return min(dates).isoformat(), max(dates).isoformat()
 
 
 def _group_events_by_club(

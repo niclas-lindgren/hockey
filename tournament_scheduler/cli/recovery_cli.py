@@ -71,6 +71,28 @@ def _cmd_recovery_targets(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_scrape_merge(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt scrape-merge``.
+
+    Rebuilds the Stage 2 checkpoint from the unified cache after recovery
+    injection so the checkpoint reflects the recovered event counts, blocked
+    state, and date range again.
+    """
+    from ..pipeline.recovery_injector import normalize_stage2_checkpoint
+
+    try:
+        summary = normalize_stage2_checkpoint(args.work_dir)
+    except FileNotFoundError as exc:
+        print(json.dumps({"error": str(exc)}), file=sys.stderr)
+        return 1
+    except Exception as exc:  # noqa: BLE001
+        print(json.dumps({"error": f"Failed to normalize Stage 2 checkpoint: {exc}"}), file=sys.stderr)
+        return 1
+
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return 0
+
+
 def _cmd_recovery_inject(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt recovery-inject``.
 

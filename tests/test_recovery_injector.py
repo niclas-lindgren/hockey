@@ -7,7 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from tournament_scheduler.pipeline.recovery_injector import inject_recovered_events
+from tournament_scheduler.pipeline.recovery_injector import inject_recovered_events, normalize_stage2_checkpoint
+from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
 
 
 # ---------------------------------------------------------------------------
@@ -98,6 +99,11 @@ SYNTHETIC_EVENTS = [
     {"title": "Påsketurneringen", "start": "2026-04-04", "end": "2026-04-05"},
 ]
 
+RECOVERED_EVENTS = [
+    {"title": "Recovered A", "date": "2025-03-15", "datetime": "2025-03-15T10:00:00+00:00"},
+    {"title": "Recovered B", "date": "2025-03-22", "datetime": "2025-03-22T11:00:00+00:00"},
+]
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -115,6 +121,11 @@ def _write_stage2(tmp_path: Path, data: dict) -> Path:
     checkpoint = tmp_path / "stage2_scraping.json"
     checkpoint.write_text(json.dumps(data, ensure_ascii=False))
     return checkpoint
+
+
+def _write_stage2_envelope(tmp_path: Path, data: dict, status: StageStatus = StageStatus.FAILED) -> Path:
+    state = PipelineState(tmp_path)
+    return state.write_stage(StageName.SCRAPING, data, status=status)
 
 
 # ---------------------------------------------------------------------------
@@ -296,3 +307,108 @@ class TestRecoveryTargetsCommand:
         assert exit_code == 1
         err = json.loads(captured_err.getvalue())
         assert "error" in err
+
+
+# ---------------------------------------------------------------------------
+# scrape-merge command tests
+# ---------------------------------------------------------------------------
+
+class TestScrapeMergeCommand:
+    def _seed_recovered_stage2(self, tmp_path: Path) -> None:
+        stage2 = {
+            "sources": [
+                {
+                    "name": "Kongsberg ishall",
+                    "url": "https://example.com/kongsberg",
+                    "type": "outlook",
+                    "events": [],
+                    "event_count": 0,
+                    "blocked": True,
+                    "block_reason": "Timeout after 30s",
+                    "llm_fallback": False,
+                    "skipped": False,
+                },
+                {
+                    "name": "Good Source",
+                    "url": "https://example.com/good",
+                    "type": "ical",
+                    "events": [{"title": "Event A", "date": "2025-03-01", "datetime": "2025-03-01T10:00:00+00:00"}],
+                    "event_count": 1,
+                    "blocked": False,
+                    "block_reason": None,
+                    "llm_fallback": False,
+                    "skipped": False,
+                },
+            ],
+            "events_by_club": {},
+            "blocked": ["Kongsberg ishall"],
+            "cached": [],
+            "start_date": "2025-01-01",
+            "end_date": "2025-06-30",
+            "checkpoint_path": ".pipeline/stage2_scraping.json",
+        }
+        _write_stage2_envelope(tmp_path, stage2, status=StageStatus.FAILED)
+        _write_cache(
+            tmp_path,
+            {
+                "_meta": {
+                    "updated_at": "2025-01-01T00:00:00+00:00",
+                    "ttl_hours": 6,
+                    "start_date": "2025-01-01",
+                    "end_date": "2025-06-30",
+                },
+                "sources": {
+                    "Kongsberg ishall": {
+                        "name": "Kongsberg ishall",
+                        "url": "https://example.com/kongsberg",
+                        "scrape_timestamp": "2025-01-01T00:00:00+00:00",
+                        "ttl_hours": 6,
+                        "event_count": len(RECOVERED_EVENTS),
+                        "blocked": False,
+                        "events": RECOVERED_EVENTS,
+                    }
+                },
+            },
+        )
+
+    def test_helper_rewrites_checkpoint_from_cache(self, tmp_path: Path) -> None:
+        self._seed_recovered_stage2(tmp_path)
+
+        summary = normalize_stage2_checkpoint(str(tmp_path))
+
+        assert summary["status"] == "done"
+        assert "Kongsberg ishall" in summary["recovered_sources"]
+        assert summary["blocked_sources"] == []
+        assert summary["start_date"] == "2025-03-01"
+        assert summary["end_date"] == "2025-03-22"
+
+        envelope = PipelineState(tmp_path).read_envelope(StageName.SCRAPING)
+        data = envelope["data"]
+        source = next(source for source in data["sources"] if source["name"] == "Kongsberg ishall")
+        assert source["blocked"] is False
+        assert source["event_count"] == len(RECOVERED_EVENTS)
+        assert data["blocked"] == []
+        assert data["events_by_club"]
+
+    def test_cli_scrape_merge_prints_summary_json(self, tmp_path: Path) -> None:
+        import argparse
+        import io
+        import sys
+        from tournament_scheduler.cli.recovery_cli import _cmd_scrape_merge
+
+        self._seed_recovered_stage2(tmp_path)
+        args = argparse.Namespace(work_dir=str(tmp_path))
+
+        captured = io.StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = captured
+        try:
+            exit_code = _cmd_scrape_merge(args)
+        finally:
+            sys.stdout = old_stdout
+
+        assert exit_code == 0
+        summary = json.loads(captured.getvalue())
+        assert summary["status"] == "done"
+        assert "Kongsberg ishall" in summary["recovered_sources"]
+        assert summary["blocked_sources"] == []
