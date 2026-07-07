@@ -11,7 +11,7 @@
 - [x] Surface sparse-source warnings in status and checkpoint summaries
   - Files: tournament_scheduler/cli/reporting.py, tournament_scheduler/cli/checkpoint_printer.py, tests/test_stage2_scraping.py
   - Approach: Include expectation warnings in `rvv-miniputt status` Stage 2 output and in `checkpoint_printer` summaries so harnesses and humans see suspicious event counts without reading raw JSON.
-- [ ] Document the Stage 2 expectation signal
+- [x] Document the Stage 2 expectation signal
   - Files: docs/rvv-miniputt-pipeline.md, docs/rvv-miniputt-rules-report.md
   - Approach: Add concise docs explaining that Stage 2 now flags low event counts as recovery-priority warnings, distinct from hard blocked sources.
 
@@ -30,6 +30,13 @@
 ## Log
 
 
+
+### 2026-07-07 — Document the Stage 2 expectation signal
+**Done:** Documented Stage 2 sparse event-count warning metadata and status behavior in the pipeline guide and rules report.
+**Rationale:** The expectation signal is intentionally advisory, so docs need to distinguish it from blocked sources and explain the recovery use case.
+**Findings:** Docs now mention event_expectation, event_expectation_warnings, and the status summary label.
+**Files:** docs/rvv-miniputt-pipeline.md, docs/rvv-miniputt-rules-report.md
+**Commit:** not committed
 ### 2026-07-07 — Surface sparse-source warnings in status and checkpoint summaries
 **Done:** Added Stage 2 sparse-event warning output to status text and checkpoint summaries, with regression tests.
 **Rationale:** Operators need the warning visible in normal status/checkpoint review flows instead of only in raw checkpoint JSON.

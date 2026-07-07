@@ -58,6 +58,7 @@ It is based on the planner code, not on the marketing/docs wording, so it calls 
 | Samme arena / samme dag | Kjører en advarsel når to turneringer kolliderer i samme hall samme dag; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
 | Fallback vertsklubb | Kjører en advarsel når planleggeren må beholde opprinnelig vertsklubb fordi ønsket slot ikke finnes; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
 | Månedslast | Kjører en advarsel når en måned avviker mer enn terskelen fra forventet turneringslast; 0 tilfelle(r) er registrert i denne planen. | Advarsel |
+| Mistenkelig få kalenderhendelser i Stage 2 | Før planlegging sammenlignes hver skrapet kilde mot et grovt forventet minimum utledet fra datoperiode og aktive aldersgrupper. Kilder med hendelser, men uvanlig lavt antall, får `event_expectation.status=low` og listes i `event_expectation_warnings`. Dette er en recovery-prioritet, ikke et hardt stopp. | Advarsel |
 
 ## Important discussion point
 

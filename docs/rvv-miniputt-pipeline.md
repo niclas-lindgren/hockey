@@ -88,6 +88,20 @@ For those sources, set the credentials expected by the configured strategy, typi
 
 With credentials in place, Stage 2 can scrape the source and cache the events.
 
+### Sparse event-count warnings
+
+Stage 2 now adds a non-blocking `event_expectation` object to each source in
+`.pipeline/stage2_scraping.json`. The estimate is derived from the scrape date
+range and active age groups, and is meant as a coarse lower-bound sanity check.
+If a source returns events but far fewer than expected, Stage 2 records it in the
+top-level `event_expectation_warnings` list and `rvv-miniputt status` prints a
+"Mistenkelig få kalenderhendelser" summary.
+
+This is different from a blocked source: the pipeline may continue, but the
+source should be prioritized for recovery or manual review before trusting the
+plan. Typical example: a club calendar returning 2-3 events for a full season
+when the date range and age-group setup suggest roughly 16+ bookings.
+
 ## Outputs
 
 A normal run can produce:
