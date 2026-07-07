@@ -4,12 +4,10 @@ STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| Stage 2 checkpoint contains per-source `event_expectation` fields and a top-level `event_expectation_warnings` list when a source returns suspiciously few events. | PASS | `tests/test_stage2_scraping.py::TestCheckpointDateRangeFields::test_sparse_source_gets_event_expectation_warning` asserts per-source `event_expectation.status == "low"` and top-level warning content. |
-| `rvv-miniputt status` / reporting output mentions sparse Stage 2 sources when warnings are present. | PASS | `tests/test_stage2_scraping.py::TestStage2ExpectationSummaries::test_status_text_mentions_sparse_event_expectation_warnings` asserts status text contains `Mistenkelig få kalenderhendelser` and source detail. |
-| Tests pass for sources below and above the expected-event threshold without requiring live calendar access. | PASS | `python3 -m pytest -q --no-cov tests/test_stage2_scraping.py` passed: 48 tests, including sparse and sufficient expectation cases with patched scrapers. |
-| Documentation contains the new sparse-source warning and recovery use case. | PASS | `grep -n "Sparse event-count warnings\|event_expectation_warnings\|Mistenkelig få kalenderhendelser" docs/rvv-miniputt-pipeline.md docs/rvv-miniputt-rules-report.md` finds the new pipeline guide and rules-report entries. |
+| `tournament_scheduler/cli/pipeline_orchestrator.py` computes best attempt from fairness gate score/status, pairwise_matchup_score, diversity_score, and month_balance_score. | PASS | `_plan_attempt_quality()` at `tournament_scheduler/cli/pipeline_orchestrator.py:153` extracts `fairness_gate.status`, `fairness_gate.score`, `pairwise_matchup_score`, `diversity_score`, and `month_balance_score`, normalizes metrics into `composite_score`, and the retry loop compares `attempt_quality["rank"]`. |
+| Pipeline run logs include which Stage 3 attempt won and why. | PASS | Retry selection logs `Selected Stage 3 attempt {best_attempt}/{last_attempt}` plus selected quality and all compared attempt summaries at `tournament_scheduler/cli/pipeline_orchestrator.py:1126`. |
+| Targeted tests pass for selecting an earlier/later best composite attempt. | PASS | `tests/test_pipeline_orchestrator_judgment.py:311` verifies an earlier composite winner is exported; `tests/test_pipeline_orchestrator_judgment.py:367` verifies a later winner is exported/logged. |
+| run: pytest tests/test_pipeline_orchestrator_judgment.py tests/test_pipeline_orchestrator.py | PASS | `python3 -m pytest tests/test_pipeline_orchestrator_judgment.py tests/test_pipeline_orchestrator.py -q` passed: 42 passed in 2.96s. |
 
-Additional checks:
-
-- `python3 -m py_compile tournament_scheduler/pipeline/stage2_scraping.py tournament_scheduler/cli/reporting.py tournament_scheduler/cli/checkpoint_printer.py` passed.
-- `pi_next_quality_gate(level="quick")` failed because the project-level helper runs the entire default pytest suite, which is currently known to hang/fail on unrelated full-planner tests tracked by backlog item #209. Targeted Stage 2 tests passed.
+## Additional checks
+- `pi_next_quality_gate` (quick/standard) invokes the full default `python3 -m pytest -q`; this did not complete within the bounded run and aligns with existing backlog item #209 about default quality gate/full-planner test hangs. Targeted acceptance tests passed.
