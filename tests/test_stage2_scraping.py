@@ -775,6 +775,53 @@ class TestCheckpointDateRangeFields:
         assert result["start_date"] == "2026-01-01"
         assert result["end_date"] == "2026-06-30"
 
+    def test_sparse_source_gets_event_expectation_warning(self, tmp_path):
+        """Sources with suspiciously few events get expectation metadata and a warning."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Ringerike", "type": SOURCE_ICAL, "url": "https://example.com/cal"},
+        ])
+        cfg["age_groups"] = ["U7", "U8", "U9", "U10"]
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=[_make_event("Sparse booking")],
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        src = result["sources"][0]
+        assert src["event_expectation"]["status"] == "low"
+        assert src["event_expectation"]["expected_min_events"] > src["event_count"]
+        assert result["event_expectation_warnings"][0]["name"] == "Ringerike"
+        assert "forventet minst" in result["event_expectation_warnings"][0]["message"]
+
+    def test_sufficient_source_has_no_event_expectation_warning(self, tmp_path):
+        """Sources at or above the expectation threshold do not get sparse warnings."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {"name": "Kongsberg", "type": SOURCE_ICAL, "url": "https://example.com/cal"},
+        ])
+        cfg["age_groups"] = ["U7", "U8", "U9", "U10"]
+        events = [_make_event(f"Booking {idx}") for idx in range(8)]
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper",
+            return_value=events,
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        src = result["sources"][0]
+        assert src["event_expectation"]["status"] == "ok"
+        assert result["event_expectation_warnings"] == []
+
 
 class TestCheckpointPreservationOnResume:
     """Regression tests for the RUNNING marker overwriting existing checkpoint data."""

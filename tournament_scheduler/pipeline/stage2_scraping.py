@@ -27,7 +27,7 @@ from __future__ import annotations
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from ..club_registry import club_for_source_name, CLUB_REGISTRY
@@ -94,6 +94,106 @@ def _make_source_result(
     if from_cache:
         result["from_cache"] = True
     return result
+
+
+def _active_age_groups(config: dict[str, Any]) -> list[str]:
+    """Return configured age groups used to size Stage 2 event-count expectations."""
+    configured = config.get("age_groups")
+    if isinstance(configured, list):
+        groups = [str(group).strip() for group in configured if str(group).strip()]
+        if groups:
+            return sorted(set(groups))
+
+    teams = config.get("teams") or []
+    if isinstance(teams, list):
+        groups = [
+            str(team.get("age_group", "")).strip()
+            for team in teams
+            if isinstance(team, dict) and str(team.get("age_group", "")).strip()
+        ]
+        if groups:
+            return sorted(set(groups))
+
+    return []
+
+
+def _count_weekend_days(start_date: datetime, end_date: datetime) -> int:
+    """Count Saturdays and Sundays in the inclusive scrape date range."""
+    current: date = start_date.date()
+    end: date = end_date.date()
+    count = 0
+    while current <= end:
+        if current.weekday() >= 5:
+            count += 1
+        current += timedelta(days=1)
+    return count
+
+
+def _expected_min_events(config: dict[str, Any], start_date: datetime, end_date: datetime) -> int:
+    """Estimate a lower-bound event count for each configured arena source.
+
+    This is intentionally a coarse warning heuristic, not a hard validation rule.
+    Across a normal RVV season, an active arena calendar should usually expose at
+    least roughly one relevant booking for every four weekend days. The active
+    age-group count scales that expectation down for tiny test/special-purpose
+    configurations while keeping full RVV workbooks near the historical ~16 event
+    lower bound over a September-April season.
+    """
+    age_group_count = len(_active_age_groups(config))
+    if age_group_count == 0:
+        return 0
+
+    weekend_days = _count_weekend_days(start_date, end_date)
+    if weekend_days == 0:
+        return 0
+
+    age_group_factor = min(1.0, max(0.25, age_group_count / 4.0))
+    return max(1, round((weekend_days / 4.0) * age_group_factor))
+
+
+def _apply_event_count_expectations(
+    source_results: list[dict[str, Any]],
+    *,
+    config: dict[str, Any],
+    start_date: datetime,
+    end_date: datetime,
+) -> list[dict[str, Any]]:
+    """Attach per-source expectation metadata and return sparse-source warnings."""
+    expected_min = _expected_min_events(config, start_date, end_date)
+    age_groups = _active_age_groups(config)
+    weekend_days = _count_weekend_days(start_date, end_date)
+    warnings: list[dict[str, Any]] = []
+
+    for source in source_results:
+        actual = int(source.get("event_count") or 0)
+        status = "not_applicable" if expected_min <= 0 or source.get("skipped") else "ok"
+        message = ""
+        if status == "ok" and actual < expected_min and not source.get("blocked"):
+            status = "low"
+            message = (
+                f"{source.get('name', 'ukjent kilde')}: {actual} hendelser funnet, "
+                f"forventet minst ca. {expected_min} for perioden."
+            )
+            warnings.append({
+                "name": source.get("name", "ukjent kilde"),
+                "event_count": actual,
+                "expected_min_events": expected_min,
+                "status": status,
+                "message": message,
+            })
+
+        source["event_expectation"] = {
+            "status": status,
+            "event_count": actual,
+            "expected_min_events": expected_min,
+            "age_group_count": len(age_groups),
+            "weekend_days": weekend_days,
+            "basis": "weekend_days/4 scaled by active age-group count",
+        }
+        if message:
+            source["event_expectation"]["message"] = message
+
+    return warnings
 
 
 # ---------------------------------------------------------------------------
@@ -283,6 +383,13 @@ def run(
             if source_result.get("blocked"):
                 blocked.append({"name": source_cfg.get("name", "?"), **source_result})
 
+    event_expectation_warnings = _apply_event_count_expectations(
+        source_results,
+        config=config,
+        start_date=start_date,
+        end_date=end_date,
+    )
+
     checkpoint: dict[str, Any] = {
         "sources": source_results,
         "events_by_club": _group_events_by_club(source_results),
@@ -290,6 +397,7 @@ def run(
         "cached": cached_names,
         "start_date": start_date.strftime("%Y-%m-%d"),
         "end_date": end_date.strftime("%Y-%m-%d"),
+        "event_expectation_warnings": event_expectation_warnings,
     }
 
     status = StageStatus.DONE if (not blocked or allow_missing_sources) else StageStatus.FAILED
