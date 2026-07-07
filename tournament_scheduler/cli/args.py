@@ -90,6 +90,17 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Run Stage 3 planner N times with different random seeds and keep the best plan (default: 1)",
     )
+    run.add_argument(
+        "--mid-planning-critic-iterations",
+        type=int,
+        default=0,
+        metavar="N",
+        help=(
+            "Optionally run a Stage 3 checkpoint critic loop before Stage 4 export: "
+            "inspect the plan, inject structured planner hints, and re-run Stage 3 up to N times "
+            "(default: 0/off)"
+        ),
+    )
     # Headless / CI judge backend: set RVV_JUDGE_BACKEND=claude|openai|llm_bridge
     # plus the matching API key (ANTHROPIC_API_KEY / OPENAI_API_KEY) to enable
     # inter-stage LLM judgment when no harness session is present.

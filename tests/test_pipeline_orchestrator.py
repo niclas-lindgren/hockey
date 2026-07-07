@@ -11,6 +11,7 @@ from tournament_scheduler.cli.pipeline_orchestrator import (
     _MAX_REFINEMENT_ITERATIONS,
     _compute_verdict_tone,
     _run_approval_gate,
+    _run_mid_planning_critic_loop,
     _run_refinement_loop,
 )
 from tournament_scheduler.models import SeasonPlan
@@ -53,6 +54,8 @@ def _make_args() -> MagicMock:
     args.work_dir = "/tmp/test"
     args.export_dir = "export"
     args.timestamped_export = False
+    args.iterations = 1
+    args.mid_planning_critic_iterations = 0
     return args
 
 
@@ -136,6 +139,90 @@ class TestComputeVerdictTone:
     def test_gate_status_case_insensitive(self) -> None:
         plan = _make_plan_obj(gate_status="FAIL", gate_score=40, pairwise=0.5, diversity=0.5, month_balance=0.5)
         assert _compute_verdict_tone(plan) == "rough"
+
+
+# ---------------------------------------------------------------------------
+# _run_mid_planning_critic_loop — unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestRunMidPlanningCriticLoop:
+    def test_zero_cap_returns_without_rerun(self) -> None:
+        plan = _make_gate_checkpoint("pass", gate_score=100)
+        args = _make_args()
+        args.mid_planning_critic_iterations = 0
+
+        with patch("tournament_scheduler.cli.pipeline_orchestrator._run_stage3") as mock_stage3:
+            updated, abort, failed = _run_mid_planning_critic_loop(
+                args, {}, {}, MagicMock(), MagicMock(), MagicMock(), True, 1, lambda _: None, plan
+            )
+
+        assert updated is plan
+        assert abort is False
+        assert failed is False
+        mock_stage3.assert_not_called()
+
+    def test_no_issues_or_hints_stops_without_rerun(self) -> None:
+        plan = _make_gate_checkpoint("pass", gate_score=100)
+        args = _make_args()
+        args.mid_planning_critic_iterations = 2
+        log_calls: list[str] = []
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._build_mid_planning_critic_hints",
+            return_value={"issues": [], "penalty_hints": {}, "tone": "strong"},
+        ), patch("tournament_scheduler.cli.pipeline_orchestrator._run_stage3") as mock_stage3:
+            _run_mid_planning_critic_loop(
+                args, {}, {}, MagicMock(), MagicMock(), MagicMock(), True, 1, log_calls.append, plan
+            )
+
+        mock_stage3.assert_not_called()
+        assert any("no issues" in msg for msg in log_calls)
+
+    def test_reruns_stage3_with_structured_penalty_hints(self) -> None:
+        plan = _make_gate_checkpoint("warn", gate_score=80)
+        improved = _make_gate_checkpoint("pass", gate_score=95)
+        args = _make_args()
+        args.mid_planning_critic_iterations = 2
+        state = MagicMock()
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._build_mid_planning_critic_hints",
+            side_effect=[
+                {"issues": ["issue"], "penalty_hints": {"game_count_spread_score": 40.0}, "tone": "rough"},
+                {"issues": [], "penalty_hints": {}, "tone": "strong"},
+            ],
+        ), patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._run_stage3",
+            return_value=(improved, False, False),
+        ) as mock_stage3:
+            updated, abort, failed = _run_mid_planning_critic_loop(
+                args, {"cfg": True}, {"scrape": True}, state, "start", "end", True, 1, lambda _: None, plan
+            )
+
+        assert updated is improved
+        assert abort is False
+        assert failed is False
+        assert mock_stage3.call_count == 1
+        assert mock_stage3.call_args.args[-1] == {"game_count_spread_score": 40.0}
+
+    def test_respects_iteration_cap_when_hints_continue(self) -> None:
+        plan = _make_gate_checkpoint("fail", gate_score=40)
+        args = _make_args()
+        args.mid_planning_critic_iterations = 2
+
+        with patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._build_mid_planning_critic_hints",
+            return_value={"issues": ["issue"], "penalty_hints": {"hosting_deviation_score": 20.0}, "tone": "rough"},
+        ), patch(
+            "tournament_scheduler.cli.pipeline_orchestrator._run_stage3",
+            return_value=(plan, False, False),
+        ) as mock_stage3:
+            _run_mid_planning_critic_loop(
+                args, {}, {}, MagicMock(), MagicMock(), MagicMock(), True, 1, lambda _: None, plan
+            )
+
+        assert mock_stage3.call_count == 2
 
 
 # ---------------------------------------------------------------------------

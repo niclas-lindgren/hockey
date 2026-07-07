@@ -855,6 +855,62 @@ def _regenerate_calendar(
         return True
 
 
+def _fairness_penalty_hints_from_checkpoint(plan_checkpoint: "dict[str, Any]") -> dict[str, float]:
+    """Extract planner penalty hints from a Stage 3 checkpoint's fairness data."""
+    hints: dict[str, float] = {}
+    plan_obj = _extract_plan_obj(plan_checkpoint)
+    gate = _fairness_gate(plan_obj)
+
+    try:
+        metrics = gate.get("metrics", []) if isinstance(gate, dict) else []
+        for metric in metrics or []:
+            if not isinstance(metric, dict):
+                continue
+            key = str(metric.get("key", ""))
+            status = str(metric.get("status", "pass")).lower()
+            if key and status != "pass":
+                hints[f"{key}_score"] = float(metric.get("score", 100) or 0)
+    except Exception:
+        pass
+
+    for key in ("pairwise_matchup_score", "diversity_score", "month_balance_score"):
+        score = _score_attr(plan_obj, key, default=1.0)
+        if score < 0.75:
+            hints[key] = score * 100.0
+
+    return hints
+
+
+def _build_mid_planning_critic_hints(
+    plan_checkpoint: "dict[str, Any]",
+    iteration: int,
+    log_fn: "Any",
+) -> dict[str, Any]:
+    """Inspect a Stage 3 checkpoint and return structured hints for a rerun."""
+    from .plan_critic import generate_critic_summary
+
+    plan_obj = _extract_plan_obj(plan_checkpoint)
+    issues: list[str] = []
+    if plan_obj:
+        try:
+            issues = list(generate_critic_summary(plan_obj) or [])
+        except Exception as exc:
+            log_fn(f"Mid-planning critic {iteration}: generate_critic_summary failed: {exc}")
+
+    penalty_hints = _fairness_penalty_hints_from_checkpoint(plan_checkpoint)
+    tone = _compute_verdict_tone(plan_checkpoint)
+    quality = _plan_attempt_quality(plan_checkpoint) if plan_checkpoint else {}
+
+    return {
+        "source": "mid_planning_critic",
+        "iteration": iteration,
+        "tone": tone,
+        "issues": issues,
+        "penalty_hints": penalty_hints,
+        "quality": quality,
+    }
+
+
 def _run_stage3(
     args: "argparse.Namespace",
     cfg: "dict[str, Any]",
@@ -919,6 +975,95 @@ def _run_stage3(
         log_fn("Stage 3 skipped via --resume-from")
 
     return plan, False, False
+
+
+def _run_mid_planning_critic_loop(
+    args: "argparse.Namespace",
+    cfg: "dict[str, Any]",
+    scraping: "dict[str, Any]",
+    state: "Any",
+    start: "Any",
+    end: "Any",
+    strict: bool,
+    resume_from: int,
+    log_fn: "Any",
+    plan: "dict[str, Any]",
+) -> "tuple[dict[str, Any], bool, bool]":
+    """Optionally run a Stage 3 checkpoint critic loop before Stage 4 export.
+
+    The loop is deliberately separate from post-Stage-4 refinement: it only
+    inspects the Stage 3 checkpoint, converts critic/fairness findings into
+    planner penalty hints, and reruns Stage 3 before export artifacts exist.
+    """
+    max_iterations = max(0, int(getattr(args, "mid_planning_critic_iterations", 0) or 0))
+    if max_iterations <= 0 or resume_from > 3:
+        return plan, False, False
+
+    current_plan = plan
+    best_plan = plan
+    best_quality = _plan_attempt_quality(plan) if plan else None
+    run_failed = False
+    base_iterations = max(1, int(getattr(args, "iterations", 1) or 1))
+
+    for iteration in range(1, max_iterations + 1):
+        hints = _build_mid_planning_critic_hints(current_plan, iteration, log_fn)
+        issues = hints.get("issues", []) or []
+        penalty_hints = hints.get("penalty_hints", {}) or {}
+        if not issues and not penalty_hints:
+            log_fn(f"Mid-planning critic {iteration}: no issues or penalty hints — stopping")
+            break
+
+        _console.print(
+            f"  [cyan]↻[/cyan] Midtplanleggingskritiker {iteration}/{max_iterations}: "
+            f"{len(issues)} funn, {len(penalty_hints)} hint(s)"
+        )
+        log_fn(
+            f"Mid-planning critic {iteration}: tone={hints.get('tone')}, "
+            f"issues={len(issues)}, penalty_hints={penalty_hints}"
+        )
+
+        rerun_iterations = base_iterations + iteration
+        rerun_plan, abort, stage_failed = _run_stage3(
+            args,
+            cfg,
+            scraping,
+            state,
+            start,
+            end,
+            strict,
+            3,
+            log_fn,
+            rerun_iterations,
+            penalty_hints,
+        )
+        if abort:
+            return current_plan, True, run_failed
+        if stage_failed:
+            run_failed = True
+        if not rerun_plan:
+            log_fn(f"Mid-planning critic {iteration}: Stage 3 rerun returned no plan — stopping")
+            break
+
+        current_plan = rerun_plan
+        rerun_quality = _plan_attempt_quality(rerun_plan)
+        if best_quality is None or rerun_quality["rank"] > best_quality["rank"]:
+            best_quality = rerun_quality
+            best_plan = rerun_plan
+            log_fn(
+                f"Mid-planning critic {iteration}: new best quality "
+                f"{_format_plan_attempt_quality(rerun_quality)}"
+            )
+
+    if best_plan is not current_plan and best_plan is not None:
+        try:
+            from ..pipeline.state import StageName, StageStatus
+
+            state.write_stage(StageName.PLANNING, best_plan, status=StageStatus.DONE)
+            log_fn("Mid-planning critic: checkpoint reset to best pre-export plan")
+        except Exception as exc:
+            log_fn(f"Mid-planning critic: could not persist best plan: {exc}")
+
+    return best_plan, False, run_failed
 
 
 def _run_refinement_and_reexport(
@@ -1145,6 +1290,18 @@ def _cmd_run(args: argparse.Namespace) -> int:
             # Recompute tone/count from the best plan.
             final_tone = _compute_verdict_tone(plan)
             final_tournament_count = len((plan or {}).get("plan", {}).get("tournaments", []))
+
+    if plan is not None:
+        plan, mid_abort, mid_failed = _run_mid_planning_critic_loop(
+            args, cfg, scraping, state, start, end, strict, resume_from, _log, plan
+        )
+        if mid_abort:
+            _write_run_log(args.work_dir, log_start, log_lines, success=False)
+            return 1
+        if mid_failed:
+            run_failed = True
+        final_tone = _compute_verdict_tone(plan)
+        final_tournament_count = len((plan or {}).get("plan", {}).get("tournaments", []))
 
     if final_tone == "rough" and final_tournament_count > 0:
         plan_needs_attention = True
