@@ -4,10 +4,7 @@ STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `tournament_scheduler/cli/pipeline_orchestrator.py` computes best attempt from fairness gate score/status, pairwise_matchup_score, diversity_score, and month_balance_score. | PASS | `_plan_attempt_quality()` at `tournament_scheduler/cli/pipeline_orchestrator.py:153` extracts `fairness_gate.status`, `fairness_gate.score`, `pairwise_matchup_score`, `diversity_score`, and `month_balance_score`, normalizes metrics into `composite_score`, and the retry loop compares `attempt_quality["rank"]`. |
-| Pipeline run logs include which Stage 3 attempt won and why. | PASS | Retry selection logs `Selected Stage 3 attempt {best_attempt}/{last_attempt}` plus selected quality and all compared attempt summaries at `tournament_scheduler/cli/pipeline_orchestrator.py:1126`. |
-| Targeted tests pass for selecting an earlier/later best composite attempt. | PASS | `tests/test_pipeline_orchestrator_judgment.py:311` verifies an earlier composite winner is exported; `tests/test_pipeline_orchestrator_judgment.py:367` verifies a later winner is exported/logged. |
-| run: pytest tests/test_pipeline_orchestrator_judgment.py tests/test_pipeline_orchestrator.py | PASS | `python3 -m pytest tests/test_pipeline_orchestrator_judgment.py tests/test_pipeline_orchestrator.py -q` passed: 42 passed in 2.96s. |
-
-## Additional checks
-- `pi_next_quality_gate` (quick/standard) invokes the full default `python3 -m pytest -q`; this did not complete within the bounded run and aligns with existing backlog item #209 about default quality gate/full-planner test hangs. Targeted acceptance tests passed.
+| Targeted mid-planning tests pass: `python3 -m pytest tests/test_pipeline_orchestrator.py tests/test_stage3_planning.py::TestRunStage3::test_season_planner_normalizes_structured_penalty_hints tests/test_stage3_planning.py::TestRunStage3::test_structured_planning_critic_hints_are_persisted_and_flattened tests/test_stage3_planning.py::TestRunStage3::test_flat_penalty_hints_remain_supported -q`. | PASS | Command completed with `34 passed in 1.94s`. |
+| `python -m tournament_scheduler.cli.rvv_cli run --help` contains the new mid-planning critic loop flag. | PASS | `python3 -m tournament_scheduler.cli.rvv_cli run --help | grep -F -- '--mid-planning-critic-iterations'` printed the option and usage line. |
+| The Stage 3 checkpoint can contain structured planning critic hint metadata when the loop applies hints. | PASS | `tests/test_stage3_planning.py::TestRunStage3::test_structured_planning_critic_hints_are_persisted_and_flattened` verifies `planning_critic_hints` is persisted and numeric hints reach the planner. |
+| Documentation contains the optional pre-export loop separately from the post-Stage-4 refinement loop. | PASS | `rg` found `planning_critic_hints`, `pre-export critic loop`, and `post-Stage-4 refinement` in `docs/rvv-miniputt-pipeline.md` and `.agents/skills/rvv/SKILL.md`. |
