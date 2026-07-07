@@ -90,6 +90,29 @@ def _judge_stage(
     return True
 
 
+def _extract_plan_obj(plan: "dict[str, Any] | Any") -> "dict[str, Any] | Any":
+    """Return the SeasonPlan-like payload from a Stage 3 checkpoint or plan object."""
+    return plan.get("plan", plan) if isinstance(plan, dict) else plan
+
+
+def _score_attr(plan_obj: "dict[str, Any] | Any", name: str, default: float = 0.0) -> float:
+    """Read a numeric metric from either a dict payload or a SeasonPlan object."""
+    if isinstance(plan_obj, dict):
+        raw = plan_obj.get(name, default)
+    else:
+        raw = getattr(plan_obj, name, default)
+    try:
+        return float(raw or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _fairness_gate(plan_obj: "dict[str, Any] | Any") -> dict[str, Any]:
+    """Read the fairness gate mapping from either a dict payload or a plan object."""
+    gate = plan_obj.get("fairness_gate", {}) if isinstance(plan_obj, dict) else getattr(plan_obj, "fairness_gate", {})
+    return gate if isinstance(gate, dict) else {}
+
+
 def _compute_verdict_tone(plan: "dict[str, Any] | Any") -> str:
     """Compute the verdict tone ('rough', 'mixed', or 'strong') from a plan.
 
@@ -100,11 +123,7 @@ def _compute_verdict_tone(plan: "dict[str, Any] | Any") -> str:
     from ..html.renderers import judgment as _judgment
     from ..pipeline.stage4_helpers import _dict_to_plan
 
-    # Unwrap checkpoint dict → SeasonPlan-like object
-    if isinstance(plan, dict):
-        plan_obj = plan.get("plan", plan)
-    else:
-        plan_obj = plan
+    plan_obj = _extract_plan_obj(plan)
 
     if isinstance(plan_obj, dict):
         try:
@@ -112,17 +131,13 @@ def _compute_verdict_tone(plan: "dict[str, Any] | Any") -> str:
         except Exception:
             pass
 
-    fairness_gate = getattr(plan_obj, "fairness_gate", {}) or {}
-    if isinstance(fairness_gate, dict):
-        gate_status = str(fairness_gate.get("status", "pass")).lower()
-        gate_score = int(fairness_gate.get("score", 0) or 0)
-    else:
-        gate_status = "pass"
-        gate_score = 0
+    fairness_gate = _fairness_gate(plan_obj)
+    gate_status = str(fairness_gate.get("status", "pass")).lower()
+    gate_score = int(fairness_gate.get("score", 0) or 0)
 
-    pairwise = float(getattr(plan_obj, "pairwise_matchup_score", 0.0) or 0.0)
-    diversity = float(getattr(plan_obj, "diversity_score", 0.0) or 0.0)
-    month_balance = float(getattr(plan_obj, "month_balance_score", 0.0) or 0.0)
+    pairwise = _score_attr(plan_obj, "pairwise_matchup_score")
+    diversity = _score_attr(plan_obj, "diversity_score")
+    month_balance = _score_attr(plan_obj, "month_balance_score")
 
     return _judgment._score_tone(
         gate_status=gate_status,
@@ -132,6 +147,53 @@ def _compute_verdict_tone(plan: "dict[str, Any] | Any") -> str:
         month_balance=month_balance,
         missing_hosts=[],
         spread=0,
+    )
+
+
+def _plan_attempt_quality(plan: "dict[str, Any] | Any") -> dict[str, Any]:
+    """Return comparable quality components for a Stage 3 retry attempt.
+
+    Fairness gate score is already stored on a 0-100 scale while the planner's
+    pairwise/diversity/month-balance metrics are fractions.  Normalize all four
+    into the same 0-100-ish composite so an attempt is not kept merely because
+    it won a single gate score while regressing the rest of the plan.
+    """
+    plan_obj = _extract_plan_obj(plan)
+    gate = _fairness_gate(plan_obj)
+    gate_status = str(gate.get("status", "pass")).lower()
+    fairness_score = float(gate.get("score", 0) or 0)
+    pairwise = _score_attr(plan_obj, "pairwise_matchup_score")
+    diversity = _score_attr(plan_obj, "diversity_score")
+    month_balance = _score_attr(plan_obj, "month_balance_score")
+    composite_score = fairness_score + (pairwise * 100.0) + (diversity * 100.0) + (month_balance * 100.0)
+    status_rank = {"fail": 0, "warn": 1, "pass": 2}.get(gate_status, 1)
+
+    return {
+        "gate_status": gate_status,
+        "fairness_score": fairness_score,
+        "pairwise_matchup_score": pairwise,
+        "diversity_score": diversity,
+        "month_balance_score": month_balance,
+        "composite_score": composite_score,
+        "rank": (
+            status_rank,
+            composite_score,
+            fairness_score,
+            pairwise,
+            diversity,
+            month_balance,
+        ),
+    }
+
+
+def _format_plan_attempt_quality(quality: dict[str, Any]) -> str:
+    """Human-readable one-line quality summary for logs/console output."""
+    return (
+        f"gate={quality['gate_status']}:{quality['fairness_score']:.0f}, "
+        f"pairwise={quality['pairwise_matchup_score']:.2f}, "
+        f"diversity={quality['diversity_score']:.2f}, "
+        f"month={quality['month_balance_score']:.2f}, "
+        f"composite={quality['composite_score']:.1f}"
     )
 
 
@@ -980,10 +1042,13 @@ def _cmd_run(args: argparse.Namespace) -> int:
     final_tournament_count = 0
     plan_needs_attention = False
     best_plan: "dict[str, Any] | None" = None
-    best_score: int = -1
+    best_quality: "dict[str, Any] | None" = None
     best_attempt: int = 0
+    last_attempt: int = 0
+    attempt_qualities: list[tuple[int, dict[str, Any]]] = []
 
     for attempt in range(1, max_plan_attempts + 1):
+        last_attempt = attempt
         attempt_iterations = base_iterations + attempt - 1
         penalty_hints: "dict[str, float]" = {}
         if attempt > 1 and plan is not None:
@@ -1024,19 +1089,20 @@ def _cmd_run(args: argparse.Namespace) -> int:
         final_tournament_count = len((plan or {}).get("plan", {}).get("tournaments", []))
         final_tone = _compute_verdict_tone(plan or {})
 
-        # Track best plan by composite fairness score across attempts
+        # Track best plan by composite quality across attempts.
+        attempt_quality: dict[str, Any] | None = None
         if plan is not None:
-            fg = ((plan.get("plan", {}) or {}).get("fairness_gate", {}) or {})
-            attempt_score = int(fg.get("score", 0) or 0)
-            if attempt_score > best_score:
-                best_score = attempt_score
+            attempt_quality = _plan_attempt_quality(plan)
+            attempt_qualities.append((attempt, attempt_quality))
+            if best_quality is None or attempt_quality["rank"] > best_quality["rank"]:
+                best_quality = attempt_quality
                 best_plan = plan
                 best_attempt = attempt
 
         _log(
             f"Stage 3 attempt {attempt}/{max_plan_attempts}: tone={final_tone}, "
             f"tournaments={final_tournament_count}, iterations={attempt_iterations}, "
-            f"fairness_score={attempt_score if plan is not None else 'N/A'}"
+            f"quality={_format_plan_attempt_quality(attempt_quality) if attempt_quality else 'N/A'}"
         )
 
         if final_tone != "rough" or final_tournament_count == 0:
@@ -1049,22 +1115,36 @@ def _cmd_run(args: argparse.Namespace) -> int:
             )
             _log("Plan verdict still rough; retrying Stage 3 with penalty hints")
 
-    # Use the best plan across all attempts, not just the last one
-    if best_plan is not None:
-        if best_attempt > 0 and best_attempt < (
-            max_plan_attempts if final_tone == "rough" else attempt
-        ):
+    # Use the best plan across all attempts, not just the last one.
+    if best_plan is not None and best_quality is not None:
+        selected_summary = _format_plan_attempt_quality(best_quality)
+        all_summaries = "; ".join(
+            f"attempt {num}: {_format_plan_attempt_quality(quality)}"
+            for num, quality in attempt_qualities
+        )
+        _log(
+            f"Selected Stage 3 attempt {best_attempt}/{last_attempt}: {selected_summary}. "
+            f"Compared attempts: {all_summaries}"
+        )
+        if best_attempt != last_attempt:
             _console.print(
                 f"  [green]✓[/green] Velger forsøk {best_attempt} "
-                f"(fairness-score {best_score}) — best av {max_plan_attempts}"
-            )
-            _log(
-                f"Selected attempt {best_attempt} with score {best_score} "
-                f"over {max_plan_attempts} total attempts"
+                f"({selected_summary}) — best av {last_attempt} forsøkt"
             )
             plan = best_plan
-            # Recompute tone from the best plan
+            # Keep the planning checkpoint aligned with the plan that Stage 4
+            # will export, otherwise later resume/refinement reads the losing
+            # final attempt from disk.
+            try:
+                from ..pipeline.state import StageName, StageStatus
+
+                state.write_stage(StageName.PLANNING, plan, status=StageStatus.DONE)
+                _log(f"Stage 3 checkpoint reset to selected attempt {best_attempt}")
+            except Exception as exc:
+                _log(f"Could not persist selected Stage 3 attempt {best_attempt}: {exc}")
+            # Recompute tone/count from the best plan.
             final_tone = _compute_verdict_tone(plan)
+            final_tournament_count = len((plan or {}).get("plan", {}).get("tournaments", []))
 
     if final_tone == "rough" and final_tournament_count > 0:
         plan_needs_attention = True
