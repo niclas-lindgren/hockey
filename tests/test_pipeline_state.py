@@ -1,5 +1,6 @@
 """Tests for tournament_scheduler.pipeline.state (PipelineState)."""
 
+import hashlib
 import json
 import tempfile
 from pathlib import Path
@@ -72,6 +73,44 @@ class TestPipelineState:
         assert tmp_state.is_stale(StageName.SCRAPING)
         assert tmp_state.is_stale(StageName.PLANNING)
         assert tmp_state.read_envelope(StageName.SCRAPING)["stale_from"] == StageName.CONFIG.value
+
+    def test_input_workbook_fingerprint_change_invalidates_config_and_downstream(self, tmp_path):
+        input_file = tmp_path / "input.xlsx"
+        input_file.write_bytes(b"old workbook bytes")
+        old_sha = hashlib.sha256(b"old workbook bytes").hexdigest()
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.CONFIG,
+            {
+                "input_path": str(input_file),
+                "input_fingerprint": {
+                    "algorithm": "sha256",
+                    "path": str(input_file),
+                    "sha256": old_sha,
+                },
+                "effective_config_fingerprint": {
+                    "algorithm": "sha256",
+                    "sha256": "old-effective",
+                },
+            },
+            status=StageStatus.DONE,
+        )
+        state.write_stage(StageName.SCRAPING, {"sources": ["a"]}, status=StageStatus.DONE)
+        state.write_stage(StageName.PLANNING, {"plan": {"id": 1}}, status=StageStatus.DONE)
+        state.write_stage(StageName.EXPORT, {"output_files": {"excel": "plan.xlsx"}}, status=StageStatus.DONE)
+
+        input_file.write_bytes(b"new workbook bytes")
+
+        assert state.invalidate_if_config_fingerprint_changed() is True
+        assert state.is_failed(StageName.CONFIG)
+        assert state.is_stale(StageName.CONFIG)
+        assert state.is_failed(StageName.SCRAPING)
+        assert state.is_stale(StageName.SCRAPING)
+        assert state.is_failed(StageName.PLANNING)
+        assert state.is_stale(StageName.PLANNING)
+        assert state.is_failed(StageName.EXPORT)
+        assert state.is_stale(StageName.EXPORT)
+        assert state.read_envelope(StageName.SCRAPING)["stale_reason"].startswith("Input workbook changed")
 
     def test_read_envelope_contains_status(self, tmp_state):
         tmp_state.write_stage(StageName.SCRAPING, {"x": 1}, status=StageStatus.RUNNING)

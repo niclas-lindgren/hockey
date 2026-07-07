@@ -80,6 +80,14 @@ def _load_run_history(work_dir: Path) -> list[dict[str, Any]]:
 
 
 def _build_status_text(work_dir: Path) -> str:
+    try:
+        from ..pipeline.state import PipelineState
+
+        PipelineState(work_dir).invalidate_if_config_fingerprint_changed()
+    except Exception:
+        # Status should remain inspectable even if stale detection itself fails.
+        pass
+
     lines = [f"Pipeline work-dir: {work_dir}", ""]
     for label, filename in _STAGE_FILES:
         checkpoint = _read_checkpoint(work_dir, filename)

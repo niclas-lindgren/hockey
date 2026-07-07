@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 from tournament_scheduler.cli.args import build_parser
+from tournament_scheduler.cli.reporting import _build_status_text
+from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +49,42 @@ def test_repo_local_script_is_executable_and_shows_status() -> None:
 
     assert "Pipeline work-dir:" in result.stdout
     assert "Stage 1 (Config):" in result.stdout
+
+
+def test_status_marks_downstream_stale_when_input_workbook_fingerprint_changes(tmp_path) -> None:
+    input_file = tmp_path / "input.xlsx"
+    input_file.write_bytes(b"old workbook bytes")
+    old_sha = hashlib.sha256(b"old workbook bytes").hexdigest()
+    work_dir = tmp_path / "pipeline"
+    state = PipelineState(work_dir)
+    state.write_stage(
+        StageName.CONFIG,
+        {
+            "input_path": str(input_file),
+            "input_fingerprint": {
+                "algorithm": "sha256",
+                "path": str(input_file),
+                "sha256": old_sha,
+            },
+            "effective_config_fingerprint": {
+                "algorithm": "sha256",
+                "sha256": "old-effective",
+            },
+        },
+        status=StageStatus.DONE,
+    )
+    state.write_stage(StageName.SCRAPING, {"sources": []}, status=StageStatus.DONE)
+    state.write_stage(StageName.PLANNING, {"plan": {"tournaments": []}}, status=StageStatus.DONE)
+    state.write_stage(StageName.EXPORT, {"output_files": {"excel": "plan.xlsx"}}, status=StageStatus.DONE)
+
+    input_file.write_bytes(b"new workbook bytes")
+
+    output = _build_status_text(work_dir)
+
+    assert "Stage 2 (Scraping): failed" in output
+    assert "stale from config" in output
+    assert "Stage 4 (Export): failed" in output
+    assert PipelineState(work_dir).is_stale(StageName.EXPORT)
 
 
 def test_logs_list_subcommand_is_available_from_python_cli() -> None:

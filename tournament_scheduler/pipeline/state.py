@@ -228,6 +228,87 @@ class PipelineState:
         """Return ``True`` if *stage* was invalidated by an upstream stage."""
         return bool(self.read_envelope(stage).get("stale", False))
 
+    def invalidate_if_config_fingerprint_changed(
+        self,
+        input_path: str | os.PathLike[str] | None = None,
+    ) -> bool:
+        """Mark config/downstream checkpoints stale when ``input.xlsx`` changed.
+
+        Stage 1 stores both the workbook byte fingerprint and the logical
+        effective-config fingerprint. This helper recomputes those values from
+        the current workbook path and invalidates Stage 2–4 when the checkpoint
+        no longer matches the operator-edited workbook.
+
+        Returns ``True`` when a stale marker was written, otherwise ``False``.
+        """
+        config_envelope = self.read_envelope(StageName.CONFIG)
+        data = config_envelope.get("data") or {}
+        if not isinstance(data, dict):
+            return False
+
+        stored_input = data.get("input_fingerprint")
+        stored_effective = data.get("effective_config_fingerprint")
+        if not isinstance(stored_input, dict) or not isinstance(stored_effective, dict):
+            return False
+
+        candidate_path = input_path or stored_input.get("path") or data.get("input_path")
+        if not candidate_path:
+            return False
+
+        from .fingerprints import build_stage1_fingerprints, file_sha256
+        from .stage1_helpers import _load_workbook_config, _parse_config
+
+        workbook_path = Path(candidate_path)
+        if not workbook_path.exists():
+            reason = f"Input workbook {workbook_path} is missing"
+            self._mark_stage_stale(StageName.CONFIG, stale_from="input", reason=reason)
+            self._invalidate_downstream(StageName.CONFIG, reason=reason)
+            return True
+
+        try:
+            current_input_sha = file_sha256(workbook_path)
+        except OSError as exc:
+            reason = f"Input workbook {workbook_path} cannot be read: {exc}"
+            self._mark_stage_stale(StageName.CONFIG, stale_from="input", reason=reason)
+            self._invalidate_downstream(StageName.CONFIG, reason=reason)
+            return True
+
+        if current_input_sha != stored_input.get("sha256"):
+            reason = (
+                "Input workbook changed "
+                f"(checkpoint {str(stored_input.get('sha256', ''))[:12]}, "
+                f"current {current_input_sha[:12]})"
+            )
+            self._mark_stage_stale(StageName.CONFIG, stale_from="input", reason=reason)
+            self._invalidate_downstream(StageName.CONFIG, reason=reason)
+            return True
+
+        try:
+            raw = _load_workbook_config(workbook_path)
+            computed = _parse_config(raw, workbook_path)
+            current_effective_sha = build_stage1_fingerprints(
+                workbook_path,
+                raw,
+                computed,
+            )["effective_config_fingerprint"]["sha256"]
+        except Exception as exc:
+            reason = f"Current input workbook cannot be fingerprinted: {exc}"
+            self._mark_stage_stale(StageName.CONFIG, stale_from="input", reason=reason)
+            self._invalidate_downstream(StageName.CONFIG, reason=reason)
+            return True
+
+        if current_effective_sha != stored_effective.get("sha256"):
+            reason = (
+                "Effective config changed "
+                f"(checkpoint {str(stored_effective.get('sha256', ''))[:12]}, "
+                f"current {current_effective_sha[:12]})"
+            )
+            self._mark_stage_stale(StageName.CONFIG, stale_from="input", reason=reason)
+            self._invalidate_downstream(StageName.CONFIG, reason=reason)
+            return True
+
+        return False
+
     def summary(self) -> dict[StageName, StageStatus]:
         """Return a mapping of every stage to its current status."""
         return {stage: self.status(stage) for stage in _STAGE_ORDER}
@@ -396,6 +477,17 @@ class PipelineState:
     def _downstream_stages(self, stage: StageName) -> list[StageName]:
         idx = _STAGE_ORDER.index(stage)
         return _STAGE_ORDER[idx + 1 :]
+
+    def _mark_stage_stale(self, stage: StageName, *, stale_from: str, reason: str) -> None:
+        envelope = self.read_envelope(stage)
+        envelope["status"] = StageStatus.FAILED.value
+        envelope["stale"] = True
+        envelope["stale_from"] = stale_from
+        envelope["stale_reason"] = reason
+        envelope["updated_at"] = datetime.now(tz=timezone.utc).isoformat()
+        if not envelope.get("error"):
+            envelope["error"] = f"Stale etter endring i {stale_from}: {reason}"
+        self._write_envelope(self.checkpoint_path(stage), envelope)
 
     def _invalidate_downstream(self, stage: StageName, *, reason: str) -> None:
         for downstream in self._downstream_stages(stage):

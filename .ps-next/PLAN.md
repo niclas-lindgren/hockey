@@ -8,7 +8,7 @@
 - [x] Add Stage 1 fingerprint metadata
   - Files: tournament_scheduler/pipeline/fingerprints.py, tournament_scheduler/pipeline/stage1_config.py, tests/test_stage1_config.py
   - Approach: Add deterministic SHA-256 helpers for the workbook file and effective config payload, store `input_fingerprint` and `effective_config_fingerprint` in the Stage 1 checkpoint, and assert fingerprints change when workbook content changes.
-- [ ] Mark stale checkpoints from pipeline status
+- [x] Mark stale checkpoints from pipeline status
   - Files: tournament_scheduler/pipeline/state.py, tournament_scheduler/cli/reporting.py, tests/test_pipeline_state.py, tests/test_rvv_cli_portability.py
   - Approach: Add a state helper that compares current workbook/effective-config fingerprints to Stage 1 metadata, invalidates Stage 2–4 with a clear stale reason when they differ, and invoke it from status reporting before rendering stage statuses.
 - [ ] Verify focused pipeline status behavior
@@ -27,6 +27,13 @@
 
 ## Log
 
+
+### 2026-07-07 — Mark stale checkpoints from pipeline status
+**Done:** Added PipelineState stale detection that recomputes Stage 1 workbook/effective-config fingerprints and marks config plus Stage 2–4 checkpoints failed/stale when they drift; status reporting invokes the check before rendering.
+**Rationale:** Status is the first operator-visible command after workbook edits, so running fingerprint comparison there prevents stale done checkpoints and exports from appearing trustworthy.
+**Findings:** pytest tests/test_pipeline_state.py tests/test_rvv_cli_portability.py -q passed (27 tests).
+**Files:** tournament_scheduler/pipeline/state.py, tournament_scheduler/cli/reporting.py, tests/test_pipeline_state.py, tests/test_rvv_cli_portability.py
+**Commit:** not committed
 ### 2026-07-07 — Add Stage 1 fingerprint metadata
 **Done:** Added deterministic Stage 1 fingerprint metadata for workbook bytes and effective config payload; successful Stage 1 runs now write sha256 metadata into the config checkpoint.
 **Rationale:** Keeping fingerprints with the checkpoint gives later status/reporting code a stable baseline for detecting workbook/config drift without rerunning the whole pipeline.
