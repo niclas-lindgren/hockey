@@ -8,7 +8,7 @@
 - [x] Add deterministic Stage 2 event expectation calculation
   - Files: tournament_scheduler/pipeline/stage2_scraping.py, tests/test_stage2_scraping.py
   - Approach: Derive a lightweight expected event count from configured age groups/targets and the scrape date range; attach `event_expectation` metadata to every source result and checkpoint-level `event_expectation_warnings` for sources below the threshold, without blocking successful runs.
-- [ ] Surface sparse-source warnings in status and checkpoint summaries
+- [x] Surface sparse-source warnings in status and checkpoint summaries
   - Files: tournament_scheduler/cli/reporting.py, tournament_scheduler/cli/checkpoint_printer.py, tests/test_stage2_scraping.py
   - Approach: Include expectation warnings in `rvv-miniputt status` Stage 2 output and in `checkpoint_printer` summaries so harnesses and humans see suspicious event counts without reading raw JSON.
 - [ ] Document the Stage 2 expectation signal
@@ -29,6 +29,13 @@
 
 ## Log
 
+
+### 2026-07-07 — Surface sparse-source warnings in status and checkpoint summaries
+**Done:** Added Stage 2 sparse-event warning output to status text and checkpoint summaries, with regression tests.
+**Rationale:** Operators need the warning visible in normal status/checkpoint review flows instead of only in raw checkpoint JSON.
+**Findings:** Status now prints up to three sparse-source messages; checkpoint printer includes the top-level event_expectation_warnings summary.
+**Files:** tournament_scheduler/cli/reporting.py, tournament_scheduler/cli/checkpoint_printer.py, tests/test_stage2_scraping.py
+**Commit:** not committed
 ### 2026-07-07 — Add deterministic Stage 2 event expectation calculation
 **Done:** Added deterministic Stage 2 event-count expectation metadata and sparse-source warnings based on scrape date range and active age groups.
 **Rationale:** This keeps suspicious low event counts as a non-blocking recovery signal while preserving existing blocked-source semantics.

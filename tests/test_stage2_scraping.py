@@ -15,7 +15,7 @@ from tournament_scheduler.pipeline.stage2_scraping import (
     _scrape_source,
     run,
 )
-from tournament_scheduler.pipeline.state import PipelineState, StageName
+from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
 from tournament_scheduler.models import CalendarEvent
 from tournament_scheduler.utils.calendar_cache import CalendarCache
 
@@ -821,6 +821,60 @@ class TestCheckpointDateRangeFields:
         src = result["sources"][0]
         assert src["event_expectation"]["status"] == "ok"
         assert result["event_expectation_warnings"] == []
+
+
+class TestStage2ExpectationSummaries:
+    """Status/checkpoint summary output for sparse-source expectation warnings."""
+
+    def test_status_text_mentions_sparse_event_expectation_warnings(self, tmp_path):
+        from tournament_scheduler.cli.reporting import _build_status_text
+
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.SCRAPING,
+            {
+                "sources": [],
+                "blocked": [],
+                "cached": [],
+                "event_expectation_warnings": [
+                    {
+                        "name": "Tønsberg",
+                        "event_count": 2,
+                        "expected_min_events": 6,
+                        "message": "Tønsberg: 2 hendelser funnet, forventet minst ca. 6 for perioden.",
+                    }
+                ],
+            },
+            status=StageStatus.DONE,
+        )
+
+        text = _build_status_text(tmp_path / "pipeline")
+
+        assert "Mistenkelig få kalenderhendelser" in text
+        assert "Tønsberg: 2 hendelser funnet" in text
+
+    def test_checkpoint_printer_summarizes_sparse_event_expectation_warnings(self, tmp_path, capsys):
+        from tournament_scheduler.cli.checkpoint_printer import print_checkpoint
+
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.SCRAPING,
+            {
+                "sources": [],
+                "blocked": [],
+                "cached": [],
+                "event_expectation_warnings": [
+                    {"name": "Skien", "event_count": 4, "expected_min_events": 6}
+                ],
+            },
+            status=StageStatus.DONE,
+        )
+
+        print_checkpoint("stage2_scraping", tmp_path / "pipeline")
+        output = capsys.readouterr().out
+
+        assert "event_expectation_warnings" in output
+        assert "Skien" in output
 
 
 class TestCheckpointPreservationOnResume:

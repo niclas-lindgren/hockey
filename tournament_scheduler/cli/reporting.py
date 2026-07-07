@@ -100,6 +100,19 @@ def _build_status_text(work_dir: Path) -> str:
             blocked = data.get("blocked") or []
             if blocked:
                 lines.append(f"    Blokkerte kilder: {', '.join(blocked)}")
+            expectation_warnings = data.get("event_expectation_warnings") or []
+            if expectation_warnings:
+                lines.append(f"    Mistenkelig få kalenderhendelser: {len(expectation_warnings)} kilde(r)")
+                for warning in expectation_warnings[:3]:
+                    if isinstance(warning, dict):
+                        message = warning.get("message") or (
+                            f"{warning.get('name', 'ukjent kilde')}: "
+                            f"{warning.get('event_count', '?')} vs forventet minst "
+                            f"{warning.get('expected_min_events', '?')}"
+                        )
+                        lines.append(f"      - {message}")
+                if len(expectation_warnings) > 3:
+                    lines.append(f"      - ... og {len(expectation_warnings) - 3} flere")
         if label.startswith("Stage 3"):
             plan_dict = data.get("plan") if isinstance(data, dict) else None
             if isinstance(plan_dict, dict):
