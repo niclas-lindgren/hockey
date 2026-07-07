@@ -4,7 +4,8 @@ STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| Targeted mid-planning tests pass: `python3 -m pytest tests/test_pipeline_orchestrator.py tests/test_stage3_planning.py::TestRunStage3::test_season_planner_normalizes_structured_penalty_hints tests/test_stage3_planning.py::TestRunStage3::test_structured_planning_critic_hints_are_persisted_and_flattened tests/test_stage3_planning.py::TestRunStage3::test_flat_penalty_hints_remain_supported -q`. | PASS | Command completed with `34 passed in 1.94s`. |
-| `python -m tournament_scheduler.cli.rvv_cli run --help` contains the new mid-planning critic loop flag. | PASS | `python3 -m tournament_scheduler.cli.rvv_cli run --help | grep -F -- '--mid-planning-critic-iterations'` printed the option and usage line. |
-| The Stage 3 checkpoint can contain structured planning critic hint metadata when the loop applies hints. | PASS | `tests/test_stage3_planning.py::TestRunStage3::test_structured_planning_critic_hints_are_persisted_and_flattened` verifies `planning_critic_hints` is persisted and numeric hints reach the planner. |
-| Documentation contains the optional pre-export loop separately from the post-Stage-4 refinement loop. | PASS | `rg` found `planning_critic_hints`, `pre-export critic loop`, and `post-Stage-4 refinement` in `docs/rvv-miniputt-pipeline.md` and `.agents/skills/rvv/SKILL.md`. |
+| Stage 1 checkpoints contain `input_fingerprint.sha256` and `effective_config_fingerprint.sha256` after a successful run. | PASS | `tests/test_stage1_config.py::TestRunStage1::test_run_stores_workbook_and_effective_config_fingerprints` asserts both SHA-256 metadata fields after `run()`. |
+| `rvv-miniputt status` marks Stage 2, Stage 3, and Stage 4 checkpoints stale/failed when the current workbook fingerprint differs from the Stage 1 checkpoint metadata. | PASS | `tests/test_pipeline_state.py::TestPipelineState::test_input_workbook_fingerprint_change_invalidates_config_and_downstream` and `tests/test_rvv_cli_portability.py::test_status_marks_downstream_stale_when_input_workbook_fingerprint_changes` cover state mutation and rendered status output. |
+| Targeted tests pass with `pytest tests/test_stage1_config.py tests/test_pipeline_state.py tests/test_rvv_cli_portability.py`. | PASS | Command completed with `58 passed`. |
+
+Additional check: full `python3 -m pytest -q` was attempted and progressed without failures through 86% of the suite, but exceeded the 300s tool timeout during later unrelated tests.
