@@ -2,6 +2,7 @@
 
 from collections import Counter
 from datetime import date, datetime
+from unittest.mock import MagicMock, patch
 
 from tournament_scheduler.models import Game, SeasonPlan, Team, Tournament
 from tournament_scheduler.pipeline.stage3_planning import (
@@ -10,6 +11,7 @@ from tournament_scheduler.pipeline.stage3_planning import (
     run,
 )
 from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
+from tournament_scheduler.season_planner import _normalize_penalty_hints
 
 
 def _make_config():
@@ -59,6 +61,12 @@ def _make_duplicate_label_config():
 
 
 class TestRunStage3:
+    def test_season_planner_normalizes_structured_penalty_hints(self):
+        assert _normalize_penalty_hints({
+            "source": "mid_planning_critic",
+            "penalty_hints": {"diversity_score": "70", "bad": "not-a-number"},
+        }) == {"diversity_score": 70.0}
+
     def test_accepts_canonical_workbook_config(self, tmp_path, canonical_input_data, canonical_season_window):
         state = PipelineState(tmp_path / "pipeline")
         start, end = canonical_season_window
@@ -105,6 +113,76 @@ class TestRunStage3:
         assert "diversity_score" in plan
         assert "month_balance_score" in plan
         assert "arena_day_collisions" in plan
+
+    def test_structured_planning_critic_hints_are_persisted_and_flattened(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        hints = {
+            "source": "mid_planning_critic",
+            "iteration": 1,
+            "issues": ["game spread"],
+            "penalty_hints": {"game_count_spread_score": "25", "ignored": "not-a-number"},
+        }
+        fake_planner = MagicMock()
+        fake_planner.build_plan.return_value = SeasonPlan(
+            tournaments=[
+                Tournament(
+                    date=date(2025, 10, 5),
+                    arena="Kongsberghallen",
+                    age_group="U10",
+                    teams=[
+                        Team(club="Kongsberg", label="Kongsberg U10A", age_group="U10"),
+                        Team(club="Skien", label="Skien U10A", age_group="U10"),
+                        Team(club="Jar", label="Jar U10A", age_group="U10"),
+                    ],
+                    games=[],
+                )
+            ]
+        )
+        fake_planner.rules_report.return_value = {"ok": True}
+        cfg = {**_make_config(), "planning_critic_hints": hints}
+
+        with patch("tournament_scheduler.pipeline.stage3_planning._make_planner", return_value=fake_planner) as make_planner, patch(
+            "tournament_scheduler.pipeline.stage3_planning._build_fairness_gate",
+            return_value={"score": 42},
+        ):
+            result = run(cfg, {}, state, datetime(2025, 9, 1), datetime(2025, 12, 15))
+
+        assert result["planning_critic_hints"] == hints
+        assert make_planner.call_args.kwargs["penalty_hints"] == {"game_count_spread_score": 25.0}
+
+    def test_flat_penalty_hints_remain_supported(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        flat_hints = {"hosting_deviation_score": 30}
+        fake_planner = MagicMock()
+        fake_planner.build_plan.return_value = SeasonPlan(
+            tournaments=[
+                Tournament(
+                    date=date(2025, 10, 5),
+                    arena="Kongsberghallen",
+                    age_group="U10",
+                    teams=[
+                        Team(club="Kongsberg", label="Kongsberg U10A", age_group="U10"),
+                        Team(club="Skien", label="Skien U10A", age_group="U10"),
+                        Team(club="Jar", label="Jar U10A", age_group="U10"),
+                    ],
+                    games=[],
+                )
+            ]
+        )
+        fake_planner.rules_report.return_value = {"ok": True}
+        cfg = {**_make_config(), "penalty_hints": flat_hints}
+
+        with patch("tournament_scheduler.pipeline.stage3_planning._make_planner", return_value=fake_planner) as make_planner, patch(
+            "tournament_scheduler.pipeline.stage3_planning._build_fairness_gate",
+            return_value={"score": 42},
+        ):
+            result = run(cfg, {}, state, datetime(2025, 9, 1), datetime(2025, 12, 15))
+
+        assert result["planning_critic_hints"] == {
+            "source": "penalty_hints",
+            "penalty_hints": {"hosting_deviation_score": 30.0},
+        }
+        assert make_planner.call_args.kwargs["penalty_hints"] == {"hosting_deviation_score": 30.0}
 
     def test_plan_accepted_without_llm_evaluation(self, tmp_path):
         """Plan is accepted deterministically without LLM evaluation."""

@@ -42,6 +42,39 @@ class Stage3Error(RuntimeError):
         super().__init__(f"Stage 3 feilet: {reason}")
 
 
+def _extract_planning_critic_hints(config: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, float] | None]:
+    """Return structured planning critic metadata and flat planner penalties.
+
+    ``penalty_hints`` remains backwards compatible as a flat mapping.  New
+    pre-export critic loops may instead pass ``planning_critic_hints`` with a
+    nested ``penalty_hints`` mapping plus metadata such as source, tone, and
+    issues; Stage 3 persists that metadata while sending only the numeric
+    penalties into ``SeasonPlanner``.
+    """
+    structured = config.get("planning_critic_hints")
+    raw_penalties: Any = config.get("penalty_hints")
+
+    if structured is None and isinstance(raw_penalties, dict) and "penalty_hints" in raw_penalties:
+        structured = raw_penalties
+
+    if isinstance(structured, dict):
+        nested = structured.get("penalty_hints")
+        if isinstance(nested, dict):
+            raw_penalties = nested
+
+    if not isinstance(raw_penalties, dict):
+        return structured if isinstance(structured, dict) else None, None
+
+    penalties: dict[str, float] = {}
+    for key, value in raw_penalties.items():
+        try:
+            penalties[str(key)] = float(value)
+        except (TypeError, ValueError):
+            continue
+
+    return structured if isinstance(structured, dict) else None, penalties or None
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -99,7 +132,7 @@ def run(
     events_by_club = _build_events_by_club(scraping_result)
     fairness_thresholds = config.get("fairness_thresholds", {})
     target_tournament_counts_by_age_group = config.get("target_tournament_counts_by_age_group")
-    penalty_hints: dict[str, float] | None = config.get("penalty_hints")
+    planning_critic_hints, penalty_hints = _extract_planning_critic_hints(config)
 
     best_plan: SeasonPlan | None = None
     best_planner: SeasonPlanner | None = None
@@ -151,6 +184,13 @@ def run(
         "plan": plan_dict,
         "rules_report": rules_report,
     }
+    if planning_critic_hints is not None:
+        checkpoint["planning_critic_hints"] = planning_critic_hints
+    elif penalty_hints:
+        checkpoint["planning_critic_hints"] = {
+            "source": "penalty_hints",
+            "penalty_hints": penalty_hints,
+        }
 
     state.write_stage(StageName.PLANNING, checkpoint, status=StageStatus.DONE)
     return checkpoint

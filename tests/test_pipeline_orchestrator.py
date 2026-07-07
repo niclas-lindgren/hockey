@@ -189,7 +189,7 @@ class TestRunMidPlanningCriticLoop:
         with patch(
             "tournament_scheduler.cli.pipeline_orchestrator._build_mid_planning_critic_hints",
             side_effect=[
-                {"issues": ["issue"], "penalty_hints": {"game_count_spread_score": 40.0}, "tone": "rough"},
+                {"source": "mid_planning_critic", "issues": ["issue"], "penalty_hints": {"game_count_spread_score": 40.0}, "tone": "rough"},
                 {"issues": [], "penalty_hints": {}, "tone": "strong"},
             ],
         ), patch(
@@ -204,7 +204,8 @@ class TestRunMidPlanningCriticLoop:
         assert abort is False
         assert failed is False
         assert mock_stage3.call_count == 1
-        assert mock_stage3.call_args.args[-1] == {"game_count_spread_score": 40.0}
+        assert mock_stage3.call_args.args[-2] == {"game_count_spread_score": 40.0}
+        assert mock_stage3.call_args.args[-1]["source"] == "mid_planning_critic"
 
     def test_respects_iteration_cap_when_hints_continue(self) -> None:
         plan = _make_gate_checkpoint("fail", gate_score=40)

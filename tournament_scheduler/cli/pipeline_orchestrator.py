@@ -923,6 +923,7 @@ def _run_stage3(
     log_fn: "Any",
     iterations: int | None = None,
     penalty_hints: "dict[str, float] | None" = None,
+    planning_critic_hints: "dict[str, Any] | None" = None,
 ) -> "tuple[dict[str, Any] | None, bool, bool]":
     """Run Stage 3 (planning) or skip it when resuming from a later stage.
 
@@ -948,6 +949,13 @@ def _run_stage3(
                 hint_display = ", ".join(f"{k}={v}" for k, v in penalty_hints.items())
                 _console.print(f"  [dim]Straffetips: {hint_display}[/dim]")
                 log_fn(f"Stage 3 penalty hints injected: {hint_display}")
+            if planning_critic_hints:
+                merged_cfg["planning_critic_hints"] = dict(planning_critic_hints)
+                log_fn(
+                    "Stage 3 planning critic metadata injected: "
+                    f"source={planning_critic_hints.get('source', 'unknown')} "
+                    f"iteration={planning_critic_hints.get('iteration', '?')}"
+                )
             plan = stage3_run(merged_cfg, scraping, state, start, end, strict=strict, iterations=iterations or getattr(args, "iterations", 1))
             n_tournaments = len(plan.get("plan", {}).get("tournaments", []))
             _console.print(f"  [green]✓[/green] {n_tournaments} turneringer planlagt")
@@ -1035,6 +1043,7 @@ def _run_mid_planning_critic_loop(
             log_fn,
             rerun_iterations,
             penalty_hints,
+            hints,
         )
         if abort:
             return current_plan, True, run_failed

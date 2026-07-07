@@ -11,7 +11,7 @@ import math
 import random
 from collections import Counter
 from datetime import date, datetime, timedelta
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from tournament_scheduler.fairness_model import SeasonFairnessModel
 from tournament_scheduler.game_generation import (
@@ -90,6 +90,22 @@ DEFAULT_FAIRNESS_THRESHOLDS = {
     "max_consecutive_weekend_club_load": 2,
     "max_holiday_stretch_club_load": 2,
 }
+
+
+def _normalize_penalty_hints(raw: Optional[Dict[str, Any]]) -> Dict[str, float]:
+    """Accept flat or structured planning hints and return numeric penalties."""
+    if not isinstance(raw, dict):
+        return {}
+    if isinstance(raw.get("penalty_hints"), dict):
+        raw = raw["penalty_hints"]
+
+    normalized: Dict[str, float] = {}
+    for key, value in raw.items():
+        try:
+            normalized[str(key)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return normalized
 
 
 class SeasonPlanner:
@@ -174,7 +190,7 @@ class SeasonPlanner:
         self.fairness_thresholds = dict(DEFAULT_FAIRNESS_THRESHOLDS)
         if fairness_thresholds:
             self.fairness_thresholds.update(fairness_thresholds)
-        self.penalty_hints: Dict[str, float] = dict(penalty_hints or {})
+        self.penalty_hints: Dict[str, float] = _normalize_penalty_hints(penalty_hints)
         if self.penalty_hints:
             _hint_keys_log: list[str] = []
             # Relax thresholds for metrics that failed, capped at 2x original

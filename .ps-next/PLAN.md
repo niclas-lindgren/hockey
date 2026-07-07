@@ -8,9 +8,9 @@
 - [x] Add CLI/orchestrator support for the pre-export critic loop
   - Files: tournament_scheduler/cli/args.py, tournament_scheduler/cli/pipeline_orchestrator.py, tests/test_pipeline_orchestrator.py
   - Approach: Add an opt-in run flag for mid-planning critic iterations, extract helper(s) that inspect the Stage 3 checkpoint with plan_critic/fairness metrics, produce structured penalty hints, rerun _run_stage3 with those hints, persist the selected checkpoint, and unit-test zero-cap, improvement, cap, and no-issue behavior without invoking real stages.
-- [ ] Persist and consume structured planning critic hints cleanly
-  - Files: tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/season_planner.py, tests/test_stage3_planning.py
-  - Approach: Ensure Stage 3 stores any applied hint metadata in its checkpoint and SeasonPlanner accepts the structured hint shape without breaking existing penalty_hints; add focused tests proving hints reach the planner/checkpoint and old flat penalty_hints still work.
+- [x] Persist and consume structured planning critic hints cleanly
+  - Files: tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/season_planner.py, tests/test_pipeline_orchestrator.py, tests/test_stage3_planning.py
+  - Approach: Ensure the orchestrator passes structured hint metadata into Stage 3, Stage 3 stores any applied hint metadata in its checkpoint, and SeasonPlanner accepts the structured hint shape without breaking existing penalty_hints; add focused tests proving hints reach the planner/checkpoint and old flat penalty_hints still work.
 - [ ] Document the new pre-export loop and run checks
   - Files: docs/rvv-miniputt-pipeline.md, .agents/skills/rvv/SKILL.md, .ps-next/PLAN.md
   - Approach: Update pipeline docs/skill notes to distinguish the new optional pre-Stage-4 critic loop from post-export refinement, then run targeted pytest plus pi-next review/quality checks before marking the plan complete.
@@ -28,6 +28,13 @@
 
 ## Log
 
+
+### 2026-07-07 — Persist and consume structured planning critic hints cleanly
+**Done:** Stage 3 now normalizes flat and structured critic hints, persists planning_critic_hints metadata in the planning checkpoint, and the orchestrator passes the structured mid-planning critic payload alongside flat penalty hints. SeasonPlanner now normalizes either shape before applying penalties.
+**Rationale:** Keeping metadata separate from numeric penalties preserves checkpoint traceability while maintaining backwards compatibility for existing penalty_hints callers and SeasonPlanner logic.
+**Findings:** Targeted checks passed: python3 -m pytest tests/test_pipeline_orchestrator.py tests/test_stage3_planning.py::TestRunStage3::test_season_planner_normalizes_structured_penalty_hints tests/test_stage3_planning.py::TestRunStage3::test_structured_planning_critic_hints_are_persisted_and_flattened tests/test_stage3_planning.py::TestRunStage3::test_flat_penalty_hints_remain_supported -q.
+**Files:** tournament_scheduler/cli/pipeline_orchestrator.py, tournament_scheduler/pipeline/stage3_planning.py, tournament_scheduler/season_planner.py, tests/test_pipeline_orchestrator.py, tests/test_stage3_planning.py
+**Commit:** not committed
 ### 2026-07-07 — Add CLI/orchestrator support for the pre-export critic loop
 **Done:** Added --mid-planning-critic-iterations, a pre-export Stage 3 checkpoint critic loop, structured hint extraction, rerun orchestration, best-plan retention, and unit coverage for off/no-hint/rerun/cap behavior.
 **Rationale:** The loop is opt-in and sits between Stage 3 selection and Stage 4 export, keeping existing default behavior and post-export refinement unchanged while allowing planner hints to influence a fresh Stage 3 run before artifacts are created.
