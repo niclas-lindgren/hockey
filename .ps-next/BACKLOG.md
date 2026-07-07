@@ -2,12 +2,13 @@
 
 ## Open
 
-- [9] [ ] Track the best overall plan by composite score across the 3-attempt retry loop instead of discarding earlier attempts — compare fairness gate score, pairwise_matchup_score, diversity_score, and month_balance_score across attempts, keep the best, and log which attempt won and why
 - [10] [ ] Add an optional mid-planning critic loop between Stage 3 and Stage 4: inspect the planning checkpoint, generate structured improvement hints, re-run Stage 3 with those hints baked into the config, and iterate up to N times before falling through to export — different from the post-Stage-4 refinement loop because it operates before any export artifacts exist
 - [207] [ ] Add workbook/config fingerprinting to Stage 1 and pipeline status so Stage 2–4 checkpoints and exports are marked stale when `input.xlsx` or the effective config changes; current status can show `done` even when the workbook roster differs from the checkpoint. (2026-07-05)
 - [208] [ ] Propagate workbook-level settings such as `deltakelser_per_lag` and `max_hosting_days_per_month` through `load_effective_config` into Stage 3 planning, and stop logging them as ignored unknown fields when they are intentional supported inputs. (2026-07-05)
 - [209] [ ] Stabilize the test suite by separating slow planner/integration tests from quick unit tests, marking canonical full-planner tests appropriately, and ensuring the default quality gate does not hang on Stage 3 canonical planning cases. (2026-07-05)
 ## Done
+- [9] [x] Track the best overall plan by composite score across the 3-attempt retry loop instead of discarding earlier attempts — compare fairness gate score, pairwise_matchup_score, diversity_score, and month_balance_score across attempts, keep the best, and log which attempt won and why (2026-07-07)
+
 - [7] [x] Add per-source event-count expectations derived from date range + age group configuration, surfaced in the Stage 2 judgment summary and checkpoint — so the harness can flag sources with suspiciously few events (e.g. Ringerike: 3 events vs expected ~16) and prioritize them for recovery (2026-07-07)
 
 - [2] [x] Fix silent data-loss and exception-swallowing bugs identified in .notes/improvements.md: stage1_helpers drops unknown config keys silently, stage3_helpers drops malformed events with bare except/continue, stage4_helpers silenty drops games with unknown team labels, and multiple except Exception: pass blocks in stage4_export with no logging — each location should at minimum log a warning (2026-06-26)
