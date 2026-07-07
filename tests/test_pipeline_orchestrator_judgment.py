@@ -41,6 +41,41 @@ _MINIMAL_PLAN = {"plan": {"tournaments": []}, "warnings": []}
 _MINIMAL_EXPORT = {"output_files": {}}
 
 
+def _make_scored_rough_plan(
+    plan_id: str,
+    *,
+    fairness_score: int,
+    pairwise: float,
+    diversity: float,
+    month_balance: float,
+) -> dict:
+    return {
+        "plan": {
+            "start_date": "2026-09-01",
+            "end_date": "2027-04-30",
+            "diversity_score": diversity,
+            "pairwise_matchup_score": pairwise,
+            "month_balance_score": month_balance,
+            "fairness_gate": {"status": "warn", "score": fairness_score, "metrics": []},
+            "tournaments": [
+                {
+                    "id": plan_id,
+                    "date": "2026-09-05",
+                    "arena": "Arena 1",
+                    "age_group": "U10",
+                    "host_club": "Jar",
+                    "teams": [
+                        {"club": "Jar", "label": "Jar 1", "age_group": "U10"},
+                        {"club": "Holmen", "label": "Holmen 1", "age_group": "U10"},
+                    ],
+                    "games": [],
+                    "start_time": "09:00",
+                }
+            ],
+        },
+    }
+
+
 def _make_args(tmp_path: Path) -> argparse.Namespace:
     return argparse.Namespace(
         work_dir=str(tmp_path),
@@ -241,31 +276,13 @@ def test_rough_plan_triggers_stage3_retries_and_fails(tmp_path: Path) -> None:
     """A rough plan with tournaments should be retried before the run fails."""
     args = _make_args(tmp_path)
 
-    rough_plan = {
-        "plan": {
-            "start_date": "2026-09-01",
-            "end_date": "2027-04-30",
-            "diversity_score": 1.0,
-            "pairwise_matchup_score": 0.34,
-            "month_balance_score": 0.87,
-            "fairness_gate": {"status": "warn", "score": 88, "metrics": []},
-            "tournaments": [
-                {
-                    "id": "t1",
-                    "date": "2026-09-05",
-                    "arena": "Arena 1",
-                    "age_group": "U10",
-                    "host_club": "Jar",
-                    "teams": [
-                        {"club": "Jar", "label": "Jar 1", "age_group": "U10"},
-                        {"club": "Holmen", "label": "Holmen 1", "age_group": "U10"},
-                    ],
-                    "games": [],
-                    "start_time": "09:00",
-                }
-            ],
-        },
-    }
+    rough_plan = _make_scored_rough_plan(
+        "t1",
+        fairness_score=88,
+        pairwise=0.34,
+        diversity=1.0,
+        month_balance=0.87,
+    )
 
     with patch.dict(os.environ, _HARNESS_CLEAN):
         with patch("tournament_scheduler.pipeline.stage1_config.run", return_value=None), patch(
@@ -289,6 +306,116 @@ def test_rough_plan_triggers_stage3_retries_and_fails(tmp_path: Path) -> None:
     assert result == 1
     assert stage3_run.call_count == 3
     assert stage4_run.call_count == 1
+
+
+def test_stage3_retries_export_best_composite_attempt_not_last(tmp_path: Path) -> None:
+    """Earlier attempts are kept when their composite metrics beat later retries."""
+    args = _make_args(tmp_path)
+
+    best_early = _make_scored_rough_plan(
+        "best-early",
+        fairness_score=95,
+        pairwise=0.74,
+        diversity=0.98,
+        month_balance=0.96,
+    )
+    higher_gate_but_weaker_overall = _make_scored_rough_plan(
+        "higher-gate",
+        fairness_score=100,
+        pairwise=0.30,
+        diversity=0.30,
+        month_balance=0.30,
+    )
+    weak_final = _make_scored_rough_plan(
+        "weak-final",
+        fairness_score=90,
+        pairwise=0.40,
+        diversity=0.40,
+        month_balance=0.40,
+    )
+
+    with patch.dict(os.environ, _HARNESS_CLEAN):
+        with patch("tournament_scheduler.pipeline.stage1_config.run", return_value=None), patch(
+            "tournament_scheduler.pipeline.stage1_config.load_effective_config",
+            return_value=_MINIMAL_CFG,
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping.run",
+            return_value=_MINIMAL_SCRAPING,
+        ), patch(
+            "tournament_scheduler.pipeline.stage3_planning.run",
+            side_effect=[best_early, higher_gate_but_weaker_overall, weak_final],
+        ) as stage3_run, patch(
+            "tournament_scheduler.pipeline.stage4_export.run",
+            return_value=_MINIMAL_EXPORT,
+        ) as stage4_run, patch(
+            "tournament_scheduler.pipeline.calendar_viewer.generate_html",
+            return_value="export/calendars.html",
+        ):
+            result = _cmd_run(args)
+
+    assert result == 1
+    assert stage3_run.call_count == 3
+    exported_plan = stage4_run.call_args.args[0]
+    assert exported_plan["plan"]["tournaments"][0]["id"] == "best-early"
+
+    log_text = next((tmp_path / "logs").glob("pipeline_run_*_FAILED.log")).read_text(encoding="utf-8")
+    assert "Selected Stage 3 attempt 1/3" in log_text
+    assert "attempt 2: gate=warn:100" in log_text
+    assert "best-early" not in log_text  # Logs explain score components, not payload IDs.
+
+
+def test_stage3_retries_log_later_composite_winner(tmp_path: Path) -> None:
+    """The selection log also records when a later retry wins the composite comparison."""
+    args = _make_args(tmp_path)
+
+    weak_early = _make_scored_rough_plan(
+        "weak-early",
+        fairness_score=99,
+        pairwise=0.25,
+        diversity=0.25,
+        month_balance=0.25,
+    )
+    middle = _make_scored_rough_plan(
+        "middle",
+        fairness_score=85,
+        pairwise=0.45,
+        diversity=0.45,
+        month_balance=0.45,
+    )
+    best_late = _make_scored_rough_plan(
+        "best-late",
+        fairness_score=95,
+        pairwise=0.74,
+        diversity=0.98,
+        month_balance=0.96,
+    )
+
+    with patch.dict(os.environ, _HARNESS_CLEAN):
+        with patch("tournament_scheduler.pipeline.stage1_config.run", return_value=None), patch(
+            "tournament_scheduler.pipeline.stage1_config.load_effective_config",
+            return_value=_MINIMAL_CFG,
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping.run",
+            return_value=_MINIMAL_SCRAPING,
+        ), patch(
+            "tournament_scheduler.pipeline.stage3_planning.run",
+            side_effect=[weak_early, middle, best_late],
+        ), patch(
+            "tournament_scheduler.pipeline.stage4_export.run",
+            return_value=_MINIMAL_EXPORT,
+        ) as stage4_run, patch(
+            "tournament_scheduler.pipeline.calendar_viewer.generate_html",
+            return_value="export/calendars.html",
+        ):
+            result = _cmd_run(args)
+
+    assert result == 1
+    exported_plan = stage4_run.call_args.args[0]
+    assert exported_plan["plan"]["tournaments"][0]["id"] == "best-late"
+
+    log_text = next((tmp_path / "logs").glob("pipeline_run_*_FAILED.log")).read_text(encoding="utf-8")
+    assert "Selected Stage 3 attempt 3/3" in log_text
+    assert "attempt 1: gate=warn:99" in log_text
 
 
 # ---------------------------------------------------------------------------

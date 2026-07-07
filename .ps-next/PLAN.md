@@ -8,7 +8,7 @@
 - [x] Add composite attempt scoring to the Stage 3 retry loop
   - Files: tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: Extract a small helper that reads fairness_gate score/status plus pairwise_matchup_score, diversity_score, and month_balance_score from the Stage 3 plan payload; rank attempts lexicographically by gate status/score and metric sum; select the best attempt after retries and log/print which attempt won with score components and comparison reason.
-- [ ] Cover composite best-attempt behavior with targeted tests
+- [x] Cover composite best-attempt behavior with targeted tests
   - Files: tests/test_pipeline_orchestrator_judgment.py, tournament_scheduler/cli/pipeline_orchestrator.py
   - Approach: Add mocked _cmd_run coverage where attempt 1 has a better composite score than later attempts despite lower/competing individual metrics; assert Stage 4 receives the selected plan and run logs mention the selected attempt/reason. Add a helper-level test if needed for score extraction/ranking.
 
@@ -25,6 +25,13 @@
 
 ## Log
 
+
+### 2026-07-07 — Cover composite best-attempt behavior with targeted tests
+**Done:** Added mocked pipeline-run tests for composite retry selection: one verifies an earlier attempt is exported when it has better overall composite quality despite a later higher fairness gate score, and another verifies a later attempt winner is logged/exported.
+**Rationale:** Regression coverage locks down the exact bug: retry attempts are compared by all relevant quality components and the selected attempt is passed to Stage 4.
+**Findings:** The existing retry test was simplified to reuse a scored rough-plan fixture; targeted pytest command passed.
+**Files:** tests/test_pipeline_orchestrator_judgment.py (+scored rough-plan fixture and 2 retry-selection tests), .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-07 — Add composite attempt scoring to the Stage 3 retry loop
 **Done:** Added composite Stage 3 attempt quality extraction/ranking that normalizes fairness gate score, pairwise matchup score, diversity score, and month balance score; the retry loop now logs all compared attempts, selects the best, and persists it back to the planning checkpoint when it is not the last attempt.
 **Rationale:** A fairness-gate-only comparison could discard an earlier plan with materially better overall quality; selecting by composite components preserves the strongest generated attempt for approval/export/refinement.
