@@ -11,7 +11,7 @@
 - [x] Mark stale checkpoints from pipeline status
   - Files: tournament_scheduler/pipeline/state.py, tournament_scheduler/cli/reporting.py, tests/test_pipeline_state.py, tests/test_rvv_cli_portability.py
   - Approach: Add a state helper that compares current workbook/effective-config fingerprints to Stage 1 metadata, invalidates Stage 2–4 with a clear stale reason when they differ, and invoke it from status reporting before rendering stage statuses.
-- [ ] Verify focused pipeline status behavior
+- [x] Verify focused pipeline status behavior
   - Files: tests/test_stage1_config.py, tests/test_pipeline_state.py, tests/test_rvv_cli_portability.py, .ps-next/PLAN.md
   - Approach: Run targeted pytest for Stage 1 fingerprinting, PipelineState stale invalidation, and CLI status portability; fix regressions and record verification evidence.
 
@@ -28,6 +28,13 @@
 ## Log
 
 
+
+### 2026-07-07 — Verify focused pipeline status behavior
+**Done:** Verified the focused Stage 1 fingerprint, PipelineState stale invalidation, and status-reporting tests.
+**Rationale:** The targeted test set covers all new fingerprint storage and status-triggered stale-marking behavior without requiring a full pipeline run.
+**Findings:** `pytest tests/test_stage1_config.py tests/test_pipeline_state.py tests/test_rvv_cli_portability.py -q` passed (58 tests). Full `python3 -m pytest -q` progressed without failures through 86% of the suite but exceeded the 300s tool timeout during later unrelated tests.
+**Files:** .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-07 — Mark stale checkpoints from pipeline status
 **Done:** Added PipelineState stale detection that recomputes Stage 1 workbook/effective-config fingerprints and marks config plus Stage 2–4 checkpoints failed/stale when they drift; status reporting invokes the check before rendering.
 **Rationale:** Status is the first operator-visible command after workbook edits, so running fingerprint comparison there prevents stale done checkpoints and exports from appearing trustworthy.
