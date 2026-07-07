@@ -82,11 +82,13 @@ The following remain Pi-specific adapters on top of the repo workflow:
 ### `run` flags
 
 ```
---input <path>        Input workbook (default: input.xlsx)
---work-dir <path>     Working directory (default: .pipeline)
---resume-from <N>     Resume from stage N (1-4)
---export-dir <path>   Export directory (default: export)
---log-level <level>   info | verbose
+--input <path>                         Input workbook (default: input.xlsx)
+--work-dir <path>                      Working directory (default: .pipeline)
+--resume-from <N>                      Resume from stage N (1-4)
+--export-dir <path>                    Export directory (default: export)
+--log-level <level>                    info | verbose
+--iterations N                         Stage 3 multi-seed search budget
+--mid-planning-critic-iterations N     Optional pre-export Stage 3 critic/rerun loop (default: 0/off)
 ```
 
 ## The four stages
@@ -341,6 +343,9 @@ Read `.pipeline/stage3_planning.json` and verify before continuing:
 - Each tournament has a date, host club, and age group
 - No two tournaments with overlapping player pools share a weekend
 - `rules_report` shows no critical violations
+- `planning_critic_hints` may be present when `rvv-miniputt run --mid-planning-critic-iterations N` was used; this records the pre-export critic findings and numeric penalty hints that were baked into a Stage 3 rerun
+
+Optional pre-export critic loop: `rvv-miniputt run --mid-planning-critic-iterations N` inspects the Stage 3 checkpoint, generates structured critic/fairness hints, reruns Stage 3 with those hints, and only then falls through to Stage 4. This is distinct from the post-Stage-4 refinement loop, which applies manual-adjustment moves after export artifacts already exist and may re-export them.
 
 **Stage 4 — Export**
 

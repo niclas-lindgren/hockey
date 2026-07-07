@@ -151,7 +151,15 @@ Useful flags:
 
 - `--non-strict` — continue past some stage failures
 - `--allow-missing-sources` — keep partial Stage 2 results and continue
+- `--iterations N` — run the Stage 3 planner with multiple random seeds and keep the best plan for that Stage 3 attempt
+- `--mid-planning-critic-iterations N` — opt into a pre-export critic loop after Stage 3 and before Stage 4; the loop inspects `.pipeline/stage3_planning.json`, stores structured `planning_critic_hints`, reruns Stage 3 with numeric penalty hints from those findings, and repeats up to `N` times before export
 - `--timestamped-export` — write diffable exports into a timestamped folder only
+
+### Pre-export planning critic vs post-export refinement
+
+`--mid-planning-critic-iterations N` runs before any Stage 4 artifacts exist. It is checkpoint-driven: the pipeline reads the Stage 3 plan, asks the deterministic plan critic/fairness metrics for issues, persists the structured hint payload in the next Stage 3 checkpoint as `planning_critic_hints`, and reruns Stage 3 with the extracted numeric `penalty_hints` baked into the config. Default is `0`, so existing runs are unchanged.
+
+This is separate from the post-Stage-4 refinement loop. Post-export refinement starts only after export, applies targeted manual-adjustment moves to an already materialized plan, and may re-export improved artifacts. The mid-planning loop instead tries to improve the planner search before export and does not create or patch export files by itself.
 
 ### Rebuild calendar HTML
 
