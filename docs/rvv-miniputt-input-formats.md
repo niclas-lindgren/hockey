@@ -29,10 +29,11 @@ Current rows:
 | `start_date` | Required | `YYYY-MM-DD`. Used by Stage 1. |
 | `end_date` | Required | `YYYY-MM-DD`. Used by Stage 1. |
 | `vekt_cap` | Optional | Caps absolute `preferanse_vekt` values when the workbook is parsed. Useful for keeping preference weights from dominating scoring. |
-| `deltakelser_per_lag` | Optional / ignored by Stage 1 | Present in the workbook as a human-facing default, but the current Stage 1 pipeline does not consume it. Per-age-group targets should be set in `Aldersgrupper` instead. |
-| `max_hosting_days_per_month` | Optional / ignored by Stage 1 | Reserved scalar knob in the workbook, but not currently wired into the standard Stage 1 → Stage 3 path. |
+| `deltakelser_per_lag` | Optional / supported | Norwegian alias for the global `target_tournament_count` / per-team participation target. Used by Stage 3 unless a team-level or per-age-group target overrides it. |
+| `target_tournament_count` | Optional / supported | English name for the same global per-team participation target. If both this and `deltakelser_per_lag` are set, `target_tournament_count` wins. |
+| `max_hosting_days_per_month` | Optional / supported | Maximum distinct hosting days a club should receive in the same month. Passed to Stage 3 as a planning constraint. |
 
-If you add other scalar rows, the loader will read them, but the current pipeline ignores unknown `Innstillinger` keys.
+If you add other scalar rows, the loader will read them, but the current pipeline ignores unknown `Innstillinger` keys and logs a warning.
 
 ### `Aldersgrupper`
 
@@ -101,4 +102,4 @@ Notes:
 - `Aldersgrupper` is optional, but when present it constrains the allowed age groups.
 - `Lag` is required.
 - `Kilder` and `Datopreferanser` are optional.
-- Stage 1 currently consumes `start_date`, `end_date`, `vekt_cap`, the age-group sheet values, team roster rows, and optional date preferences; other scalar rows in `Innstillinger` are retained in the workbook for reference but ignored by the current pipeline.
+- Stage 1 currently consumes `start_date`, `end_date`, `vekt_cap`, workbook-level planning knobs (`deltakelser_per_lag` / `target_tournament_count`, `max_hosting_days_per_month`), the age-group sheet values, team roster rows, and optional date preferences; other scalar rows in `Innstillinger` are retained in the workbook for reference and logged as ignored unknown fields.

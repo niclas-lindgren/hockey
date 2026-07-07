@@ -8,7 +8,7 @@
 - [x] Wire workbook-level scalar settings into effective config and Stage 3
   - Files: tournament_scheduler/pipeline/input_workbook.py, tournament_scheduler/pipeline/stage1_config.py, tournament_scheduler/pipeline/stage1_helpers.py, tournament_scheduler/pipeline/stage3_planning.py, tests/test_stage1_config.py, tests/test_stage3_planning.py
   - Approach: Treat `deltakelser_per_lag` as the Norwegian alias for global `target_tournament_count`, preserve `target_tournament_count`/`max_hosting_days_per_month` in `load_effective_config`, add them to the Stage 1 supported-key set so they are not warned as unknown, and pass both values into `_make_planner` from Stage 3. Add regression tests for no unknown-field warning, effective-config propagation, and Stage 3 planner handoff.
-- [ ] Document supported workbook-level settings
+- [x] Document supported workbook-level settings
   - Files: docs/rvv-miniputt-input-formats.md, docs/rvv-miniputt-rules-report.md
   - Approach: Update the workbook docs from “ignored/reserved” to “supported”, explain the alias and Stage 3 effect, and add the monthly hosting-day knob to the rules/guardrails description.
 
@@ -27,6 +27,13 @@
 
 ## Log
 
+
+### 2026-07-07 — Document supported workbook-level settings
+**Done:** Updated input-format and rules-report docs to describe `deltakelser_per_lag` / `target_tournament_count` and `max_hosting_days_per_month` as supported workbook-level planning settings.
+**Rationale:** Scheduling behavior changed from ignored scalar rows to active Stage 3 inputs, so operator-facing docs and rule descriptions need to match.
+**Findings:** Docs previously explicitly described both settings as ignored/reserved; those statements are now removed.
+**Files:** docs/rvv-miniputt-input-formats.md, docs/rvv-miniputt-rules-report.md
+**Commit:** not committed
 ### 2026-07-07 — Wire workbook-level scalar settings into effective config and Stage 3
 **Done:** Workbook-level `deltakelser_per_lag` is normalized to `target_tournament_count`, `target_tournament_count` and `max_hosting_days_per_month` are included in `load_effective_config`, and Stage 3 passes both values into `_make_planner`.
 **Rationale:** These fields are intentional operator-facing planning inputs, so they should be canonicalized once, omitted from unknown-field warnings, and handed to the existing `SeasonPlanner` knobs.
