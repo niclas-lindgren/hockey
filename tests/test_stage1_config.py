@@ -251,6 +251,37 @@ class TestRunStage1:
             {"name": "Kongsberg", "type": "outlook", "url": "https://example.test/calendar"}
         ]
 
+    def test_run_stores_workbook_and_effective_config_fingerprints(self, tmp_path):
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file)
+
+        state = PipelineState(tmp_path / "pipeline")
+        run(input_file, state)
+        checkpoint = state.read_stage(StageName.CONFIG)
+
+        assert checkpoint["input_fingerprint"]["algorithm"] == "sha256"
+        assert checkpoint["input_fingerprint"]["path"] == str(input_file.resolve())
+        assert len(checkpoint["input_fingerprint"]["sha256"]) == 64
+        assert checkpoint["effective_config_fingerprint"]["algorithm"] == "sha256"
+        assert len(checkpoint["effective_config_fingerprint"]["sha256"]) == 64
+
+    def test_stage1_fingerprints_change_when_workbook_roster_changes(self, tmp_path):
+        input_file = tmp_path / "input.xlsx"
+        raw = _make_valid_raw()
+        _write_input_workbook(input_file, raw)
+
+        state = PipelineState(tmp_path / "pipeline")
+        run(input_file, state)
+        first = state.read_stage(StageName.CONFIG)
+
+        raw["teams"].append({"club": "Jar", "label": "Jar U10A", "age_group": "U10"})
+        _write_input_workbook(input_file, raw)
+        run(input_file, state)
+        second = state.read_stage(StageName.CONFIG)
+
+        assert second["input_fingerprint"]["sha256"] != first["input_fingerprint"]["sha256"]
+        assert second["effective_config_fingerprint"]["sha256"] != first["effective_config_fingerprint"]["sha256"]
+
     def test_run_reports_missing_required_workbook_sheet(self, tmp_path):
         input_file = tmp_path / "input.xlsx"
         wb = openpyxl.Workbook()

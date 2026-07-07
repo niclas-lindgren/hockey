@@ -36,6 +36,7 @@ from typing import Any
 
 from ..models import Roster, Team
 from ..roster_loader import RosterConfigError, RosterLoader
+from .fingerprints import build_stage1_fingerprints
 from .state import PipelineState, StageName, StageStatus
 from .stage1_helpers import _load_workbook_config, _parse_config, validate_config
 # ---------------------------------------------------------------------------
@@ -156,6 +157,7 @@ def run(
     # Parse validated config into structured objects
     state.write_stage(StageName.CONFIG, {}, status=StageStatus.RUNNING)
     config = _parse_config(raw, input_path)
+    config.update(build_stage1_fingerprints(input_path, raw, config))
 
     state.write_stage(StageName.CONFIG, config, status=StageStatus.DONE)
     return config
