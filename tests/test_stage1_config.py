@@ -32,7 +32,13 @@ def _write_input_workbook(path: Path, raw: dict | None = None) -> None:
     settings = wb.active
     settings.title = "Innstillinger"
     settings.append(["felt", "verdi"])
-    for key in ("start_date", "end_date", "target_tournament_count"):
+    for key in (
+        "start_date",
+        "end_date",
+        "target_tournament_count",
+        "deltakelser_per_lag",
+        "max_hosting_days_per_month",
+    ):
         if key in raw:
             settings.append([key, raw[key]])
 
@@ -224,6 +230,37 @@ class TestRunStage1:
 
         assert result["teams"]
         assert any("targt_tournament_count" in record.message for record in caplog.records)
+
+    def test_run_does_not_warn_for_supported_workbook_level_planning_settings(self, tmp_path, caplog):
+        input_file = tmp_path / "input.xlsx"
+        raw = _make_valid_raw()
+        raw["deltakelser_per_lag"] = 5
+        raw["max_hosting_days_per_month"] = 2
+        _write_input_workbook(input_file, raw)
+
+        state = PipelineState(tmp_path / "pipeline")
+        with caplog.at_level(logging.WARNING, logger="tournament_scheduler.pipeline.stage1_helpers"):
+            result = run(input_file, state)
+        effective = load_effective_config(state, input_path=input_file)
+
+        assert result["teams"]
+        assert effective["target_tournament_count"] == 5
+        assert effective["max_hosting_days_per_month"] == 2
+        assert not any("deltakelser_per_lag" in record.message for record in caplog.records)
+        assert not any("max_hosting_days_per_month" in record.message for record in caplog.records)
+
+    def test_target_tournament_count_takes_precedence_over_norwegian_alias(self, tmp_path):
+        input_file = tmp_path / "input.xlsx"
+        raw = _make_valid_raw()
+        raw["target_tournament_count"] = 6
+        raw["deltakelser_per_lag"] = 4
+        _write_input_workbook(input_file, raw)
+
+        state = PipelineState(tmp_path / "pipeline")
+        run(input_file, state)
+        effective = load_effective_config(state, input_path=input_file)
+
+        assert effective["target_tournament_count"] == 6
 
     def test_run_accepts_excel_workbook_input(self, tmp_path):
         input_file = tmp_path / "input.xlsx"

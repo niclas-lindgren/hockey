@@ -268,8 +268,8 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
     """Build the Stage 1 checkpoint dict with only **computed** fields.
 
     Human-editable fields (start_date, end_date, age_groups, parallel_games,
-    target_tournament_counts_by_age_group, sources) are intentionally excluded —
-    they live only in ``input.xlsx``.
+    global planning knobs, target_tournament_counts_by_age_group, sources) are
+    intentionally excluded — they live only in ``input.xlsx``.
     """
 
     rl_dict: dict[str, int] = {}
@@ -299,7 +299,10 @@ def _parse_config(raw: dict[str, Any], input_path: str | os.PathLike[str]) -> di
             "round_length_minutes",
             "teams",
             "sources",
+            "target_tournament_count",
+            "deltakelser_per_lag",
             "target_tournament_counts_by_age_group",
+            "max_hosting_days_per_month",
             "fairness_thresholds",
         }
     )

@@ -131,6 +131,8 @@ def run(
     max_hosting_deviation = config.get("maxHostingDeviation", 1)
     events_by_club = _build_events_by_club(scraping_result)
     fairness_thresholds = config.get("fairness_thresholds", {})
+    target_tournament_count = config.get("target_tournament_count")
+    max_hosting_days_per_month = config.get("max_hosting_days_per_month")
     target_tournament_counts_by_age_group = config.get("target_tournament_counts_by_age_group")
     planning_critic_hints, penalty_hints = _extract_planning_critic_hints(config)
 
@@ -151,10 +153,10 @@ def run(
             round_length_config,
             events_by_club,
             fairness_thresholds,
-            None,
+            target_tournament_count,
             target_tournament_counts_by_age_group,
             seed=seed,
-            max_hosting_days_per_month=None,
+            max_hosting_days_per_month=max_hosting_days_per_month,
             penalty_hints=penalty_hints,
         )
         plan = planner.build_plan(start_date, end_date)

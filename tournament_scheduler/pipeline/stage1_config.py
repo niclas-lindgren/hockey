@@ -61,8 +61,8 @@ def load_effective_config(
 
     Reads the canonical ``input.xlsx`` workbook for human-editable fields
     (``start_date``, ``end_date``, ``age_groups``, ``parallel_games``,
-    per-age-group participation targets, ``sources``) and merges in the computed fields
-    (``teams``, ``round_length_minutes``) from the Stage 1 checkpoint.
+    per-age-group participation targets, global planning knobs, ``sources``) and merges
+    in the computed fields (``teams``, ``round_length_minutes``) from the Stage 1 checkpoint.
 
     Returns a dict with the same shape that downstream stages expect,
     so callers see no API change.
@@ -81,6 +81,10 @@ def load_effective_config(
     merged["start_date"] = raw.get("start_date")
     merged["end_date"] = raw.get("end_date")
     merged["parallel_games"] = raw.get("parallel_games", {})
+    if raw.get("target_tournament_count") is not None:
+        merged["target_tournament_count"] = raw["target_tournament_count"]
+    if raw.get("max_hosting_days_per_month") is not None:
+        merged["max_hosting_days_per_month"] = raw["max_hosting_days_per_month"]
     if raw.get("target_tournament_counts_by_age_group"):
         merged["target_tournament_counts_by_age_group"] = raw["target_tournament_counts_by_age_group"]
     merged["sources"] = raw.get("sources", [])
@@ -113,7 +117,7 @@ def run(
     from a file reference, ``round_length_minutes`` from the workbook, and any
     per-age-group participation targets parsed from the workbook).
     Human-editable fields (``start_date``, ``end_date``, ``age_groups``,
-    ``parallel_games``, ``sources``) live exclusively in ``input.xlsx``. Use
+    ``parallel_games``, global planning knobs, ``sources``) live exclusively in ``input.xlsx``. Use
     :func:`load_effective_config` to merge both sources transparently.
 
     Parameters

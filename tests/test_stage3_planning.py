@@ -184,6 +184,40 @@ class TestRunStage3:
         }
         assert make_planner.call_args.kwargs["penalty_hints"] == {"hosting_deviation_score": 30.0}
 
+    def test_workbook_level_planning_settings_are_passed_to_planner(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        fake_planner = MagicMock()
+        fake_planner.build_plan.return_value = SeasonPlan(
+            tournaments=[
+                Tournament(
+                    date=date(2025, 10, 5),
+                    arena="Kongsberghallen",
+                    age_group="U10",
+                    teams=[
+                        Team(club="Kongsberg", label="Kongsberg U10A", age_group="U10"),
+                        Team(club="Skien", label="Skien U10A", age_group="U10"),
+                        Team(club="Jar", label="Jar U10A", age_group="U10"),
+                    ],
+                    games=[],
+                )
+            ]
+        )
+        fake_planner.rules_report.return_value = {"ok": True}
+        cfg = {
+            **_make_config(),
+            "target_tournament_count": 5,
+            "max_hosting_days_per_month": 2,
+        }
+
+        with patch("tournament_scheduler.pipeline.stage3_planning._make_planner", return_value=fake_planner) as make_planner, patch(
+            "tournament_scheduler.pipeline.stage3_planning._build_fairness_gate",
+            return_value={"score": 42},
+        ):
+            run(cfg, {}, state, datetime(2025, 9, 1), datetime(2025, 12, 15))
+
+        assert make_planner.call_args.args[7] == 5
+        assert make_planner.call_args.kwargs["max_hosting_days_per_month"] == 2
+
     def test_plan_accepted_without_llm_evaluation(self, tmp_path):
         """Plan is accepted deterministically without LLM evaluation."""
         state = PipelineState(tmp_path / "pipeline")

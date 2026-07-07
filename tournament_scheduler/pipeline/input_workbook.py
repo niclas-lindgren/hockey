@@ -57,6 +57,8 @@ def load_workbook_config(path: str | Path) -> dict[str, Any]:
 
     raw: dict[str, Any] = {}
     raw.update(_read_settings(wb["Innstillinger"]))
+    if "target_tournament_count" not in raw and "deltakelser_per_lag" in raw:
+        raw["target_tournament_count"] = raw["deltakelser_per_lag"]
 
     # Configurable absolute cap on vekt values (default 10.0).
     # Prevents runaway weights from dominating the scoring function.
