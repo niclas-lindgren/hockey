@@ -14,6 +14,9 @@
 - [x] Make Pi quality gate use quick tests by default and full tests explicitly
   - Files: .pi/extensions/pi-next.ts
   - Approach: Update the Python branch of pi_next_quality_gate so quick/standard execute pytest with the default quick marker filter, and full runs the full suite with slow/integration enabled plus compileall. Ensure the command strings make the marker behavior visible.
+- [x] [Fix] Fix quick-suite regressions exposed after marker split
+  - Files: tournament_scheduler/pipeline/stage4_export.py, tests/test_stage4_export.py, tests/test_verdict_cli.py, tests/test_review_packets.py, .ps-next/VERIFY.md
+  - Approach: Restore timestamped Stage 4 exports as the default expected by existing regression tests, update verdict CLI tests to use serialized Stage 3 checkpoint data instead of raw SeasonPlan objects, and rerun the quick pytest command until it passes or only intentional slow/integration tests are deselected.
 
 ## Notes
 Backlog item 209 targets test-suite stability, not scheduling behavior, so no RVV rules-report documentation update is needed. Existing canonical helpers load input.xlsx and may reuse .pipeline/stage3_planning.json, so they should be treated as slow planner coverage rather than default quick unit tests.
@@ -30,6 +33,13 @@ Backlog item 209 targets test-suite stability, not scheduling behavior, so no RV
 
 
 
+
+### 2026-07-08 — [Fix] Fix quick-suite regressions exposed after marker split
+**Done:** Restored timestamped Stage 4 exports as the run() default, updated verdict CLI tests to use serialized Stage 3 checkpoint payloads and expect SystemExit on invalid checkpoints, and made the review-packet test opt into flat export output when it depends on that layout.
+**Rationale:** After the slow/integration marker split, the default quick suite should pass rather than merely avoid canonical planner hangs.
+**Findings:** Manual quick suite now passes: 703 passed, 1 skipped, 19 deselected in 44.20s with slow/integration excluded.
+**Files:** tournament_scheduler/pipeline/stage4_export.py, tests/test_verdict_cli.py, tests/test_review_packets.py, .ps-next/VERIFY.md
+**Commit:** not committed
 ### 2026-07-08 — Make Pi quality gate use quick tests by default and full tests explicitly
 **Done:** Updated the Python pi_next_quality_gate command selection so quick/standard use the quick marker expression and full disables default addopts before running an all-tests marker expression plus compileall.
 **Rationale:** The default Pi quality path should be bounded by quick tests; full validation must opt into slow/integration coverage explicitly.

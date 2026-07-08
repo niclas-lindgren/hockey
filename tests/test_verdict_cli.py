@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from tournament_scheduler.models import SeasonPlan
+from tournament_scheduler.pipeline.stage3_helpers import _plan_to_dict
 
 
 # ---------------------------------------------------------------------------
@@ -36,7 +37,7 @@ def _verdict_args(**kwargs) -> argparse.Namespace:
 
 
 def _make_checkpoint(plan: SeasonPlan) -> dict:
-    return {"plan": plan}
+    return {"plan": _plan_to_dict(plan)}
 
 
 def _patch_state(checkpoint):
@@ -70,10 +71,10 @@ class TestCmdVerdictExitCodes:
         with patch(
             "tournament_scheduler.pipeline.state.PipelineState.read_stage",
             return_value=None,
-        ):
-            rc = _cmd_verdict(_verdict_args())
+        ), pytest.raises(SystemExit) as exc_info:
+            _cmd_verdict(_verdict_args())
 
-        assert rc == 1
+        assert exc_info.value.code == 1
 
     def test_returns_1_when_checkpoint_missing_plan_key(self):
         from tournament_scheduler.cli.rvv_cli import _cmd_verdict
@@ -81,10 +82,10 @@ class TestCmdVerdictExitCodes:
         with patch(
             "tournament_scheduler.pipeline.state.PipelineState.read_stage",
             return_value={"not_plan": "oops"},
-        ):
-            rc = _cmd_verdict(_verdict_args())
+        ), pytest.raises(SystemExit) as exc_info:
+            _cmd_verdict(_verdict_args())
 
-        assert rc == 1
+        assert exc_info.value.code == 1
 
 
 class TestCmdVerdictOutput:

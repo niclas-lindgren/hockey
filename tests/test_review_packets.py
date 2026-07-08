@@ -117,7 +117,12 @@ def test_review_command_applies_change_request_and_reexports(tmp_path):
     state, plan = _write_state(tmp_path)
 
     # First generate review packets so the response template exists.
-    run({"plan": _plan_to_dict(plan)}, state, export_dir=str(tmp_path / "export"))
+    run(
+        {"plan": _plan_to_dict(plan)},
+        state,
+        export_dir=str(tmp_path / "export"),
+        timestamped_export=False,
+    )
 
     review_dir = Path(tmp_path / "export" / "review_packets" / "Kongsberg")
     response_path = review_dir / "response_template.json"
