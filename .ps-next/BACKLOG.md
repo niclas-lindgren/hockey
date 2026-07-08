@@ -2,8 +2,9 @@
 
 ## Open
 
-- [209] [ ] Stabilize the test suite by separating slow planner/integration tests from quick unit tests, marking canonical full-planner tests appropriately, and ensuring the default quality gate does not hang on Stage 3 canonical planning cases. (2026-07-05)
 ## Done
+- [209] [x] Stabilize the test suite by separating slow planner/integration tests from quick unit tests, marking canonical full-planner tests appropriately, and ensuring the default quality gate does not hang on Stage 3 canonical planning cases. (2026-07-05) (2026-07-08)
+
 - [208] [x] Propagate workbook-level settings such as `deltakelser_per_lag` and `max_hosting_days_per_month` through `load_effective_config` into Stage 3 planning, and stop logging them as ignored unknown fields when they are intentional supported inputs. (2026-07-05) (2026-07-07)
 
 - [207] [x] Add workbook/config fingerprinting to Stage 1 and pipeline status so Stage 2–4 checkpoints and exports are marked stale when `input.xlsx` or the effective config changes; current status can show `done` even when the workbook roster differs from the checkpoint. (2026-07-05) (2026-07-07)
