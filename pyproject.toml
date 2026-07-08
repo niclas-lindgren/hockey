@@ -30,6 +30,18 @@ rvv-miniputt-desktop-backend = "tournament_scheduler.desktop_server:main"
 
 [tool.pytest.ini_options]
 timeout = 30
+addopts = [
+    "--verbose",
+    "-m",
+    "not slow and not integration",
+    "--cov=tournament_scheduler",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+markers = [
+    "slow: long-running planner or real-workbook tests excluded from the default quick suite",
+    "integration: subprocess or multi-stage integration tests excluded from the default quick suite",
+]
 
 [tool.setuptools.packages.find]
 include = ["tournament_scheduler*"]
