@@ -11,7 +11,7 @@
 - [x] Mark canonical planner and pipeline integration tests explicitly
   - Files: tests/conftest.py, tests/test_stage3_planning.py, tests/test_season_planner.py, tests/test_rules_report_doc.py, tests/test_claude_orchestration.py
   - Approach: Add module/test-level pytest marks for canonical full-planner and subprocess pipeline integration cases; keep fixture behavior unchanged and add comments explaining how to run the excluded tests with -m slow or -m integration.
-- [ ] Make Pi quality gate use quick tests by default and full tests explicitly
+- [x] Make Pi quality gate use quick tests by default and full tests explicitly
   - Files: .pi/extensions/pi-next.ts
   - Approach: Update the Python branch of pi_next_quality_gate so quick/standard execute pytest with the default quick marker filter, and full runs the full suite with slow/integration enabled plus compileall. Ensure the command strings make the marker behavior visible.
 
@@ -29,6 +29,13 @@ Backlog item 209 targets test-suite stability, not scheduling behavior, so no RV
 ## Log
 
 
+
+### 2026-07-08 — Make Pi quality gate use quick tests by default and full tests explicitly
+**Done:** Updated the Python pi_next_quality_gate command selection so quick/standard use the quick marker expression and full disables default addopts before running an all-tests marker expression plus compileall.
+**Rationale:** The default Pi quality path should be bounded by quick tests; full validation must opt into slow/integration coverage explicitly.
+**Findings:** The in-memory Pi tool still used the pre-edit command during this session, so I verified the updated extension source with a static assertion. A broader manual quick-suite run exposed unrelated existing failures in Stage 4 export and verdict CLI tests that need follow-up.
+**Files:** .pi/extensions/pi-next.ts
+**Commit:** not committed
 ### 2026-07-08 — Mark canonical planner and pipeline integration tests explicitly
 **Done:** Marked canonical real-workbook/full-planner coverage as slow, marked Claude subprocess stage orchestration tests as integration, and documented explicit marker commands near the fixtures/modules.
 **Rationale:** Slow canonical and pipeline tests remain available on demand while being excluded from the quick default test path.

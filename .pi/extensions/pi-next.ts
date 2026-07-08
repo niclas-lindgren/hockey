@@ -408,9 +408,12 @@ export default function piNextExtension(pi: ExtensionAPI) {
         if (commands.length === 0) commands.push("npm test");
       } else if (existsSync(pyProjectFile) || existsSync(pytestFile)) {
         notes.push("Python repo detected; package.json is absent so npm checks were skipped.");
+        notes.push(level === "full"
+          ? "Full Python gate enables slow/integration tests explicitly."
+          : "Quick/standard Python gate excludes slow/integration tests.");
         commands = level === "full"
-          ? ["python3 -m pytest -q", "python3 -m compileall tournament_scheduler tests"]
-          : ["python3 -m pytest -q"];
+          ? ["python3 -m pytest -q -o addopts=\"\" -m \"slow or integration or (not slow and not integration)\"", "python3 -m compileall tournament_scheduler tests"]
+          : ["python3 -m pytest -q -m \"not slow and not integration\""];
       } else {
         notes.push("No package.json or Python test config found; falling back to npm test.");
         commands = ["npm test"];
