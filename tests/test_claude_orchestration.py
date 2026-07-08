@@ -8,8 +8,8 @@ JSON written to .pipeline/ after each stage.
 These tests use a temporary .pipeline/ directory and the real input.xlsx, but
 seed cached Stage 2 data so no live calendar scraping is required.
 
-Tests are marked with pytest.mark.integration so they can be skipped in
-environments where the full Python environment is not available.
+Tests are marked with pytest.mark.integration so they are skipped by the
+quick default suite; run explicitly with: python3 -m pytest -m integration --no-cov
 """
 from __future__ import annotations
 
@@ -94,10 +94,13 @@ def _seed_stage3_checkpoint(work_dir: Path) -> None:
 # Skip if input.xlsx is missing (CI without fixture data)
 # ---------------------------------------------------------------------------
 
-pytestmark = pytest.mark.skipif(
-    not INPUT_XLSX.exists(),
-    reason="input.xlsx not found — integration tests require a populated input workbook",
-)
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        not INPUT_XLSX.exists(),
+        reason="input.xlsx not found — integration tests require a populated input workbook",
+    ),
+]
 
 
 # ---------------------------------------------------------------------------

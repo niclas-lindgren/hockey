@@ -1391,6 +1391,7 @@ class TestPerTeamGameCounts:
         assert "Holmen U11" not in warnings_by_label
         assert "Skien U11" not in warnings_by_label
 
+    @pytest.mark.slow
     def test_real_roster_end_to_end_jar_vs_kongsberg(self, canonical_plan):
         """End-to-end check against the real `input.xlsx`
         roster (Jar: 7 U10 teams, Kongsberg: 1 U10 team, plus the other RVV
@@ -1442,6 +1443,7 @@ class TestPerTeamGameCounts:
         flagged_labels = {w[0] for w in planner.per_team_share_warnings}
         assert flagged_labels
 
+    @pytest.mark.slow
     def test_real_roster_jar_vs_kongsberg_spread_reduced_by_deficit_aware_selection(self, canonical_plan):
         """Regression test for the real roster's U10 balance.
 

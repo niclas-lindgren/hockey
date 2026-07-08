@@ -4,6 +4,8 @@ from collections import Counter
 from datetime import date, datetime
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from tournament_scheduler.models import Game, SeasonPlan, Team, Tournament
 from tournament_scheduler.pipeline.stage3_planning import (
     Stage3Error,
@@ -67,6 +69,7 @@ class TestRunStage3:
             "penalty_hints": {"diversity_score": "70", "bad": "not-a-number"},
         }) == {"diversity_score": 70.0}
 
+    @pytest.mark.slow
     def test_accepts_canonical_workbook_config(self, tmp_path, canonical_input_data, canonical_season_window):
         state = PipelineState(tmp_path / "pipeline")
         start, end = canonical_season_window
@@ -81,6 +84,7 @@ class TestRunStage3:
         assert planned_age_groups <= configured_age_groups
         assert planned_age_groups
 
+    @pytest.mark.slow
     def test_canonical_workbook_plan_covers_multiple_age_groups(self, tmp_path, canonical_input_data, canonical_season_window):
         state = PipelineState(tmp_path / "pipeline")
         start, end = canonical_season_window
@@ -244,8 +248,8 @@ class TestRunStage3:
 
         out = capsys.readouterr().out
         assert "[plan] Optimalisering: ferdig" in out
-        assert "[plan] Optimalisering: starter reparasjonspassasje..." in out
-        assert "[plan] Verter fordelt" in out
+        assert "kjører finjustering og forbedringsanalyse" in out
+        assert "[plan] Forsøk 1/1: fairness score=" in out
 
     def test_marks_checkpoint_done(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")

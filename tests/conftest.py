@@ -23,6 +23,9 @@ def canonical_season_window():
     return load_canonical_season_window()
 
 
+# Canonical planner fixtures exercise the real input.xlsx roster and may build
+# the full Stage 3 plan. Tests that use them should opt into pytest.mark.slow;
+# run explicitly with: python3 -m pytest -m slow --no-cov
 @pytest.fixture
 def canonical_planner():
     planner, start, end = build_canonical_planner()
