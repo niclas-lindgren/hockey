@@ -19,7 +19,15 @@ The current AI-operator direction and ordered implementation backlog are documen
 
 ## Current operator workflow
 
-The goal-oriented operator entry point is being developed. Today, LLM harnesses operate the existing portable pipeline and its recovery commands.
+The goal-oriented entry point is `operator run`. It inspects workspace state, resumes from the earliest stage that is missing, incomplete, or stale, and reports a structured summary — no manual stage coordination required:
+
+```bash
+scripts/rvv-miniputt operator run
+# or
+python3 -m tournament_scheduler.cli.rvv_cli operator run --objective "Produce the best trustworthy season plan"
+```
+
+Run it again after an interruption and it resumes automatically; run it again with nothing pending and it reports that the plan is already complete instead of redoing work. Pass `--force` to rerun everything from stage 1 regardless of state.
 
 In Pi, start the workflow with:
 
@@ -27,15 +35,13 @@ In Pi, start the workflow with:
 /rvv-miniputt run
 ```
 
-Outside Pi, including Codex, Claude Code, OpenCode, or a normal shell, use:
+The portable pipeline stages and recovery commands remain available directly for debugging or advanced workflows:
 
 ```bash
 scripts/rvv-miniputt run
 # or
 python3 -m tournament_scheduler.cli.rvv_cli run
 ```
-
-The operator should treat these commands as capabilities used to achieve the season-planning objective, rather than requiring the human to manually coordinate each pipeline stage.
 
 Useful inspection and recovery commands include:
 

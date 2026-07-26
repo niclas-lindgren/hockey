@@ -40,6 +40,18 @@ Create the shared data contract that lets an AI operator understand workspace st
 
 ## 2. Add one goal-oriented AI operator entry point
 
+**Status: implemented.** `rvv-miniputt operator run` (or
+`scripts/rvv-miniputt operator run`) is a thin wrapper around `rvv-miniputt
+run`: it resolves the objective (`--objective`, defaulting to "Produce the
+best trustworthy season plan from the current workbook."), auto-detects the
+earliest stage that is missing, not done, or stale via
+`PipelineState`/`_resolve_operator_resume_stage`, skips the pipeline entirely
+when nothing is pending, and prints a final structured summary from the run
+manifest once the run completes. `--resume-from` and `--force` remain
+available to override auto-detection. See
+`tournament_scheduler/cli/pipeline_orchestrator.py` (`_cmd_operator_run`) and
+`tests/test_operator_run.py`.
+
 ### Goal
 
 Allow the human to request an outcome such as “produce the best trustworthy season plan” without manually coordinating pipeline stages and recovery commands.
