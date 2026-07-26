@@ -43,12 +43,11 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
-          # keyring backends per platform
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            pip install keyring
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            pip install keyring
-          fi
+          # keyring is required on every platform: desktop_server.py's
+          # _try_keyring() imports it at runtime, and the Linux build below
+          # passes --hidden-import keyring.backends.SecretService, which
+          # PyInstaller can only bundle if keyring is actually installed.
+          pip install keyring
 
       - name: Build Python backend (PyInstaller)
         shell: bash
