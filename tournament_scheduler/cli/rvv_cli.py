@@ -211,8 +211,63 @@ def _cmd_operator(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt operator ...`` — dispatches to sub-subcommands."""
     if args.operator_command == "run":
         return _cmd_operator_run(args)
-    _console.print("[yellow]Bruk: rvv-miniputt operator run[/yellow]")
+    elif args.operator_command == "questions":
+        return _cmd_operator_questions(args)
+    elif args.operator_command == "answer":
+        return _cmd_operator_answer(args)
+    _console.print("[yellow]Bruk: rvv-miniputt operator run|questions|answer[/yellow]")
     return 1
+
+
+def _cmd_operator_questions(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt operator questions`` — list unanswered escalation questions."""
+    from ..pipeline.escalation import unanswered_questions
+
+    questions = unanswered_questions(args.work_dir)
+
+    if getattr(args, "json", False):
+        import json as _json
+
+        print(_json.dumps(questions, indent=2, ensure_ascii=False))
+        return 0
+
+    if not questions:
+        _console.print("Ingen ubesvarte spørsmål.")
+        return 0
+
+    _console.print(f"[bold]Ubesvarte spørsmål[/bold] ({len(questions)})\n")
+    for question in questions:
+        _console.print(f"[yellow]?[/yellow] ({question.get('type')}) {question.get('summary')}")
+        _console.print(f"    id: [dim]{question.get('id')}[/dim]")
+        if question.get("context"):
+            _console.print(f"    Kontekst: {question['context']}")
+        if question.get("recommendation"):
+            _console.print(f"    [cyan]Anbefaling: {question['recommendation']}[/cyan]")
+        if question.get("impact"):
+            _console.print(f"    Konsekvens: {question['impact']}")
+        for alt in question.get("alternatives") or []:
+            _console.print(f"    · {alt}")
+        _console.print(f"    [dim]Svar med: rvv-miniputt operator answer {question.get('id')} \"<svar>\"[/dim]\n")
+    return 0
+
+
+def _cmd_operator_answer(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt operator answer <id> <answer>`` — record a durable decision."""
+    from ..pipeline.escalation import answer_question
+
+    try:
+        entry = answer_question(
+            args.work_dir, args.question_id, args.answer, decided_by=getattr(args, "decided_by", None)
+        )
+    except ValueError as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        return 1
+
+    _console.print(f"[green]✓[/green] Registrert svar på spørsmål {entry['id']}: {entry['answer']}")
+    _console.print(
+        "[dim]Kjør 'rvv-miniputt operator run' på nytt for å fortsette der pipelinen stoppet.[/dim]"
+    )
+    return 0
 
 
 # ---------------------------------------------------------------------------

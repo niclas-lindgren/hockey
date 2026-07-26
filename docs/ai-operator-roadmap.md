@@ -154,6 +154,24 @@ Let the operator generate and compare alternative plans while preserving determi
 
 ## 5. Add a human escalation and approval protocol
 
+**Status: implemented.** `tournament_scheduler/pipeline/escalation.py`
+defines six escalation types (credentials, incomplete data, ambiguous
+policy, destructive repair, impossible constraints, external publication)
+and a `Question` record (context, alternatives, recommendation, impact)
+stored in the run manifest's `pending_questions`. Questions are
+content-addressed (stable id from type+capability+summary), so the same
+question is never raised twice and an already-answered question is never
+reopened. `RunManifest.start_run()` now carries `pending_questions` forward
+across runs — escalation state is durable workspace state, not per-run
+state, since a human answers between separate CLI invocations. `operator
+run` raises a question for every `requires_human` capability result and
+surfaces unanswered ones in its summary; `rvv-miniputt operator questions`
+/ `operator answer <id> "<answer>"` inspect and resolve them. Resuming after
+an answer reuses the existing auto-resume logic from item 2 — recording an
+answer doesn't itself mutate pipeline state, it makes the decision durable
+and stops the same question from being asked again. See
+`docs/run-manifest-schema.md` and `tests/test_escalation.py`.
+
 ### Goal
 
 Give the operator a consistent way to pause for genuine human decisions and continue afterward without losing state.

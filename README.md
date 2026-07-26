@@ -29,6 +29,14 @@ python3 -m tournament_scheduler.cli.rvv_cli operator run --objective "Produce th
 
 Run it again after an interruption and it resumes automatically; run it again with nothing pending and it reports that the plan is already complete instead of redoing work. Pass `--force` to rerun everything from stage 1 regardless of state.
 
+When something needs a human decision (missing credentials, incomplete source data, an ambiguous policy call), the operator raises a question instead of guessing:
+
+```bash
+rvv-miniputt operator questions              # list what's blocking, with context and a recommendation
+rvv-miniputt operator answer <id> "<answer>" # record a durable decision
+rvv-miniputt operator run                    # resume — the same question is never asked twice
+```
+
 In Pi, start the workflow with:
 
 ```bash

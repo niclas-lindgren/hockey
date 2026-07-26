@@ -1496,6 +1496,29 @@ def _resolve_operator_resume_stage(state: "Any") -> "int | None":
     return None
 
 
+def _raise_escalation_questions(work_dir: str) -> None:
+    """Escalate every capability result that came back ``requires_human``.
+
+    Best-effort and idempotent: raising the same question twice (same type,
+    capability, and summary) is a no-op, so this can safely run after every
+    ``rvv-miniputt run`` invocation without ever re-asking something the
+    human already answered, or duplicating a still-open question.
+    """
+    try:
+        from ..pipeline.capability_result import CapabilityResult
+        from ..pipeline.escalation import from_capability_result, raise_question
+        from ..pipeline.run_manifest import RunManifest
+
+        manifest = RunManifest(work_dir).read()
+        for entry in manifest.get("capabilities") or []:
+            if not entry.get("requires_human"):
+                continue
+            result = CapabilityResult.from_dict(entry)
+            raise_question(work_dir, from_capability_result(result))
+    except Exception:
+        pass
+
+
 def _print_operator_summary(work_dir: str) -> None:
     """Print the operator's final structured summary from the run manifest.
 
@@ -1533,6 +1556,23 @@ def _print_operator_summary(work_dir: str) -> None:
             if entry.get("requires_human"):
                 for action in entry.get("suggested_actions") or []:
                     _console.print(f"        [cyan]→ {action}[/cyan]")
+
+    unanswered = [q for q in manifest.get("pending_questions") or [] if not q.get("answered")]
+    if unanswered:
+        _console.print("\n  [bold yellow]Ubesvarte spørsmål:[/bold yellow]")
+        for question in unanswered:
+            _console.print(f"    [yellow]?[/yellow] ({question.get('type')}) {question.get('summary')}")
+            if question.get("context"):
+                _console.print(f"        [dim]Kontekst: {question['context']}[/dim]")
+            if question.get("recommendation"):
+                _console.print(f"        [cyan]Anbefaling: {question['recommendation']}[/cyan]")
+            if question.get("impact"):
+                _console.print(f"        [dim]Konsekvens: {question['impact']}[/dim]")
+            for alt in question.get("alternatives") or []:
+                _console.print(f"        [dim]· {alt}[/dim]")
+            _console.print(
+                f"        [dim]Svar med: rvv-miniputt operator answer {question.get('id')} \"<svar>\"[/dim]"
+            )
 
     if outcome in ("blocked", "failed"):
         _console.print(
@@ -1575,6 +1615,7 @@ def _cmd_operator_run(args: argparse.Namespace) -> int:
         args.resume_from = str(auto_stage)
 
     rc = _cmd_run(args)
+    _raise_escalation_questions(args.work_dir)
     _print_operator_summary(args.work_dir)
     return rc
 

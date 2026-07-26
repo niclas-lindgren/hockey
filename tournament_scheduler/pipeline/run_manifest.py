@@ -97,10 +97,22 @@ class RunManifest:
         input_fingerprint: dict[str, Any] | None = None,
         run_id: str | None = None,
     ) -> dict[str, Any]:
-        """Start a new run, overwriting any previous manifest.
+        """Start a new run, overwriting the previous manifest's run history.
+
+        ``pending_questions`` is carried forward from any existing manifest
+        rather than reset: escalation questions and their human answers are
+        durable workspace state (see ``pipeline/escalation.py``), not
+        per-run state — a question answered before an interruption must
+        stay answered, and must survive across ``rvv-miniputt run``/
+        ``operator run`` invocations for a human to actually be able to
+        answer it in between.
 
         Returns the new manifest dict.
         """
+        previous = self.read() if self.exists() else None
+        carried_questions = (
+            list(previous.get("pending_questions", [])) if isinstance(previous, dict) else []
+        )
         now = _now_iso()
         manifest: dict[str, Any] = {
             "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
@@ -113,9 +125,7 @@ class RunManifest:
             "ended_at": None,
             "final_outcome": RunOutcome.IN_PROGRESS.value,
             "capabilities": [],
-            # Reserved for the human escalation/approval protocol. Always
-            # empty until that capability is implemented.
-            "pending_questions": [],
+            "pending_questions": carried_questions,
         }
         self._write(manifest)
         return manifest
@@ -161,6 +171,59 @@ class RunManifest:
         manifest["updated_at"] = now
         manifest["ended_at"] = now
         self._write(manifest)
+
+    # ------------------------------------------------------------------
+    # Human escalation / approval protocol (pending_questions)
+    # ------------------------------------------------------------------
+    #
+    # See pipeline/escalation.py for the Question shape and the types a
+    # capability can raise. RunManifest only owns storage: append-if-new,
+    # look up by id, and record an answer.
+
+    def add_pending_question(self, question: dict[str, Any]) -> dict[str, Any]:
+        """Append *question* (a dict from ``escalation.Question.to_dict()``)
+        unless a question with the same ``id`` was already raised in this
+        workspace, answered or not.
+
+        Returns the newly stored question, or the existing entry when this
+        exact question (same type/capability/summary, hence same id) has
+        already been raised — so a capability can call this unconditionally
+        every time it blocks without ever asking the same thing twice.
+        """
+        manifest = self.read()
+        existing = manifest.setdefault("pending_questions", [])
+        question_id = question.get("id")
+        for entry in existing:
+            if entry.get("id") == question_id:
+                return entry
+        existing.append(question)
+        manifest["updated_at"] = _now_iso()
+        self._write(manifest)
+        return question
+
+    def answer_question(
+        self, question_id: str, answer: str, *, decided_by: str | None = None
+    ) -> dict[str, Any]:
+        """Record a durable human answer to a previously-raised question.
+
+        Raises ``ValueError`` if no question with *question_id* exists.
+        """
+        manifest = self.read()
+        for entry in manifest.get("pending_questions", []):
+            if entry.get("id") == question_id:
+                now = _now_iso()
+                entry["answered"] = True
+                entry["answer"] = answer
+                entry["decided_by"] = decided_by
+                entry["decided_at"] = now
+                manifest["updated_at"] = now
+                self._write(manifest)
+                return entry
+        raise ValueError(f"No pending question with id {question_id!r} in {self.path}")
+
+    def unanswered_questions(self) -> list[dict[str, Any]]:
+        """Return every question in this workspace that has no recorded answer."""
+        return [q for q in self.read().get("pending_questions", []) if not q.get("answered")]
 
     # ------------------------------------------------------------------
     # Read
