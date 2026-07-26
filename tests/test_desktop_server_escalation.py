@@ -124,6 +124,50 @@ class TestQuestionsEndpoints:
         status, _data = _post(f"{base_url}/questions/answer", {"id": "", "answer": ""})
         assert status == 400
 
+    def test_all_flag_includes_answered_questions(self, desktop_server):
+        base_url, work_dir = desktop_server
+        RunManifest(work_dir).start_run("objective")
+        question = Question(type="credentials", capability="scraping", summary="Kongsberg blocked")
+        raise_question(work_dir, question)
+        _post(f"{base_url}/questions/answer", {"id": question.id, "answer": "fixed"})
+
+        status, default_listing = _get(f"{base_url}/questions")
+        assert default_listing["questions"] == []
+
+        status, all_listing = _get(f"{base_url}/questions?all=1")
+        assert status == 200
+        assert len(all_listing["questions"]) == 1
+        assert all_listing["questions"][0]["answered"] is True
+
+
+class TestQuestionsPromoteEndpoint:
+    def test_promote_broadens_scope_and_makes_it_reusable(self, desktop_server):
+        base_url, work_dir = desktop_server
+        RunManifest(work_dir).start_run("objective", run_id="run-1")
+        question = Question(
+            type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1"
+        )
+        raise_question(work_dir, question)
+        _post(f"{base_url}/questions/answer", {"id": question.id, "answer": "fixed"})
+
+        status, promoted = _post(
+            f"{base_url}/questions/promote", {"id": question.id, "scope": "workspace"}
+        )
+        assert status == 200
+        assert promoted["scope"] == "workspace"
+        assert promoted["answer"] == "fixed"
+
+    def test_promote_unknown_id_returns_404(self, desktop_server):
+        base_url, work_dir = desktop_server
+        RunManifest(work_dir).start_run("objective")
+        status, _data = _post(f"{base_url}/questions/promote", {"id": "bogus", "scope": "workspace"})
+        assert status == 404
+
+    def test_promote_missing_fields_returns_400(self, desktop_server):
+        base_url, _ = desktop_server
+        status, _data = _post(f"{base_url}/questions/promote", {"id": "", "scope": ""})
+        assert status == 400
+
 
 class TestDeadRunEndpointRemoved:
     def test_post_run_returns_404(self, desktop_server):

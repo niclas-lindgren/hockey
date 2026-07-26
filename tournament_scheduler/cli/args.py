@@ -230,6 +230,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print pending questions as JSON instead of a human-readable list",
     )
+    op_questions.add_argument(
+        "--all",
+        action="store_true",
+        help="Include answered and stale questions too, not just unanswered ones (issue #12)",
+    )
 
     op_answer = operator_sub.add_parser(
         "answer",
@@ -243,6 +248,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional name/identifier of who made this decision, for the audit trail",
     )
     op_answer.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
+    op_promote = operator_sub.add_parser(
+        "promote",
+        help="Promote an answered decision to a broader scope so it is reused across runs/inputs/seasons (issue #12)",
+    )
+    op_promote.add_argument("question_id", help="Question id to promote, as shown by 'operator questions --all'")
+    op_promote.add_argument(
+        "scope",
+        choices=["input_version", "season", "workspace"],
+        help="Target scope — must be broader than the question's current scope",
+    )
+    op_promote.add_argument(
+        "--scope-key",
+        default="",
+        help="Scope key for the target scope (required for 'season'; ignored for 'workspace')",
+    )
+    op_promote.add_argument(
+        "--decided-by",
+        default=None,
+        help="Optional name/identifier of who made this promotion, for the audit trail",
+    )
+    op_promote.add_argument(
         "--work-dir",
         default=".pipeline",
         help="Pipeline work directory (default: .pipeline)",

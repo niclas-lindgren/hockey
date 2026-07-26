@@ -9,12 +9,17 @@ import pytest
 
 from tournament_scheduler.pipeline.capability_result import CapabilityResult
 from tournament_scheduler.pipeline.escalation import (
+    DecisionScope,
     EscalationType,
     Question,
+    all_questions,
     answer_question,
     from_capability_result,
     infer_escalation_type,
+    promote_question,
     raise_question,
+    scope_key_for,
+    scope_order,
     unanswered_questions,
 )
 from tournament_scheduler.pipeline.run_manifest import RunManifest
@@ -330,3 +335,450 @@ class TestArgParsing:
         assert args.question_id == "abc123"
         assert args.answer == "yes, proceed"
         assert args.decided_by is None
+
+    def test_operator_questions_all_flag_parses(self):
+        from tournament_scheduler.cli.args import build_parser
+
+        args = build_parser().parse_args(["operator", "questions", "--all"])
+        assert args.all is True
+
+    def test_operator_promote_parses(self):
+        from tournament_scheduler.cli.args import build_parser
+
+        args = build_parser().parse_args(
+            ["operator", "promote", "abc123", "season", "--scope-key", "2026-2027"]
+        )
+        assert args.operator_command == "promote"
+        assert args.question_id == "abc123"
+        assert args.scope == "season"
+        assert args.scope_key == "2026-2027"
+
+
+# ---------------------------------------------------------------------------
+# Decision scoping (issue #12): run / input_version / season / workspace
+# ---------------------------------------------------------------------------
+
+
+class TestScopeOrderingAndKeys:
+    def test_scope_order_is_narrowest_to_broadest(self):
+        assert scope_order("run") < scope_order("input_version") < scope_order("season") < scope_order("workspace")
+
+    def test_scope_order_rejects_unknown_scope(self):
+        with pytest.raises(ValueError):
+            scope_order("not-a-scope")
+
+    def test_scope_key_for_workspace_is_always_empty(self, tmp_path):
+        assert scope_key_for(str(tmp_path), "workspace") == ""
+
+    def test_scope_key_for_run_reads_run_id(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", run_id="run-42")
+        assert scope_key_for(str(tmp_path), "run") == "run-42"
+
+    def test_scope_key_for_input_version_reads_fingerprint_sha256(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", input_fingerprint={"sha256": "abc123"})
+        assert scope_key_for(str(tmp_path), "input_version") == "abc123"
+
+    def test_scope_key_for_season_requires_explicit_key(self, tmp_path):
+        with pytest.raises(ValueError):
+            scope_key_for(str(tmp_path), "season")
+
+
+class TestQuestionScopeField:
+    def test_default_scope_is_workspace(self):
+        q = Question(type="credentials", capability="scraping", summary="x")
+        assert q.scope == "workspace"
+        assert q.scope_key == ""
+
+    def test_invalid_scope_raises(self):
+        with pytest.raises(ValueError):
+            Question(type="credentials", capability="scraping", summary="x", scope="not-a-scope")
+
+    def test_workspace_scoped_id_matches_pre_scoping_id(self):
+        """Backward compatibility: a workspace-scoped question's id must be
+        identical to a Question built before scope/scope_key existed, since
+        that's the id every pre-#12 questions.json entry was stored under."""
+        q = Question(type="credentials", capability="scraping", summary="Kongsberg blocked")
+        legacy_equivalent = Question(
+            type="credentials", capability="scraping", summary="Kongsberg blocked", scope="workspace", scope_key=""
+        )
+        assert q.id == legacy_equivalent.id
+
+    def test_id_differs_by_scope_for_identical_content(self):
+        run_q = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        input_q = Question(
+            type="credentials", capability="scraping", summary="x", scope="input_version", scope_key="run-1"
+        )
+        workspace_q = Question(type="credentials", capability="scraping", summary="x")
+        assert len({run_q.id, input_q.id, workspace_q.id}) == 3
+
+    def test_id_differs_by_scope_key_within_same_scope(self):
+        a = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        b = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-2")
+        assert a.id != b.id
+
+    def test_to_dict_includes_scope_fields(self):
+        q = Question(
+            type="credentials", capability="scraping", summary="x", scope="input_version", scope_key="sha-1"
+        )
+        data = q.to_dict()
+        assert data["scope"] == "input_version"
+        assert data["scope_key"] == "sha-1"
+        assert data["stale"] is False
+        assert data["stale_reason"] is None
+        assert data["promoted_from"] is None
+
+
+class TestRunScopedReuse:
+    def test_same_run_context_reuses_the_answer(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", run_id="run-1")
+        q = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "fixed")
+
+        # A later capability call within the *same* run raises the identical
+        # question again — must not reopen it.
+        raise_question(str(tmp_path), q)
+        assert unanswered_questions(str(tmp_path)) == []
+
+    def test_a_later_run_is_not_silently_answered(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", run_id="run-1")
+        q1 = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q1)
+        answer_question(str(tmp_path), q1.id, "fixed for run 1")
+
+        manifest.start_run("objective", run_id="run-2")
+        q2 = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-2")
+        entry = raise_question(str(tmp_path), q2)
+
+        assert entry["answered"] is False
+        assert entry["id"] != q1.id
+        pending = [q["id"] for q in unanswered_questions(str(tmp_path))]
+        assert q2.id in pending
+
+    def test_superseded_run_scoped_entry_is_marked_stale_not_deleted(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", run_id="run-1")
+        q1 = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q1)
+        answer_question(str(tmp_path), q1.id, "fixed for run 1")
+
+        manifest.start_run("objective", run_id="run-2")
+        q2 = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-2")
+        raise_question(str(tmp_path), q2)
+
+        all_entries = {e["id"]: e for e in all_questions(str(tmp_path))}
+        assert len(all_entries) == 2
+        assert all_entries[q1.id]["stale"] is True
+        assert all_entries[q1.id]["answer"] == "fixed for run 1"  # audit history preserved
+        assert all_entries[q2.id]["stale"] is False
+
+
+class TestInputVersionScopedReuse:
+    def test_same_workbook_reuses_the_answer(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", input_fingerprint={"sha256": "sha-a"})
+        q = Question(
+            type="incomplete_data", capability="planning", summary="x", scope="input_version", scope_key="sha-a"
+        )
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "accepted the gap")
+
+        raise_question(str(tmp_path), q)
+        assert unanswered_questions(str(tmp_path)) == []
+
+    def test_workbook_fingerprint_change_makes_the_answer_stale(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", input_fingerprint={"sha256": "sha-a"})
+        q_a = Question(
+            type="incomplete_data", capability="planning", summary="x", scope="input_version", scope_key="sha-a"
+        )
+        raise_question(str(tmp_path), q_a)
+        answer_question(str(tmp_path), q_a.id, "accepted the gap")
+
+        manifest.start_run("objective", input_fingerprint={"sha256": "sha-b"})
+        q_b = Question(
+            type="incomplete_data", capability="planning", summary="x", scope="input_version", scope_key="sha-b"
+        )
+        entry = raise_question(str(tmp_path), q_b)
+
+        assert entry["answered"] is False
+        entries = {e["id"]: e for e in all_questions(str(tmp_path))}
+        assert entries[q_a.id]["stale"] is True
+        assert entries[q_b.id]["stale"] is False
+
+
+class TestSeasonScopedReuse:
+    def test_same_season_reuses_the_answer_across_runs_and_inputs(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", run_id="run-1", input_fingerprint={"sha256": "sha-a"})
+        q = Question(
+            type="ambiguous_policy", capability="planning", summary="skip christmas week", scope="season",
+            scope_key="2026-2027",
+        )
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "yes, always skip it")
+
+        # A different run, a different workbook, same season.
+        manifest.start_run("objective", run_id="run-2", input_fingerprint={"sha256": "sha-b"})
+        q_again = Question(
+            type="ambiguous_policy", capability="planning", summary="skip christmas week", scope="season",
+            scope_key="2026-2027",
+        )
+        raise_question(str(tmp_path), q_again)
+
+        assert q.id == q_again.id
+        assert unanswered_questions(str(tmp_path)) == []
+
+    def test_new_season_makes_the_answer_stale(self, tmp_path):
+        q_2026 = Question(
+            type="ambiguous_policy", capability="planning", summary="skip christmas week", scope="season",
+            scope_key="2026-2027",
+        )
+        raise_question(str(tmp_path), q_2026)
+        answer_question(str(tmp_path), q_2026.id, "yes")
+
+        q_2027 = Question(
+            type="ambiguous_policy", capability="planning", summary="skip christmas week", scope="season",
+            scope_key="2027-2028",
+        )
+        entry = raise_question(str(tmp_path), q_2027)
+
+        assert entry["answered"] is False
+        entries = {e["id"]: e for e in all_questions(str(tmp_path))}
+        assert entries[q_2026.id]["stale"] is True
+
+
+class TestWorkspaceScopedReuse:
+    def test_workspace_scope_persists_regardless_of_run_or_input_changes(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", run_id="run-1", input_fingerprint={"sha256": "sha-a"})
+        q = Question(type="credentials", capability="scraping", summary="Kongsberg needs LLM scraping")
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "always use scrape-llm for Kongsberg")
+
+        manifest.start_run("objective", run_id="run-2", input_fingerprint={"sha256": "sha-b"})
+        entry = raise_question(str(tmp_path), q)
+
+        assert entry["answered"] is True
+        assert entry["answer"] == "always use scrape-llm for Kongsberg"
+        assert len(all_questions(str(tmp_path))) == 1  # no stale duplicate — genuinely one durable decision
+
+
+class TestPromotion:
+    def test_promote_run_scoped_answer_to_workspace(self, tmp_path):
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", run_id="run-1")
+        q = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "fixed")
+
+        promoted = promote_question(str(tmp_path), q.id, "workspace", decided_by="niclas")
+
+        assert promoted["scope"] == "workspace"
+        assert promoted["answer"] == "fixed"
+        assert promoted["promoted_from"] == q.id
+        assert promoted["decided_by"] == "niclas"
+
+        # The promoted (workspace) decision is now reusable in a brand new run.
+        manifest.start_run("objective", run_id="run-2")
+        reused = raise_question(
+            str(tmp_path), Question(type="credentials", capability="scraping", summary="x")
+        )
+        assert reused["answered"] is True
+        assert reused["id"] == promoted["id"]
+
+    def test_source_entry_untouched_and_linked_after_promotion(self, tmp_path):
+        RunManifest(tmp_path).start_run("objective", run_id="run-1")
+        q = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "fixed")
+
+        promoted = promote_question(str(tmp_path), q.id, "workspace")
+
+        entries = {e["id"]: e for e in all_questions(str(tmp_path))}
+        assert entries[q.id]["answer"] == "fixed"  # untouched, still auditable
+        assert entries[q.id]["promoted_to"] == promoted["id"]
+
+    def test_promote_to_narrower_or_equal_scope_raises(self, tmp_path):
+        RunManifest(tmp_path).start_run("objective", input_fingerprint={"sha256": "sha-a"})
+        q = Question(
+            type="incomplete_data", capability="planning", summary="x", scope="input_version", scope_key="sha-a"
+        )
+        raise_question(str(tmp_path), q)
+
+        with pytest.raises(ValueError):
+            promote_question(str(tmp_path), q.id, "input_version")
+        with pytest.raises(ValueError):
+            promote_question(str(tmp_path), q.id, "run", new_scope_key="run-1")
+
+    def test_promote_unknown_id_raises(self, tmp_path):
+        RunManifest(tmp_path).start_run("objective")
+        with pytest.raises(ValueError):
+            promote_question(str(tmp_path), "bogus-id", "workspace")
+
+    def test_promoting_the_same_decision_twice_is_idempotent(self, tmp_path):
+        RunManifest(tmp_path).start_run("objective", run_id="run-1")
+        q = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "fixed")
+
+        first = promote_question(str(tmp_path), q.id, "workspace")
+        second = promote_question(str(tmp_path), q.id, "workspace")
+        assert first["id"] == second["id"]
+        # Still just source + one promoted entry, not source + two promotions.
+        assert len(all_questions(str(tmp_path))) == 2
+
+    def test_promote_to_season_requires_explicit_scope_key(self, tmp_path):
+        RunManifest(tmp_path).start_run("objective", run_id="run-1")
+        q = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "fixed")
+
+        promoted = promote_question(str(tmp_path), q.id, "season", new_scope_key="2026-2027")
+        assert promoted["scope"] == "season"
+        assert promoted["scope_key"] == "2026-2027"
+
+
+class TestFromCapabilityResultScoping:
+    def test_default_scope_is_workspace_unchanged(self):
+        result = CapabilityResult.blocked("x", capability="scraping")
+        question = from_capability_result(result)
+        assert question.scope == "workspace"
+
+    def test_explicit_scope_is_passed_through(self):
+        result = CapabilityResult.blocked("x", capability="scraping")
+        question = from_capability_result(result, scope="input_version", scope_key="sha-a")
+        assert question.scope == "input_version"
+        assert question.scope_key == "sha-a"
+
+
+class TestOperatorRunEscalationScoping:
+    def test_capability_escalations_are_scoped_to_input_version_when_fingerprint_present(self, tmp_path):
+        from tournament_scheduler.cli.pipeline_orchestrator import _raise_escalation_questions
+
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", input_fingerprint={"sha256": "sha-a"})
+        manifest.record_capability(
+            CapabilityResult(
+                status="blocked",
+                summary="0 turneringer mulig",
+                requires_human=True,
+                capability="planning",
+            )
+        )
+        _raise_escalation_questions(str(tmp_path))
+        pending = unanswered_questions(str(tmp_path))
+        assert len(pending) == 1
+        assert pending[0]["scope"] == "input_version"
+        assert pending[0]["scope_key"] == "sha-a"
+
+    def test_answer_becomes_stale_after_a_new_workbook_reruns(self, tmp_path):
+        from tournament_scheduler.cli.pipeline_orchestrator import _raise_escalation_questions
+
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", input_fingerprint={"sha256": "sha-a"})
+        manifest.record_capability(
+            CapabilityResult(
+                status="blocked", summary="0 turneringer mulig", requires_human=True, capability="planning",
+            )
+        )
+        _raise_escalation_questions(str(tmp_path))
+        first_pending = unanswered_questions(str(tmp_path))
+        answer_question(str(tmp_path), first_pending[0]["id"], "accepted")
+
+        manifest.start_run("objective", input_fingerprint={"sha256": "sha-b"})
+        manifest.record_capability(
+            CapabilityResult(
+                status="blocked", summary="0 turneringer mulig", requires_human=True, capability="planning",
+            )
+        )
+        _raise_escalation_questions(str(tmp_path))
+
+        entries = all_questions(str(tmp_path))
+        stale = [e for e in entries if e.get("scope_key") == "sha-a"]
+        fresh = [e for e in entries if e.get("scope_key") == "sha-b"]
+        assert stale and stale[0]["stale"] is True
+        assert fresh and fresh[0]["answered"] is False
+
+    def test_falls_back_to_workspace_scope_without_a_fingerprint(self, tmp_path):
+        from tournament_scheduler.cli.pipeline_orchestrator import _raise_escalation_questions
+
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective")  # no input_fingerprint
+        manifest.record_capability(
+            CapabilityResult(status="blocked", summary="x", requires_human=True, capability="scraping")
+        )
+        _raise_escalation_questions(str(tmp_path))
+        pending = unanswered_questions(str(tmp_path))
+        assert pending[0]["scope"] == "workspace"
+
+
+class TestQuestionsCliAllFlagAndPromote:
+    def test_questions_default_excludes_answered(self, tmp_path, capsys):
+        from tournament_scheduler.cli.rvv_cli import _cmd_operator_questions
+
+        RunManifest(tmp_path).start_run("objective")
+        q = Question(type="credentials", capability="scraping", summary="x")
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "fixed")
+
+        args = argparse.Namespace(work_dir=str(tmp_path), json=True, all=False)
+        _cmd_operator_questions(args)
+        printed = json.loads(capsys.readouterr().out)
+        assert printed == []
+
+    def test_questions_all_flag_includes_answered_and_stale(self, tmp_path, capsys):
+        from tournament_scheduler.cli.rvv_cli import _cmd_operator_questions
+
+        manifest = RunManifest(tmp_path)
+        manifest.start_run("objective", run_id="run-1")
+        q1 = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q1)
+        answer_question(str(tmp_path), q1.id, "fixed for run 1")
+        manifest.start_run("objective", run_id="run-2")
+        q2 = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-2")
+        raise_question(str(tmp_path), q2)
+
+        args = argparse.Namespace(work_dir=str(tmp_path), json=True, all=True)
+        _cmd_operator_questions(args)
+        printed = json.loads(capsys.readouterr().out)
+        assert len(printed) == 2
+        assert any(p["stale"] for p in printed)
+
+    def test_promote_cli_records_promotion(self, tmp_path, capsys):
+        from tournament_scheduler.cli.rvv_cli import _cmd_operator_promote
+
+        RunManifest(tmp_path).start_run("objective", run_id="run-1")
+        q = Question(type="credentials", capability="scraping", summary="x", scope="run", scope_key="run-1")
+        raise_question(str(tmp_path), q)
+        answer_question(str(tmp_path), q.id, "fixed")
+
+        args = argparse.Namespace(
+            work_dir=str(tmp_path), question_id=q.id, scope="workspace", scope_key="", decided_by=None
+        )
+        rc = _cmd_operator_promote(args)
+        assert rc == 0
+        assert "Forfremmet" in capsys.readouterr().out
+
+    def test_promote_cli_unknown_id_returns_1(self, tmp_path, capsys):
+        from tournament_scheduler.cli.rvv_cli import _cmd_operator_promote
+
+        RunManifest(tmp_path).start_run("objective")
+        args = argparse.Namespace(
+            work_dir=str(tmp_path), question_id="bogus", scope="workspace", scope_key="", decided_by=None
+        )
+        rc = _cmd_operator_promote(args)
+        assert rc == 1
+
+    def test_dispatch_routes_promote(self):
+        from unittest.mock import patch
+
+        from tournament_scheduler.cli.rvv_cli import _cmd_operator
+
+        with patch("tournament_scheduler.cli.rvv_cli._cmd_operator_promote", return_value=0) as mock_p:
+            _cmd_operator(argparse.Namespace(operator_command="promote"))
+        mock_p.assert_called_once()

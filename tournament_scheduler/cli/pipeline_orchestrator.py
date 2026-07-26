@@ -1500,21 +1500,35 @@ def _raise_escalation_questions(work_dir: str) -> None:
     """Escalate every capability result that came back ``requires_human``.
 
     Best-effort and idempotent: raising the same question twice (same type,
-    capability, and summary) is a no-op, so this can safely run after every
-    ``rvv-miniputt run`` invocation without ever re-asking something the
-    human already answered, or duplicating a still-open question.
+    capability, and summary, in the same scope context) is a no-op, so this
+    can safely run after every ``rvv-miniputt run`` invocation without ever
+    re-asking something the human already answered, or duplicating a
+    still-open question.
+
+    Scoped to ``input_version`` (issue #12) when the run manifest has an
+    input fingerprint: a blocked capability's cause is almost always a fact
+    about *this* workbook's data (e.g. "0 turneringer mulig for U12"), so an
+    answer recorded for one workbook must not be silently reused once the
+    organizer uploads a different one — the old entry is marked stale
+    instead, and the new workbook gets its own fresh escalation. Falls back
+    to the durable ``workspace`` scope when no fingerprint is available
+    (e.g. a legacy or synthesized manifest), matching pre-#12 behavior.
     """
     try:
         from ..pipeline.capability_result import CapabilityResult
-        from ..pipeline.escalation import from_capability_result, raise_question
+        from ..pipeline.escalation import DecisionScope, from_capability_result, raise_question
         from ..pipeline.run_manifest import RunManifest
 
         manifest = RunManifest(work_dir).read()
+        input_sha256 = (manifest.get("input_fingerprint") or {}).get("sha256")
+        scope = DecisionScope.INPUT_VERSION.value if input_sha256 else DecisionScope.WORKSPACE.value
+        scope_key = input_sha256 or ""
+
         for entry in manifest.get("capabilities") or []:
             if not entry.get("requires_human"):
                 continue
             result = CapabilityResult.from_dict(entry)
-            raise_question(work_dir, from_capability_result(result))
+            raise_question(work_dir, from_capability_result(result, scope=scope, scope_key=scope_key))
     except Exception:
         pass
 
