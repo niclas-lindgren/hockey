@@ -263,3 +263,54 @@ Avoid building a second independent product while preserving a path to a non-tec
 7. Desktop supervisor console.
 
 The first two items establish the operator architecture. Items three through five make it trustworthy. Items six and seven clarify and broaden the user experience after the core workflow is stable.
+
+## Second wave: the observe-decide-act loop (issues #10-#16)
+
+Once items 1-7 above landed, a second wave of issues turns the entry point
+from a smart-resume command into an actual bounded operator loop. Delivery
+order: #16 first (CI validates everything that follows), then #10 → #11
+(typed actions before the loop that dispatches them), #12/#14/#15
+independently, then #13 integrated into the loop last.
+
+### 16. Add required CI checks for operator trustworthiness
+
+**Status: implemented.** See [`docs/ci.md`](ci.md).
+
+### 10. Add typed operator actions to capability results
+
+**Status: implemented.** `tournament_scheduler/pipeline/operator_action.py`
+defines a versioned `OperatorAction` (`action_id`, `description`,
+`arguments`, `risk_level`, `requires_approval`, `retryable`, `capability`)
+and an `ActionRegistry` mapping stable action IDs to real executors:
+`retry_source`, `use_trusted_cache`, `refresh_source`,
+`request_credentials` (raises a #5 escalation question), `rerun_planning`,
+`compare_candidates`, `export_selected_plan`. `CapabilityResult` gained an
+additive `actions: list[OperatorAction]` field alongside the existing
+string-based `suggested_actions` — fully backward compatible, nothing that
+reads `suggested_actions` needs to change. `destructive`/`external` risk
+levels are enforced to require approval at construction time (a
+`ValueError`, not just a convention), and `ActionRegistry.execute()` refuses
+to run an approval-required action without `approved=True`, raising
+structured `UnknownActionError`/`ApprovalRequiredError` (both carry a stable
+`code` and `to_dict()`) rather than a bare exception. See
+`tests/test_operator_action.py`.
+
+### 11. Implement an observe-decide-act AI operator loop
+
+Not yet implemented.
+
+### 12. Scope durable operator decisions and escalation questions
+
+Not yet implemented.
+
+### 13. Make source readiness depend on coverage and downstream impact
+
+Not yet implemented. Depends on #10/#11.
+
+### 14. Make operator manifest persistence observable and reliable
+
+Not yet implemented.
+
+### 15. Clarify active, completed, and recommended capability state
+
+Not yet implemented.
