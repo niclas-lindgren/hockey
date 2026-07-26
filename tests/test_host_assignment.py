@@ -117,6 +117,60 @@ class TestFallbackHostSlotSearch:
         assert slot[0] == "Holmen"
 
 
+class TestJointClubHostNames:
+    """A joint-club team (e.g. 'Jar/Jutul') has no single physical arena —
+    find_slot_for_tournament must try its constituent clubs' arenas instead
+    of crashing on the unregistered combined name (regression for a real
+    KeyError('Unknown club Jar/Jutul') crash in Stage 3 planning)."""
+
+    def _planner(self, *, jar_events, jutul_events):
+        return SimpleNamespace(
+            events_by_club={"Jar": jar_events, "Jutul": jutul_events},
+            round_length_for_age_group={"U10": 30},
+            club_arenas={"Jar": "Jarhallen", "Jutul": "Bærum ishall"},
+            scheduler=TournamentScheduler([], [], DateParser()),
+        )
+
+    def _games(self):
+        jar = Team(club="Jar", label="Jar U10", age_group="U10")
+        jutul = Team(club="Jutul", label="Jutul U10", age_group="U10")
+        kongsberg = Team(club="Kongsberg", label="Kongsberg U10", age_group="U10")
+        return SeasonPlanner.generate_round_robin_games([jar, jutul, kongsberg], parallel_games=2)
+
+    def test_falls_back_to_jutul_when_jar_arena_is_full(self):
+        event_date = datetime(2026, 10, 3).date()
+        planner = self._planner(
+            jar_events=[
+                CalendarEvent(
+                    date=event_date.strftime("%d.%m.%Y"),
+                    name="Booket hele dagen",
+                    datetime=datetime(event_date.year, event_date.month, event_date.day, 0, 0),
+                    duration_hours=24.0,
+                )
+            ],
+            jutul_events=[],
+        )
+
+        slot = find_slot_for_tournament(planner, event_date, "Jar/Jutul", "U10", self._games())
+
+        assert slot is not None
+        assert slot[0] == "Jutul"
+
+    def test_does_not_crash_when_neither_constituent_has_a_slot(self):
+        event_date = datetime(2026, 10, 3).date()
+        full_day = CalendarEvent(
+            date=event_date.strftime("%d.%m.%Y"),
+            name="Booket hele dagen",
+            datetime=datetime(event_date.year, event_date.month, event_date.day, 0, 0),
+            duration_hours=24.0,
+        )
+        planner = self._planner(jar_events=[full_day], jutul_events=[full_day])
+
+        # Must return None (no slot found), not raise.
+        slot = find_slot_for_tournament(planner, event_date, "Jar/Jutul", "U10", self._games())
+        assert slot is None
+
+
 # ---------------------------------------------------------------------------
 # Host-first participant ordering -> game.home invariant
 # ---------------------------------------------------------------------------

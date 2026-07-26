@@ -1,5 +1,7 @@
 # RVV Miniputt
 
+📅 **Published season plan:** https://niclas-lindgren.github.io/hockey/latest/
+
 RVV Miniputt is an **AI-operated season-planning system** for RVV hockey clubs.
 
 The intended workflow is goal-oriented: a human supervisor asks an LLM harness to produce the best trustworthy season plan, and the AI operator validates inputs, gathers calendar data, recovers from routine problems, generates and evaluates plans, and exports the result. The human is involved when credentials, authorization, incomplete source data, or genuine hockey-policy decisions require judgment.

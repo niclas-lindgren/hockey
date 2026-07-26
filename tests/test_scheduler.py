@@ -83,6 +83,17 @@ class TestFindArenaSlotForDate:
 
         assert result is None
 
+    def test_unregistered_host_club_returns_none_instead_of_raising(self):
+        """A host name not in CLUB_REGISTRY at all (e.g. a joint-club team
+        name like 'Jar/Jutul') must be treated like any other club with no
+        known calendar source, per this method's own documented contract —
+        not raise KeyError (regression for a real Stage 3 planning crash)."""
+        scheduler = _make_scheduler()
+
+        result = scheduler.find_arena_slot_for_date(CHECK_DATE, "Jar/Jutul", 90, {})
+
+        assert result is None
+
     def test_host_with_no_calendar_data_falls_back(self):
         scheduler = _make_scheduler()
         # No events at all for any club -- every arena is "free", so the
