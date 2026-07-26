@@ -43,13 +43,21 @@ Decisions are scoped (run / input_version / season / workspace, see [`docs/run-m
 Once an export looks good, publish it to a shareable GitHub Pages URL without running anything in GitHub Actions:
 
 ```bash
-rvv-miniputt operator publish                           # publish the last export to gh-pages: /latest/ + /runs/<run-id>/
-rvv-miniputt operator run --publish                      # or fold publishing into the run itself
+rvv-miniputt operator publish                           # preview: sanitizes, shows what would change, asks for approval
+rvv-miniputt operator publish --confirm-public           # actually publish this exact bundle right now
+rvv-miniputt operator run --publish                      # fold publishing into the run — still only previews, never auto-confirms
 ```
 
-Running either command is the human approval for this external write (see [AI operator implementation roadmap](docs/ai-operator-roadmap.md#17-add-operator-driven-github-pages-publishing)). Publishing is idempotent per run and never force-pushes history.
+Before anything is written to `gh-pages`, the raw export is sanitized into a separate public bundle (see [issue #18](docs/ai-operator-roadmap.md#18-create-a-sanitized-public-pages-bundle-and-privacy-report)): only the HTML/ICS season-plan views are copied by default (never Excel/Spond exports or per-club review packets), probable secrets block publication outright, and local paths/contact info are redacted. Inspect what would go public in `<work-dir>/pages_privacy_report.json`.
 
-Before anything is published, the raw export is sanitized into a separate public bundle (see [issue #18](docs/ai-operator-roadmap.md#18-create-a-sanitized-public-pages-bundle-and-privacy-report)): only the HTML/ICS season-plan views are copied by default (never Excel/Spond exports or per-club review packets), probable secrets block publication outright, and local paths/contact info are redacted. Inspect what would go public in `<work-dir>/pages_privacy_report.json`.
+Publishing itself never happens just because `--publish` was passed somewhere upstream (see [issue #19](docs/ai-operator-roadmap.md#19-require-explicit-approval-before-public-pages-publication)): without `--confirm-public` on the exact invocation, `operator publish` only previews what would change under `/latest/` and raises a durable `external_publication` question tied to that exact bundle's content and target. Answer it once and reruns for the *same* bundle/target reuse that approval automatically; any change to the exported content (or the target repo/branch/run) needs a fresh approval:
+
+```bash
+rvv-miniputt operator questions                         # shows the pending publication approval, with the file diff
+rvv-miniputt operator answer <id> "godkjenn"             # durable approval — the next 'operator publish' actually pushes
+```
+
+Publishing is idempotent per run and never force-pushes history.
 
 In Pi, start the workflow with:
 

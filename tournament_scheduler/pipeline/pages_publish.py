@@ -4,11 +4,15 @@ Lets the operator publish an already-exported season plan (Stage 4 output)
 to a dedicated ``gh-pages`` branch without running the planning pipeline in
 GitHub Actions. This module only moves already-produced files into a Pages
 branch and commits/pushes them — it does not generate or sanitize content
-(see issue #18 for a sanitized public bundle) and does not gate on human
-approval itself (see issue #19); the ``publish_pages`` operator action it is
-registered under is marked ``external``/``requires_approval`` like every
-other action that writes outside the workspace (see
-``pipeline/operator_action.py``).
+(see issue #18 for a sanitized public bundle). It also does not decide
+*whether* a given publish should be allowed to proceed — :func:`publish`
+always writes when called; the bundle-fingerprint/target-fingerprint
+identity and per-bundle approval gate live in
+``operator_action._execute_publish_pages`` (see issue #19). What this
+module provides for that gate: :func:`bundle_fingerprint` and
+:func:`target_fingerprint` (a stable identity for "this exact content to
+this exact place") and :func:`diff_latest` (a read-only preview of what a
+publish would change, for showing a human before they approve it).
 
 Publish layout on the ``gh-pages`` branch::
 
@@ -30,6 +34,7 @@ Implementation notes:
 
 from __future__ import annotations
 
+import hashlib
 import re
 import shutil
 import subprocess
@@ -138,6 +143,120 @@ def _copy_bundle(export_dir: Path, dest_dir: Path) -> None:
 def _write_root_index(branch_root: Path) -> None:
     (branch_root / "index.html").write_text(_ROOT_INDEX_HTML, encoding="utf-8")
     (branch_root / ".nojekyll").write_text("", encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Identity and preview (issue #19 — approval gating support)
+# ---------------------------------------------------------------------------
+
+
+def bundle_fingerprint(bundle_dir: str) -> str:
+    """Stable content hash of every file in *bundle_dir*.
+
+    Hashes each file's path (relative to *bundle_dir*) and bytes, in sorted
+    order, so the same content always fingerprints identically regardless
+    of filesystem iteration order, and any change to any file's content,
+    name, or presence changes the result.
+    """
+    digest = hashlib.sha256()
+    root = Path(bundle_dir)
+    for path in sorted(p for p in root.rglob("*") if p.is_file()):
+        digest.update(str(path.relative_to(root)).encode("utf-8"))
+        digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def target_fingerprint(*, repo_dir: str, branch: str, remote: str, run_id: str) -> str:
+    """Stable identity for "this exact place a bundle would be published to".
+
+    Combines the repo's resolved path, its remote URL (if any), the target
+    branch, and the run id (which determines the immutable ``/runs/<id>/``
+    path) — so approving a publish to one target never silently covers a
+    different repo, branch, or run.
+    """
+    try:
+        repo_root = _require_git_repo_root(repo_dir)
+        remote_url = _remote_url(repo_root, remote)
+    except PagesPublishError:
+        repo_root = str(Path(repo_dir).resolve())
+        remote_url = ""
+    payload = "|".join([repo_root, remote_url, branch, run_id])
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def resolve_urls(*, repo_dir: str, remote: str, run_id: str) -> tuple[str, str] | None:
+    """Return ``(latest_url, run_url)`` derived from *remote*'s GitHub URL, or ``None``."""
+    try:
+        repo_root = _require_git_repo_root(repo_dir)
+    except PagesPublishError:
+        return None
+    owner_repo = _parse_owner_repo(_remote_url(repo_root, remote))
+    return _pages_urls(owner_repo[0], owner_repo[1], run_id) if owner_repo else None
+
+
+def _planned_bundle_contents(export_dir: Path) -> dict[str, bytes]:
+    """Filename -> bytes as :func:`_copy_bundle` would actually write them.
+
+    Mirrors its ``index.html`` fallback (copy of ``season_plan.html``, or a
+    placeholder if neither exists) so a preview never reports a false
+    "removal" of an ``index.html`` that publishing would simply regenerate.
+    """
+    contents = {path.name: path.read_bytes() for path in export_dir.iterdir() if path.is_file()}
+    if "index.html" not in contents:
+        if "season_plan.html" in contents:
+            contents["index.html"] = contents["season_plan.html"]
+        else:
+            contents["index.html"] = (
+                b"<!doctype html><title>Season plan</title><p>Ingen HTML-eksport funnet.</p>"
+            )
+    return contents
+
+
+def diff_latest(bundle_dir: str, *, repo_dir: str = ".", branch: str = "gh-pages") -> dict[str, list[str]]:
+    """Read-only preview of what publishing *bundle_dir* would change under ``/latest/``.
+
+    Compares against the *local* branch tip only (no fetch) via plain git
+    plumbing (``ls-tree``/``show``) — no worktree, no writes, safe to call
+    before any approval exists. Returns ``{"add": [...], "update": [...],
+    "remove": [...]}`` (paths relative to the branch root, e.g.
+    ``latest/season_plan.html``). If *repo_dir* isn't a git repo or
+    *branch* doesn't exist yet, everything in the bundle is reported as an
+    addition.
+    """
+    bundle_contents = _planned_bundle_contents(Path(bundle_dir))
+
+    try:
+        repo_root = _require_git_repo_root(repo_dir)
+    except PagesPublishError:
+        repo_root = None
+
+    if repo_root is None or not _branch_exists_locally(repo_root, branch):
+        return {"add": sorted(f"latest/{name}" for name in bundle_contents), "update": [], "remove": []}
+
+    tree_proc = _git(["ls-tree", "-r", "--name-only", branch], cwd=repo_root)
+    existing = {
+        line for line in tree_proc.stdout.splitlines() if line.startswith("latest/")
+    } if tree_proc.returncode == 0 else set()
+
+    add: list[str] = []
+    update: list[str] = []
+    for name, content in bundle_contents.items():
+        rel = f"latest/{name}"
+        show_proc = subprocess.run(
+            ["git", "show", f"{branch}:{rel}"],
+            cwd=repo_root,
+            capture_output=True,
+            timeout=_GIT_TIMEOUT_SECONDS,
+        )
+        if show_proc.returncode != 0:
+            add.append(rel)
+        elif show_proc.stdout != content:
+            update.append(rel)
+
+    bundle_rels = {f"latest/{name}" for name in bundle_contents}
+    remove = sorted(existing - bundle_rels)
+
+    return {"add": sorted(add), "update": sorted(update), "remove": remove}
 
 
 def publish(

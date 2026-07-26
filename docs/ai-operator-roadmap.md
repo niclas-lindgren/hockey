@@ -397,9 +397,10 @@ empty commit). The public URL is derived from the `origin` remote
 (`https://<owner>.github.io/<repo>/...`). Registered as the `publish_pages`
 operator action (`external` risk, `requires_approval=True`, same invariant
 as `export_selected_plan` from #10). CLI: `rvv-miniputt operator publish`
-and `rvv-miniputt operator run --publish`; running either is itself the
-human approval for this pass — #19 will add an explicit escalation gate for
-invocations that shouldn't auto-approve (e.g. an unattended harness run).
+and `rvv-miniputt operator run --publish`. `publish()` itself always writes
+when called — see #19 for the separate per-bundle approval gate that sits
+in front of it and decides whether a given invocation is allowed to reach
+it at all.
 See `tests/test_pages_publish.py` (initial branch creation, `/latest/`
 updates, `/runs/<run-id>/` retention, no-op republish, and push failure) and
 `tests/test_operator_action.py::TestPublishPagesExecutor`.
@@ -438,3 +439,42 @@ publish step never runs. CLI: `rvv-miniputt operator publish
 (default allowlist, directory/extension exclusion, secret blocking,
 false-positive overrides, redaction, and asset rewriting) and
 `tests/test_operator_action.py::TestPublishPagesExecutor::test_routes_through_the_sanitizer_before_publishing`.
+
+### 19. Require explicit approval before public Pages publication
+
+**Status: implemented.** `operator_action._execute_publish_pages` now sits
+behind a per-bundle/target approval gate, distinct from and stricter than
+the `ActionRegistry`-level `approved=True` from #10 (which only means "this
+external-risk action is allowed to run at all", not "publish this specific
+content now"). After sanitizing (#18), it computes
+`pages_publish.bundle_fingerprint()` (a content hash of every file in the
+sanitized bundle) and `pages_publish.target_fingerprint()` (repo path +
+remote URL + branch + run id) and requires one of:
+
+- `confirm_public=True` on this exact invocation (CLI `--confirm-public`), or
+- a previously *answered* `external_publication` escalation question (#5)
+  whose id is derived from both fingerprints — so it only ever matches the
+  exact bundle content and the exact target.
+
+Neither present: `pages_publish.diff_latest()` (read-only — `git
+ls-tree`/`show` against the local branch tip only, no worktree, no writes,
+mirroring `_copy_bundle`'s `index.html` fallback so the preview's add/
+update/remove counts match what publishing would actually do) computes what
+would change under `/latest/`, a question is raised with that diff plus the
+privacy-report summary and the target URLs, and a `blocked`/
+`requires_human` result is returned — **the git publish step never runs**.
+Answering with an exact token (`godkjenn`/`approve`/`yes`/`ja`/`ok`, an
+allowlist, not a substring match — "not approved yet" is not approval)
+authorizes exactly that bundle/target combination on the next attempt;
+answering with anything else stays rejected and is never re-asked, only
+re-reported. Any change to the bundle's content or the target changes the
+fingerprints, which changes the question id, which means a stale approval
+never silently covers new content — a fresh question is raised instead.
+`--dry-run` always takes the preview path even when a matching approval
+already exists, and never publishes. CLI: `rvv-miniputt operator publish
+--confirm-public` / `--dry-run`. See
+`tests/test_operator_action.py::TestPublishPagesApprovalGate` (missing
+approval, `--confirm-public`, reusable exact approval via a durable answer,
+rejected approval, changed-bundle invalidation, dry-run) and
+`tests/test_pages_publish.py::TestBundleFingerprint` /
+`TestTargetFingerprint` / `TestDiffLatest`.

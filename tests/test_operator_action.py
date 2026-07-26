@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 
 import pytest
 
@@ -307,6 +308,149 @@ class TestPublishPagesExecutor:
         # No git repo exists at repo_dir — if this had reached pages_publish it
         # would have failed with a git error, not blocked with a privacy finding.
         assert not (tmp_path / ".git").exists()
+
+
+def _init_repo(repo_dir) -> None:
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repo_dir)], check=True)
+    subprocess.run(["git", "-C", str(repo_dir), "config", "user.email", "t@example.com"], check=True)
+    subprocess.run(["git", "-C", str(repo_dir), "config", "user.name", "Test"], check=True)
+    (repo_dir / "README.md").write_text("hi\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repo_dir), "add", "README.md"], check=True)
+    subprocess.run(["git", "-C", str(repo_dir), "commit", "-q", "-m", "init"], check=True)
+
+
+def _write_export(work_dir, *, content: str = "<h1>plan</h1>") -> None:
+    export_dir = work_dir / "export"
+    export_dir.mkdir(exist_ok=True)
+    (export_dir / "season_plan.html").write_text(content, encoding="utf-8")
+    PipelineState(work_dir).write_stage(
+        StageName.EXPORT,
+        {"output_files": {"html": str(export_dir / "season_plan.html")}},
+        status=StageStatus.DONE,
+    )
+
+
+class TestPublishPagesApprovalGate:
+    """Issue #19: publication requires explicit, per-bundle/target approval."""
+
+    def test_missing_approval_blocks_and_raises_a_durable_question(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path)
+
+        action = DEFAULT_REGISTRY.build("publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False)
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "blocked"
+        assert result.requires_human is True
+        questions = [
+            q for q in RunManifest(tmp_path).all_questions() if q["type"] == "external_publication"
+        ]
+        assert len(questions) == 1
+        assert questions[0]["answered"] is False
+
+    def test_confirm_public_publishes_immediately_without_a_prior_question(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path)
+
+        action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, confirm_public=True
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "ok"
+        assert any(e.startswith("commit_sha=") for e in result.evidence)
+
+    def test_reusable_exact_approval_via_durable_answer(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path)
+
+        action = DEFAULT_REGISTRY.build("publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False)
+        blocked = DEFAULT_REGISTRY.execute(action, approved=True)
+        assert blocked.status == "blocked"
+
+        question_id = next(
+            q["id"] for q in RunManifest(tmp_path).all_questions() if q["type"] == "external_publication"
+        )
+        RunManifest(tmp_path).answer_question(question_id, "godkjenn", decided_by="tester")
+
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+        assert result.status == "ok"
+        assert any(e.startswith("commit_sha=") for e in result.evidence)
+
+    def test_rejected_answer_blocks_and_does_not_re_ask(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path)
+
+        action = DEFAULT_REGISTRY.build("publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False)
+        DEFAULT_REGISTRY.execute(action, approved=True)
+
+        question_id = next(
+            q["id"] for q in RunManifest(tmp_path).all_questions() if q["type"] == "external_publication"
+        )
+        RunManifest(tmp_path).answer_question(question_id, "avvis", decided_by="tester")
+
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+        assert result.status == "blocked"
+        assert "avvist" in result.summary.lower()
+        questions = [
+            q for q in RunManifest(tmp_path).all_questions() if q["type"] == "external_publication"
+        ]
+        assert len(questions) == 1  # no duplicate question raised for the same rejected bundle
+
+    def test_changed_bundle_invalidates_previous_approval(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path, content="<h1>v1</h1>")
+
+        action_v1 = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False
+        )
+        DEFAULT_REGISTRY.execute(action_v1, approved=True)
+        question_id_v1 = next(
+            q["id"] for q in RunManifest(tmp_path).all_questions() if q["type"] == "external_publication"
+        )
+        RunManifest(tmp_path).answer_question(question_id_v1, "godkjenn", decided_by="tester")
+        approved_v1 = DEFAULT_REGISTRY.execute(action_v1, approved=True)
+        assert approved_v1.status == "ok"
+
+        # Change the export content — same run/target, different bundle.
+        _write_export(tmp_path, content="<h1>v2</h1>")
+        action_v2 = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False
+        )
+        result_v2 = DEFAULT_REGISTRY.execute(action_v2, approved=True)
+
+        assert result_v2.status == "blocked"
+        external_pub_questions = [
+            q for q in RunManifest(tmp_path).all_questions() if q["type"] == "external_publication"
+        ]
+        assert len(external_pub_questions) == 2  # the old approval doesn't cover the new content
+        assert not external_pub_questions[-1]["answered"]
+
+    def test_dry_run_never_publishes_even_with_an_existing_approval(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path)
+
+        action = DEFAULT_REGISTRY.build("publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False)
+        DEFAULT_REGISTRY.execute(action, approved=True)
+        question_id = next(
+            q["id"] for q in RunManifest(tmp_path).all_questions() if q["type"] == "external_publication"
+        )
+        RunManifest(tmp_path).answer_question(question_id, "godkjenn", decided_by="tester")
+
+        dry_run_action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, dry_run=True
+        )
+        result = DEFAULT_REGISTRY.execute(dry_run_action, approved=True)
+
+        assert result.status == "ok"
+        assert not any(e.startswith("commit_sha=") for e in result.evidence)
+        branches = subprocess.run(
+            ["git", "-C", str(tmp_path), "branch", "--list", "gh-pages"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert branches.stdout.strip() == ""
 
 
 class TestCapabilityResultActionsField:

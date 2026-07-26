@@ -17,7 +17,8 @@ Core actions registered by default:
 - ``rerun_planning`` — rerun Stage 3 with the current config/source data
 - ``compare_candidates`` — summarize Stage 3's recorded plan candidates (#4)
 - ``export_selected_plan`` — run Stage 4 export for the current plan
-- ``publish_pages`` — sanitize (#18) and publish the current Stage 4 export to GitHub Pages (#17)
+- ``publish_pages`` — sanitize (#18), gate on a per-bundle approval (#19), and
+  publish the current Stage 4 export to GitHub Pages (#17)
 
 Risk levels and the approval rule: ``destructive`` (discards meaningful
 data) and ``external`` (writes artifacts meant to leave the system, e.g.
@@ -439,6 +440,18 @@ def _execute_export_selected_plan(*, work_dir: str, export_dir: str = "export") 
     )
 
 
+# Answers that count as an explicit "yes, publish this" — anything else
+# (a rejection, a question, an empty string) leaves the bundle unapproved.
+# Deliberately an allowlist of exact tokens, not a substring/keyword search:
+# a sentence like "not approved yet" must not be read as approval just
+# because it contains the word "approved" (issue #19).
+_PUBLICATION_APPROVAL_ANSWERS = {"godkjenn", "godkjent", "approve", "approved", "yes", "ja", "ok"}
+
+
+def _is_publication_approved_answer(answer: str) -> bool:
+    return answer.strip().lower() in _PUBLICATION_APPROVAL_ANSWERS
+
+
 def _execute_publish_pages(
     *,
     work_dir: str,
@@ -450,11 +463,39 @@ def _execute_publish_pages(
     push: bool = True,
     allowed_filenames: "frozenset[str] | set[str] | None" = None,
     allow_findings: "frozenset[str] | set[str] | None" = None,
+    confirm_public: bool = False,
+    dry_run: bool = False,
 ) -> "CapabilityResult":
+    """Publish the current export to GitHub Pages (issues #17/#18/#19).
+
+    Publishing a public URL is treated as a decision distinct from merely
+    running this action at all: even when the caller already passed
+    ``approved=True`` at the :class:`ActionRegistry` level (the coarse,
+    structural "this is an external-risk action" gate from #10), pushing to
+    *branch* additionally requires one of:
+
+    - ``confirm_public=True`` — an explicit, same-invocation confirmation
+      (the CLI's ``--confirm-public``), or
+    - a previously *answered* ``external_publication`` escalation question
+      whose id exactly matches this bundle's content and this exact
+      target (repo/branch/remote/run_id) — see :func:`_is_publication_approved_answer`
+      for what counts as an affirmative answer.
+
+    Neither is present the first time a given bundle/target combination is
+    seen: this raises (or finds already-pending) that question and returns
+    a ``blocked``/``requires_human`` result *without publishing* — the
+    question's id changes whenever the bundle content or target changes
+    (see ``pages_publish.bundle_fingerprint``/``target_fingerprint``), so an
+    old approval never silently covers new content, and a rejected answer
+    stays rejected rather than being asked again. ``dry_run=True`` always
+    takes this preview path, even when a matching approval already exists,
+    and never publishes.
+    """
     from pathlib import Path
 
     from . import pages_bundle, pages_publish
     from .capability_result import CapabilityResult
+    from .escalation import EscalationType, Question, raise_question
     from .run_manifest import RunManifest
     from .state import PipelineState, StageName
 
@@ -489,6 +530,84 @@ def _execute_publish_pages(
     if not bundle_result.is_terminal_success:
         return bundle_result
 
+    bundle_fp = pages_publish.bundle_fingerprint(public_bundle_dir)
+    target_fp = pages_publish.target_fingerprint(
+        repo_dir=repo_dir, branch=branch, remote=remote, run_id=run_id
+    )
+    question = Question(
+        type=EscalationType.EXTERNAL_PUBLICATION.value,
+        capability="pages_publish",
+        summary=(
+            f"Godkjenn offentlig publisering av kjøring {run_id} til '{branch}' "
+            f"(bunt {bundle_fp[:12]}, mål {target_fp[:12]})?"
+        ),
+    )
+
+    def _raise_preview_question() -> dict[str, list[str]]:
+        diff = pages_publish.diff_latest(public_bundle_dir, repo_dir=repo_dir, branch=branch)
+        urls = pages_publish.resolve_urls(repo_dir=repo_dir, remote=remote, run_id=run_id)
+        question.context = (
+            f"{bundle_result.summary} Endringer under /latest/: "
+            f"+{len(diff['add'])} ~{len(diff['update'])} -{len(diff['remove'])}."
+        )
+        question.alternatives = [
+            "Kjør 'rvv-miniputt operator publish --confirm-public' for å publisere denne bunten med en gang",
+            f"Svar 'godkjenn' på spørsmål {question.id} for en varig godkjenning",
+        ]
+        question.recommendation = "Se over filene i personvernrapporten og endringslisten før godkjenning."
+        if urls:
+            question.impact = f"Publiserer offentlig til {urls[0]} og {urls[1]}."
+        raise_question(work_dir, question)
+        return diff
+
+    if dry_run:
+        diff = _raise_preview_question()
+        return CapabilityResult.ok(
+            f"Forhåndsvisning av publisering til '{branch}' — ingen publisering utført "
+            f"(+{len(diff['add'])} ~{len(diff['update'])} -{len(diff['remove'])} under /latest/).",
+            capability="pages_publish",
+            evidence=[
+                f"bundle_fingerprint={bundle_fp}",
+                f"target_fingerprint={target_fp}",
+                f"question_id={question.id}",
+            ],
+            artifacts=list(bundle_result.artifacts),
+        )
+
+    approved_now = confirm_public
+    if not approved_now:
+        existing = next(
+            (q for q in RunManifest(work_dir).all_questions() if q.get("id") == question.id), None
+        )
+        if existing is not None and existing.get("answered"):
+            if _is_publication_approved_answer(existing.get("answer") or ""):
+                approved_now = True
+            else:
+                return CapabilityResult.blocked(
+                    f"Publisering av denne bunten ble avvist tidligere (svar: {existing.get('answer')!r}).",
+                    capability="pages_publish",
+                    problems=["Godkjenning avvist for denne bunt-/mål-kombinasjonen."],
+                    evidence=[f"bundle_fingerprint={bundle_fp}", f"target_fingerprint={target_fp}"],
+                    artifacts=list(bundle_result.artifacts),
+                )
+        else:
+            diff = _raise_preview_question()
+            return CapabilityResult.blocked(
+                f"Publisering krever eksplisitt godkjenning for denne bunten (bunt {bundle_fp[:12]}, "
+                f"mål {target_fp[:12]}).",
+                capability="pages_publish",
+                suggested_actions=list(question.alternatives),
+                evidence=[
+                    f"bundle_fingerprint={bundle_fp}",
+                    f"target_fingerprint={target_fp}",
+                    f"question_id={question.id}",
+                    f"diff_add={len(diff['add'])}",
+                    f"diff_update={len(diff['update'])}",
+                    f"diff_remove={len(diff['remove'])}",
+                ],
+                artifacts=list(bundle_result.artifacts),
+            )
+
     publish_result = pages_publish.publish(
         export_dir=public_bundle_dir,
         run_id=run_id,
@@ -497,7 +616,11 @@ def _execute_publish_pages(
         remote=remote,
         push=push,
     )
-    publish_result.evidence = list(bundle_result.evidence) + list(publish_result.evidence)
+    publish_result.evidence = (
+        list(bundle_result.evidence)
+        + [f"bundle_fingerprint={bundle_fp}", f"target_fingerprint={target_fp}"]
+        + list(publish_result.evidence)
+    )
     publish_result.artifacts = list(publish_result.artifacts) + list(bundle_result.artifacts)
     return publish_result
 

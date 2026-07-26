@@ -359,6 +359,19 @@ def build_parser() -> argparse.ArgumentParser:
         "publication (issue #18); repeatable",
     )
     op_publish.add_argument(
+        "--confirm-public",
+        action="store_true",
+        help="Explicitly authorize publishing this exact bundle to this exact target right now "
+        "(issue #19) — without this (or a prior durable 'godkjenn' answer for this exact bundle "
+        "and target), publishing only previews and raises an approval question",
+    )
+    op_publish.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only show what would change under /latest/ and raise the approval question; "
+        "never publish, even if an approval already exists for this bundle",
+    )
+    op_publish.add_argument(
         "--json",
         action="store_true",
         help="Print the publish result as JSON",

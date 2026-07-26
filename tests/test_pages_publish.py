@@ -7,7 +7,13 @@ from pathlib import Path
 
 import pytest
 
-from tournament_scheduler.pipeline.pages_publish import publish
+from tournament_scheduler.pipeline.pages_publish import (
+    bundle_fingerprint,
+    diff_latest,
+    publish,
+    resolve_urls,
+    target_fingerprint,
+)
 
 
 def _git(args: list[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -187,3 +193,105 @@ class TestPublishNoPush:
         assert result.status == "ok"
         assert "https://acme.github.io/hockey/latest/" in result.artifacts
         assert "https://acme.github.io/hockey/runs/run-1/" in result.artifacts
+
+
+class TestBundleFingerprint:
+    def test_identical_content_fingerprints_identically(self, tmp_path):
+        a = tmp_path / "a"
+        b = tmp_path / "b"
+        _write_export_bundle(a, content="<h1>x</h1>")
+        _write_export_bundle(b, content="<h1>x</h1>")
+        assert bundle_fingerprint(str(a)) == bundle_fingerprint(str(b))
+
+    def test_changed_content_changes_the_fingerprint(self, tmp_path):
+        a = tmp_path / "a"
+        _write_export_bundle(a, content="<h1>v1</h1>")
+        fp1 = bundle_fingerprint(str(a))
+        _write_export_bundle(a, content="<h1>v2</h1>")
+        fp2 = bundle_fingerprint(str(a))
+        assert fp1 != fp2
+
+    def test_added_file_changes_the_fingerprint(self, tmp_path):
+        a = tmp_path / "a"
+        _write_export_bundle(a)
+        fp1 = bundle_fingerprint(str(a))
+        (a / "extra.html").write_text("<p>extra</p>", encoding="utf-8")
+        fp2 = bundle_fingerprint(str(a))
+        assert fp1 != fp2
+
+
+class TestTargetFingerprint:
+    def test_same_target_fingerprints_identically(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        fp1 = target_fingerprint(repo_dir=str(local), branch="gh-pages", remote="origin", run_id="run-1")
+        fp2 = target_fingerprint(repo_dir=str(local), branch="gh-pages", remote="origin", run_id="run-1")
+        assert fp1 == fp2
+
+    def test_different_run_id_changes_the_fingerprint(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        fp1 = target_fingerprint(repo_dir=str(local), branch="gh-pages", remote="origin", run_id="run-1")
+        fp2 = target_fingerprint(repo_dir=str(local), branch="gh-pages", remote="origin", run_id="run-2")
+        assert fp1 != fp2
+
+    def test_different_branch_changes_the_fingerprint(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        fp1 = target_fingerprint(repo_dir=str(local), branch="gh-pages", remote="origin", run_id="run-1")
+        fp2 = target_fingerprint(repo_dir=str(local), branch="gh-pages-staging", remote="origin", run_id="run-1")
+        assert fp1 != fp2
+
+
+class TestResolveUrls:
+    def test_returns_none_without_a_github_style_remote(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        urls = resolve_urls(repo_dir=str(local), remote="origin", run_id="run-1")
+        assert urls is None
+
+    def test_returns_urls_for_a_github_style_remote(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        _git(["remote", "set-url", "origin", "git@github.com:acme/hockey.git"], cwd=local)
+        urls = resolve_urls(repo_dir=str(local), remote="origin", run_id="run-1")
+        assert urls == ("https://acme.github.io/hockey/latest/", "https://acme.github.io/hockey/runs/run-1/")
+
+
+class TestDiffLatest:
+    def test_everything_is_an_addition_when_branch_does_not_exist_yet(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+        _write_export_bundle(export_dir)
+
+        diff = diff_latest(str(export_dir), repo_dir=str(local), branch="gh-pages")
+
+        # index.html is included even though the bundle didn't have one of its
+        # own — diff_latest mirrors _copy_bundle's season_plan.html fallback.
+        assert diff["add"] == ["latest/index.html", "latest/season_plan.html", "latest/season_plan.ics"]
+        assert diff["update"] == []
+        assert diff["remove"] == []
+
+    def test_never_writes_anything(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+        _write_export_bundle(export_dir)
+
+        diff_latest(str(export_dir), repo_dir=str(local), branch="gh-pages")
+
+        branches = subprocess.run(
+            ["git", "branch", "--list", "gh-pages"], cwd=local, capture_output=True, text=True, check=True
+        )
+        assert branches.stdout.strip() == ""
+
+    def test_detects_update_and_removal_against_a_published_branch(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+        _write_export_bundle(export_dir, content="<h1>v1</h1>")
+        publish(export_dir=str(export_dir), run_id="run-1", repo_dir=str(local), push=False)
+
+        # Change season_plan.html and drop season_plan.ics from the next bundle.
+        (export_dir / "season_plan.ics").unlink()
+        (export_dir / "season_plan.html").write_text("<h1>v2</h1>", encoding="utf-8")
+
+        diff = diff_latest(str(export_dir), repo_dir=str(local), branch="gh-pages")
+
+        # index.html changes too — it's a copy of season_plan.html.
+        assert diff["update"] == ["latest/index.html", "latest/season_plan.html"]
+        assert diff["remove"] == ["latest/season_plan.ics"]
+        assert diff["add"] == []

@@ -1762,11 +1762,15 @@ def _cmd_operator_run(args: argparse.Namespace) -> int:
 def _cmd_operator_publish(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt operator publish`` — publish the exported plan to GitHub Pages (issue #17).
 
-    Running this command (interactively, or via ``operator run --publish``)
-    is itself the human decision that authorizes the external
-    ``publish_pages`` action, so it is always invoked with ``approved=True``
-    — issue #19 will add an explicit escalation gate for unattended/harness
-    invocations that shouldn't auto-approve.
+    Always invoked with ``approved=True`` at the :class:`ActionRegistry`
+    level — running this command at all is the coarse consent to attempt an
+    external-risk action (#10). That is deliberately *not* sufficient on
+    its own to actually push to the Pages branch: ``_execute_publish_pages``
+    additionally requires either ``--confirm-public`` on this exact
+    invocation or a previously durable-answered approval for this exact
+    bundle/target (issue #19) — so ``operator run --publish`` alone (which
+    never sets ``--confirm-public``) only ever previews and raises an
+    approval question, never publishes unattended.
     """
     from ..pipeline.operator_action import (
         DEFAULT_REGISTRY,
@@ -1782,6 +1786,8 @@ def _cmd_operator_publish(args: argparse.Namespace) -> int:
         "branch": getattr(args, "branch", "gh-pages") or "gh-pages",
         "remote": getattr(args, "remote", "origin") or "origin",
         "push": getattr(args, "push", True),
+        "confirm_public": getattr(args, "confirm_public", False),
+        "dry_run": getattr(args, "dry_run", False),
     }
     if getattr(args, "export_dir", None):
         action_kwargs["export_dir"] = args.export_dir
@@ -1816,12 +1822,16 @@ def _cmd_operator_publish(args: argparse.Namespace) -> int:
         _console.print(f"[green]✓[/green] {result.summary}")
     elif result.status == "warning":
         _console.print(f"[yellow]⚠[/yellow] {result.summary}")
+    elif result.status == "blocked":
+        _console.print(f"[yellow]?[/yellow] {result.summary}")
     else:
         _console.print(f"[red]✗[/red] {result.summary}")
     for artifact in result.artifacts:
         _console.print(f"    [cyan]{artifact}[/cyan]")
     for item in result.evidence:
         _console.print(f"    [dim]{item}[/dim]")
+    for action in result.suggested_actions:
+        _console.print(f"    [dim]· {action}[/dim]")
     return 0 if result.is_terminal_success else 1
 
 
