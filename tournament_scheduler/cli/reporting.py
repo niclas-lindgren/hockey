@@ -323,6 +323,12 @@ def _build_logs_stats_text(work_dir: Path) -> str:
 
 
 def _cmd_status(args: argparse.Namespace) -> int:
+    if getattr(args, "json", False):
+        from ..pipeline.run_manifest import RunManifest
+
+        manifest = RunManifest(Path(args.work_dir)).read()
+        print(json.dumps(manifest, indent=2, ensure_ascii=False))
+        return 0
     _console.print(_build_status_text(Path(args.work_dir)))
     return 0
 
