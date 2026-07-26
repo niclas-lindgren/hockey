@@ -524,7 +524,49 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline work directory (default: .pipeline)",
     )
 
-    # recovery-targets — list blocked/zero-event sources from Stage 2 checkpoint
+    # scrape-llm — capability-gated LLM browser guidance for blocked sources
+    scrape_llm = sub.add_parser(
+        "scrape-llm",
+        help="Show the browser-tool requirements for LLM-guided single-club recovery",
+    )
+    scrape_llm.add_argument(
+        "--club", required=True,
+        help="Club/source name (e.g. 'Holmen', 'Jar', 'Sandefjord')",
+    )
+    scrape_llm.add_argument(
+        "--work-dir", default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    scrape_llm.add_argument(
+        "--export-dir", default="export",
+        help="Export directory for debug screenshots or recovered artifacts (default: export)",
+    )
+    scrape_llm.add_argument(
+        "--endpoint", default="http://host.lima.internal:1234",
+        help="LLM API endpoint used by the browser agent (default: http://host.lima.internal:1234)",
+    )
+    scrape_llm.add_argument(
+        "--model", default="qwen2.5-32b-instruct",
+        help="LLM model name used by the browser agent (default: qwen2.5-32b-instruct)",
+    )
+    scrape_llm.add_argument(
+        "--max-iterations", type=int, default=20,
+        help="Maximum browser interaction cycles to advertise to the browser agent (default: 20)",
+    )
+    scrape_llm.add_argument(
+        "--cache-results", dest="cache_results", action="store_true",
+        help="Advertise caching of recovered events (default: on)",
+    )
+    scrape_llm.add_argument(
+        "--no-cache-results", dest="cache_results", action="store_false",
+        help="Disable caching in the capability guidance",
+    )
+    scrape_llm.set_defaults(cache_results=True)
+    scrape_llm.add_argument(
+        "--debug-screenshots", action="store_true",
+        help="Advertise saving browser debug screenshots",
+    )
+
     recovery = sub.add_parser(
         "recovery-targets",
         help="List blocked or zero-event sources from the Stage 2 checkpoint as JSON",

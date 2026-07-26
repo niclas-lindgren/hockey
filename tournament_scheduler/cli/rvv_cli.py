@@ -591,6 +591,59 @@ def _cmd_review(args: argparse.Namespace) -> int:
     )
 
 
+def _cmd_scrape_llm(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt scrape-llm`` — browser-tool capability guidance."""
+    from ..club_registry import club_for_source_name
+    from ..pipeline.scraper_strategies import STRATEGIES, get_strategy, needs_llm_agent
+
+    requested_club = args.club.strip()
+    club_name = club_for_source_name(requested_club) or requested_club
+    if club_name != requested_club:
+        _console.print(f"[dim]Alias resolved:[/dim] {requested_club} → {club_name}")
+
+    strategy = get_strategy(club_name)
+    if strategy is None:
+        _console.print(f"[red]✗[/red] Ukjent klubb: '{requested_club}'")
+        _console.print("\n[bold]Kjente skrapestrategier:[/bold]")
+        for name in sorted(STRATEGIES):
+            _console.print(f"  [cyan]{name}[/cyan]")
+        return 1
+
+    _console.print(f"[bold]LLM-guidet recovery:[/bold] {club_name}")
+    _console.print(f"  URL: [dim]{strategy.url}[/dim]")
+    _console.print(f"  Engine: [dim]{strategy.engine.value}[/dim]")
+    if strategy.note:
+        _console.print(f"  [dim]{strategy.note}[/dim]")
+
+    if not needs_llm_agent(strategy):
+        _console.print("\n[yellow]![/yellow] Denne kilden har allerede en deterministisk skraper.")
+        _console.print(
+            f"  Bruk [bold]rvv-miniputt scrape --club \"{requested_club}\"[/bold] i stedet."
+        )
+        return 1
+
+    _console.print(
+        "\n[yellow]![/yellow] Denne kommandoen krever browser-verktøy "
+        "(Pi ScraperAgent / Playwright browser_worker)."
+    )
+    _console.print("  Et rent terminalmiljø kan ikke kjøre den direkte her.")
+    if strategy.credential_env_vars:
+        _console.print(
+            f"  Krever miljøvariabler: {', '.join(strategy.credential_env_vars)}"
+        )
+    if strategy.initial_navigation:
+        _console.print(
+            f"  Oppstartssekvens: {len(strategy.initial_navigation)} steg før agent-løkken."
+        )
+    _console.print(
+        "  Bruk [bold]/rvv-miniputt scrape-llm[/bold] i Pi eller et miljø med browser-kontroll."
+    )
+    _console.print(
+        f"  For strategi-JSON: [bold]python3 -m tournament_scheduler.pipeline.scraper_strategies --name \"{club_name}\"[/bold]"
+    )
+    return 1
+
+
 def _cmd_verdict(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt verdict`` — print tone and key scores from Stage 3 checkpoint."""
     from ..html.data_computation import (
@@ -952,6 +1005,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_tournament(args)
     elif args.command == "scrape":
         return _cmd_scrape(args)
+    elif args.command == "scrape-llm":
+        return _cmd_scrape_llm(args)
     elif args.command == "recovery-targets":
         return _cmd_recovery_targets(args)
     elif args.command == "recovery-inject":

@@ -35,6 +35,38 @@ def test_run_parser_accepts_portable_slash_command_flags() -> None:
     assert args.force_refresh is True
 
 
+def test_run_parser_accepts_scrape_llm_flags() -> None:
+    args = build_parser().parse_args(
+        [
+            "scrape-llm",
+            "--club",
+            "Holmen",
+            "--work-dir",
+            ".pipeline",
+            "--export-dir",
+            "export",
+            "--endpoint",
+            "http://localhost:1234",
+            "--model",
+            "qwen2.5-32b-instruct",
+            "--max-iterations",
+            "12",
+            "--no-cache-results",
+            "--debug-screenshots",
+        ]
+    )
+
+    assert args.command == "scrape-llm"
+    assert args.club == "Holmen"
+    assert args.work_dir == ".pipeline"
+    assert args.export_dir == "export"
+    assert args.endpoint == "http://localhost:1234"
+    assert args.model == "qwen2.5-32b-instruct"
+    assert args.max_iterations == 12
+    assert args.cache_results is False
+    assert args.debug_screenshots is True
+
+
 def test_repo_local_script_is_executable_and_shows_status() -> None:
     assert SCRIPT.exists()
     assert os.access(SCRIPT, os.X_OK)
@@ -111,3 +143,25 @@ def test_logs_list_subcommand_is_available_from_python_cli(tmp_path) -> None:
 
     assert "Pipeline kjøringshistorie" in result.stdout
     assert "run-" in result.stdout
+
+
+def test_scrape_llm_cli_prints_browser_tool_guidance() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "tournament_scheduler.cli.rvv_cli",
+            "scrape-llm",
+            "--club",
+            "Holmen",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "browser-verktøy" in result.stdout
+    assert "Playwright" in result.stdout
+    assert "browser_worker" in result.stdout
+    assert "/rvv-miniputt scrape-llm" in result.stdout
