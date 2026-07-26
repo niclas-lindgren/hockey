@@ -149,6 +149,12 @@ def render_fairness_adjustments_html(plan: object) -> str:
         tt_cell = f'<td style="text-align:right">{actual_tt}</td>'
         if target_tt is not None:
             tt_cell = f'<td style="text-align:right">{actual_tt}/{target_tt}</td>'
+        if adj > 0.5:
+            adjustment_note = "Mangler flere kamper"
+        elif adj < -0.5:
+            adjustment_note = "For mange kamper"
+        else:
+            adjustment_note = "På mål"
         table_rows.append(
             '<tr class="fairness-adjustment-row fairness-adjustment-row--' + _html.escape(status) + '">' 
             f'<td>{_html.escape(str(row.get("label", "")))}</td>'
@@ -158,7 +164,7 @@ def render_fairness_adjustments_html(plan: object) -> str:
             f'<td style="text-align:right">{fmt(float(row.get("target", 0.0)))}</td>'
             f'<td class="fairness-adjustment-adjustment fairness-adjustment-adjustment--{_html.escape(status)}" style="text-align:right">{fmt(adj)}</td>'
             f'<td>{status_labels.get(status, status.upper())}</td>'
-            f'<td>{"Mangler flere kamper" if adj > 0.5 else ("For mange kamper" if adj < -0.5 else "P\u00e5 m\u00e5l")}</td>'
+            f'<td>{adjustment_note}</td>'
             f'{tt_cell}'
             '</tr>'
         )
