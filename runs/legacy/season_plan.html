@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sesongplan 2026-2027 — RVV Hockey</title>
+<style>
+:root {
+  --bg: #09090b;
+  --bg-raised: #18181b;
+  --bg-surface: #27272a;
+  --border: #3f3f46;
+  --border-dim: #27272a;
+  --text: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --accent: #0ea5e9;
+  --accent-dim: #0369a1;
+  --accent-glow: rgba(14, 165, 233, 0.12);
+  --amber: #f59e0b;
+  --emerald: #10b981;
+  --rose: #f43f5e;
+  --violet: #8b5cf6;
+  --hover-overlay: rgba(255, 255, 255, 0.06);
+  --heatmap-empty-bg: rgba(30, 41, 59, 0.4);
+  --radius: 8px;
+  --radius-sm: 4px;
+  --radius-pill: 999px;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+}
+[data-theme="light"] {
+  --bg: #f4f4f5;
+  --bg-raised: #ffffff;
+  --bg-surface: #e4e4e7;
+  --border: #d4d4d8;
+  --border-dim: #e4e4e7;
+  --text: #18181b;
+  --text-secondary: #52525b;
+  --text-muted: #71717a;
+  --accent: #0284c7;
+  --accent-dim: #0369a1;
+  --accent-glow: rgba(2, 132, 199, 0.10);
+  --amber: #d97706;
+  --emerald: #059669;
+  --rose: #e11d48;
+  --violet: #7c3aed;
+  --hover-overlay: rgba(0, 0, 0, 0.05);
+  --heatmap-empty-bg: rgba(228, 228, 231, 0.6);
+}
+[data-theme="light"] .tag--age { background: rgba(14,165,233,.16); border-color: rgba(14,165,233,.3); }
+[data-theme="light"] .tag--arena { background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.3); }
+[data-theme="light"] .tag--teams { background: rgba(16,185,129,.16); border-color: rgba(16,185,129,.3); }
+[data-theme="light"] .tag--travel { background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.3); }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100dvh; font-size: 15px; }
+
+/* Navbar (shared) */
+.navbar { display: flex; align-items: center; gap: 2px; background: var(--bg-raised); padding: 0 16px; border-bottom: 1px solid var(--border-dim); height: 44px; }
+.navbar .brand { font-weight: 700; font-size: 13px; margin-right: 20px; color: var(--text); letter-spacing: -.01em; }
+.nav-icon { display: inline-flex; align-items: center; opacity: .55; }
+.nav-icon svg { display: block; width: 14px; height: 14px; }
+.navbar a { color: var(--text-muted); text-decoration: none; padding: 4px 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 500; transition: color .15s, background .15s; display: inline-flex; align-items: center; gap: 5px; }
+.navbar a:hover { background: var(--hover-overlay); color: var(--text-secondary); }
+.navbar a.active { background: var(--accent-glow); color: var(--accent); font-weight: 600; }
+.navbar a.active .nav-icon { opacity: .85; }
+.navbar .meta-nav { margin-left: auto; font-size: 11px; color: var(--text-muted); }
+
+/* Theme toggle */
+.theme-toggle { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius-pill); color: var(--text-muted); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
+.theme-toggle:hover { background: var(--hover-overlay); color: var(--text-secondary); border-color: var(--border); }
+.theme-toggle svg { width: 15px; height: 15px; flex-shrink: 0; }
+.theme-toggle .icon-moon { display: none; }
+[data-theme="light"] .theme-toggle .icon-sun { display: none; }
+[data-theme="light"] .theme-toggle .icon-moon { display: block; }
+
+/* Main app container */
+.app { max-width: 1400px; margin: 0 auto; padding: 24px 28px 64px; }
+.header { display: flex; flex-direction: column; gap: 12px; padding: 0 0 28px; border-bottom: 1px solid var(--border-dim); margin-bottom: 28px; }
+.header-actions { display: flex; justify-content: flex-end; width: 100%; }
+.header-main { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; width: 100%; }
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.header-metrics { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.header-actions .export-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; padding: 0; margin: 0; }
+.header-actions .export-link-btn { padding: 6px 12px; }
+.logo-icon { width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent), var(--accent-dim)); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; color: #fff; flex-shrink: 0; }
+.header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+.header h1 span { color: var(--accent); }
+.header-sub { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.stat-badge { display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--bg-raised); border-radius: var(--radius-pill); font-size: 12px; color: var(--text-muted); border: 1px solid var(--border-dim); white-space: nowrap; }
+.stat-badge strong { color: var(--text-secondary); font-weight: 600; }
+.stat-badge svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+/* Report overview */
+.report-overview { display: grid; gap: 14px; margin-bottom: 18px; }
+.report-hero { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; padding: 22px 24px; background: linear-gradient(135deg, var(--bg-raised), var(--bg)); border: 1px solid var(--border-dim); border-left: 4px solid var(--accent); border-radius: var(--radius); }
+.report-hero--pass { border-left-color: var(--emerald); }
+.report-hero--warn { border-left-color: var(--amber); }
+.report-hero--fail { border-left-color: var(--rose); }
+.report-hero h2 { font-size: 26px; letter-spacing: -.03em; margin-bottom: 6px; }
+.report-hero-answer { font-size: 17px; color: var(--text-secondary); font-weight: 650; margin-bottom: 4px; }
+.report-hero-note { max-width: 720px; font-size: 13px; color: var(--text-muted); }
+.eyebrow { margin: 0 0 4px; font-size: 10px; font-weight: 750; letter-spacing: .11em; text-transform: uppercase; color: var(--text-muted); }
+.report-status-pill { display: inline-flex; align-items: center; white-space: nowrap; padding: 6px 11px; border-radius: var(--radius-pill); border: 1px solid var(--border-dim); font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.report-status-pill--pass { color: var(--emerald); background: rgba(16,185,129,.08); }
+.report-status-pill--warn { color: var(--amber); background: rgba(245,158,11,.09); }
+.report-status-pill--fail { color: var(--rose); background: rgba(244,63,94,.09); }
+.report-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.report-card { padding: 11px 12px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); }
+.report-card span { display: block; margin-bottom: 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 700; }
+.report-card strong { display: block; font-size: 16px; color: var(--text); margin-bottom: 2px; }
+.report-card p { font-size: 12px; color: var(--text-muted); }
+.report-section { padding: 16px 18px 18px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); }
+.report-section--priority { border-left: 3px solid var(--amber); }
+.report-section--diagnostics { margin: 22px 0 14px; border-left: 3px solid var(--violet); }
+.report-section--judgment { margin: 22px 0 14px; border-left: 3px solid var(--accent); }
+.report-section--judgment-strong { border-left-color: var(--emerald); }
+.report-section--judgment-mixed { border-left-color: var(--amber); }
+.report-section--judgment-rough { border-left-color: var(--rose); }
+.report-section--collapsible { padding-top: 14px; }
+.report-section--collapsible > summary.section-head { cursor: pointer; list-style: none; }
+.report-section--collapsible > summary.section-head::-webkit-details-marker { display: none; }
+.report-section--collapsible > summary.section-head::before { content: ''; display: inline-block; width: 7px; height: 7px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); margin: 5px 8px 0 0; transform: rotate(-45deg); transition: transform .15s; flex-shrink: 0; }
+.report-section--collapsible[open] > summary.section-head::before { transform: rotate(45deg); margin-top: 2px; }
+.report-section--collapsible:not([open]) > summary.section-head { margin-bottom: 0; }
+.judgment-callout { padding: 14px 16px; background: linear-gradient(135deg, var(--bg), var(--bg-raised)); border: 1px solid var(--border-dim); border-radius: var(--radius); margin-bottom: 10px; }
+.judgment-callout--strong { background: rgba(16,185,129,.06); }
+.judgment-callout--mixed { background: rgba(245,158,11,.06); }
+.judgment-callout--rough { background: rgba(244,63,94,.06); }
+.judgment-callout-label { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+.judgment-callout-verdict { font-size: 15px; color: var(--text-secondary); font-weight: 650; margin-bottom: 4px; }
+.judgment-callout-action { font-size: 12px; color: var(--text-muted); }
+.judgment-toggle { margin-top: 10px; }
+.judgment-toggle-summary { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--border-dim); border-radius: var(--radius-pill); background: var(--bg-raised); color: var(--text-muted); font-size: 11px; font-weight: 700; cursor: pointer; user-select: none; }
+.judgment-toggle-summary::-webkit-details-marker { display: none; }
+.judgment-toggle-summary::before { content: ''; display: inline-block; width: 6px; height: 6px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); transform: rotate(-45deg); margin-top: 1px; transition: transform .15s; }
+.judgment-toggle[open] .judgment-toggle-summary::before { transform: rotate(45deg); margin-top: -1px; }
+.judgment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-top: 10px; }
+.judgment-card { padding: 12px 14px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); }
+.judgment-card span { display: block; margin-bottom: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); font-weight: 700; }
+.judgment-card p { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.section-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
+.section-head h2 { margin: 0; font-size: 16px; color: var(--text); }
+.section-note { margin: 0; max-width: 320px; font-size: 12px; line-height: 1.4; color: var(--text-muted); text-align: right; }
+.report-action-list { display: grid; gap: 7px; }
+.report-action { padding: 8px 10px; background: var(--bg); border: 1px solid var(--border-dim); border-left: 3px solid var(--border); border-radius: var(--radius-sm); }
+.report-action--pass { border-left-color: var(--emerald); }
+.report-action--warn { border-left-color: var(--amber); }
+.report-action--fail { border-left-color: var(--rose); }
+.report-action strong { display: block; margin-bottom: 2px; color: var(--text-secondary); font-size: 13px; }
+.report-action p { color: var(--text-muted); font-size: 12px; }
+.report-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.report-table th { padding: 8px 10px; background: var(--bg); color: var(--text-muted); font-weight: 750; text-align: left; border-bottom: 1px solid var(--border-dim); }
+.report-table td { padding: 7px 10px; color: var(--text-secondary); border-bottom: 1px solid var(--border-dim); vertical-align: top; }
+.report-table tr:last-child td { border-bottom: 0; }
+
+/* Scores */
+.score-bar { display: flex; gap: 12px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 14px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); }
+.score-item { font-size: 12px; color: var(--text-muted); }
+.score-item strong { color: var(--text-secondary); }
+.score-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 3px; }
+
+/* Pipeline metrics section */
+.metrics-bar { display: flex; gap: 12px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 14px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); }
+.metrics-group { display: flex; flex-direction: column; gap: 1px; }
+.metrics-group-label { font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted); font-weight: 600; }
+.metrics-group-value { font-size: 12px; color: var(--text-secondary); line-height: 1.25; }
+.metrics-group-value strong { color: var(--accent); }
+.metrics-warning { color: var(--amber); font-size: 11px; }
+
+/* Fairness gate */
+.score-item--gate .score-status,
+.fairness-gate-status,
+.fairness-metric-status { display: inline-flex; align-items: center; padding: 1px 7px; margin-left: 4px; border-radius: var(--radius-pill); border: 1px solid var(--border-dim); font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.score-status--pass, .fairness-gate-status--pass, .fairness-metric-status--pass { color: var(--emerald); background: rgba(16,185,129,.08); }
+.score-status--warn, .fairness-gate-status--warn, .fairness-metric-status--warn { color: var(--amber); background: rgba(245,158,11,.08); }
+.score-status--fail, .fairness-gate-status--fail, .fairness-metric-status--fail { color: var(--rose); background: rgba(244,63,94,.08); }
+.fairness-gate-panel, .fairness-adjustment-panel { padding: 12px 14px 14px; margin-bottom: 14px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); }
+.fairness-gate-head, .fairness-adjustment-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.fairness-gate-head .metrics-group-label, .fairness-adjustment-head .metrics-group-label { margin-bottom: 2px; }
+.fairness-gate-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+.fairness-metric { padding: 9px 10px; background: var(--bg); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); display: flex; flex-direction: column; gap: 3px; }
+.fairness-metric-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fairness-metric-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.fairness-metric-value { font-size: 12px; color: var(--text-muted); }
+.fairness-metric-score { font-size: 11px; color: var(--accent); font-weight: 600; }
+.fairness-metric-detail { font-size: 11px; color: var(--text-muted); }
+.fairness-breakdown-row { margin-top: 10px; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); }
+.fairness-breakdown-label { margin-bottom: 8px; font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.fairness-breakdown-scroll { overflow-x: auto; }
+.fairness-breakdown-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 11px; }
+.fairness-breakdown-table th, .fairness-breakdown-table td { padding: 4px 5px; border-bottom: 1px solid var(--border-dim); white-space: nowrap; }
+.fairness-breakdown-table th { color: var(--text-muted); text-align: left; font-weight: 700; }
+.fairness-adjustment-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.fairness-adjustment-summary .metrics-group { min-width: 140px; }
+
+/* Advisory review */
+.review-summary-panel { padding: 12px 14px 14px; margin-bottom: 14px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); }
+.review-summary-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.review-summary-items { display: grid; gap: 8px; }
+.review-summary-item { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-secondary); }
+.review-summary-item--pass { border-left: 3px solid var(--emerald); }
+.review-summary-item--warn { border-left: 3px solid var(--amber); }
+.review-summary-item--fail { border-left: 3px solid var(--rose); }
+.review-summary-item--info { border-left: 3px solid var(--text-muted); }
+.review-summary-item-label { min-width: 110px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+.review-summary-item-text { flex: 1; }
+.review-summary-item-note { display: block; margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+.review-summary-item--pass .review-summary-item-label { color: var(--emerald); }
+.review-summary-item--warn .review-summary-item-label { color: var(--amber); }
+.review-summary-item--fail .review-summary-item-label { color: var(--rose); }
+.review-summary-item--info .review-summary-item-label { color: var(--text-muted); }
+.report-hidden-context { display: none; }
+.fairness-adjustment-table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: var(--radius-sm); }
+.fairness-adjustment-table th, .fairness-adjustment-table td { padding: 8px 10px; border-bottom: 1px solid var(--border-dim); font-size: 12px; }
+.fairness-adjustment-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); background: rgba(255,255,255,.02); }
+.fairness-adjustment-table td:last-child, .fairness-adjustment-table th:last-child { text-align: right; }
+.fairness-adjustment-row--under { background: rgba(245,158,11,.05); }
+.fairness-adjustment-row--over { background: rgba(244,63,94,.05); }
+.fairness-adjustment-row--on_target { background: rgba(16,185,129,.05); }
+.fairness-adjustment-adjustment { font-weight: 700; }
+.fairness-adjustment-adjustment--under { color: var(--amber); }
+.fairness-adjustment-adjustment--over { color: var(--rose); }
+.fairness-adjustment-adjustment--on_target { color: var(--emerald); }
+
+/* Filters */
+.filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border-dim); }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted); }
+.filter-select, .filter-input { padding: 7px 12px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 13px; font-family: var(--font); outline: none; transition: border-color .15s, box-shadow .15s; appearance: none; -webkit-appearance: none; cursor: pointer; min-width: 140px; }
+.filter-select:focus, .filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.filter-input { cursor: text; min-width: 180px; }
+.filter-input::placeholder { color: var(--text-muted); }
+.filter-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2371717a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+.filter-clear { padding: 7px 14px; background: transparent; border: 1px solid var(--border-dim); border-radius: var(--radius-sm); color: var(--text-muted); font-size: 12px; font-family: var(--font); cursor: pointer; transition: all .15s; align-self: flex-end; }
+.filter-clear:hover { background: var(--bg-surface); color: var(--text-secondary); border-color: var(--border); }
+
+/* Count bar */
+.count-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 14px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); margin-bottom: 24px; font-size: 13px; color: var(--text-muted); }
+.count-bar strong { color: var(--text-secondary); }
+
+/* Timeline */
+.timeline { position: relative; padding-left: 32px; }
+.timeline::before { content: ''; position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(to bottom, var(--accent), var(--border-dim)); opacity: .4; }
+.tournament-card { position: relative; margin-bottom: 16px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); padding: 16px 20px; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; user-select: none; }
+.tournament-card:hover { border-color: var(--accent-dim); box-shadow: 0 0 0 1px var(--accent-glow), 0 4px 24px rgba(0,0,0,.2); }
+.tournament-card.hidden { display: none; }
+.tournament-card::before { content: ''; position: absolute; left: -25px; top: 24px; width: 12px; height: 12px; background: var(--accent); border: 3px solid var(--bg); border-radius: 50%; z-index: 1; }
+.tournament-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.tournament-date { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 6px 10px; background: var(--bg); border-radius: var(--radius-sm); border: 1px solid var(--border-dim); }
+.tournament-date .day { font-size: 20px; font-weight: 700; line-height: 1; }
+.tournament-date .month { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: .06em; margin-top: 2px; }
+.tournament-date .weekday { font-size: 9px; color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-top: 3px; }
+.tournament-date .time-range { font-size: 9px; color: var(--text-muted); letter-spacing: .02em; margin-top: 4px; white-space: nowrap; }
+.tournament-info { flex: 1; min-width: 0; }
+.tournament-info h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.tournament-info h3 span { color: var(--accent); }
+.tournament-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--radius-pill); font-size: 11px; font-weight: 500; background: var(--bg); border: 1px solid var(--border-dim); color: var(--text-muted); }
+.tag--age { background: rgba(14,165,233,.08); border-color: rgba(14,165,233,.15); color: var(--accent); }
+.tag--arena { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.15); color: var(--amber); }
+.tag--teams { background: rgba(16,185,129,.08); border-color: rgba(16,185,129,.15); color: var(--emerald); }
+.tag--travel { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.15); color: var(--amber); }
+.tag svg { width: 12px; height: 12px; flex-shrink: 0; }
+.tournament-arrow { color: var(--text-muted); transition: transform .25s cubic-bezier(.16,1,.3,1); flex-shrink: 0; margin-top: 4px; }
+.tournament-arrow svg { width: 18px; height: 18px; display: block; }
+.tournament-card.expanded .tournament-arrow { transform: rotate(180deg); }
+
+/* Cancelled */
+.cancelled-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(244,63,94,.1); color: var(--rose); border: 1px solid rgba(244,63,94,.2); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: var(--radius-sm); margin-bottom: 8px; }
+.tournament-card.cancelled { border-left-color: rgba(244,63,94,.3); opacity: .88; }
+
+/* Matches */
+.matches { max-height: 0; overflow: hidden; transition: max-height .4s cubic-bezier(.16,1,.3,1), opacity .25s ease; opacity: 0; }
+.tournament-card.expanded .matches { max-height: 2000px; opacity: 1; }
+.matches-inner { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-dim); }
+.matches-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.matches-header h4 { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .08em; }
+.matches-header .count { font-size: 11px; color: var(--text-muted); }
+.round-group { padding: 2px 0 12px; }
+.round-group + .round-group { border-top: 1px solid var(--border-dim); margin-top: 12px; padding-top: 12px; }
+.round-group-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 11px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .08em; }
+.round-group-count { color: var(--text-muted); font-weight: 500; text-transform: none; letter-spacing: 0; }
+.match-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 5px; }
+.round-byes { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.match-row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: var(--bg); border-radius: var(--radius-sm); font-size: 12px; color: var(--text-muted); }
+.match-row .vs { color: var(--border); font-size: 9px; font-weight: 600; }
+.match-row.bye-row { background: rgba(14,165,233,.03); border: 1px dashed var(--border); color: var(--text-muted); }
+.match-row .bye-label { font-style: italic; opacity: .6; }
+.match-row .slot { margin-left: auto; padding: 1px 7px; border-radius: var(--radius-pill); font-size: 9px; font-weight: 600; background: rgba(14,165,233,.08); color: var(--accent); white-space: nowrap; }
+
+/* Export links */
+.export-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.export-link-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: var(--radius-sm); background: var(--bg-raised); border: 1px solid var(--border-dim); color: var(--text-secondary); text-decoration: none; font-size: 12px; font-weight: 500; transition: background .15s, border-color .15s, color .15s; }
+.export-link-btn:hover { background: var(--link-color); color: #09090b; border-color: var(--link-color); }
+.export-link-btn svg { width: 14px; height: 14px; display: block; }
+
+/* Details / expandables */
+.summary-icon { display: inline-flex; align-items: center; margin-right: 6px; opacity: .6; }
+.summary-icon svg { display: block; width: 14px; height: 14px; }
+.club-dash-icon { display: inline-flex; align-items: center; }
+.club-dash-icon svg { display: block; width: 16px; height: 16px; }
+.travel-icon { display: inline-flex; align-items: center; margin-right: 4px; opacity: .7; }
+.travel-icon svg { display: block; width: 12px; height: 12px; }
+.warning-icon { display: inline-flex; align-items: center; margin-right: 6px; opacity: .6; }
+.warning-icon svg { display: block; width: 14px; height: 14px; }
+.team-stats summary { cursor: pointer; padding: 10px 14px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-radius: var(--radius); font-size: 13px; font-weight: 600; color: var(--text-secondary); user-select: none; display: flex; align-items: center; transition: border-color .15s, background .15s; }
+.team-stats summary:hover { border-color: var(--border); background: var(--bg-surface); }
+.team-stats summary::-webkit-details-marker { display: none; }
+.team-stats summary::before { content: ''; display: inline-block; width: 6px; height: 6px; border-right: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); margin-right: 8px; transform: rotate(-45deg); transition: transform .15s; }
+.team-stats[open] summary::before { transform: rotate(45deg); }
+.club-dashboard { margin-bottom: 20px; padding: 14px 18px; background: var(--bg-raised); border: 1px solid var(--border-dim); border-left: 3px solid var(--amber); border-radius: var(--radius); }
+.club-dashboard .section-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 14px; }
+.club-dashboard .eyebrow { margin: 0 0 4px; font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.club-dashboard h2 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px; color: var(--amber); }
+.club-dashboard .section-note { margin: 0; max-width: 260px; font-size: 12px; line-height: 1.4; color: var(--text-muted); text-align: right; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--border-dim); border-radius: var(--radius-sm); }
+.club-summary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.club-summary-table th { padding: 9px 12px; background: var(--bg); color: var(--text-muted); font-weight: 700; text-align: left; border-bottom: 1px solid var(--border-dim); }
+.club-summary-table td { padding: 8px 12px; color: var(--text-secondary); border-bottom: 1px solid var(--border-dim); }
+.club-summary-table tr:last-child td { border-bottom: 0; }
+.club-summary-name { color: var(--text-primary); font-weight: 700; }
+.numeric-cell { text-align: right; font-variant-numeric: tabular-nums; }
+.empty-cell { text-align: center; color: var(--text-muted); }
+
+.no-results { text-align: center; padding: 64px 24px; color: var(--text-muted); }
+.no-results svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: .3; }
+.no-results p { font-size: 14px; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 768px) {
+  .app { padding: 16px 12px 48px; }
+  .navbar { height: auto; padding: 8px 12px; }
+  .header-actions { justify-content: flex-start; }
+  .header-main { flex-direction: column; align-items: flex-start; }
+  .header-right { width: 100%; align-items: flex-start; }
+  .report-hero, .section-head { flex-direction: column; }
+  .section-note { text-align: left; max-width: none; }
+  .header-metrics { justify-content: flex-start; }
+  .header-actions .export-links { justify-content: flex-start; }
+  .filters { flex-direction: column; }
+  .filter-select, .filter-input { min-width: 100%; }
+  .timeline { padding-left: 24px; }
+  .tournament-card { padding: 14px; }
+  .tournament-card::before { left: -18px; width: 10px; height: 10px; }
+  .timeline::before { left: 8px; }
+  .tournament-card-header { flex-wrap: wrap; }
+  .match-grid { grid-template-columns: 1fr; }
+  .tournament-date { min-width: 48px; padding: 6px 8px; }
+  .tournament-date .day { font-size: 18px; }
+  h1 { font-size: 18px; }
+}
+
+</style>
+</head>
+<body>
+<div class="navbar">
+  <span class="brand">RVV Miniputt</span>
+  <a href="calendars.html" class=""><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><line x1="2" y1="7" x2="14" y2="7"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/></svg></span> Skrapede kalendere</a>
+  <a href="season_plan.html" class="active"><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 1.5h5a1 1 0 011 1v1h-7v-1a1 1 0 011-1z"/><rect x="3" y="3.5" width="10" height="11" rx="1.5"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="6" y1="10" x2="10" y2="10"/></svg></span> Sesongplan</a>
+  <a href="season_plan_report.html" class=""><span class="nav-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="14" x2="2" y2="6"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="4"/><line x1="14" y1="14" x2="14" y2="8"/></svg></span> Rapport</a>
+  <span class="meta-nav">0 kilder &middot; 0 hendelser &middot; 55m siden</span>
+</div>
+
+<div class="app" id="app">
+  <header class="header">
+  <div class="header-actions">
+    <div class="export-links"><a href="season_plan.xlsx" class="export-link-btn" style="--link-color:#38bdf8" download><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10v3a1 1 0 01-1 1H3a1 1 0 01-1-1v-3"/><polyline points="5 7 8 10 11 7"/><line x1="8" y1="10" x2="8" y2="2"/></svg> Last ned Excel (.xlsx)</a><a href="season_plan_overview.csv" class="export-link-btn" style="--link-color:#34d399" download><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="14" x2="2" y2="6"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="4"/><line x1="14" y1="14" x2="14" y2="8"/></svg> Last ned CSV</a><a href="season_plan.csv" class="export-link-btn" style="--link-color:#fbbf24" download><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h6l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><polyline points="9 2 9 6 13 6"/><line x1="5" y1="9" x2="11" y2="9"/><line x1="5" y1="12" x2="11" y2="12"/></svg> Last ned CSV (kamper)</a><a href="season_plan.ics" class="export-link-btn" style="--link-color:#f87171" download><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><line x1="2" y1="7" x2="14" y2="7"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/></svg> Last ned iCal (.ics)</a></div>
+  </div>
+  <div class="header-main">
+    <div class="header-left">
+      <div class="logo-icon">RVV</div>
+      <div>
+        <h1>Sesongplan <span>2026-2027</span></h1>
+        <div class="header-sub">RVV Hockey &mdash; U7 + U8 + JU8 + U9 + U10 + JU10 + U11 + U12 + JU12</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-metrics">
+        <div class="stat-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          <span><strong id="totalTournaments">123</strong> turneringer</span>
+        </div>
+        <div class="stat-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8l-4 8-4-4"/></svg>
+          <span><strong id="totalMatches">2082</strong> kamper</span>
+        </div>
+        <div class="stat-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span><strong id="totalTeams">127</strong> lag</span>
+        </div>
+        <button id="themeToggle" class="theme-toggle" aria-label="Bytt tema" title="Bytt tema">
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  <!-- Filters -->
+<div class="filters">
+  <select id="filterAge" class="filter-select">
+    <option value="">Alle (U7 + U8 + JU8 + U9 + U10 + JU10 + U11 + U12 + JU12)</option>
+    <option value="U7">U7</option><option value="U8">U8</option><option value="JU8">JU8</option><option value="U9">U9</option><option value="U10">U10</option><option value="JU10">JU10</option><option value="U11">U11</option><option value="U12">U12</option><option value="JU12">JU12</option>
+  </select>
+  <select id="filterArena" class="filter-select">
+    <option value="">Alle arenaer</option>
+  </select>
+  <select id="filterClub" class="filter-select">
+    <option value="">Alle klubber</option>
+  </select>
+  <input type="text" id="filterSearch" class="filter-input" placeholder="Søk etter lag…">
+  <button type="button" id="filterClear" class="filter-clear">Nullstill filtre</button>
+</div>
+
+  <!-- Count bar -->
+<div class="count-bar">
+  <span>Viser <strong id="visibleCount">0</strong> av <strong>123</strong> turneringer</span>
+  <span>2082 kamper totalt</span>
+</div>
+
+  <div class="timeline" id="timeline"></div>
+</div>
+<script>
+// Restore saved theme before any rendering so theme-dependent colors
+// (e.g. heatmap club palette) pick the correct variant on first paint.
+(function() {
+  var saved = localStorage.getItem('rvv-theme');
+  if (saved === 'light' || saved === 'dark') {
+    document.documentElement.dataset.theme = saved;
+  }
+})();
+
+// Data embedded as JSON
+const TOURNAMENTS = [{"d": "2026-09-05", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 3", "Tønsberg", 0, 1], ["Jar 2", "Ringerike 1", 1, 1], ["Frisk Asker 3", "Ringerike 1", 0, 2], ["Jar 2", "Tønsberg", 1, 2], ["Frisk Asker 3", "Jar 2", 0, 3], ["Ringerike 1", "Tønsberg", 1, 3]], "b": {}, "tr": "Tønsberg ~82 km", "ts": "11:50"}, {"d": "2026-09-06", "a": "Jarhallen", "g": "U8", "h": "Jar", "m": [["Jar 1", "Skien", 0, 1], ["Frisk Asker 1", "Sandefjord", 1, 1], ["Holmen 1", "Kongsberg", 2, 1], ["Jutul 1", "Ringerike 1", 3, 1], ["Jar 1", "Sandefjord", 0, 2], ["Kongsberg", "Skien", 1, 2], ["Ringerike 1", "Frisk Asker 1", 2, 2], ["Jutul 1", "Holmen 1", 3, 2], ["Jar 1", "Kongsberg", 0, 3], ["Sandefjord", "Ringerike 1", 1, 3], ["Skien", "Jutul 1", 2, 3], ["Frisk Asker 1", "Holmen 1", 3, 3], ["Jar 1", "Ringerike 1", 0, 4], ["Jutul 1", "Kongsberg", 1, 4], ["Holmen 1", "Sandefjord", 2, 4], ["Frisk Asker 1", "Skien", 3, 4], ["Jar 1", "Jutul 1", 0, 5], ["Ringerike 1", "Holmen 1", 1, 5], ["Kongsberg", "Frisk Asker 1", 2, 5], ["Sandefjord", "Skien", 3, 5], ["Jar 1", "Holmen 1", 0, 6], ["Frisk Asker 1", "Jutul 1", 1, 6], ["Skien", "Ringerike 1", 2, 6], ["Sandefjord", "Kongsberg", 3, 6], ["Jar 1", "Frisk Asker 1", 0, 7], ["Holmen 1", "Skien", 1, 7], ["Jutul 1", "Sandefjord", 2, 7], ["Ringerike 1", "Kongsberg", 3, 7]], "b": {}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2026-09-12", "a": "Skien ishall", "g": "JU10", "h": "Skien", "m": [["Frisk Asker 1", "Frisk Asker 2", 0, 1], ["Ringerike", "Jar/Jutul", 1, 1], ["Skien", "Frisk Asker 2", 0, 2], ["Ringerike", "Frisk Asker 1", 1, 2], ["Skien", "Jar/Jutul", 0, 3], ["Frisk Asker 2", "Ringerike", 1, 3], ["Skien", "Ringerike", 0, 4], ["Frisk Asker 1", "Jar/Jutul", 1, 4], ["Skien", "Frisk Asker 1", 0, 5], ["Jar/Jutul", "Frisk Asker 2", 1, 5]], "b": {"1": ["Skien"], "2": ["Jar/Jutul"], "3": ["Frisk Asker 1"], "4": ["Frisk Asker 2"], "5": ["Ringerike"]}, "tr": "Ringerike ~147 km", "ts": "10:00"}, {"d": "2026-09-12", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 2", "Tønsberg 2", 0, 1], ["Frisk Asker 2", "Ringerike 2", 1, 1], ["Holmen 2", "Jutul 2", 2, 1], ["Jar 2", "Ringerike 2", 0, 2], ["Jutul 2", "Tønsberg 2", 1, 2], ["Holmen 2", "Frisk Asker 2", 2, 2], ["Jar 2", "Jutul 2", 0, 3], ["Ringerike 2", "Holmen 2", 1, 3], ["Tønsberg 2", "Frisk Asker 2", 2, 3], ["Jar 2", "Holmen 2", 0, 4], ["Frisk Asker 2", "Jutul 2", 1, 4], ["Tønsberg 2", "Ringerike 2", 2, 4], ["Jar 2", "Frisk Asker 2", 0, 5], ["Holmen 2", "Tønsberg 2", 1, 5], ["Jutul 2", "Ringerike 2", 2, 5]], "b": {}, "tr": "Tønsberg 2 ~92 km", "ts": "10:00"}, {"d": "2026-09-12", "a": "Jarhallen", "g": "U12", "h": "Jar", "m": [["Jar 2", "Ringerike 2", 0, 1], ["Frisk Asker 2", "Jutul 2", 1, 1], ["Jar 2", "Jutul 2", 0, 2], ["Frisk Asker 2", "Ringerike 2", 1, 2], ["Jar 2", "Frisk Asker 2", 0, 3], ["Jutul 2", "Ringerike 2", 1, 3]], "b": {}, "tr": "Ringerike 2 ~45 km", "ts": "16:00"}, {"d": "2026-09-13", "a": "Jarhallen", "g": "U11", "h": "Jar", "m": [["Jar 1", "Tønsberg 1", 0, 1], ["Frisk Asker 1", "Ringerike 1", 1, 1], ["Jutul 1", "Holmen 1", 2, 1], ["Jar 1", "Ringerike 1", 0, 2], ["Holmen 1", "Tønsberg 1", 1, 2], ["Jutul 1", "Frisk Asker 1", 2, 2], ["Jar 1", "Holmen 1", 0, 3], ["Ringerike 1", "Jutul 1", 1, 3], ["Tønsberg 1", "Frisk Asker 1", 2, 3], ["Jar 1", "Jutul 1", 0, 4], ["Frisk Asker 1", "Holmen 1", 1, 4], ["Tønsberg 1", "Ringerike 1", 2, 4], ["Jar 1", "Frisk Asker 1", 0, 5], ["Jutul 1", "Tønsberg 1", 1, 5], ["Holmen 1", "Ringerike 1", 2, 5]], "b": {}, "tr": "Tønsberg 1 ~92 km", "ts": "10:00"}, {"d": "2026-09-13", "a": "Baerum ishall", "g": "U12", "h": "Jutul", "m": [["Jutul 1", "Tønsberg", 0, 1], ["Frisk Asker 3", "Jar 3", 1, 1], ["Jutul 1", "Jar 3", 0, 2], ["Frisk Asker 3", "Tønsberg", 1, 2], ["Jutul 1", "Frisk Asker 3", 0, 3], ["Jar 3", "Tønsberg", 1, 3]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "10:00"}, {"d": "2026-09-13", "a": "Jarhallen", "g": "U9", "h": "Jar", "m": [["Jar 3", "Holmen 3", 0, 1], ["Jar 4", "Frisk Asker 3", 1, 1], ["Frisk Asker 2", "Ringerike 2", 2, 1], ["Holmen 2", "Jutul 2", 3, 1], ["Jar 3", "Frisk Asker 3", 0, 2], ["Ringerike 2", "Holmen 3", 1, 2], ["Jutul 2", "Jar 4", 2, 2], ["Holmen 2", "Frisk Asker 2", 3, 2], ["Jar 3", "Ringerike 2", 0, 3], ["Frisk Asker 3", "Jutul 2", 1, 3], ["Holmen 3", "Holmen 2", 2, 3], ["Jar 4", "Frisk Asker 2", 3, 3], ["Jar 3", "Jutul 2", 0, 4], ["Holmen 2", "Ringerike 2", 1, 4], ["Frisk Asker 2", "Frisk Asker 3", 2, 4], ["Jar 4", "Holmen 3", 3, 4], ["Jar 3", "Holmen 2", 0, 5], ["Jutul 2", "Frisk Asker 2", 1, 5], ["Ringerike 2", "Jar 4", 2, 5], ["Frisk Asker 3", "Holmen 3", 3, 5], ["Jar 3", "Frisk Asker 2", 0, 6], ["Jar 4", "Holmen 2", 1, 6], ["Holmen 3", "Jutul 2", 2, 6], ["Frisk Asker 3", "Ringerike 2", 3, 6], ["Jar 3", "Jar 4", 0, 7], ["Frisk Asker 2", "Holmen 3", 1, 7], ["Holmen 2", "Frisk Asker 3", 2, 7], ["Jutul 2", "Ringerike 2", 3, 7]], "b": {}, "tr": "Ringerike 2 ~45 km", "ts": "16:00"}, {"d": "2026-09-19", "a": "Holmenkollen ishall", "g": "JU8", "h": "Holmen", "m": [["Holmen", "Skien", 0, 1], ["Frisk Asker", "Ringerike", 1, 1], ["Jar", "Jutul", 2, 1], ["Holmen", "Ringerike", 0, 2], ["Jutul", "Skien", 1, 2], ["Jar", "Frisk Asker", 2, 2], ["Holmen", "Jutul", 0, 3], ["Ringerike", "Jar", 1, 3], ["Skien", "Frisk Asker", 2, 3], ["Holmen", "Jar", 0, 4], ["Frisk Asker", "Jutul", 1, 4], ["Skien", "Ringerike", 2, 4], ["Holmen", "Frisk Asker", 0, 5], ["Jar", "Skien", 1, 5], ["Jutul", "Ringerike", 2, 5]], "b": {}, "tr": "Skien ~111 km", "ts": "10:00"}, {"d": "2026-09-19", "a": "Tonsberghallen", "g": "U10", "h": "Tønsberg", "m": [["Jar 3", "Jar 4", 0, 1], ["Frisk Asker 3", "Skien", 1, 1], ["Kongsberg", "Sandefjord", 2, 1], ["Jar 3", "Skien", 0, 2], ["Sandefjord", "Jar 4", 1, 2], ["Kongsberg", "Frisk Asker 3", 2, 2], ["Jar 3", "Sandefjord", 0, 3], ["Skien", "Kongsberg", 1, 3], ["Jar 4", "Frisk Asker 3", 2, 3], ["Jar 3", "Kongsberg", 0, 4], ["Frisk Asker 3", "Sandefjord", 1, 4], ["Jar 4", "Skien", 2, 4], ["Jar 3", "Frisk Asker 3", 0, 5], ["Kongsberg", "Jar 4", 1, 5], ["Sandefjord", "Skien", 2, 5]], "b": {}, "tr": "Jar 3 ~92 km", "ts": "10:00"}, {"d": "2026-09-20", "a": "Kongsberghallen", "g": "JU12", "h": "Kongsberg", "m": [["Ringerike 2", "Frisk Asker", 0, 1], ["Tønsberg", "Jar/Jutul", 1, 1], ["Ringerike 2", "Jar/Jutul", 0, 2], ["Tønsberg", "Frisk Asker", 1, 2], ["Ringerike 2", "Tønsberg", 0, 3], ["Jar/Jutul", "Frisk Asker", 1, 3]], "b": {}, "tr": "Ringerike 2 ~85 km", "ts": "10:00"}, {"d": "2026-09-20", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 4", "Ringerike 1", 0, 1], ["Jar 4", "Jutul 2", 1, 1], ["Frisk Asker 4", "Jutul 2", 0, 2], ["Jar 4", "Ringerike 1", 1, 2], ["Frisk Asker 4", "Jar 4", 0, 3], ["Jutul 2", "Ringerike 1", 1, 3]], "b": {}, "tr": "Ringerike 1 ~50 km", "ts": "12:20"}, {"d": "2026-09-20", "a": "Jarhallen", "g": "U8", "h": "Jar", "m": [["Jar 2", "Frisk Asker 3", 0, 1], ["Jar 3", "Tønsberg", 1, 1], ["Frisk Asker 2", "Ringerike 2", 2, 1], ["Holmen 2", "Jutul 2", 3, 1], ["Jar 2", "Tønsberg", 0, 2], ["Ringerike 2", "Frisk Asker 3", 1, 2], ["Jutul 2", "Jar 3", 2, 2], ["Holmen 2", "Frisk Asker 2", 3, 2], ["Jar 2", "Ringerike 2", 0, 3], ["Tønsberg", "Jutul 2", 1, 3], ["Frisk Asker 3", "Holmen 2", 2, 3], ["Jar 3", "Frisk Asker 2", 3, 3], ["Jar 2", "Jutul 2", 0, 4], ["Holmen 2", "Ringerike 2", 1, 4], ["Frisk Asker 2", "Tønsberg", 2, 4], ["Jar 3", "Frisk Asker 3", 3, 4], ["Jar 2", "Holmen 2", 0, 5], ["Jutul 2", "Frisk Asker 2", 1, 5], ["Ringerike 2", "Jar 3", 2, 5], ["Tønsberg", "Frisk Asker 3", 3, 5], ["Jar 2", "Frisk Asker 2", 0, 6], ["Jar 3", "Holmen 2", 1, 6], ["Frisk Asker 3", "Jutul 2", 2, 6], ["Tønsberg", "Ringerike 2", 3, 6], ["Jar 2", "Jar 3", 0, 7], ["Frisk Asker 2", "Frisk Asker 3", 1, 7], ["Holmen 2", "Tønsberg", 2, 7], ["Jutul 2", "Ringerike 2", 3, 7]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "10:00"}, {"d": "2026-09-26", "a": "Baerum ishall", "g": "U10", "h": "Jutul", "m": [["Jutul 2", "Jar 7", 0, 1], ["Jar 5", "Holmen 1", 1, 1], ["Frisk Asker 4", "Jar 6", 2, 1], ["Jutul 2", "Holmen 1", 0, 2], ["Jar 6", "Jar 7", 1, 2], ["Frisk Asker 4", "Jar 5", 2, 2], ["Jutul 2", "Jar 6", 0, 3], ["Holmen 1", "Frisk Asker 4", 1, 3], ["Jar 7", "Jar 5", 2, 3], ["Jutul 2", "Frisk Asker 4", 0, 4], ["Jar 5", "Jar 6", 1, 4], ["Jar 7", "Holmen 1", 2, 4], ["Jutul 2", "Jar 5", 0, 5], ["Frisk Asker 4", "Jar 7", 1, 5], ["Jar 6", "Holmen 1", 2, 5]], "b": {}, "tr": "Frisk Asker 4 ~12 km", "ts": "10:00"}, {"d": "2026-09-26", "a": "Jarhallen", "g": "U11", "h": "Jar", "m": [["Jar 2", "Tønsberg 2", 0, 1], ["Frisk Asker 2", "Ringerike 2", 1, 1], ["Jutul 2", "Holmen 2", 2, 1], ["Jar 2", "Ringerike 2", 0, 2], ["Holmen 2", "Tønsberg 2", 1, 2], ["Jutul 2", "Frisk Asker 2", 2, 2], ["Jar 2", "Holmen 2", 0, 3], ["Ringerike 2", "Jutul 2", 1, 3], ["Tønsberg 2", "Frisk Asker 2", 2, 3], ["Jar 2", "Jutul 2", 0, 4], ["Frisk Asker 2", "Holmen 2", 1, 4], ["Tønsberg 2", "Ringerike 2", 2, 4], ["Jar 2", "Frisk Asker 2", 0, 5], ["Jutul 2", "Tønsberg 2", 1, 5], ["Holmen 2", "Ringerike 2", 2, 5]], "b": {}, "tr": "Tønsberg 2 ~92 km", "ts": "10:00"}, {"d": "2026-09-26", "a": "Holmenkollen ishall", "g": "U9", "h": "Holmen", "m": [["Holmen 4", "Kongsberg", 0, 1], ["Jar 5", "Frisk Asker 5", 1, 1], ["Frisk Asker 4", "Jar 6", 2, 1], ["Jutul 3", "Ringerike 3", 3, 1], ["Holmen 4", "Frisk Asker 5", 0, 2], ["Jar 6", "Kongsberg", 1, 2], ["Ringerike 3", "Jar 5", 2, 2], ["Jutul 3", "Frisk Asker 4", 3, 2], ["Holmen 4", "Jar 6", 0, 3], ["Frisk Asker 5", "Ringerike 3", 1, 3], ["Kongsberg", "Jutul 3", 2, 3], ["Jar 5", "Frisk Asker 4", 3, 3], ["Holmen 4", "Ringerike 3", 0, 4], ["Jutul 3", "Jar 6", 1, 4], ["Frisk Asker 4", "Frisk Asker 5", 2, 4], ["Jar 5", "Kongsberg", 3, 4], ["Holmen 4", "Jutul 3", 0, 5], ["Ringerike 3", "Frisk Asker 4", 1, 5], ["Jar 6", "Jar 5", 2, 5], ["Frisk Asker 5", "Kongsberg", 3, 5], ["Holmen 4", "Frisk Asker 4", 0, 6], ["Jar 5", "Jutul 3", 1, 6], ["Kongsberg", "Ringerike 3", 2, 6], ["Frisk Asker 5", "Jar 6", 3, 6], ["Holmen 4", "Jar 5", 0, 7], ["Frisk Asker 4", "Kongsberg", 1, 7], ["Jutul 3", "Frisk Asker 5", 2, 7], ["Ringerike 3", "Jar 6", 3, 7]], "b": {}, "tr": "Kongsberg ~64 km", "ts": "10:00"}, {"d": "2026-09-27", "a": "Baerum ishall", "g": "U11", "h": "Jutul", "m": [["Jutul 3", "Ringerike 2", 0, 1], ["Jar 3", "Holmen 1", 1, 1], ["Frisk Asker 3", "Jar 4", 2, 1], ["Jutul 3", "Holmen 1", 0, 2], ["Jar 4", "Ringerike 2", 1, 2], ["Frisk Asker 3", "Jar 3", 2, 2], ["Jutul 3", "Jar 4", 0, 3], ["Holmen 1", "Frisk Asker 3", 1, 3], ["Ringerike 2", "Jar 3", 2, 3], ["Jutul 3", "Frisk Asker 3", 0, 4], ["Jar 3", "Jar 4", 1, 4], ["Ringerike 2", "Holmen 1", 2, 4], ["Jutul 3", "Jar 3", 0, 5], ["Frisk Asker 3", "Ringerike 2", 1, 5], ["Jar 4", "Holmen 1", 2, 5]], "b": {}, "tr": "Ringerike 2 ~44 km", "ts": "10:00"}, {"d": "2026-09-27", "a": "Tonsberghallen", "g": "U12", "h": "Tønsberg", "m": [["Tønsberg", "Ringerike 2", 0, 1], ["Frisk Asker 5", "Jar 1", 1, 1], ["Tønsberg", "Jar 1", 0, 2], ["Frisk Asker 5", "Ringerike 2", 1, 2], ["Tønsberg", "Frisk Asker 5", 0, 3], ["Jar 1", "Ringerike 2", 1, 3]], "b": {}, "tr": "Ringerike 2 ~131 km", "ts": "10:00"}, {"d": "2026-09-27", "a": "Jarhallen", "g": "U7", "h": "Jar", "m": [["Jar 1", "Tønsberg", 0, 1], ["Frisk Asker 1", "Skien", 1, 1], ["Holmen 1", "Sandefjord", 2, 1], ["Jutul 1", "Kongsberg", 3, 1], ["Jar 1", "Skien", 0, 2], ["Sandefjord", "Tønsberg", 1, 2], ["Kongsberg", "Frisk Asker 1", 2, 2], ["Jutul 1", "Holmen 1", 3, 2], ["Jar 1", "Sandefjord", 0, 3], ["Skien", "Kongsberg", 1, 3], ["Tønsberg", "Jutul 1", 2, 3], ["Frisk Asker 1", "Holmen 1", 3, 3], ["Jar 1", "Kongsberg", 0, 4], ["Jutul 1", "Sandefjord", 1, 4], ["Holmen 1", "Skien", 2, 4], ["Frisk Asker 1", "Tønsberg", 3, 4], ["Jar 1", "Jutul 1", 0, 5], ["Kongsberg", "Holmen 1", 1, 5], ["Sandefjord", "Frisk Asker 1", 2, 5], ["Skien", "Tønsberg", 3, 5], ["Jar 1", "Holmen 1", 0, 6], ["Frisk Asker 1", "Jutul 1", 1, 6], ["Tønsberg", "Kongsberg", 2, 6], ["Skien", "Sandefjord", 3, 6], ["Jar 1", "Frisk Asker 1", 0, 7], ["Holmen 1", "Tønsberg", 1, 7], ["Jutul 1", "Skien", 2, 7], ["Kongsberg", "Sandefjord", 3, 7]], "b": {}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2026-10-03", "a": "Jarhallen", "g": "JU12", "h": "Jar", "m": [["Ringerike 1", "Jar/Jutul", 0, 1], ["Tønsberg", "Kongsberg", 1, 1], ["Ringerike 1", "Kongsberg", 0, 2], ["Tønsberg", "Jar/Jutul", 1, 2], ["Ringerike 1", "Tønsberg", 0, 3], ["Kongsberg", "Jar/Jutul", 1, 3]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "10:00"}, {"d": "2026-10-03", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 1", "Jutul 2", 0, 1], ["Jar 2", "Tønsberg", 1, 1], ["Frisk Asker 1", "Tønsberg", 0, 2], ["Jar 2", "Jutul 2", 1, 2], ["Frisk Asker 1", "Jar 2", 0, 3], ["Tønsberg", "Jutul 2", 1, 3]], "b": {}, "tr": "Tønsberg ~82 km", "ts": "11:50"}, {"d": "2026-10-03", "a": "Ringerikshallen", "g": "U9", "h": "Ringerike", "m": [["Ringerike 2", "Frisk Asker 3", 0, 1], ["Jar 1", "Jar 5", 1, 1], ["Frisk Asker 2", "Tønsberg", 2, 1], ["Holmen 4", "Jutul 1", 3, 1], ["Ringerike 2", "Jar 5", 0, 2], ["Tønsberg", "Frisk Asker 3", 1, 2], ["Jutul 1", "Jar 1", 2, 2], ["Holmen 4", "Frisk Asker 2", 3, 2], ["Ringerike 2", "Tønsberg", 0, 3], ["Jar 5", "Jutul 1", 1, 3], ["Frisk Asker 3", "Holmen 4", 2, 3], ["Jar 1", "Frisk Asker 2", 3, 3], ["Ringerike 2", "Jutul 1", 0, 4], ["Holmen 4", "Tønsberg", 1, 4], ["Frisk Asker 2", "Jar 5", 2, 4], ["Jar 1", "Frisk Asker 3", 3, 4], ["Ringerike 2", "Holmen 4", 0, 5], ["Jutul 1", "Frisk Asker 2", 1, 5], ["Tønsberg", "Jar 1", 2, 5], ["Jar 5", "Frisk Asker 3", 3, 5], ["Ringerike 2", "Frisk Asker 2", 0, 6], ["Jar 1", "Holmen 4", 1, 6], ["Frisk Asker 3", "Jutul 1", 2, 6], ["Jar 5", "Tønsberg", 3, 6], ["Ringerike 2", "Jar 1", 0, 7], ["Frisk Asker 2", "Frisk Asker 3", 1, 7], ["Holmen 4", "Jar 5", 2, 7], ["Jutul 1", "Tønsberg", 3, 7]], "b": {}, "tr": "Tønsberg ~131 km", "ts": "10:00"}, {"d": "2026-10-04", "a": "Holmenkollen ishall", "g": "U10", "h": "Holmen", "m": [["Holmen 2", "Sandefjord", 0, 1], ["Jar 1", "Jutul 1", 1, 1], ["Frisk Asker 2", "Kongsberg", 2, 1], ["Holmen 2", "Jutul 1", 0, 2], ["Kongsberg", "Sandefjord", 1, 2], ["Frisk Asker 2", "Jar 1", 2, 2], ["Holmen 2", "Kongsberg", 0, 3], ["Jutul 1", "Frisk Asker 2", 1, 3], ["Sandefjord", "Jar 1", 2, 3], ["Holmen 2", "Frisk Asker 2", 0, 4], ["Jar 1", "Kongsberg", 1, 4], ["Sandefjord", "Jutul 1", 2, 4], ["Holmen 2", "Jar 1", 0, 5], ["Frisk Asker 2", "Sandefjord", 1, 5], ["Kongsberg", "Jutul 1", 2, 5]], "b": {}, "tr": "Sandefjord ~104 km", "ts": "10:00"}, {"d": "2026-10-04", "a": "Holmenkollen ishall", "g": "U11", "h": "Holmen", "m": [["Holmen 2", "Tønsberg 1", 0, 1], ["Jar 1", "Ringerike 1", 1, 1], ["Frisk Asker 2", "Jutul 3", 2, 1], ["Holmen 2", "Ringerike 1", 0, 2], ["Jutul 3", "Tønsberg 1", 1, 2], ["Frisk Asker 2", "Jar 1", 2, 2], ["Holmen 2", "Jutul 3", 0, 3], ["Ringerike 1", "Frisk Asker 2", 1, 3], ["Tønsberg 1", "Jar 1", 2, 3], ["Holmen 2", "Frisk Asker 2", 0, 4], ["Jar 1", "Jutul 3", 1, 4], ["Tønsberg 1", "Ringerike 1", 2, 4], ["Holmen 2", "Jar 1", 0, 5], ["Frisk Asker 2", "Tønsberg 1", 1, 5], ["Jutul 3", "Ringerike 1", 2, 5]], "b": {}, "tr": "Tønsberg 1 ~83 km", "ts": "16:00"}, {"d": "2026-10-04", "a": "Baerum ishall", "g": "U8", "h": "Jutul", "m": [["Jutul 3", "Sandefjord", 0, 1], ["Jar 4", "Tønsberg", 1, 1], ["Holmen 3", "Kongsberg", 2, 1], ["Frisk Asker 1", "Ringerike 2", 3, 1], ["Jutul 3", "Tønsberg", 0, 2], ["Kongsberg", "Sandefjord", 1, 2], ["Ringerike 2", "Jar 4", 2, 2], ["Frisk Asker 1", "Holmen 3", 3, 2], ["Jutul 3", "Kongsberg", 0, 3], ["Tønsberg", "Ringerike 2", 1, 3], ["Sandefjord", "Frisk Asker 1", 2, 3], ["Jar 4", "Holmen 3", 3, 3], ["Jutul 3", "Ringerike 2", 0, 4], ["Frisk Asker 1", "Kongsberg", 1, 4], ["Holmen 3", "Tønsberg", 2, 4], ["Jar 4", "Sandefjord", 3, 4], ["Jutul 3", "Frisk Asker 1", 0, 5], ["Ringerike 2", "Holmen 3", 1, 5], ["Kongsberg", "Jar 4", 2, 5], ["Tønsberg", "Sandefjord", 3, 5], ["Jutul 3", "Holmen 3", 0, 6], ["Jar 4", "Frisk Asker 1", 1, 6], ["Sandefjord", "Ringerike 2", 2, 6], ["Tønsberg", "Kongsberg", 3, 6], ["Jutul 3", "Jar 4", 0, 7], ["Holmen 3", "Sandefjord", 1, 7], ["Frisk Asker 1", "Tønsberg", 2, 7], ["Ringerike 2", "Kongsberg", 3, 7]], "b": {}, "tr": "Sandefjord ~114 km", "ts": "10:00"}, {"d": "2026-10-10", "a": "Ringerikshallen", "g": "JU10", "h": "Ringerike", "m": [["Frisk Asker 1", "Frisk Asker 2", 0, 1], ["Skien", "Jar/Jutul", 1, 1], ["Ringerike", "Frisk Asker 2", 0, 2], ["Skien", "Frisk Asker 1", 1, 2], ["Ringerike", "Jar/Jutul", 0, 3], ["Frisk Asker 2", "Skien", 1, 3], ["Ringerike", "Skien", 0, 4], ["Frisk Asker 1", "Jar/Jutul", 1, 4], ["Ringerike", "Frisk Asker 1", 0, 5], ["Jar/Jutul", "Frisk Asker 2", 1, 5]], "b": {"1": ["Ringerike"], "2": ["Jar/Jutul"], "3": ["Frisk Asker 1"], "4": ["Frisk Asker 2"], "5": ["Skien"]}, "tr": "Skien ~147 km", "ts": "10:00"}, {"d": "2026-10-10", "a": "Ringerikshallen", "g": "U10", "h": "Ringerike", "m": [["Ringerike 1", "Jar 5", 0, 1], ["Jar 2", "Tønsberg 2", 1, 1], ["Frisk Asker 1", "Skien", 2, 1], ["Ringerike 1", "Tønsberg 2", 0, 2], ["Skien", "Jar 5", 1, 2], ["Frisk Asker 1", "Jar 2", 2, 2], ["Ringerike 1", "Skien", 0, 3], ["Tønsberg 2", "Frisk Asker 1", 1, 3], ["Jar 5", "Jar 2", 2, 3], ["Ringerike 1", "Frisk Asker 1", 0, 4], ["Jar 2", "Skien", 1, 4], ["Jar 5", "Tønsberg 2", 2, 4], ["Ringerike 1", "Jar 2", 0, 5], ["Frisk Asker 1", "Jar 5", 1, 5], ["Skien", "Tønsberg 2", 2, 5]], "b": {}, "tr": "Skien ~147 km", "ts": "16:00"}, {"d": "2026-10-10", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 2", "Ringerike 1", 0, 1], ["Frisk Asker 5", "Jar 3", 1, 1], ["Frisk Asker 2", "Jar 3", 0, 2], ["Frisk Asker 5", "Ringerike 1", 1, 2], ["Frisk Asker 2", "Frisk Asker 5", 0, 3], ["Jar 3", "Ringerike 1", 1, 3]], "b": {}, "tr": "Ringerike 1 ~50 km", "ts": "11:50"}, {"d": "2026-10-11", "a": "Varner Arena / Askerhallen", "g": "JU12", "h": "Frisk Asker", "m": [["Ringerike 2", "Tønsberg", 0, 1], ["Skien", "Kongsberg", 1, 1], ["Ringerike 2", "Kongsberg", 0, 2], ["Skien", "Tønsberg", 1, 2], ["Ringerike 2", "Skien", 0, 3], ["Kongsberg", "Tønsberg", 1, 3]], "b": {}, "tr": "Skien ~109 km", "ts": "12:20"}, {"d": "2026-10-11", "a": "Sandefjord ishall", "g": "U10", "h": "Sandefjord Penguins", "m": [["Jar 3", "Frisk Asker 3", 0, 1], ["Frisk Asker 4", "Jar 4", 1, 1], ["Ringerike 2", "Tønsberg 1", 2, 1], ["Jar 3", "Jar 4", 0, 2], ["Tønsberg 1", "Frisk Asker 3", 1, 2], ["Ringerike 2", "Frisk Asker 4", 2, 2], ["Jar 3", "Tønsberg 1", 0, 3], ["Jar 4", "Ringerike 2", 1, 3], ["Frisk Asker 3", "Frisk Asker 4", 2, 3], ["Jar 3", "Ringerike 2", 0, 4], ["Frisk Asker 4", "Tønsberg 1", 1, 4], ["Frisk Asker 3", "Jar 4", 2, 4], ["Jar 3", "Frisk Asker 4", 0, 5], ["Ringerike 2", "Frisk Asker 3", 1, 5], ["Tønsberg 1", "Jar 4", 2, 5]], "b": {}, "tr": "Ringerike 2 ~150 km", "ts": "10:00"}, {"d": "2026-10-11", "a": "Baerum ishall", "g": "U9", "h": "Jutul", "m": [["Jutul 2", "Holmen 3", 0, 1], ["Jar 2", "Frisk Asker 1", 1, 1], ["Frisk Asker 4", "Jar 6", 2, 1], ["Holmen 2", "Ringerike 1", 3, 1], ["Jutul 2", "Frisk Asker 1", 0, 2], ["Jar 6", "Holmen 3", 1, 2], ["Ringerike 1", "Jar 2", 2, 2], ["Holmen 2", "Frisk Asker 4", 3, 2], ["Jutul 2", "Jar 6", 0, 3], ["Frisk Asker 1", "Ringerike 1", 1, 3], ["Holmen 3", "Holmen 2", 2, 3], ["Jar 2", "Frisk Asker 4", 3, 3], ["Jutul 2", "Ringerike 1", 0, 4], ["Holmen 2", "Jar 6", 1, 4], ["Frisk Asker 4", "Frisk Asker 1", 2, 4], ["Jar 2", "Holmen 3", 3, 4], ["Jutul 2", "Holmen 2", 0, 5], ["Ringerike 1", "Frisk Asker 4", 1, 5], ["Jar 6", "Jar 2", 2, 5], ["Frisk Asker 1", "Holmen 3", 3, 5], ["Jutul 2", "Frisk Asker 4", 0, 6], ["Jar 2", "Holmen 2", 1, 6], ["Holmen 3", "Ringerike 1", 2, 6], ["Frisk Asker 1", "Jar 6", 3, 6], ["Jutul 2", "Jar 2", 0, 7], ["Frisk Asker 4", "Holmen 3", 1, 7], ["Holmen 2", "Frisk Asker 1", 2, 7], ["Ringerike 1", "Jar 6", 3, 7]], "b": {}, "tr": "Ringerike 1 ~44 km", "ts": "10:00"}, {"d": "2026-10-17", "a": "Tonsberghallen", "g": "U11", "h": "Tønsberg", "m": [["Tønsberg 2", "Frisk Asker 3", 0, 1], ["Jar 2", "Jar 3", 1, 1], ["Frisk Asker 1", "Jutul 1", 2, 1], ["Tønsberg 2", "Jar 3", 0, 2], ["Jutul 1", "Frisk Asker 3", 1, 2], ["Frisk Asker 1", "Jar 2", 2, 2], ["Tønsberg 2", "Jutul 1", 0, 3], ["Jar 3", "Frisk Asker 1", 1, 3], ["Frisk Asker 3", "Jar 2", 2, 3], ["Tønsberg 2", "Frisk Asker 1", 0, 4], ["Jar 2", "Jutul 1", 1, 4], ["Frisk Asker 3", "Jar 3", 2, 4], ["Tønsberg 2", "Jar 2", 0, 5], ["Frisk Asker 1", "Frisk Asker 3", 1, 5], ["Jutul 1", "Jar 3", 2, 5]], "b": {}, "tr": "Jar 2 ~92 km", "ts": "10:00"}, {"d": "2026-10-17", "a": "Holmenkollen ishall", "g": "U7", "h": "Holmen", "m": [["Holmen 2", "Kongsberg", 0, 1], ["Jar 2", "Jar 4", 1, 1], ["Frisk Asker 2", "Frisk Asker 3", 2, 1], ["Jutul 2", "Jar 3", 3, 1], ["Holmen 2", "Jar 4", 0, 2], ["Frisk Asker 3", "Kongsberg", 1, 2], ["Jar 3", "Jar 2", 2, 2], ["Jutul 2", "Frisk Asker 2", 3, 2], ["Holmen 2", "Frisk Asker 3", 0, 3], ["Jar 4", "Jar 3", 1, 3], ["Kongsberg", "Jutul 2", 2, 3], ["Jar 2", "Frisk Asker 2", 3, 3], ["Holmen 2", "Jar 3", 0, 4], ["Jutul 2", "Frisk Asker 3", 1, 4], ["Frisk Asker 2", "Jar 4", 2, 4], ["Jar 2", "Kongsberg", 3, 4], ["Holmen 2", "Jutul 2", 0, 5], ["Jar 3", "Frisk Asker 2", 1, 5], ["Frisk Asker 3", "Jar 2", 2, 5], ["Jar 4", "Kongsberg", 3, 5], ["Holmen 2", "Frisk Asker 2", 0, 6], ["Jar 2", "Jutul 2", 1, 6], ["Kongsberg", "Jar 3", 2, 6], ["Jar 4", "Frisk Asker 3", 3, 6], ["Holmen 2", "Jar 2", 0, 7], ["Frisk Asker 2", "Kongsberg", 1, 7], ["Jutul 2", "Jar 4", 2, 7], ["Jar 3", "Frisk Asker 3", 3, 7]], "b": {}, "tr": "Kongsberg ~64 km", "ts": "10:00"}, {"d": "2026-10-17", "a": "Skien ishall", "g": "JU12", "h": "Skien", "m": [["Skien", "Jar/Jutul", 0, 1], ["Ringerike 1", "Frisk Asker", 1, 1], ["Skien", "Frisk Asker", 0, 2], ["Ringerike 1", "Jar/Jutul", 1, 2], ["Skien", "Ringerike 1", 0, 3], ["Frisk Asker", "Jar/Jutul", 1, 3]], "b": {}, "tr": "Ringerike 1 ~147 km", "ts": "10:00"}, {"d": "2026-10-17", "a": "Holmenkollen ishall", "g": "U10", "h": "Holmen", "m": [["Holmen 1", "Tønsberg 1", 0, 1], ["Jar 2", "Skien", 1, 1], ["Frisk Asker 4", "Jutul 1", 2, 1], ["Holmen 1", "Skien", 0, 2], ["Jutul 1", "Tønsberg 1", 1, 2], ["Frisk Asker 4", "Jar 2", 2, 2], ["Holmen 1", "Jutul 1", 0, 3], ["Skien", "Frisk Asker 4", 1, 3], ["Tønsberg 1", "Jar 2", 2, 3], ["Holmen 1", "Frisk Asker 4", 0, 4], ["Jar 2", "Jutul 1", 1, 4], ["Tønsberg 1", "Skien", 2, 4], ["Holmen 1", "Jar 2", 0, 5], ["Frisk Asker 4", "Tønsberg 1", 1, 5], ["Jutul 1", "Skien", 2, 5]], "b": {}, "tr": "Skien ~111 km", "ts": "10:00"}, {"d": "2026-10-17", "a": "Holmenkollen ishall", "g": "U8", "h": "Holmen", "m": [["Holmen 1", "Skien", 0, 1], ["Holmen 2", "Ringerike 1", 1, 1], ["Jar 3", "Jar 4", 2, 1], ["Frisk Asker 3", "Jutul 2", 3, 1], ["Holmen 1", "Ringerike 1", 0, 2], ["Jar 4", "Skien", 1, 2], ["Jutul 2", "Holmen 2", 2, 2], ["Frisk Asker 3", "Jar 3", 3, 2], ["Holmen 1", "Jar 4", 0, 3], ["Ringerike 1", "Jutul 2", 1, 3], ["Skien", "Frisk Asker 3", 2, 3], ["Holmen 2", "Jar 3", 3, 3], ["Holmen 1", "Jutul 2", 0, 4], ["Frisk Asker 3", "Jar 4", 1, 4], ["Jar 3", "Ringerike 1", 2, 4], ["Holmen 2", "Skien", 3, 4], ["Holmen 1", "Frisk Asker 3", 0, 5], ["Jutul 2", "Jar 3", 1, 5], ["Jar 4", "Holmen 2", 2, 5], ["Ringerike 1", "Skien", 3, 5], ["Holmen 1", "Jar 3", 0, 6], ["Holmen 2", "Frisk Asker 3", 1, 6], ["Skien", "Jutul 2", 2, 6], ["Ringerike 1", "Jar 4", 3, 6], ["Holmen 1", "Holmen 2", 0, 7], ["Jar 3", "Skien", 1, 7], ["Frisk Asker 3", "Ringerike 1", 2, 7], ["Jutul 2", "Jar 4", 3, 7]], "b": {}, "tr": "Skien ~111 km", "ts": "16:00"}, {"d": "2026-10-18", "a": "Skien ishall", "g": "U10", "h": "Skien", "m": [["Jar 6", "Kongsberg", 0, 1], ["Frisk Asker 1", "Ringerike 2", 1, 1], ["Holmen 2", "Jar 7", 2, 1], ["Jar 6", "Ringerike 2", 0, 2], ["Jar 7", "Kongsberg", 1, 2], ["Holmen 2", "Frisk Asker 1", 2, 2], ["Jar 6", "Jar 7", 0, 3], ["Ringerike 2", "Holmen 2", 1, 3], ["Kongsberg", "Frisk Asker 1", 2, 3], ["Jar 6", "Holmen 2", 0, 4], ["Frisk Asker 1", "Jar 7", 1, 4], ["Kongsberg", "Ringerike 2", 2, 4], ["Jar 6", "Frisk Asker 1", 0, 5], ["Holmen 2", "Kongsberg", 1, 5], ["Jar 7", "Ringerike 2", 2, 5]], "b": {}, "tr": "Ringerike 2 ~147 km", "ts": "10:00"}, {"d": "2026-10-18", "a": "Jarhallen", "g": "U7", "h": "Jar", "m": [["Jar 1", "Tønsberg", 0, 1], ["Jar 2", "Skien", 1, 1], ["Frisk Asker 2", "Sandefjord", 2, 1], ["Holmen 1", "Jutul 2", 3, 1], ["Jar 1", "Skien", 0, 2], ["Sandefjord", "Tønsberg", 1, 2], ["Jutul 2", "Jar 2", 2, 2], ["Holmen 1", "Frisk Asker 2", 3, 2], ["Jar 1", "Sandefjord", 0, 3], ["Skien", "Jutul 2", 1, 3], ["Tønsberg", "Holmen 1", 2, 3], ["Jar 2", "Frisk Asker 2", 3, 3], ["Jar 1", "Jutul 2", 0, 4], ["Holmen 1", "Sandefjord", 1, 4], ["Frisk Asker 2", "Skien", 2, 4], ["Jar 2", "Tønsberg", 3, 4], ["Jar 1", "Holmen 1", 0, 5], ["Jutul 2", "Frisk Asker 2", 1, 5], ["Sandefjord", "Jar 2", 2, 5], ["Skien", "Tønsberg", 3, 5], ["Jar 1", "Frisk Asker 2", 0, 6], ["Jar 2", "Holmen 1", 1, 6], ["Tønsberg", "Jutul 2", 2, 6], ["Skien", "Sandefjord", 3, 6], ["Jar 1", "Jar 2", 0, 7], ["Frisk Asker 2", "Tønsberg", 1, 7], ["Holmen 1", "Skien", 2, 7], ["Jutul 2", "Sandefjord", 3, 7]], "b": {}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2026-10-18", "a": "Holmenkollen ishall", "g": "U8", "h": "Holmen", "m": [["Holmen 3", "Jutul 3", 0, 1], ["Jar 1", "Jar 2", 1, 1], ["Frisk Asker 2", "Skien", 2, 1], ["Jutul 1", "Ringerike 1", 3, 1], ["Holmen 3", "Jar 2", 0, 2], ["Skien", "Jutul 3", 1, 2], ["Ringerike 1", "Jar 1", 2, 2], ["Jutul 1", "Frisk Asker 2", 3, 2], ["Holmen 3", "Skien", 0, 3], ["Jar 2", "Ringerike 1", 1, 3], ["Jutul 3", "Jutul 1", 2, 3], ["Jar 1", "Frisk Asker 2", 3, 3], ["Holmen 3", "Ringerike 1", 0, 4], ["Jutul 1", "Skien", 1, 4], ["Frisk Asker 2", "Jar 2", 2, 4], ["Jar 1", "Jutul 3", 3, 4], ["Holmen 3", "Jutul 1", 0, 5], ["Ringerike 1", "Frisk Asker 2", 1, 5], ["Skien", "Jar 1", 2, 5], ["Jar 2", "Jutul 3", 3, 5], ["Holmen 3", "Frisk Asker 2", 0, 6], ["Jar 1", "Jutul 1", 1, 6], ["Jutul 3", "Ringerike 1", 2, 6], ["Jar 2", "Skien", 3, 6], ["Holmen 3", "Jar 1", 0, 7], ["Frisk Asker 2", "Jutul 3", 1, 7], ["Jutul 1", "Jar 2", 2, 7], ["Ringerike 1", "Skien", 3, 7]], "b": {}, "tr": "Skien ~111 km", "ts": "10:00"}, {"d": "2026-10-24", "a": "Ringerikshallen", "g": "U11", "h": "Ringerike", "m": [["Ringerike 1", "Tønsberg 2", 0, 1], ["Jar 4", "Holmen 2", 1, 1], ["Jutul 2", "Frisk Asker 1", 2, 1], ["Ringerike 1", "Holmen 2", 0, 2], ["Frisk Asker 1", "Tønsberg 2", 1, 2], ["Jutul 2", "Jar 4", 2, 2], ["Ringerike 1", "Frisk Asker 1", 0, 3], ["Holmen 2", "Jutul 2", 1, 3], ["Tønsberg 2", "Jar 4", 2, 3], ["Ringerike 1", "Jutul 2", 0, 4], ["Jar 4", "Frisk Asker 1", 1, 4], ["Tønsberg 2", "Holmen 2", 2, 4], ["Ringerike 1", "Jar 4", 0, 5], ["Jutul 2", "Tønsberg 2", 1, 5], ["Frisk Asker 1", "Holmen 2", 2, 5]], "b": {}, "tr": "Tønsberg 2 ~131 km", "ts": "10:00"}, {"d": "2026-10-24", "a": "Jarhallen", "g": "U12", "h": "Jar", "m": [["Jar 1", "Frisk Asker 2", 0, 1], ["Frisk Asker 4", "Jutul 1", 1, 1], ["Jar 1", "Jutul 1", 0, 2], ["Frisk Asker 4", "Frisk Asker 2", 1, 2], ["Jar 1", "Frisk Asker 4", 0, 3], ["Jutul 1", "Frisk Asker 2", 1, 3]], "b": {}, "tr": "Frisk Asker 4 ~14 km", "ts": "10:00"}, {"d": "2026-10-24", "a": "Kongsberghallen", "g": "U9", "h": "Kongsberg", "m": [["Kongsberg", "Tønsberg", 0, 1], ["Jar 3", "Jar 4", 1, 1], ["Frisk Asker 5", "Ringerike 3", 2, 1], ["Holmen 1", "Jutul 3", 3, 1], ["Kongsberg", "Jar 4", 0, 2], ["Ringerike 3", "Tønsberg", 1, 2], ["Jutul 3", "Jar 3", 2, 2], ["Holmen 1", "Frisk Asker 5", 3, 2], ["Kongsberg", "Ringerike 3", 0, 3], ["Jar 4", "Jutul 3", 1, 3], ["Tønsberg", "Holmen 1", 2, 3], ["Jar 3", "Frisk Asker 5", 3, 3], ["Kongsberg", "Jutul 3", 0, 4], ["Holmen 1", "Ringerike 3", 1, 4], ["Frisk Asker 5", "Jar 4", 2, 4], ["Jar 3", "Tønsberg", 3, 4], ["Kongsberg", "Holmen 1", 0, 5], ["Jutul 3", "Frisk Asker 5", 1, 5], ["Ringerike 3", "Jar 3", 2, 5], ["Jar 4", "Tønsberg", 3, 5], ["Kongsberg", "Frisk Asker 5", 0, 6], ["Jar 3", "Holmen 1", 1, 6], ["Tønsberg", "Jutul 3", 2, 6], ["Jar 4", "Ringerike 3", 3, 6], ["Kongsberg", "Jar 3", 0, 7], ["Frisk Asker 5", "Tønsberg", 1, 7], ["Holmen 1", "Jar 4", 2, 7], ["Jutul 3", "Ringerike 3", 3, 7]], "b": {}, "tr": "Ringerike 3 ~85 km", "ts": "10:00"}, {"d": "2026-10-25", "a": "Baerum ishall", "g": "JU8", "h": "Jutul", "m": [["Jutul", "Skien", 0, 1], ["Frisk Asker", "Ringerike", 1, 1], ["Holmen", "Jar", 2, 1], ["Jutul", "Ringerike", 0, 2], ["Jar", "Skien", 1, 2], ["Holmen", "Frisk Asker", 2, 2], ["Jutul", "Jar", 0, 3], ["Ringerike", "Holmen", 1, 3], ["Skien", "Frisk Asker", 2, 3], ["Jutul", "Holmen", 0, 4], ["Frisk Asker", "Jar", 1, 4], ["Skien", "Ringerike", 2, 4], ["Jutul", "Frisk Asker", 0, 5], ["Holmen", "Skien", 1, 5], ["Jar", "Ringerike", 2, 5]], "b": {}, "tr": "Skien ~121 km", "ts": "10:00"}, {"d": "2026-10-25", "a": "Kongsberghallen", "g": "U10", "h": "Kongsberg", "m": [["Jar 1", "Sandefjord", 0, 1], ["Frisk Asker 3", "Tønsberg 2", 1, 1], ["Jutul 2", "Ringerike 1", 2, 1], ["Jar 1", "Tønsberg 2", 0, 2], ["Ringerike 1", "Sandefjord", 1, 2], ["Jutul 2", "Frisk Asker 3", 2, 2], ["Jar 1", "Ringerike 1", 0, 3], ["Tønsberg 2", "Jutul 2", 1, 3], ["Sandefjord", "Frisk Asker 3", 2, 3], ["Jar 1", "Jutul 2", 0, 4], ["Frisk Asker 3", "Ringerike 1", 1, 4], ["Sandefjord", "Tønsberg 2", 2, 4], ["Jar 1", "Frisk Asker 3", 0, 5], ["Jutul 2", "Sandefjord", 1, 5], ["Ringerike 1", "Tønsberg 2", 2, 5]], "b": {}, "tr": "Sandefjord ~88 km", "ts": "10:00"}, {"d": "2026-10-25", "a": "Jarhallen", "g": "JU12", "h": "Jar", "m": [["Ringerike 1", "Frisk Asker", 0, 1], ["Tønsberg", "Kongsberg", 1, 1], ["Ringerike 1", "Kongsberg", 0, 2], ["Tønsberg", "Frisk Asker", 1, 2], ["Ringerike 1", "Tønsberg", 0, 3], ["Kongsberg", "Frisk Asker", 1, 3]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "10:00"}, {"d": "2026-10-25", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 2", "Frisk Asker 1", 0, 1], ["Jar 5", "Ringerike 2", 1, 1], ["Frisk Asker 3", "Jutul 2", 2, 1], ["Jar 2", "Ringerike 2", 0, 2], ["Jutul 2", "Frisk Asker 1", 1, 2], ["Frisk Asker 3", "Jar 5", 2, 2], ["Jar 2", "Jutul 2", 0, 3], ["Ringerike 2", "Frisk Asker 3", 1, 3], ["Frisk Asker 1", "Jar 5", 2, 3], ["Jar 2", "Frisk Asker 3", 0, 4], ["Jar 5", "Jutul 2", 1, 4], ["Frisk Asker 1", "Ringerike 2", 2, 4], ["Jar 2", "Jar 5", 0, 5], ["Frisk Asker 3", "Frisk Asker 1", 1, 5], ["Jutul 2", "Ringerike 2", 2, 5]], "b": {}, "tr": "Ringerike 2 ~45 km", "ts": "14:05"}, {"d": "2026-10-25", "a": "Holmenkollen ishall", "g": "U9", "h": "Holmen", "m": [["Holmen 1", "Jar 4", 0, 1], ["Holmen 4", "Jar 5", 1, 1], ["Jar 2", "Jutul 2", 2, 1], ["Ringerike 2", "Frisk Asker 1", 3, 1], ["Holmen 1", "Jar 5", 0, 2], ["Jutul 2", "Jar 4", 1, 2], ["Frisk Asker 1", "Holmen 4", 2, 2], ["Ringerike 2", "Jar 2", 3, 2], ["Holmen 1", "Jutul 2", 0, 3], ["Jar 5", "Frisk Asker 1", 1, 3], ["Jar 4", "Ringerike 2", 2, 3], ["Holmen 4", "Jar 2", 3, 3], ["Holmen 1", "Frisk Asker 1", 0, 4], ["Ringerike 2", "Jutul 2", 1, 4], ["Jar 2", "Jar 5", 2, 4], ["Holmen 4", "Jar 4", 3, 4], ["Holmen 1", "Ringerike 2", 0, 5], ["Frisk Asker 1", "Jar 2", 1, 5], ["Jutul 2", "Holmen 4", 2, 5], ["Jar 5", "Jar 4", 3, 5], ["Holmen 1", "Jar 2", 0, 6], ["Holmen 4", "Ringerike 2", 1, 6], ["Jar 4", "Frisk Asker 1", 2, 6], ["Jar 5", "Jutul 2", 3, 6], ["Holmen 1", "Holmen 4", 0, 7], ["Jar 2", "Jar 4", 1, 7], ["Ringerike 2", "Jar 5", 2, 7], ["Frisk Asker 1", "Jutul 2", 3, 7]], "b": {}, "tr": "Ringerike 2 ~49 km", "ts": "10:00"}, {"d": "2026-10-31", "a": "Ringerikshallen", "g": "JU12", "h": "Ringerike", "m": [["Ringerike 1", "Skien", 0, 1], ["Frisk Asker", "Kongsberg", 1, 1], ["Ringerike 1", "Kongsberg", 0, 2], ["Frisk Asker", "Skien", 1, 2], ["Ringerike 1", "Frisk Asker", 0, 3], ["Kongsberg", "Skien", 1, 3]], "b": {}, "tr": "Skien ~147 km", "ts": "15:00"}, {"d": "2026-10-31", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 1", "Tønsberg 1", 0, 1], ["Frisk Asker 1", "Ringerike 1", 1, 1], ["Holmen 1", "Jutul 1", 2, 1], ["Jar 1", "Ringerike 1", 0, 2], ["Jutul 1", "Tønsberg 1", 1, 2], ["Holmen 1", "Frisk Asker 1", 2, 2], ["Jar 1", "Jutul 1", 0, 3], ["Ringerike 1", "Holmen 1", 1, 3], ["Tønsberg 1", "Frisk Asker 1", 2, 3], ["Jar 1", "Holmen 1", 0, 4], ["Frisk Asker 1", "Jutul 1", 1, 4], ["Tønsberg 1", "Ringerike 1", 2, 4], ["Jar 1", "Frisk Asker 1", 0, 5], ["Holmen 1", "Tønsberg 1", 1, 5], ["Jutul 1", "Ringerike 1", 2, 5]], "b": {}, "tr": "Tønsberg 1 ~92 km", "ts": "10:00"}, {"d": "2026-10-31", "a": "Jarhallen", "g": "U12", "h": "Jar", "m": [["Jar 1", "Ringerike 1", 0, 1], ["Frisk Asker 1", "Jutul 1", 1, 1], ["Jar 1", "Jutul 1", 0, 2], ["Frisk Asker 1", "Ringerike 1", 1, 2], ["Jar 1", "Frisk Asker 1", 0, 3], ["Jutul 1", "Ringerike 1", 1, 3]], "b": {}, "tr": "Ringerike 1 ~45 km", "ts": "16:00"}, {"d": "2026-10-31", "a": "Jarhallen", "g": "U9", "h": "Jar", "m": [["Jar 1", "Tønsberg", 0, 1], ["Jar 2", "Kongsberg", 1, 1], ["Frisk Asker 1", "Ringerike 1", 2, 1], ["Holmen 1", "Jutul 1", 3, 1], ["Jar 1", "Kongsberg", 0, 2], ["Ringerike 1", "Tønsberg", 1, 2], ["Jutul 1", "Jar 2", 2, 2], ["Holmen 1", "Frisk Asker 1", 3, 2], ["Jar 1", "Ringerike 1", 0, 3], ["Kongsberg", "Jutul 1", 1, 3], ["Tønsberg", "Holmen 1", 2, 3], ["Jar 2", "Frisk Asker 1", 3, 3], ["Jar 1", "Jutul 1", 0, 4], ["Holmen 1", "Ringerike 1", 1, 4], ["Frisk Asker 1", "Kongsberg", 2, 4], ["Jar 2", "Tønsberg", 3, 4], ["Jar 1", "Holmen 1", 0, 5], ["Jutul 1", "Frisk Asker 1", 1, 5], ["Ringerike 1", "Jar 2", 2, 5], ["Kongsberg", "Tønsberg", 3, 5], ["Jar 1", "Frisk Asker 1", 0, 6], ["Jar 2", "Holmen 1", 1, 6], ["Tønsberg", "Jutul 1", 2, 6], ["Kongsberg", "Ringerike 1", 3, 6], ["Jar 1", "Jar 2", 0, 7], ["Frisk Asker 1", "Tønsberg", 1, 7], ["Holmen 1", "Kongsberg", 2, 7], ["Jutul 1", "Ringerike 1", 3, 7]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "16:00"}, {"d": "2026-10-31", "a": "Jarhallen", "g": "U11", "h": "Jar", "m": [["Jar 1", "Holmen 1", 0, 1], ["Frisk Asker 3", "Ringerike 2", 1, 1], ["Jutul 2", "Tønsberg 1", 2, 1], ["Jar 1", "Ringerike 2", 0, 2], ["Tønsberg 1", "Holmen 1", 1, 2], ["Jutul 2", "Frisk Asker 3", 2, 2], ["Jar 1", "Tønsberg 1", 0, 3], ["Ringerike 2", "Jutul 2", 1, 3], ["Holmen 1", "Frisk Asker 3", 2, 3], ["Jar 1", "Jutul 2", 0, 4], ["Frisk Asker 3", "Tønsberg 1", 1, 4], ["Holmen 1", "Ringerike 2", 2, 4], ["Jar 1", "Frisk Asker 3", 0, 5], ["Jutul 2", "Holmen 1", 1, 5], ["Tønsberg 1", "Ringerike 2", 2, 5]], "b": {}, "tr": "Tønsberg 1 ~92 km", "ts": "10:00"}, {"d": "2026-10-31", "a": "Tonsberghallen", "g": "U9", "h": "Tønsberg", "m": [["Jar 1", "Jutul 1", 0, 1], ["Frisk Asker 4", "Jar 6", 1, 1], ["Holmen 1", "Frisk Asker 5", 2, 1], ["Jutul 2", "Ringerike 2", 3, 1], ["Jar 1", "Jar 6", 0, 2], ["Frisk Asker 5", "Jutul 1", 1, 2], ["Ringerike 2", "Frisk Asker 4", 2, 2], ["Jutul 2", "Holmen 1", 3, 2], ["Jar 1", "Frisk Asker 5", 0, 3], ["Jar 6", "Ringerike 2", 1, 3], ["Jutul 1", "Jutul 2", 2, 3], ["Frisk Asker 4", "Holmen 1", 3, 3], ["Jar 1", "Ringerike 2", 0, 4], ["Jutul 2", "Frisk Asker 5", 1, 4], ["Holmen 1", "Jar 6", 2, 4], ["Frisk Asker 4", "Jutul 1", 3, 4], ["Jar 1", "Jutul 2", 0, 5], ["Ringerike 2", "Holmen 1", 1, 5], ["Frisk Asker 5", "Frisk Asker 4", 2, 5], ["Jar 6", "Jutul 1", 3, 5], ["Jar 1", "Holmen 1", 0, 6], ["Frisk Asker 4", "Jutul 2", 1, 6], ["Jutul 1", "Ringerike 2", 2, 6], ["Jar 6", "Frisk Asker 5", 3, 6], ["Jar 1", "Frisk Asker 4", 0, 7], ["Holmen 1", "Jutul 1", 1, 7], ["Jutul 2", "Jar 6", 2, 7], ["Ringerike 2", "Frisk Asker 5", 3, 7]], "b": {}, "tr": "Ringerike 2 ~131 km", "ts": "10:00"}, {"d": "2026-11-01", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 3", "Jutul 1", 0, 1], ["Jar 4", "Ringerike 2", 1, 1], ["Frisk Asker 3", "Ringerike 2", 0, 2], ["Jar 4", "Jutul 1", 1, 2], ["Frisk Asker 3", "Jar 4", 0, 3], ["Ringerike 2", "Jutul 1", 1, 3]], "b": {}, "tr": "Ringerike 2 ~50 km", "ts": "11:50"}, {"d": "2026-11-07", "a": "Tonsberghallen", "g": "JU12", "h": "Tønsberg", "m": [["Ringerike 2", "Jar/Jutul", 0, 1], ["Frisk Asker", "Kongsberg", 1, 1], ["Ringerike 2", "Kongsberg", 0, 2], ["Frisk Asker", "Jar/Jutul", 1, 2], ["Ringerike 2", "Frisk Asker", 0, 3], ["Kongsberg", "Jar/Jutul", 1, 3]], "b": {}, "tr": "Ringerike 2 ~131 km", "ts": "10:00"}, {"d": "2026-11-07", "a": "Jarhallen", "g": "U12", "h": "Jar", "m": [["Jar 4", "Tønsberg", 0, 1], ["Frisk Asker 5", "Jutul 2", 1, 1], ["Jar 4", "Jutul 2", 0, 2], ["Frisk Asker 5", "Tønsberg", 1, 2], ["Jar 4", "Frisk Asker 5", 0, 3], ["Jutul 2", "Tønsberg", 1, 3]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "10:00"}, {"d": "2026-11-07", "a": "Sandefjord ishall", "g": "U7", "h": "Sandefjord Penguins", "m": [["Jar 3", "Skien", 0, 1], ["Frisk Asker 1", "Sandefjord", 1, 1], ["Holmen 2", "Frisk Asker 3", 2, 1], ["Jutul 1", "Jar 4", 3, 1], ["Jar 3", "Sandefjord", 0, 2], ["Frisk Asker 3", "Skien", 1, 2], ["Jar 4", "Frisk Asker 1", 2, 2], ["Jutul 1", "Holmen 2", 3, 2], ["Jar 3", "Frisk Asker 3", 0, 3], ["Sandefjord", "Jar 4", 1, 3], ["Skien", "Jutul 1", 2, 3], ["Frisk Asker 1", "Holmen 2", 3, 3], ["Jar 3", "Jar 4", 0, 4], ["Jutul 1", "Frisk Asker 3", 1, 4], ["Holmen 2", "Sandefjord", 2, 4], ["Frisk Asker 1", "Skien", 3, 4], ["Jar 3", "Jutul 1", 0, 5], ["Jar 4", "Holmen 2", 1, 5], ["Frisk Asker 3", "Frisk Asker 1", 2, 5], ["Sandefjord", "Skien", 3, 5], ["Jar 3", "Holmen 2", 0, 6], ["Frisk Asker 1", "Jutul 1", 1, 6], ["Skien", "Jar 4", 2, 6], ["Sandefjord", "Frisk Asker 3", 3, 6], ["Jar 3", "Frisk Asker 1", 0, 7], ["Holmen 2", "Skien", 1, 7], ["Jutul 1", "Sandefjord", 2, 7], ["Jar 4", "Frisk Asker 3", 3, 7]], "b": {}, "tr": "Jar 3 ~114 km", "ts": "10:00"}, {"d": "2026-11-08", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 3", "Ringerike 1", 0, 1], ["Jar 5", "Holmen 1", 1, 1], ["Jar 4", "Frisk Asker 2", 2, 1], ["Jar 3", "Holmen 1", 0, 2], ["Frisk Asker 2", "Ringerike 1", 1, 2], ["Jar 4", "Jar 5", 2, 2], ["Jar 3", "Frisk Asker 2", 0, 3], ["Holmen 1", "Jar 4", 1, 3], ["Ringerike 1", "Jar 5", 2, 3], ["Jar 3", "Jar 4", 0, 4], ["Jar 5", "Frisk Asker 2", 1, 4], ["Ringerike 1", "Holmen 1", 2, 4], ["Jar 3", "Jar 5", 0, 5], ["Jar 4", "Ringerike 1", 1, 5], ["Frisk Asker 2", "Holmen 1", 2, 5]], "b": {}, "tr": "Ringerike 1 ~45 km", "ts": "10:00"}, {"d": "2026-11-08", "a": "Jarhallen", "g": "U11", "h": "Jar", "m": [["Jar 2", "Holmen 1", 0, 1], ["Jar 4", "Jutul 1", 1, 1], ["Jutul 3", "Frisk Asker 2", 2, 1], ["Jar 2", "Jutul 1", 0, 2], ["Frisk Asker 2", "Holmen 1", 1, 2], ["Jutul 3", "Jar 4", 2, 2], ["Jar 2", "Frisk Asker 2", 0, 3], ["Jutul 1", "Jutul 3", 1, 3], ["Holmen 1", "Jar 4", 2, 3], ["Jar 2", "Jutul 3", 0, 4], ["Jar 4", "Frisk Asker 2", 1, 4], ["Holmen 1", "Jutul 1", 2, 4], ["Jar 2", "Jar 4", 0, 5], ["Jutul 3", "Holmen 1", 1, 5], ["Frisk Asker 2", "Jutul 1", 2, 5]], "b": {}, "tr": "Frisk Asker 2 ~14 km", "ts": "16:00"}, {"d": "2026-11-08", "a": "Jarhallen", "g": "U9", "h": "Jar", "m": [["Jar 2", "Ringerike 3", 0, 1], ["Jar 3", "Frisk Asker 1", 1, 1], ["Frisk Asker 2", "Holmen 4", 2, 1], ["Jutul 3", "Ringerike 1", 3, 1], ["Jar 2", "Frisk Asker 1", 0, 2], ["Holmen 4", "Ringerike 3", 1, 2], ["Ringerike 1", "Jar 3", 2, 2], ["Jutul 3", "Frisk Asker 2", 3, 2], ["Jar 2", "Holmen 4", 0, 3], ["Frisk Asker 1", "Ringerike 1", 1, 3], ["Ringerike 3", "Jutul 3", 2, 3], ["Jar 3", "Frisk Asker 2", 3, 3], ["Jar 2", "Ringerike 1", 0, 4], ["Jutul 3", "Holmen 4", 1, 4], ["Frisk Asker 2", "Frisk Asker 1", 2, 4], ["Jar 3", "Ringerike 3", 3, 4], ["Jar 2", "Jutul 3", 0, 5], ["Ringerike 1", "Frisk Asker 2", 1, 5], ["Holmen 4", "Jar 3", 2, 5], ["Frisk Asker 1", "Ringerike 3", 3, 5], ["Jar 2", "Frisk Asker 2", 0, 6], ["Jar 3", "Jutul 3", 1, 6], ["Ringerike 3", "Ringerike 1", 2, 6], ["Frisk Asker 1", "Holmen 4", 3, 6], ["Jar 2", "Jar 3", 0, 7], ["Frisk Asker 2", "Ringerike 3", 1, 7], ["Jutul 3", "Frisk Asker 1", 2, 7], ["Ringerike 1", "Holmen 4", 3, 7]], "b": {}, "tr": "Ringerike 1 ~45 km", "ts": "16:00"}, {"d": "2026-11-14", "a": "Jarhallen", "g": "JU10", "h": "Jar", "m": [["Ringerike", "Frisk Asker 2", 0, 1], ["Skien", "Jar/Jutul", 1, 1], ["Frisk Asker 1", "Frisk Asker 2", 0, 2], ["Skien", "Ringerike", 1, 2], ["Frisk Asker 1", "Jar/Jutul", 0, 3], ["Frisk Asker 2", "Skien", 1, 3], ["Frisk Asker 1", "Skien", 0, 4], ["Ringerike", "Jar/Jutul", 1, 4], ["Frisk Asker 1", "Ringerike", 0, 5], ["Jar/Jutul", "Frisk Asker 2", 1, 5]], "b": {"1": ["Frisk Asker 1"], "2": ["Jar/Jutul"], "3": ["Ringerike"], "4": ["Frisk Asker 2"], "5": ["Skien"]}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2026-11-14", "a": "Ringerikshallen", "g": "JU12", "h": "Ringerike", "m": [["Ringerike 1", "Frisk Asker", 0, 1], ["Tønsberg", "Skien", 1, 1], ["Ringerike 1", "Skien", 0, 2], ["Tønsberg", "Frisk Asker", 1, 2], ["Ringerike 1", "Tønsberg", 0, 3], ["Skien", "Frisk Asker", 1, 3]], "b": {}, "tr": "Skien ~147 km", "ts": "10:00"}, {"d": "2026-11-14", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 1", "Jutul 1", 0, 1], ["Frisk Asker 2", "Jar 4", 1, 1], ["Frisk Asker 1", "Jar 4", 0, 2], ["Frisk Asker 2", "Jutul 1", 1, 2], ["Frisk Asker 1", "Frisk Asker 2", 0, 3], ["Jar 4", "Jutul 1", 1, 3]], "b": {}, "tr": "Jar 4 ~14 km", "ts": "11:50"}, {"d": "2026-11-15", "a": "Baerum ishall", "g": "U11", "h": "Jutul", "m": [["Jutul 2", "Holmen 2", 0, 1], ["Jar 3", "Tønsberg 1", 1, 1], ["Frisk Asker 2", "Ringerike 1", 2, 1], ["Jutul 2", "Tønsberg 1", 0, 2], ["Ringerike 1", "Holmen 2", 1, 2], ["Frisk Asker 2", "Jar 3", 2, 2], ["Jutul 2", "Ringerike 1", 0, 3], ["Tønsberg 1", "Frisk Asker 2", 1, 3], ["Holmen 2", "Jar 3", 2, 3], ["Jutul 2", "Frisk Asker 2", 0, 4], ["Jar 3", "Ringerike 1", 1, 4], ["Holmen 2", "Tønsberg 1", 2, 4], ["Jutul 2", "Jar 3", 0, 5], ["Frisk Asker 2", "Holmen 2", 1, 5], ["Ringerike 1", "Tønsberg 1", 2, 5]], "b": {}, "tr": "Tønsberg 1 ~92 km", "ts": "10:00"}, {"d": "2026-11-15", "a": "Jarhallen", "g": "U12", "h": "Jar", "m": [["Jar 1", "Jutul 2", 0, 1], ["Jar 3", "Frisk Asker 3", 1, 1], ["Jar 1", "Frisk Asker 3", 0, 2], ["Jar 3", "Jutul 2", 1, 2], ["Jar 1", "Jar 3", 0, 3], ["Frisk Asker 3", "Jutul 2", 1, 3]], "b": {}, "tr": "Frisk Asker 3 ~14 km", "ts": "10:00"}, {"d": "2026-11-15", "a": "Kongsberghallen", "g": "U8", "h": "Kongsberg", "m": [["Kongsberg", "Tønsberg", 0, 1], ["Jar 1", "Ringerike 2", 1, 1], ["Frisk Asker 3", "Sandefjord", 2, 1], ["Holmen 3", "Jutul 2", 3, 1], ["Kongsberg", "Ringerike 2", 0, 2], ["Sandefjord", "Tønsberg", 1, 2], ["Jutul 2", "Jar 1", 2, 2], ["Holmen 3", "Frisk Asker 3", 3, 2], ["Kongsberg", "Sandefjord", 0, 3], ["Ringerike 2", "Jutul 2", 1, 3], ["Tønsberg", "Holmen 3", 2, 3], ["Jar 1", "Frisk Asker 3", 3, 3], ["Kongsberg", "Jutul 2", 0, 4], ["Holmen 3", "Sandefjord", 1, 4], ["Frisk Asker 3", "Ringerike 2", 2, 4], ["Jar 1", "Tønsberg", 3, 4], ["Kongsberg", "Holmen 3", 0, 5], ["Jutul 2", "Frisk Asker 3", 1, 5], ["Sandefjord", "Jar 1", 2, 5], ["Ringerike 2", "Tønsberg", 3, 5], ["Kongsberg", "Frisk Asker 3", 0, 6], ["Jar 1", "Holmen 3", 1, 6], ["Tønsberg", "Jutul 2", 2, 6], ["Ringerike 2", "Sandefjord", 3, 6], ["Kongsberg", "Jar 1", 0, 7], ["Frisk Asker 3", "Tønsberg", 1, 7], ["Holmen 3", "Ringerike 2", 2, 7], ["Jutul 2", "Sandefjord", 3, 7]], "b": {}, "tr": "Sandefjord ~88 km", "ts": "10:00"}, {"d": "2026-11-21", "a": "Ringerikshallen", "g": "JU12", "h": "Ringerike", "m": [["Ringerike 2", "Kongsberg", 0, 1], ["Skien", "Jar/Jutul", 1, 1], ["Ringerike 2", "Jar/Jutul", 0, 2], ["Skien", "Kongsberg", 1, 2], ["Ringerike 2", "Skien", 0, 3], ["Jar/Jutul", "Kongsberg", 1, 3]], "b": {}, "tr": "Skien ~147 km", "ts": "10:00"}, {"d": "2026-11-21", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 6", "Skien", 0, 1], ["Jar 7", "Sandefjord", 1, 1], ["Frisk Asker 2", "Tønsberg 1", 2, 1], ["Jar 6", "Sandefjord", 0, 2], ["Tønsberg 1", "Skien", 1, 2], ["Frisk Asker 2", "Jar 7", 2, 2], ["Jar 6", "Tønsberg 1", 0, 3], ["Sandefjord", "Frisk Asker 2", 1, 3], ["Skien", "Jar 7", 2, 3], ["Jar 6", "Frisk Asker 2", 0, 4], ["Jar 7", "Tønsberg 1", 1, 4], ["Skien", "Sandefjord", 2, 4], ["Jar 6", "Jar 7", 0, 5], ["Frisk Asker 2", "Skien", 1, 5], ["Tønsberg 1", "Sandefjord", 2, 5]], "b": {}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2026-11-21", "a": "Jarhallen", "g": "U9", "h": "Jar", "m": [["Jar 4", "Kongsberg", 0, 1], ["Jar 5", "Ringerike 3", 1, 1], ["Frisk Asker 3", "Jutul 1", 2, 1], ["Holmen 2", "Holmen 3", 3, 1], ["Jar 4", "Ringerike 3", 0, 2], ["Jutul 1", "Kongsberg", 1, 2], ["Holmen 3", "Jar 5", 2, 2], ["Holmen 2", "Frisk Asker 3", 3, 2], ["Jar 4", "Jutul 1", 0, 3], ["Ringerike 3", "Holmen 3", 1, 3], ["Kongsberg", "Holmen 2", 2, 3], ["Jar 5", "Frisk Asker 3", 3, 3], ["Jar 4", "Holmen 3", 0, 4], ["Holmen 2", "Jutul 1", 1, 4], ["Frisk Asker 3", "Ringerike 3", 2, 4], ["Jar 5", "Kongsberg", 3, 4], ["Jar 4", "Holmen 2", 0, 5], ["Holmen 3", "Frisk Asker 3", 1, 5], ["Jutul 1", "Jar 5", 2, 5], ["Ringerike 3", "Kongsberg", 3, 5], ["Jar 4", "Frisk Asker 3", 0, 6], ["Jar 5", "Holmen 2", 1, 6], ["Kongsberg", "Holmen 3", 2, 6], ["Ringerike 3", "Jutul 1", 3, 6], ["Jar 4", "Jar 5", 0, 7], ["Frisk Asker 3", "Kongsberg", 1, 7], ["Holmen 2", "Ringerike 3", 2, 7], ["Holmen 3", "Jutul 1", 3, 7]], "b": {}, "tr": "Kongsberg ~75 km", "ts": "16:00"}, {"d": "2026-11-22", "a": "Jarhallen", "g": "U11", "h": "Jar", "m": [["Jar 1", "Ringerike 2", 0, 1], ["Jar 3", "Frisk Asker 1", 1, 1], ["Tønsberg 2", "Jutul 3", 2, 1], ["Jar 1", "Frisk Asker 1", 0, 2], ["Jutul 3", "Ringerike 2", 1, 2], ["Tønsberg 2", "Jar 3", 2, 2], ["Jar 1", "Jutul 3", 0, 3], ["Frisk Asker 1", "Tønsberg 2", 1, 3], ["Ringerike 2", "Jar 3", 2, 3], ["Jar 1", "Tønsberg 2", 0, 4], ["Jar 3", "Jutul 3", 1, 4], ["Ringerike 2", "Frisk Asker 1", 2, 4], ["Jar 1", "Jar 3", 0, 5], ["Tønsberg 2", "Ringerike 2", 1, 5], ["Jutul 3", "Frisk Asker 1", 2, 5]], "b": {}, "tr": "Tønsberg 2 ~92 km", "ts": "10:00"}, {"d": "2026-11-22", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 4", "Ringerike 1", 0, 1], ["Frisk Asker 5", "Jar 2", 1, 1], ["Frisk Asker 4", "Jar 2", 0, 2], ["Frisk Asker 5", "Ringerike 1", 1, 2], ["Frisk Asker 4", "Frisk Asker 5", 0, 3], ["Jar 2", "Ringerike 1", 1, 3]], "b": {}, "tr": "Ringerike 1 ~50 km", "ts": "12:20"}, {"d": "2026-11-22", "a": "Skien ishall", "g": "U7", "h": "Skien", "m": [["Jar 1", "Holmen 2", 0, 1], ["Frisk Asker 3", "Jar 3", 1, 1], ["Holmen 1", "Kongsberg", 2, 1], ["Tønsberg", "Jutul 1", 3, 1], ["Jar 1", "Jar 3", 0, 2], ["Kongsberg", "Holmen 2", 1, 2], ["Jutul 1", "Frisk Asker 3", 2, 2], ["Tønsberg", "Holmen 1", 3, 2], ["Jar 1", "Kongsberg", 0, 3], ["Jar 3", "Jutul 1", 1, 3], ["Holmen 2", "Tønsberg", 2, 3], ["Frisk Asker 3", "Holmen 1", 3, 3], ["Jar 1", "Jutul 1", 0, 4], ["Tønsberg", "Kongsberg", 1, 4], ["Holmen 1", "Jar 3", 2, 4], ["Frisk Asker 3", "Holmen 2", 3, 4], ["Jar 1", "Tønsberg", 0, 5], ["Jutul 1", "Holmen 1", 1, 5], ["Kongsberg", "Frisk Asker 3", 2, 5], ["Jar 3", "Holmen 2", 3, 5], ["Jar 1", "Holmen 1", 0, 6], ["Frisk Asker 3", "Tønsberg", 1, 6], ["Holmen 2", "Jutul 1", 2, 6], ["Jar 3", "Kongsberg", 3, 6], ["Jar 1", "Frisk Asker 3", 0, 7], ["Holmen 1", "Holmen 2", 1, 7], ["Tønsberg", "Jar 3", 2, 7], ["Jutul 1", "Kongsberg", 3, 7]], "b": {}, "tr": "Jar 1 ~122 km", "ts": "10:00"}, {"d": "2026-11-28", "a": "Skien ishall", "g": "JU10", "h": "Skien", "m": [["Frisk Asker 1", "Frisk Asker 2", 0, 1], ["Ringerike", "Jar/Jutul", 1, 1], ["Skien", "Frisk Asker 2", 0, 2], ["Ringerike", "Frisk Asker 1", 1, 2], ["Skien", "Jar/Jutul", 0, 3], ["Frisk Asker 2", "Ringerike", 1, 3], ["Skien", "Ringerike", 0, 4], ["Frisk Asker 1", "Jar/Jutul", 1, 4], ["Skien", "Frisk Asker 1", 0, 5], ["Jar/Jutul", "Frisk Asker 2", 1, 5]], "b": {"1": ["Skien"], "2": ["Jar/Jutul"], "3": ["Frisk Asker 1"], "4": ["Frisk Asker 2"], "5": ["Ringerike"]}, "tr": "Ringerike ~147 km", "ts": "10:00"}, {"d": "2026-11-28", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 1", "Jutul 1", 0, 1], ["Frisk Asker 4", "Kongsberg", 1, 1], ["Holmen 2", "Tønsberg 2", 2, 1], ["Jar 1", "Kongsberg", 0, 2], ["Tønsberg 2", "Jutul 1", 1, 2], ["Holmen 2", "Frisk Asker 4", 2, 2], ["Jar 1", "Tønsberg 2", 0, 3], ["Kongsberg", "Holmen 2", 1, 3], ["Jutul 1", "Frisk Asker 4", 2, 3], ["Jar 1", "Holmen 2", 0, 4], ["Frisk Asker 4", "Tønsberg 2", 1, 4], ["Jutul 1", "Kongsberg", 2, 4], ["Jar 1", "Frisk Asker 4", 0, 5], ["Holmen 2", "Jutul 1", 1, 5], ["Tønsberg 2", "Kongsberg", 2, 5]], "b": {}, "tr": "Tønsberg 2 ~92 km", "ts": "10:00"}, {"d": "2026-11-28", "a": "Sandefjord ishall", "g": "U8", "h": "Sandefjord Penguins", "m": [["Jar 2", "Jutul 1", 0, 1], ["Frisk Asker 1", "Holmen 2", 1, 1], ["Holmen 1", "Frisk Asker 2", 2, 1], ["Jutul 3", "Jar 3", 3, 1], ["Jar 2", "Holmen 2", 0, 2], ["Frisk Asker 2", "Jutul 1", 1, 2], ["Jar 3", "Frisk Asker 1", 2, 2], ["Jutul 3", "Holmen 1", 3, 2], ["Jar 2", "Frisk Asker 2", 0, 3], ["Holmen 2", "Jar 3", 1, 3], ["Jutul 1", "Jutul 3", 2, 3], ["Frisk Asker 1", "Holmen 1", 3, 3], ["Jar 2", "Jar 3", 0, 4], ["Jutul 3", "Frisk Asker 2", 1, 4], ["Holmen 1", "Holmen 2", 2, 4], ["Frisk Asker 1", "Jutul 1", 3, 4], ["Jar 2", "Jutul 3", 0, 5], ["Jar 3", "Holmen 1", 1, 5], ["Frisk Asker 2", "Frisk Asker 1", 2, 5], ["Holmen 2", "Jutul 1", 3, 5], ["Jar 2", "Holmen 1", 0, 6], ["Frisk Asker 1", "Jutul 3", 1, 6], ["Jutul 1", "Jar 3", 2, 6], ["Holmen 2", "Frisk Asker 2", 3, 6], ["Jar 2", "Frisk Asker 1", 0, 7], ["Holmen 1", "Jutul 1", 1, 7], ["Jutul 3", "Holmen 2", 2, 7], ["Jar 3", "Frisk Asker 2", 3, 7]], "b": {}, "tr": "Jar 2 ~114 km", "ts": "10:00"}, {"d": "2026-11-29", "a": "Jarhallen", "g": "U11", "h": "Jar", "m": [["Jar 2", "Tønsberg 1", 0, 1], ["Jar 4", "Holmen 2", 1, 1], ["Frisk Asker 3", "Jutul 1", 2, 1], ["Jar 2", "Holmen 2", 0, 2], ["Jutul 1", "Tønsberg 1", 1, 2], ["Frisk Asker 3", "Jar 4", 2, 2], ["Jar 2", "Jutul 1", 0, 3], ["Holmen 2", "Frisk Asker 3", 1, 3], ["Tønsberg 1", "Jar 4", 2, 3], ["Jar 2", "Frisk Asker 3", 0, 4], ["Jar 4", "Jutul 1", 1, 4], ["Tønsberg 1", "Holmen 2", 2, 4], ["Jar 2", "Jar 4", 0, 5], ["Frisk Asker 3", "Tønsberg 1", 1, 5], ["Jutul 1", "Holmen 2", 2, 5]], "b": {}, "tr": "Tønsberg 1 ~92 km", "ts": "10:00"}, {"d": "2026-11-29", "a": "Jarhallen", "g": "U12", "h": "Jar", "m": [["Jar 1", "Jutul 2", 0, 1], ["Frisk Asker 1", "Ringerike 2", 1, 1], ["Jar 1", "Ringerike 2", 0, 2], ["Frisk Asker 1", "Jutul 2", 1, 2], ["Jar 1", "Frisk Asker 1", 0, 3], ["Ringerike 2", "Jutul 2", 1, 3]], "b": {}, "tr": "Ringerike 2 ~45 km", "ts": "16:00"}, {"d": "2026-11-29", "a": "Jarhallen", "g": "U9", "h": "Jar", "m": [["Jar 1", "Holmen 3", 0, 1], ["Holmen 2", "Frisk Asker 5", 1, 1], ["Jutul 3", "Tønsberg", 2, 1], ["Frisk Asker 3", "Ringerike 1", 3, 1], ["Jar 1", "Frisk Asker 5", 0, 2], ["Tønsberg", "Holmen 3", 1, 2], ["Ringerike 1", "Holmen 2", 2, 2], ["Frisk Asker 3", "Jutul 3", 3, 2], ["Jar 1", "Tønsberg", 0, 3], ["Frisk Asker 5", "Ringerike 1", 1, 3], ["Holmen 3", "Frisk Asker 3", 2, 3], ["Holmen 2", "Jutul 3", 3, 3], ["Jar 1", "Ringerike 1", 0, 4], ["Frisk Asker 3", "Tønsberg", 1, 4], ["Jutul 3", "Frisk Asker 5", 2, 4], ["Holmen 2", "Holmen 3", 3, 4], ["Jar 1", "Frisk Asker 3", 0, 5], ["Ringerike 1", "Jutul 3", 1, 5], ["Tønsberg", "Holmen 2", 2, 5], ["Frisk Asker 5", "Holmen 3", 3, 5], ["Jar 1", "Jutul 3", 0, 6], ["Holmen 2", "Frisk Asker 3", 1, 6], ["Holmen 3", "Ringerike 1", 2, 6], ["Frisk Asker 5", "Tønsberg", 3, 6], ["Jar 1", "Holmen 2", 0, 7], ["Jutul 3", "Holmen 3", 1, 7], ["Frisk Asker 3", "Frisk Asker 5", 2, 7], ["Ringerike 1", "Tønsberg", 3, 7]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "16:00"}, {"d": "2026-12-05", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 1", "Ringerike 2", 0, 1], ["Frisk Asker 4", "Jar 3", 1, 1], ["Frisk Asker 1", "Jar 3", 0, 2], ["Frisk Asker 4", "Ringerike 2", 1, 2], ["Frisk Asker 1", "Frisk Asker 4", 0, 3], ["Jar 3", "Ringerike 2", 1, 3]], "b": {}, "tr": "Ringerike 2 ~50 km", "ts": "12:20"}, {"d": "2026-12-06", "a": "Jarhallen", "g": "JU8", "h": "Jar", "m": [["Jar", "Skien", 0, 1], ["Frisk Asker", "Ringerike", 1, 1], ["Holmen", "Jutul", 2, 1], ["Jar", "Ringerike", 0, 2], ["Jutul", "Skien", 1, 2], ["Holmen", "Frisk Asker", 2, 2], ["Jar", "Jutul", 0, 3], ["Ringerike", "Holmen", 1, 3], ["Skien", "Frisk Asker", 2, 3], ["Jar", "Holmen", 0, 4], ["Frisk Asker", "Jutul", 1, 4], ["Skien", "Ringerike", 2, 4], ["Jar", "Frisk Asker", 0, 5], ["Holmen", "Skien", 1, 5], ["Jutul", "Ringerike", 2, 5]], "b": {}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2026-12-06", "a": "Baerum ishall", "g": "U11", "h": "Jutul", "m": [["Jutul 1", "Holmen 1", 0, 1], ["Jar 1", "Tønsberg 2", 1, 1], ["Frisk Asker 2", "Ringerike 2", 2, 1], ["Jutul 1", "Tønsberg 2", 0, 2], ["Ringerike 2", "Holmen 1", 1, 2], ["Frisk Asker 2", "Jar 1", 2, 2], ["Jutul 1", "Ringerike 2", 0, 3], ["Tønsberg 2", "Frisk Asker 2", 1, 3], ["Holmen 1", "Jar 1", 2, 3], ["Jutul 1", "Frisk Asker 2", 0, 4], ["Jar 1", "Ringerike 2", 1, 4], ["Holmen 1", "Tønsberg 2", 2, 4], ["Jutul 1", "Jar 1", 0, 5], ["Frisk Asker 2", "Holmen 1", 1, 5], ["Ringerike 2", "Tønsberg 2", 2, 5]], "b": {}, "tr": "Tønsberg 2 ~92 km", "ts": "10:00"}, {"d": "2026-12-06", "a": "Varner Arena / Askerhallen", "g": "U12", "h": "Frisk Asker", "m": [["Frisk Asker 2", "Tønsberg", 0, 1], ["Jar 2", "Jutul 1", 1, 1], ["Frisk Asker 2", "Jutul 1", 0, 2], ["Jar 2", "Tønsberg", 1, 2], ["Frisk Asker 2", "Jar 2", 0, 3], ["Jutul 1", "Tønsberg", 1, 3]], "b": {}, "tr": "Tønsberg ~82 km", "ts": "12:20"}, {"d": "2026-12-06", "a": "Holmenkollen ishall", "g": "U9", "h": "Holmen", "m": [["Holmen 1", "Kongsberg", 0, 1], ["Jar 3", "Jutul 1", 1, 1], ["Frisk Asker 4", "Tønsberg", 2, 1], ["Frisk Asker 2", "Jar 6", 3, 1], ["Holmen 1", "Jutul 1", 0, 2], ["Tønsberg", "Kongsberg", 1, 2], ["Jar 6", "Jar 3", 2, 2], ["Frisk Asker 2", "Frisk Asker 4", 3, 2], ["Holmen 1", "Tønsberg", 0, 3], ["Jutul 1", "Jar 6", 1, 3], ["Kongsberg", "Frisk Asker 2", 2, 3], ["Jar 3", "Frisk Asker 4", 3, 3], ["Holmen 1", "Jar 6", 0, 4], ["Frisk Asker 2", "Tønsberg", 1, 4], ["Frisk Asker 4", "Jutul 1", 2, 4], ["Jar 3", "Kongsberg", 3, 4], ["Holmen 1", "Frisk Asker 2", 0, 5], ["Jar 6", "Frisk Asker 4", 1, 5], ["Tønsberg", "Jar 3", 2, 5], ["Jutul 1", "Kongsberg", 3, 5], ["Holmen 1", "Frisk Asker 4", 0, 6], ["Jar 3", "Frisk Asker 2", 1, 6], ["Kongsberg", "Jar 6", 2, 6], ["Jutul 1", "Tønsberg", 3, 6], ["Holmen 1", "Jar 3", 0, 7], ["Frisk Asker 4", "Kongsberg", 1, 7], ["Frisk Asker 2", "Jutul 1", 2, 7], ["Jar 6", "Tønsberg", 3, 7]], "b": {}, "tr": "Tønsberg ~83 km", "ts": "10:00"}, {"d": "2026-12-12", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 3", "Frisk Asker 1", 0, 1], ["Jar 6", "Tønsberg 2", 1, 1], ["Jar 4", "Jutul 1", 2, 1], ["Jar 3", "Tønsberg 2", 0, 2], ["Jutul 1", "Frisk Asker 1", 1, 2], ["Jar 4", "Jar 6", 2, 2], ["Jar 3", "Jutul 1", 0, 3], ["Tønsberg 2", "Jar 4", 1, 3], ["Frisk Asker 1", "Jar 6", 2, 3], ["Jar 3", "Jar 4", 0, 4], ["Jar 6", "Jutul 1", 1, 4], ["Frisk Asker 1", "Tønsberg 2", 2, 4], ["Jar 3", "Jar 6", 0, 5], ["Jar 4", "Frisk Asker 1", 1, 5], ["Jutul 1", "Tønsberg 2", 2, 5]], "b": {}, "tr": "Tønsberg 2 ~92 km", "ts": "10:00"}, {"d": "2026-12-12", "a": "Holmenkollen ishall", "g": "U11", "h": "Holmen", "m": [["Jar 2", "Frisk Asker 1", 0, 1], ["Ringerike 1", "Jutul 2", 1, 1], ["Frisk Asker 3", "Jutul 3", 2, 1], ["Jar 2", "Jutul 2", 0, 2], ["Jutul 3", "Frisk Asker 1", 1, 2], ["Frisk Asker 3", "Ringerike 1", 2, 2], ["Jar 2", "Jutul 3", 0, 3], ["Jutul 2", "Frisk Asker 3", 1, 3], ["Frisk Asker 1", "Ringerike 1", 2, 3], ["Jar 2", "Frisk Asker 3", 0, 4], ["Ringerike 1", "Jutul 3", 1, 4], ["Frisk Asker 1", "Jutul 2", 2, 4], ["Jar 2", "Ringerike 1", 0, 5], ["Frisk Asker 3", "Frisk Asker 1", 1, 5], ["Jutul 3", "Jutul 2", 2, 5]], "b": {}, "tr": "Ringerike 1 ~49 km", "ts": "10:00"}, {"d": "2026-12-12", "a": "Tonsberghallen", "g": "U8", "h": "Tønsberg", "m": [["Jar 4", "Skien", 0, 1], ["Frisk Asker 2", "Ringerike 2", 1, 1], ["Kongsberg", "Jutul 1", 2, 1], ["Holmen 2", "Sandefjord", 3, 1], ["Jar 4", "Ringerike 2", 0, 2], ["Jutul 1", "Skien", 1, 2], ["Sandefjord", "Frisk Asker 2", 2, 2], ["Holmen 2", "Kongsberg", 3, 2], ["Jar 4", "Jutul 1", 0, 3], ["Ringerike 2", "Sandefjord", 1, 3], ["Skien", "Holmen 2", 2, 3], ["Frisk Asker 2", "Kongsberg", 3, 3], ["Jar 4", "Sandefjord", 0, 4], ["Holmen 2", "Jutul 1", 1, 4], ["Kongsberg", "Ringerike 2", 2, 4], ["Frisk Asker 2", "Skien", 3, 4], ["Jar 4", "Holmen 2", 0, 5], ["Sandefjord", "Kongsberg", 1, 5], ["Jutul 1", "Frisk Asker 2", 2, 5], ["Ringerike 2", "Skien", 3, 5], ["Jar 4", "Kongsberg", 0, 6], ["Frisk Asker 2", "Holmen 2", 1, 6], ["Skien", "Sandefjord", 2, 6], ["Ringerike 2", "Jutul 1", 3, 6], ["Jar 4", "Frisk Asker 2", 0, 7], ["Kongsberg", "Skien", 1, 7], ["Holmen 2", "Ringerike 2", 2, 7], ["Sandefjord", "Jutul 1", 3, 7]], "b": {}, "tr": "Ringerike 2 ~131 km", "ts": "10:00"}, {"d": "2026-12-13", "a": "Jarhallen", "g": "U11", "h": "Jar", "m": [["Jar 3", "Ringerike 1", 0, 1], ["Jar 4", "Holmen 1", 1, 1], ["Frisk Asker 2", "Jutul 2", 2, 1], ["Jar 3", "Holmen 1", 0, 2], ["Jutul 2", "Ringerike 1", 1, 2], ["Frisk Asker 2", "Jar 4", 2, 2], ["Jar 3", "Jutul 2", 0, 3], ["Holmen 1", "Frisk Asker 2", 1, 3], ["Ringerike 1", "Jar 4", 2, 3], ["Jar 3", "Frisk Asker 2", 0, 4], ["Jar 4", "Jutul 2", 1, 4], ["Ringerike 1", "Holmen 1", 2, 4], ["Jar 3", "Jar 4", 0, 5], ["Frisk Asker 2", "Ringerike 1", 1, 5], ["Jutul 2", "Holmen 1", 2, 5]], "b": {}, "tr": "Ringerike 1 ~45 km", "ts": "10:00"}, {"d": "2026-12-13", "a": "Jarhallen", "g": "U12", "h": "Jar", "m": [["Jar 4", "Frisk Asker 4", 0, 1], ["Frisk Asker 3", "Ringerike 1", 1, 1], ["Jar 4", "Ringerike 1", 0, 2], ["Frisk Asker 3", "Frisk Asker 4", 1, 2], ["Jar 4", "Frisk Asker 3", 0, 3], ["Ringerike 1", "Frisk Asker 4", 1, 3]], "b": {}, "tr": "Ringerike 1 ~45 km", "ts": "16:00"}, {"d": "2026-12-13", "a": "Kongsberghallen", "g": "U7", "h": "Kongsberg", "m": [["Kongsberg", "Tønsberg", 0, 1], ["Jar 2", "Holmen 1", 1, 1], ["Frisk Asker 1", "Jar 4", 2, 1], ["Jutul 2", "Frisk Asker 2", 3, 1], ["Kongsberg", "Holmen 1", 0, 2], ["Jar 4", "Tønsberg", 1, 2], ["Frisk Asker 2", "Jar 2", 2, 2], ["Jutul 2", "Frisk Asker 1", 3, 2], ["Kongsberg", "Jar 4", 0, 3], ["Holmen 1", "Frisk Asker 2", 1, 3], ["Tønsberg", "Jutul 2", 2, 3], ["Jar 2", "Frisk Asker 1", 3, 3], ["Kongsberg", "Frisk Asker 2", 0, 4], ["Jutul 2", "Jar 4", 1, 4], ["Frisk Asker 1", "Holmen 1", 2, 4], ["Jar 2", "Tønsberg", 3, 4], ["Kongsberg", "Jutul 2", 0, 5], ["Frisk Asker 2", "Frisk Asker 1", 1, 5], ["Jar 4", "Jar 2", 2, 5], ["Holmen 1", "Tønsberg", 3, 5], ["Kongsberg", "Frisk Asker 1", 0, 6], ["Jar 2", "Jutul 2", 1, 6], ["Tønsberg", "Frisk Asker 2", 2, 6], ["Holmen 1", "Jar 4", 3, 6], ["Kongsberg", "Jar 2", 0, 7], ["Frisk Asker 1", "Tønsberg", 1, 7], ["Jutul 2", "Holmen 1", 2, 7], ["Frisk Asker 2", "Jar 4", 3, 7]], "b": {}, "tr": "Tønsberg ~80 km", "ts": "10:00"}, {"d": "2027-01-09", "a": "Baerum ishall", "g": "U11", "h": "Jutul", "m": [["Jutul 1", "Tønsberg 2", 0, 1], ["Jar 1", "Ringerike 2", 1, 1], ["Frisk Asker 3", "Holmen 2", 2, 1], ["Jutul 1", "Ringerike 2", 0, 2], ["Holmen 2", "Tønsberg 2", 1, 2], ["Frisk Asker 3", "Jar 1", 2, 2], ["Jutul 1", "Holmen 2", 0, 3], ["Ringerike 2", "Frisk Asker 3", 1, 3], ["Tønsberg 2", "Jar 1", 2, 3], ["Jutul 1", "Frisk Asker 3", 0, 4], ["Jar 1", "Holmen 2", 1, 4], ["Tønsberg 2", "Ringerike 2", 2, 4], ["Jutul 1", "Jar 1", 0, 5], ["Frisk Asker 3", "Tønsberg 2", 1, 5], ["Holmen 2", "Ringerike 2", 2, 5]], "b": {}, "tr": "Tønsberg 2 ~92 km", "ts": "10:00"}, {"d": "2027-01-09", "a": "Baerum ishall", "g": "U7", "h": "Jutul", "m": [["Jutul 2", "Jar 4", 0, 1], ["Jutul 1", "Skien", 1, 1], ["Jar 1", "Sandefjord", 2, 1], ["Frisk Asker 1", "Holmen 2", 3, 1], ["Jutul 2", "Skien", 0, 2], ["Sandefjord", "Jar 4", 1, 2], ["Holmen 2", "Jutul 1", 2, 2], ["Frisk Asker 1", "Jar 1", 3, 2], ["Jutul 2", "Sandefjord", 0, 3], ["Skien", "Holmen 2", 1, 3], ["Jar 4", "Frisk Asker 1", 2, 3], ["Jutul 1", "Jar 1", 3, 3], ["Jutul 2", "Holmen 2", 0, 4], ["Frisk Asker 1", "Sandefjord", 1, 4], ["Jar 1", "Skien", 2, 4], ["Jutul 1", "Jar 4", 3, 4], ["Jutul 2", "Frisk Asker 1", 0, 5], ["Holmen 2", "Jar 1", 1, 5], ["Sandefjord", "Jutul 1", 2, 5], ["Skien", "Jar 4", 3, 5], ["Jutul 2", "Jar 1", 0, 6], ["Jutul 1", "Frisk Asker 1", 1, 6], ["Jar 4", "Holmen 2", 2, 6], ["Skien", "Sandefjord", 3, 6], ["Jutul 2", "Jutul 1", 0, 7], ["Jar 1", "Jar 4", 1, 7], ["Frisk Asker 1", "Skien", 2, 7], ["Holmen 2", "Sandefjord", 3, 7]], "b": {}, "tr": "Skien ~121 km", "ts": "16:00"}, {"d": "2027-01-10", "a": "Holmenkollen ishall", "g": "U11", "h": "Holmen", "m": [["Jar 2", "Jar 4", 0, 1], ["Tønsberg 1", "Jar 3", 1, 1], ["Frisk Asker 1", "Jutul 3", 2, 1], ["Jar 2", "Jar 3", 0, 2], ["Jutul 3", "Jar 4", 1, 2], ["Frisk Asker 1", "Tønsberg 1", 2, 2], ["Jar 2", "Jutul 3", 0, 3], ["Jar 3", "Frisk Asker 1", 1, 3], ["Jar 4", "Tønsberg 1", 2, 3], ["Jar 2", "Frisk Asker 1", 0, 4], ["Tønsberg 1", "Jutul 3", 1, 4], ["Jar 4", "Jar 3", 2, 4], ["Jar 2", "Tønsberg 1", 0, 5], ["Frisk Asker 1", "Jar 4", 1, 5], ["Jutul 3", "Jar 3", 2, 5]], "b": {}, "tr": "Tønsberg 1 ~83 km", "ts": "10:00"}, {"d": "2027-01-10", "a": "Jarhallen", "g": "U9", "h": "Jar", "m": [["Jar 1", "Holmen 4", 0, 1], ["Jar 2", "Frisk Asker 5", 1, 1], ["Ringerike 3", "Holmen 2", 2, 1], ["Jutul 2", "Frisk Asker 2", 3, 1], ["Jar 1", "Frisk Asker 5", 0, 2], ["Holmen 2", "Holmen 4", 1, 2], ["Frisk Asker 2", "Jar 2", 2, 2], ["Jutul 2", "Ringerike 3", 3, 2], ["Jar 1", "Holmen 2", 0, 3], ["Frisk Asker 5", "Frisk Asker 2", 1, 3], ["Holmen 4", "Jutul 2", 2, 3], ["Jar 2", "Ringerike 3", 3, 3], ["Jar 1", "Frisk Asker 2", 0, 4], ["Jutul 2", "Holmen 2", 1, 4], ["Ringerike 3", "Frisk Asker 5", 2, 4], ["Jar 2", "Holmen 4", 3, 4], ["Jar 1", "Jutul 2", 0, 5], ["Frisk Asker 2", "Ringerike 3", 1, 5], ["Holmen 2", "Jar 2", 2, 5], ["Frisk Asker 5", "Holmen 4", 3, 5], ["Jar 1", "Ringerike 3", 0, 6], ["Jar 2", "Jutul 2", 1, 6], ["Holmen 4", "Frisk Asker 2", 2, 6], ["Frisk Asker 5", "Holmen 2", 3, 6], ["Jar 1", "Jar 2", 0, 7], ["Ringerike 3", "Holmen 4", 1, 7], ["Jutul 2", "Frisk Asker 5", 2, 7], ["Frisk Asker 2", "Holmen 2", 3, 7]], "b": {}, "tr": "Ringerike 3 ~45 km", "ts": "10:00"}, {"d": "2027-01-16", "a": "Skien ishall", "g": "JU8", "h": "Skien", "m": [["Skien", "Ringerike", 0, 1], ["Frisk Asker", "Jutul", 1, 1], ["Holmen", "Jar", 2, 1], ["Skien", "Jutul", 0, 2], ["Jar", "Ringerike", 1, 2], ["Holmen", "Frisk Asker", 2, 2], ["Skien", "Jar", 0, 3], ["Jutul", "Holmen", 1, 3], ["Ringerike", "Frisk Asker", 2, 3], ["Skien", "Holmen", 0, 4], ["Frisk Asker", "Jar", 1, 4], ["Ringerike", "Jutul", 2, 4], ["Skien", "Frisk Asker", 0, 5], ["Holmen", "Ringerike", 1, 5], ["Jar", "Jutul", 2, 5]], "b": {}, "tr": "Ringerike ~147 km", "ts": "10:00"}, {"d": "2027-01-16", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 7", "Jutul 2", 0, 1], ["Frisk Asker 3", "Ringerike 1", 1, 1], ["Holmen 1", "Kongsberg", 2, 1], ["Jar 7", "Ringerike 1", 0, 2], ["Kongsberg", "Jutul 2", 1, 2], ["Holmen 1", "Frisk Asker 3", 2, 2], ["Jar 7", "Kongsberg", 0, 3], ["Ringerike 1", "Holmen 1", 1, 3], ["Jutul 2", "Frisk Asker 3", 2, 3], ["Jar 7", "Holmen 1", 0, 4], ["Frisk Asker 3", "Kongsberg", 1, 4], ["Jutul 2", "Ringerike 1", 2, 4], ["Jar 7", "Frisk Asker 3", 0, 5], ["Holmen 1", "Jutul 2", 1, 5], ["Kongsberg", "Ringerike 1", 2, 5]], "b": {}, "tr": "Kongsberg ~75 km", "ts": "10:00"}, {"d": "2027-01-16", "a": "Baerum ishall", "g": "U12", "h": "Jutul", "m": [["Frisk Asker 5", "Jar 2", 0, 1], ["Jar 3", "Ringerike 2", 1, 1], ["Frisk Asker 5", "Ringerike 2", 0, 2], ["Jar 3", "Jar 2", 1, 2], ["Frisk Asker 5", "Jar 3", 0, 3], ["Ringerike 2", "Jar 2", 1, 3]], "b": {}, "tr": "Ringerike 2 ~44 km", "ts": "10:00"}, {"d": "2027-01-17", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 1", "Sandefjord", 0, 1], ["Ringerike 2", "Tønsberg 1", 1, 1], ["Skien", "Holmen 2", 2, 1], ["Jar 1", "Tønsberg 1", 0, 2], ["Holmen 2", "Sandefjord", 1, 2], ["Skien", "Ringerike 2", 2, 2], ["Jar 1", "Holmen 2", 0, 3], ["Tønsberg 1", "Skien", 1, 3], ["Sandefjord", "Ringerike 2", 2, 3], ["Jar 1", "Skien", 0, 4], ["Ringerike 2", "Holmen 2", 1, 4], ["Sandefjord", "Tønsberg 1", 2, 4], ["Jar 1", "Ringerike 2", 0, 5], ["Skien", "Sandefjord", 1, 5], ["Holmen 2", "Tønsberg 1", 2, 5]], "b": {}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2027-01-17", "a": "Ringerikshallen", "g": "U12", "h": "Ringerike", "m": [["Frisk Asker 1", "Frisk Asker 5", 0, 1], ["Jar 3", "Jar 4", 1, 1], ["Frisk Asker 1", "Jar 4", 0, 2], ["Jar 3", "Frisk Asker 5", 1, 2], ["Frisk Asker 1", "Jar 3", 0, 3], ["Jar 4", "Frisk Asker 5", 1, 3]], "b": {}, "tr": "Frisk Asker 1 ~50 km", "ts": "10:00"}, {"d": "2027-01-17", "a": "Skien ishall", "g": "U8", "h": "Skien", "m": [["Jar 1", "Jutul 3", 0, 1], ["Frisk Asker 1", "Jar 4", 1, 1], ["Jutul 2", "Ringerike 1", 2, 1], ["Holmen 1", "Tønsberg", 3, 1], ["Jar 1", "Jar 4", 0, 2], ["Ringerike 1", "Jutul 3", 1, 2], ["Tønsberg", "Frisk Asker 1", 2, 2], ["Holmen 1", "Jutul 2", 3, 2], ["Jar 1", "Ringerike 1", 0, 3], ["Jar 4", "Tønsberg", 1, 3], ["Jutul 3", "Holmen 1", 2, 3], ["Frisk Asker 1", "Jutul 2", 3, 3], ["Jar 1", "Tønsberg", 0, 4], ["Holmen 1", "Ringerike 1", 1, 4], ["Jutul 2", "Jar 4", 2, 4], ["Frisk Asker 1", "Jutul 3", 3, 4], ["Jar 1", "Holmen 1", 0, 5], ["Tønsberg", "Jutul 2", 1, 5], ["Ringerike 1", "Frisk Asker 1", 2, 5], ["Jar 4", "Jutul 3", 3, 5], ["Jar 1", "Jutul 2", 0, 6], ["Frisk Asker 1", "Holmen 1", 1, 6], ["Jutul 3", "Tønsberg", 2, 6], ["Jar 4", "Ringerike 1", 3, 6], ["Jar 1", "Frisk Asker 1", 0, 7], ["Jutul 2", "Jutul 3", 1, 7], ["Holmen 1", "Jar 4", 2, 7], ["Tønsberg", "Ringerike 1", 3, 7]], "b": {}, "tr": "Ringerike 1 ~147 km", "ts": "10:00"}, {"d": "2027-01-23", "a": "Ringerikshallen", "g": "JU10", "h": "Ringerike", "m": [["Frisk Asker 1", "Frisk Asker 2", 0, 1], ["Skien", "Jar/Jutul", 1, 1], ["Ringerike", "Frisk Asker 2", 0, 2], ["Skien", "Frisk Asker 1", 1, 2], ["Ringerike", "Jar/Jutul", 0, 3], ["Frisk Asker 2", "Skien", 1, 3], ["Ringerike", "Skien", 0, 4], ["Frisk Asker 1", "Jar/Jutul", 1, 4], ["Ringerike", "Frisk Asker 1", 0, 5], ["Jar/Jutul", "Frisk Asker 2", 1, 5]], "b": {"1": ["Ringerike"], "2": ["Jar/Jutul"], "3": ["Frisk Asker 1"], "4": ["Frisk Asker 2"], "5": ["Skien"]}, "tr": "Skien ~147 km", "ts": "10:00"}, {"d": "2027-01-23", "a": "Jarhallen", "g": "U12", "h": "Jar", "m": [["Jar 1", "Frisk Asker 4", 0, 1], ["Frisk Asker 2", "Frisk Asker 3", 1, 1], ["Jar 1", "Frisk Asker 3", 0, 2], ["Frisk Asker 2", "Frisk Asker 4", 1, 2], ["Jar 1", "Frisk Asker 2", 0, 3], ["Frisk Asker 3", "Frisk Asker 4", 1, 3]], "b": {}, "tr": "Frisk Asker 2 ~14 km", "ts": "10:00"}, {"d": "2027-01-23", "a": "Holmenkollen ishall", "g": "U9", "h": "Holmen", "m": [["Holmen 3", "Frisk Asker 3", 0, 1], ["Jar 3", "Ringerike 1", 1, 1], ["Frisk Asker 1", "Jar 5", 2, 1], ["Ringerike 2", "Jutul 3", 3, 1], ["Holmen 3", "Ringerike 1", 0, 2], ["Jar 5", "Frisk Asker 3", 1, 2], ["Jutul 3", "Jar 3", 2, 2], ["Ringerike 2", "Frisk Asker 1", 3, 2], ["Holmen 3", "Jar 5", 0, 3], ["Ringerike 1", "Jutul 3", 1, 3], ["Frisk Asker 3", "Ringerike 2", 2, 3], ["Jar 3", "Frisk Asker 1", 3, 3], ["Holmen 3", "Jutul 3", 0, 4], ["Ringerike 2", "Jar 5", 1, 4], ["Frisk Asker 1", "Ringerike 1", 2, 4], ["Jar 3", "Frisk Asker 3", 3, 4], ["Holmen 3", "Ringerike 2", 0, 5], ["Jutul 3", "Frisk Asker 1", 1, 5], ["Jar 5", "Jar 3", 2, 5], ["Ringerike 1", "Frisk Asker 3", 3, 5], ["Holmen 3", "Frisk Asker 1", 0, 6], ["Jar 3", "Ringerike 2", 1, 6], ["Frisk Asker 3", "Jutul 3", 2, 6], ["Ringerike 1", "Jar 5", 3, 6], ["Holmen 3", "Jar 3", 0, 7], ["Frisk Asker 1", "Frisk Asker 3", 1, 7], ["Ringerike 2", "Ringerike 1", 2, 7], ["Jutul 3", "Jar 5", 3, 7]], "b": {}, "tr": "Ringerike 2 ~49 km", "ts": "10:00"}, {"d": "2027-01-24", "a": "Jarhallen", "g": "U10", "h": "Jar", "m": [["Jar 2", "Sandefjord", 0, 1], ["Jar 3", "Frisk Asker 4", 1, 1], ["Jar 7", "Frisk Asker 2", 2, 1], ["Jar 2", "Frisk Asker 4", 0, 2], ["Frisk Asker 2", "Sandefjord", 1, 2], ["Jar 7", "Jar 3", 2, 2], ["Jar 2", "Frisk Asker 2", 0, 3], ["Frisk Asker 4", "Jar 7", 1, 3], ["Sandefjord", "Jar 3", 2, 3], ["Jar 2", "Jar 7", 0, 4], ["Jar 3", "Frisk Asker 2", 1, 4], ["Sandefjord", "Frisk Asker 4", 2, 4], ["Jar 2", "Jar 3", 0, 5], ["Jar 7", "Sandefjord", 1, 5], ["Frisk Asker 2", "Frisk Asker 4", 2, 5]], "b": {}, "tr": "Sandefjord ~114 km", "ts": "10:00"}, {"d": "2027-01-24", "a": "Tonsberghallen", "g": "U7", "h": "Tønsberg", "m": [["Jar 2", "Skien", 0, 1], ["Frisk Asker 3", "Holmen 1", 1, 1], ["Jar 3", "Sandefjord", 2, 1], ["Frisk Asker 2", "Jutul 1", 3, 1], ["Jar 2", "Holmen 1", 0, 2], ["Sandefjord", "Skien", 1, 2], ["Jutul 1", "Frisk Asker 3", 2, 2], ["Frisk Asker 2", "Jar 3", 3, 2], ["Jar 2", "Sandefjord", 0, 3], ["Holmen 1", "Jutul 1", 1, 3], ["Skien", "Frisk Asker 2", 2, 3], ["Frisk Asker 3", "Jar 3", 3, 3], ["Jar 2", "Jutul 1", 0, 4], ["Frisk Asker 2", "Sandefjord", 1, 4], ["Jar 3", "Holmen 1", 2, 4], ["Frisk Asker 3", "Skien", 3, 4], ["Jar 2", "Frisk Asker 2", 0, 5], ["Jutul 1", "Jar 3", 1, 5], ["Sandefjord", "Frisk Asker 3", 2, 5], ["Holmen 1", "Skien", 3, 5], ["Jar 2", "Jar 3", 0, 6], ["Frisk Asker 3", "Frisk Asker 2", 1, 6], ["Skien", "Jutul 1", 2, 6], ["Holmen 1", "Sandefjord", 3, 6], ["Jar 2", "Frisk Asker 3", 0, 7], ["Jar 3", "Skien", 1, 7], ["Frisk Asker 2", "Holmen 1", 2, 7], ["Jutul 1", "Sandefjord", 3, 7]], "b": {}, "tr": "Jar 2 ~92 km", "ts": "10:00"}, {"d": "2027-01-30", "a": "Kongsberghallen", "g": "JU12", "h": "Kongsberg", "m": [["Ringerike 2", "Jar/Jutul", 0, 1], ["Skien", "Tønsberg", 1, 1], ["Ringerike 2", "Tønsberg", 0, 2], ["Skien", "Jar/Jutul", 1, 2], ["Ringerike 2", "Skien", 0, 3], ["Tønsberg", "Jar/Jutul", 1, 3]], "b": {}, "tr": "Ringerike 2 ~85 km", "ts": "10:00"}, {"d": "2027-01-30", "a": "Ringerikshallen", "g": "U10", "h": "Ringerike", "m": [["Jar 4", "Kongsberg", 0, 1], ["Holmen 2", "Jutul 2", 1, 1], ["Jar 5", "Tønsberg 1", 2, 1], ["Jar 4", "Jutul 2", 0, 2], ["Tønsberg 1", "Kongsberg", 1, 2], ["Jar 5", "Holmen 2", 2, 2], ["Jar 4", "Tønsberg 1", 0, 3], ["Jutul 2", "Jar 5", 1, 3], ["Kongsberg", "Holmen 2", 2, 3], ["Jar 4", "Jar 5", 0, 4], ["Holmen 2", "Tønsberg 1", 1, 4], ["Kongsberg", "Jutul 2", 2, 4], ["Jar 4", "Holmen 2", 0, 5], ["Jar 5", "Kongsberg", 1, 5], ["Tønsberg 1", "Jutul 2", 2, 5]], "b": {}, "tr": "Tønsberg 1 ~131 km", "ts": "10:00"}, {"d": "2027-01-31", "a": "Baerum ishall", "g": "U9", "h": "Jutul", "m": [["Jutul 1", "Kongsberg", 0, 1], ["Jar 4", "Tønsberg", 1, 1], ["Frisk Asker 4", "Holmen 4", 2, 1], ["Jar 6", "Ringerike 1", 3, 1], ["Jutul 1", "Tønsberg", 0, 2], ["Holmen 4", "Kongsberg", 1, 2], ["Ringerike 1", "Jar 4", 2, 2], ["Jar 6", "Frisk Asker 4", 3, 2], ["Jutul 1", "Holmen 4", 0, 3], ["Tønsberg", "Ringerike 1", 1, 3], ["Kongsberg", "Jar 6", 2, 3], ["Jar 4", "Frisk Asker 4", 3, 3], ["Jutul 1", "Ringerike 1", 0, 4], ["Jar 6", "Holmen 4", 1, 4], ["Frisk Asker 4", "Tønsberg", 2, 4], ["Jar 4", "Kongsberg", 3, 4], ["Jutul 1", "Jar 6", 0, 5], ["Ringerike 1", "Frisk Asker 4", 1, 5], ["Holmen 4", "Jar 4", 2, 5], ["Tønsberg", "Kongsberg", 3, 5], ["Jutul 1", "Frisk Asker 4", 0, 6], ["Jar 4", "Jar 6", 1, 6], ["Kongsberg", "Ringerike 1", 2, 6], ["Tønsberg", "Holmen 4", 3, 6], ["Jutul 1", "Jar 4", 0, 7], ["Frisk Asker 4", "Kongsberg", 1, 7], ["Jar 6", "Tønsberg", 2, 7], ["Ringerike 1", "Holmen 4", 3, 7]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "10:00"}, {"d": "2027-02-06", "a": "Jarhallen", "g": "JU10", "h": "Jar", "m": [["Ringerike", "Frisk Asker 2", 0, 1], ["Skien", "Jar/Jutul", 1, 1], ["Frisk Asker 1", "Frisk Asker 2", 0, 2], ["Skien", "Ringerike", 1, 2], ["Frisk Asker 1", "Jar/Jutul", 0, 3], ["Frisk Asker 2", "Skien", 1, 3], ["Frisk Asker 1", "Skien", 0, 4], ["Ringerike", "Jar/Jutul", 1, 4], ["Frisk Asker 1", "Ringerike", 0, 5], ["Jar/Jutul", "Frisk Asker 2", 1, 5]], "b": {"1": ["Frisk Asker 1"], "2": ["Jar/Jutul"], "3": ["Ringerike"], "4": ["Frisk Asker 2"], "5": ["Skien"]}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2027-02-06", "a": "Holmenkollen ishall", "g": "U10", "h": "Holmen", "m": [["Jar 6", "Tønsberg 2", 0, 1], ["Frisk Asker 3", "Skien", 1, 1], ["Jutul 1", "Ringerike 1", 2, 1], ["Jar 6", "Skien", 0, 2], ["Ringerike 1", "Tønsberg 2", 1, 2], ["Jutul 1", "Frisk Asker 3", 2, 2], ["Jar 6", "Ringerike 1", 0, 3], ["Skien", "Jutul 1", 1, 3], ["Tønsberg 2", "Frisk Asker 3", 2, 3], ["Jar 6", "Jutul 1", 0, 4], ["Frisk Asker 3", "Ringerike 1", 1, 4], ["Tønsberg 2", "Skien", 2, 4], ["Jar 6", "Frisk Asker 3", 0, 5], ["Jutul 1", "Tønsberg 2", 1, 5], ["Ringerike 1", "Skien", 2, 5]], "b": {}, "tr": "Skien ~111 km", "ts": "10:00"}, {"d": "2027-02-07", "a": "Tonsberghallen", "g": "U10", "h": "Tønsberg", "m": [["Jar 1", "Jar 6", 0, 1], ["Frisk Asker 1", "Jar 3", 1, 1], ["Holmen 1", "Ringerike 2", 2, 1], ["Jar 1", "Jar 3", 0, 2], ["Ringerike 2", "Jar 6", 1, 2], ["Holmen 1", "Frisk Asker 1", 2, 2], ["Jar 1", "Ringerike 2", 0, 3], ["Jar 3", "Holmen 1", 1, 3], ["Jar 6", "Frisk Asker 1", 2, 3], ["Jar 1", "Holmen 1", 0, 4], ["Frisk Asker 1", "Ringerike 2", 1, 4], ["Jar 6", "Jar 3", 2, 4], ["Jar 1", "Frisk Asker 1", 0, 5], ["Holmen 1", "Jar 6", 1, 5], ["Ringerike 2", "Jar 3", 2, 5]], "b": {}, "tr": "Ringerike 2 ~131 km", "ts": "10:00"}, {"d": "2027-02-07", "a": "Jarhallen", "g": "U8", "h": "Jar", "m": [["Jar 2", "Ringerike 1", 0, 1], ["Jar 3", "Jutul 3", 1, 1], ["Frisk Asker 3", "Sandefjord", 2, 1], ["Holmen 3", "Kongsberg", 3, 1], ["Jar 2", "Jutul 3", 0, 2], ["Sandefjord", "Ringerike 1", 1, 2], ["Kongsberg", "Jar 3", 2, 2], ["Holmen 3", "Frisk Asker 3", 3, 2], ["Jar 2", "Sandefjord", 0, 3], ["Jutul 3", "Kongsberg", 1, 3], ["Ringerike 1", "Holmen 3", 2, 3], ["Jar 3", "Frisk Asker 3", 3, 3], ["Jar 2", "Kongsberg", 0, 4], ["Holmen 3", "Sandefjord", 1, 4], ["Frisk Asker 3", "Jutul 3", 2, 4], ["Jar 3", "Ringerike 1", 3, 4], ["Jar 2", "Holmen 3", 0, 5], ["Kongsberg", "Frisk Asker 3", 1, 5], ["Sandefjord", "Jar 3", 2, 5], ["Jutul 3", "Ringerike 1", 3, 5], ["Jar 2", "Frisk Asker 3", 0, 6], ["Jar 3", "Holmen 3", 1, 6], ["Ringerike 1", "Kongsberg", 2, 6], ["Jutul 3", "Sandefjord", 3, 6], ["Jar 2", "Jar 3", 0, 7], ["Frisk Asker 3", "Ringerike 1", 1, 7], ["Holmen 3", "Jutul 3", 2, 7], ["Kongsberg", "Sandefjord", 3, 7]], "b": {}, "tr": "Sandefjord ~114 km", "ts": "10:00"}, {"d": "2027-02-13", "a": "Jarhallen", "g": "U9", "h": "Jar", "m": [["Jar 1", "Frisk Asker 5", 0, 1], ["Jar 3", "Jutul 2", 1, 1], ["Jar 4", "Holmen 3", 2, 1], ["Frisk Asker 1", "Ringerike 3", 3, 1], ["Jar 1", "Jutul 2", 0, 2], ["Holmen 3", "Frisk Asker 5", 1, 2], ["Ringerike 3", "Jar 3", 2, 2], ["Frisk Asker 1", "Jar 4", 3, 2], ["Jar 1", "Holmen 3", 0, 3], ["Jutul 2", "Ringerike 3", 1, 3], ["Frisk Asker 5", "Frisk Asker 1", 2, 3], ["Jar 3", "Jar 4", 3, 3], ["Jar 1", "Ringerike 3", 0, 4], ["Frisk Asker 1", "Holmen 3", 1, 4], ["Jar 4", "Jutul 2", 2, 4], ["Jar 3", "Frisk Asker 5", 3, 4], ["Jar 1", "Frisk Asker 1", 0, 5], ["Ringerike 3", "Jar 4", 1, 5], ["Holmen 3", "Jar 3", 2, 5], ["Jutul 2", "Frisk Asker 5", 3, 5], ["Jar 1", "Jar 4", 0, 6], ["Jar 3", "Frisk Asker 1", 1, 6], ["Frisk Asker 5", "Ringerike 3", 2, 6], ["Jutul 2", "Holmen 3", 3, 6], ["Jar 1", "Jar 3", 0, 7], ["Jar 4", "Frisk Asker 5", 1, 7], ["Frisk Asker 1", "Jutul 2", 2, 7], ["Ringerike 3", "Holmen 3", 3, 7]], "b": {}, "tr": "Ringerike 3 ~45 km", "ts": "10:00"}, {"d": "2027-02-14", "a": "Baerum ishall", "g": "U10", "h": "Jutul", "m": [["Jar 2", "Jar 5", 0, 1], ["Frisk Asker 2", "Frisk Asker 4", 1, 1], ["Jar 4", "Jar 7", 2, 1], ["Jar 2", "Frisk Asker 4", 0, 2], ["Jar 7", "Jar 5", 1, 2], ["Jar 4", "Frisk Asker 2", 2, 2], ["Jar 2", "Jar 7", 0, 3], ["Frisk Asker 4", "Jar 4", 1, 3], ["Jar 5", "Frisk Asker 2", 2, 3], ["Jar 2", "Jar 4", 0, 4], ["Frisk Asker 2", "Jar 7", 1, 4], ["Jar 5", "Frisk Asker 4", 2, 4], ["Jar 2", "Frisk Asker 2", 0, 5], ["Jar 4", "Jar 5", 1, 5], ["Jar 7", "Frisk Asker 4", 2, 5]], "b": {}, "tr": "Frisk Asker 2 ~12 km", "ts": "10:00"}, {"d": "2027-02-14", "a": "Jarhallen", "g": "U7", "h": "Jar", "m": [["Jar 1", "Frisk Asker 1", 0, 1], ["Jar 3", "Tønsberg", 1, 1], ["Frisk Asker 2", "Jutul 2", 2, 1], ["Holmen 2", "Kongsberg", 3, 1], ["Jar 1", "Tønsberg", 0, 2], ["Jutul 2", "Frisk Asker 1", 1, 2], ["Kongsberg", "Jar 3", 2, 2], ["Holmen 2", "Frisk Asker 2", 3, 2], ["Jar 1", "Jutul 2", 0, 3], ["Tønsberg", "Kongsberg", 1, 3], ["Frisk Asker 1", "Holmen 2", 2, 3], ["Jar 3", "Frisk Asker 2", 3, 3], ["Jar 1", "Kongsberg", 0, 4], ["Holmen 2", "Jutul 2", 1, 4], ["Frisk Asker 2", "Tønsberg", 2, 4], ["Jar 3", "Frisk Asker 1", 3, 4], ["Jar 1", "Holmen 2", 0, 5], ["Kongsberg", "Frisk Asker 2", 1, 5], ["Jutul 2", "Jar 3", 2, 5], ["Tønsberg", "Frisk Asker 1", 3, 5], ["Jar 1", "Frisk Asker 2", 0, 6], ["Jar 3", "Holmen 2", 1, 6], ["Frisk Asker 1", "Kongsberg", 2, 6], ["Tønsberg", "Jutul 2", 3, 6], ["Jar 1", "Jar 3", 0, 7], ["Frisk Asker 2", "Frisk Asker 1", 1, 7], ["Holmen 2", "Tønsberg", 2, 7], ["Kongsberg", "Jutul 2", 3, 7]], "b": {}, "tr": "Tønsberg ~92 km", "ts": "10:00"}, {"d": "2027-02-27", "a": "Holmenkollen ishall", "g": "U8", "h": "Holmen", "m": [["Holmen 2", "Frisk Asker 3", 0, 1], ["Jar 1", "Jutul 1", 1, 1], ["Frisk Asker 1", "Tønsberg", 2, 1], ["Ringerike 2", "Skien", 3, 1], ["Holmen 2", "Jutul 1", 0, 2], ["Tønsberg", "Frisk Asker 3", 1, 2], ["Skien", "Jar 1", 2, 2], ["Ringerike 2", "Frisk Asker 1", 3, 2], ["Holmen 2", "Tønsberg", 0, 3], ["Jutul 1", "Skien", 1, 3], ["Frisk Asker 3", "Ringerike 2", 2, 3], ["Jar 1", "Frisk Asker 1", 3, 3], ["Holmen 2", "Skien", 0, 4], ["Ringerike 2", "Tønsberg", 1, 4], ["Frisk Asker 1", "Jutul 1", 2, 4], ["Jar 1", "Frisk Asker 3", 3, 4], ["Holmen 2", "Ringerike 2", 0, 5], ["Skien", "Frisk Asker 1", 1, 5], ["Tønsberg", "Jar 1", 2, 5], ["Jutul 1", "Frisk Asker 3", 3, 5], ["Holmen 2", "Frisk Asker 1", 0, 6], ["Jar 1", "Ringerike 2", 1, 6], ["Frisk Asker 3", "Skien", 2, 6], ["Jutul 1", "Tønsberg", 3, 6], ["Holmen 2", "Jar 1", 0, 7], ["Frisk Asker 1", "Frisk Asker 3", 1, 7], ["Ringerike 2", "Jutul 1", 2, 7], ["Skien", "Tønsberg", 3, 7]], "b": {}, "tr": "Skien ~111 km", "ts": "10:00"}, {"d": "2027-02-27", "a": "Ringerikshallen", "g": "U9", "h": "Ringerike", "m": [["Ringerike 2", "Frisk Asker 4", 0, 1], ["Jar 2", "Holmen 2", 1, 1], ["Frisk Asker 3", "Jar 6", 2, 1], ["Holmen 1", "Jutul 3", 3, 1], ["Ringerike 2", "Holmen 2", 0, 2], ["Jar 6", "Frisk Asker 4", 1, 2], ["Jutul 3", "Jar 2", 2, 2], ["Holmen 1", "Frisk Asker 3", 3, 2], ["Ringerike 2", "Jar 6", 0, 3], ["Holmen 2", "Jutul 3", 1, 3], ["Frisk Asker 4", "Holmen 1", 2, 3], ["Jar 2", "Frisk Asker 3", 3, 3], ["Ringerike 2", "Jutul 3", 0, 4], ["Holmen 1", "Jar 6", 1, 4], ["Frisk Asker 3", "Holmen 2", 2, 4], ["Jar 2", "Frisk Asker 4", 3, 4], ["Ringerike 2", "Holmen 1", 0, 5], ["Jutul 3", "Frisk Asker 3", 1, 5], ["Jar 6", "Jar 2", 2, 5], ["Holmen 2", "Frisk Asker 4", 3, 5], ["Ringerike 2", "Frisk Asker 3", 0, 6], ["Jar 2", "Holmen 1", 1, 6], ["Frisk Asker 4", "Jutul 3", 2, 6], ["Holmen 2", "Jar 6", 3, 6], ["Ringerike 2", "Jar 2", 0, 7], ["Frisk Asker 3", "Frisk Asker 4", 1, 7], ["Holmen 1", "Holmen 2", 2, 7], ["Jutul 3", "Jar 6", 3, 7]], "b": {}, "tr": "Frisk Asker 3 ~50 km", "ts": "10:00"}, {"d": "2027-02-28", "a": "Jarhallen", "g": "JU8", "h": "Jar", "m": [["Jar", "Skien", 0, 1], ["Frisk Asker", "Ringerike", 1, 1], ["Holmen", "Jutul", 2, 1], ["Jar", "Ringerike", 0, 2], ["Jutul", "Skien", 1, 2], ["Holmen", "Frisk Asker", 2, 2], ["Jar", "Jutul", 0, 3], ["Ringerike", "Holmen", 1, 3], ["Skien", "Frisk Asker", 2, 3], ["Jar", "Holmen", 0, 4], ["Frisk Asker", "Jutul", 1, 4], ["Skien", "Ringerike", 2, 4], ["Jar", "Frisk Asker", 0, 5], ["Holmen", "Skien", 1, 5], ["Jutul", "Ringerike", 2, 5]], "b": {}, "tr": "Skien ~122 km", "ts": "10:00"}, {"d": "2027-03-06", "a": "Baerum ishall", "g": "U8", "h": "Jutul", "m": [["Jutul 2", "Ringerike 2", 0, 1], ["Jar 2", "Jar 3", 1, 1], ["Holmen 1", "Jar 4", 2, 1], ["Frisk Asker 2", "Holmen 3", 3, 1], ["Jutul 2", "Jar 3", 0, 2], ["Jar 4", "Ringerike 2", 1, 2], ["Holmen 3", "Jar 2", 2, 2], ["Frisk Asker 2", "Holmen 1", 3, 2], ["Jutul 2", "Jar 4", 0, 3], ["Jar 3", "Holmen 3", 1, 3], ["Ringerike 2", "Frisk Asker 2", 2, 3], ["Jar 2", "Holmen 1", 3, 3], ["Jutul 2", "Holmen 3", 0, 4], ["Frisk Asker 2", "Jar 4", 1, 4], ["Holmen 1", "Jar 3", 2, 4], ["Jar 2", "Ringerike 2", 3, 4], ["Jutul 2", "Frisk Asker 2", 0, 5], ["Holmen 3", "Holmen 1", 1, 5], ["Jar 4", "Jar 2", 2, 5], ["Jar 3", "Ringerike 2", 3, 5], ["Jutul 2", "Holmen 1", 0, 6], ["Jar 2", "Frisk Asker 2", 1, 6], ["Ringerike 2", "Holmen 3", 2, 6], ["Jar 3", "Jar 4", 3, 6], ["Jutul 2", "Jar 2", 0, 7], ["Holmen 1", "Ringerike 2", 1, 7], ["Frisk Asker 2", "Jar 3", 2, 7], ["Holmen 3", "Jar 4", 3, 7]], "b": {}, "tr": "Ringerike 2 ~44 km", "ts": "10:00"}, {"d": "2027-03-07", "a": "Holmenkollen ishall", "g": "U7", "h": "Holmen", "m": [["Holmen 2", "Kongsberg", 0, 1], ["Jar 2", "Sandefjord", 1, 1], ["Frisk Asker 3", "Jutul 1", 2, 1], ["Jar 4", "Tønsberg", 3, 1], ["Holmen 2", "Sandefjord", 0, 2], ["Jutul 1", "Kongsberg", 1, 2], ["Tønsberg", "Jar 2", 2, 2], ["Jar 4", "Frisk Asker 3", 3, 2], ["Holmen 2", "Jutul 1", 0, 3], ["Sandefjord", "Tønsberg", 1, 3], ["Kongsberg", "Jar 4", 2, 3], ["Jar 2", "Frisk Asker 3", 3, 3], ["Holmen 2", "Tønsberg", 0, 4], ["Jar 4", "Jutul 1", 1, 4], ["Frisk Asker 3", "Sandefjord", 2, 4], ["Jar 2", "Kongsberg", 3, 4], ["Holmen 2", "Jar 4", 0, 5], ["Tønsberg", "Frisk Asker 3", 1, 5], ["Jutul 1", "Jar 2", 2, 5], ["Sandefjord", "Kongsberg", 3, 5], ["Holmen 2", "Frisk Asker 3", 0, 6], ["Jar 2", "Jar 4", 1, 6], ["Kongsberg", "Tønsberg", 2, 6], ["Sandefjord", "Jutul 1", 3, 6], ["Holmen 2", "Jar 2", 0, 7], ["Frisk Asker 3", "Kongsberg", 1, 7], ["Jar 4", "Sandefjord", 2, 7], ["Tønsberg", "Jutul 1", 3, 7]], "b": {}, "tr": "Sandefjord ~104 km", "ts": "10:00"}, {"d": "2027-03-13", "a": "Ringerikshallen", "g": "JU8", "h": "Ringerike", "m": [["Ringerike", "Skien", 0, 1], ["Frisk Asker", "Jutul", 1, 1], ["Holmen", "Jar", 2, 1], ["Ringerike", "Jutul", 0, 2], ["Jar", "Skien", 1, 2], ["Holmen", "Frisk Asker", 2, 2], ["Ringerike", "Jar", 0, 3], ["Jutul", "Holmen", 1, 3], ["Skien", "Frisk Asker", 2, 3], ["Ringerike", "Holmen", 0, 4], ["Frisk Asker", "Jar", 1, 4], ["Skien", "Jutul", 2, 4], ["Ringerike", "Frisk Asker", 0, 5], ["Holmen", "Skien", 1, 5], ["Jar", "Jutul", 2, 5]], "b": {}, "tr": "Skien ~147 km", "ts": "10:00"}, {"d": "2027-03-14", "a": "Sandefjord ishall", "g": "U8", "h": "Sandefjord Penguins", "m": [["Jar 1", "Ringerike 1", 0, 1], ["Frisk Asker 2", "Skien", 1, 1], ["Kongsberg", "Jutul 3", 2, 1], ["Holmen 1", "Tønsberg", 3, 1], ["Jar 1", "Skien", 0, 2], ["Jutul 3", "Ringerike 1", 1, 2], ["Tønsberg", "Frisk Asker 2", 2, 2], ["Holmen 1", "Kongsberg", 3, 2], ["Jar 1", "Jutul 3", 0, 3], ["Skien", "Tønsberg", 1, 3], ["Ringerike 1", "Holmen 1", 2, 3], ["Frisk Asker 2", "Kongsberg", 3, 3], ["Jar 1", "Tønsberg", 0, 4], ["Holmen 1", "Jutul 3", 1, 4], ["Kongsberg", "Skien", 2, 4], ["Frisk Asker 2", "Ringerike 1", 3, 4], ["Jar 1", "Holmen 1", 0, 5], ["Tønsberg", "Kongsberg", 1, 5], ["Jutul 3", "Frisk Asker 2", 2, 5], ["Skien", "Ringerike 1", 3, 5], ["Jar 1", "Kongsberg", 0, 6], ["Frisk Asker 2", "Holmen 1", 1, 6], ["Ringerike 1", "Tønsberg", 2, 6], ["Skien", "Jutul 3", 3, 6], ["Jar 1", "Frisk Asker 2", 0, 7], ["Kongsberg", "Ringerike 1", 1, 7], ["Holmen 1", "Skien", 2, 7], ["Tønsberg", "Jutul 3", 3, 7]], "b": {}, "tr": "Ringerike 1 ~150 km", "ts": "10:00"}, {"d": "2027-04-10", "a": "Jarhallen", "g": "U8", "h": "Jar", "m": [["Jar 2", "Jutul 1", 0, 1], ["Jar 4", "Holmen 3", 1, 1], ["Frisk Asker 1", "Holmen 2", 2, 1], ["Jutul 2", "Sandefjord", 3, 1], ["Jar 2", "Holmen 3", 0, 2], ["Holmen 2", "Jutul 1", 1, 2], ["Sandefjord", "Jar 4", 2, 2], ["Jutul 2", "Frisk Asker 1", 3, 2], ["Jar 2", "Holmen 2", 0, 3], ["Holmen 3", "Sandefjord", 1, 3], ["Jutul 1", "Jutul 2", 2, 3], ["Jar 4", "Frisk Asker 1", 3, 3], ["Jar 2", "Sandefjord", 0, 4], ["Jutul 2", "Holmen 2", 1, 4], ["Frisk Asker 1", "Holmen 3", 2, 4], ["Jar 4", "Jutul 1", 3, 4], ["Jar 2", "Jutul 2", 0, 5], ["Sandefjord", "Frisk Asker 1", 1, 5], ["Holmen 2", "Jar 4", 2, 5], ["Holmen 3", "Jutul 1", 3, 5], ["Jar 2", "Frisk Asker 1", 0, 6], ["Jar 4", "Jutul 2", 1, 6], ["Jutul 1", "Sandefjord", 2, 6], ["Holmen 3", "Holmen 2", 3, 6], ["Jar 2", "Jar 4", 0, 7], ["Frisk Asker 1", "Jutul 1", 1, 7], ["Jutul 2", "Holmen 3", 2, 7], ["Sandefjord", "Holmen 2", 3, 7]], "b": {}, "tr": "Sandefjord ~114 km", "ts": "10:00"}, {"d": "2027-04-11", "a": "Holmenkollen ishall", "g": "U7", "h": "Holmen", "m": [["Holmen 1", "Frisk Asker 1", 0, 1], ["Jar 1", "Jar 3", 1, 1], ["Frisk Asker 3", "Jar 4", 2, 1], ["Jutul 2", "Skien", 3, 1], ["Holmen 1", "Jar 3", 0, 2], ["Jar 4", "Frisk Asker 1", 1, 2], ["Skien", "Jar 1", 2, 2], ["Jutul 2", "Frisk Asker 3", 3, 2], ["Holmen 1", "Jar 4", 0, 3], ["Jar 3", "Skien", 1, 3], ["Frisk Asker 1", "Jutul 2", 2, 3], ["Jar 1", "Frisk Asker 3", 3, 3], ["Holmen 1", "Skien", 0, 4], ["Jutul 2", "Jar 4", 1, 4], ["Frisk Asker 3", "Jar 3", 2, 4], ["Jar 1", "Frisk Asker 1", 3, 4], ["Holmen 1", "Jutul 2", 0, 5], ["Skien", "Frisk Asker 3", 1, 5], ["Jar 4", "Jar 1", 2, 5], ["Jar 3", "Frisk Asker 1", 3, 5], ["Holmen 1", "Frisk Asker 3", 0, 6], ["Jar 1", "Jutul 2", 1, 6], ["Frisk Asker 1", "Skien", 2, 6], ["Jar 3", "Jar 4", 3, 6], ["Holmen 1", "Jar 1", 0, 7], ["Frisk Asker 3", "Frisk Asker 1", 1, 7], ["Jutul 2", "Jar 3", 2, 7], ["Skien", "Jar 4", 3, 7]], "b": {}, "tr": "Skien ~111 km", "ts": "10:00"}];
+const TEAM_GAME_COUNTS = {"Frisk Asker 3 (Frisk Asker, U12)": 18, "Tønsberg (Tønsberg, U12)": 18, "Jar 2 (Jar, U12)": 18, "Ringerike 1 (Ringerike, U12)": 18, "Jar 1 (Jar, U8)": 42, "Skien (Skien, U8)": 42, "Frisk Asker 1 (Frisk Asker, U8)": 42, "Sandefjord (Sandefjord, U8)": 42, "Holmen 1 (Holmen, U8)": 42, "Kongsberg (Kongsberg, U8)": 42, "Jutul 1 (Jutul, U8)": 42, "Ringerike 1 (Ringerike, U8)": 42, "Frisk Asker 1 (Frisk Asker, JU10)": 24, "Frisk Asker 2 (Frisk Asker, JU10)": 24, "Ringerike (Ringerike, JU10)": 24, "Jar/Jutul (Jar/Jutul, JU10)": 24, "Skien (Skien, JU10)": 24, "Jar 2 (Jar, U10)": 30, "Tønsberg 2 (Tønsberg, U10)": 30, "Frisk Asker 2 (Frisk Asker, U10)": 30, "Ringerike 2 (Ringerike, U10)": 30, "Holmen 2 (Holmen, U10)": 30, "Jutul 2 (Jutul, U10)": 30, "Ringerike 2 (Ringerike, U12)": 18, "Frisk Asker 2 (Frisk Asker, U12)": 18, "Jutul 2 (Jutul, U12)": 18, "Jar 1 (Jar, U11)": 30, "Tønsberg 1 (Tønsberg, U11)": 30, "Frisk Asker 1 (Frisk Asker, U11)": 30, "Ringerike 1 (Ringerike, U11)": 30, "Jutul 1 (Jutul, U11)": 30, "Holmen 1 (Holmen, U11)": 30, "Jutul 1 (Jutul, U12)": 18, "Jar 3 (Jar, U12)": 18, "Jar 3 (Jar, U9)": 42, "Holmen 3 (Holmen, U9)": 42, "Jar 4 (Jar, U9)": 42, "Frisk Asker 3 (Frisk Asker, U9)": 42, "Frisk Asker 2 (Frisk Asker, U9)": 35, "Ringerike 2 (Ringerike, U9)": 42, "Holmen 2 (Holmen, U9)": 42, "Jutul 2 (Jutul, U9)": 42, "Holmen": 30, "Skien (Skien, JU8)": 30, "Frisk Asker (Frisk Asker, JU8)": 30, "Ringerike (Ringerike, JU8)": 30, "Jar": 30, "Jutul": 30, "Jar 3 (Jar, U10)": 30, "Jar 4 (Jar, U10)": 30, "Frisk Asker 3 (Frisk Asker, U10)": 30, "Skien (Skien, U10)": 30, "Kongsberg (Kongsberg, U10)": 30, "Sandefjord (Sandefjord, U10)": 30, "Ringerike 2 (Ringerike, JU12)": 15, "Frisk Asker (Frisk Asker, JU12)": 18, "Tønsberg (Tønsberg, JU12)": 18, "Jar/Jutul (Jar/Jutul, JU12)": 18, "Frisk Asker 4 (Frisk Asker, U12)": 18, "Jar 4 (Jar, U12)": 18, "Jar 2 (Jar, U8)": 42, "Frisk Asker 3 (Frisk Asker, U8)": 35, "Jar 3 (Jar, U8)": 35, "Tønsberg (Tønsberg, U8)": 42, "Frisk Asker 2 (Frisk Asker, U8)": 42, "Ringerike 2 (Ringerike, U8)": 42, "Holmen 2 (Holmen, U8)": 42, "Jutul 2 (Jutul, U8)": 42, "Jar 7": 30, "Jar 5 (Jar, U10)": 30, "Holmen 1 (Holmen, U10)": 30, "Frisk Asker 4 (Frisk Asker, U10)": 30, "Jar 6 (Jar, U10)": 30, "Jar 2 (Jar, U11)": 30, "Tønsberg 2 (Tønsberg, U11)": 30, "Frisk Asker 2 (Frisk Asker, U11)": 30, "Ringerike 2 (Ringerike, U11)": 30, "Jutul 2 (Jutul, U11)": 30, "Holmen 2 (Holmen, U11)": 30, "Holmen 4": 42, "Kongsberg (Kongsberg, U9)": 42, "Jar 5 (Jar, U9)": 35, "Frisk Asker 5 (Frisk Asker, U9)": 42, "Frisk Asker 4 (Frisk Asker, U9)": 42, "Jar 6 (Jar, U9)": 42, "Jutul 3 (Jutul, U9)": 42, "Ringerike 3": 42, "Jutul 3 (Jutul, U11)": 30, "Jar 3 (Jar, U11)": 30, "Frisk Asker 3 (Frisk Asker, U11)": 30, "Jar 4 (Jar, U11)": 30, "Frisk Asker 5 (Frisk Asker, U12)": 18, "Jar 1 (Jar, U12)": 18, "Jar 1 (Jar, U7)": 42, "Tønsberg (Tønsberg, U7)": 42, "Frisk Asker 1 (Frisk Asker, U7)": 42, "Skien (Skien, U7)": 42, "Holmen 1 (Holmen, U7)": 42, "Sandefjord (Sandefjord, U7)": 42, "Jutul 1 (Jutul, U7)": 42, "Kongsberg (Kongsberg, U7)": 42, "Ringerike 1 (Ringerike, JU12)": 15, "Kongsberg (Kongsberg, JU12)": 18, "Frisk Asker 1 (Frisk Asker, U12)": 18, "Jar 1 (Jar, U9)": 42, "Tønsberg (Tønsberg, U9)": 42, "Jutul 1 (Jutul, U9)": 42, "Jar 1 (Jar, U10)": 30, "Jutul 1 (Jutul, U10)": 30, "Jutul 3 (Jutul, U8)": 42, "Jar 4 (Jar, U8)": 42, "Holmen 3 (Holmen, U8)": 42, "Ringerike 1 (Ringerike, U10)": 30, "Frisk Asker 1 (Frisk Asker, U10)": 30, "Skien (Skien, JU12)": 18, "Tønsberg 1 (Tønsberg, U10)": 30, "Jar 2 (Jar, U9)": 42, "Frisk Asker 1 (Frisk Asker, U9)": 42, "Ringerike 1 (Ringerike, U9)": 42, "Holmen 2 (Holmen, U7)": 42, "Jar 2 (Jar, U7)": 35, "Jar 4 (Jar, U7)": 42, "Frisk Asker 2 (Frisk Asker, U7)": 35, "Frisk Asker 3 (Frisk Asker, U7)": 42, "Jutul 2 (Jutul, U7)": 42, "Jar 3 (Jar, U7)": 42, "Holmen 1 (Holmen, U9)": 42};
+const TEAM_TRAVEL = {"Frisk Asker 3": 1005, "Jar 2": 615, "Ringerike 1": 1785, "Tønsberg": 2487, "Jar 1": 898, "Frisk Asker 1": 1390, "Holmen 1": 1028, "Jutul 1": 906, "Kongsberg": 1993, "Sandefjord": 1596, "Skien": 3593, "Ringerike": 714, "Jar/Jutul": 0, "Frisk Asker 2": 1110, "Holmen 2": 844, "Jutul 2": 645, "Ringerike 2": 2218, "Tønsberg 2": 1069, "Tønsberg 1": 1048, "Jar 3": 1067, "Jar 4": 951, "Holmen 3": 166, "Holmen": 194, "Frisk Asker": 568, "Jar": 182, "Jutul": 181, "Frisk Asker 4": 359, "Jar 5": 177, "Jar 6": 396, "Jar 7": 128, "Holmen 4": 83, "Jutul 3": 541, "Ringerike 3": 314, "Frisk Asker 5": 346};
+const HEATMAP = {"2026-W36": {"Frisk Asker": ["U12"], "Jar": ["U8"]}, "2026-W37": {"Skien": ["JU10"], "Jar": ["U10", "U12", "U11", "U9"], "Jutul": ["U12"]}, "2026-W38": {"Holmen": ["JU8"], "Tønsberg": ["U10"], "Kongsberg": ["JU12"], "Frisk Asker": ["U12"], "Jar": ["U8"]}, "2026-W39": {"Jutul": ["U10", "U11"], "Jar": ["U11", "U7"], "Holmen": ["U9"], "Tønsberg": ["U12"]}, "2026-W40": {"Jar": ["JU12"], "Frisk Asker": ["U12"], "Ringerike": ["U9"], "Holmen": ["U10", "U11"], "Jutul": ["U8"]}, "2026-W41": {"Ringerike": ["JU10", "U10"], "Frisk Asker": ["U12", "JU12"], "Sandefjord Penguins": ["U10"], "Jutul": ["U9"]}, "2026-W42": {"Tønsberg": ["U11"], "Holmen": ["U7", "U10", "U8", "U8"], "Skien": ["JU12", "U10"], "Jar": ["U7"]}, "2026-W43": {"Ringerike": ["U11"], "Jar": ["U12", "JU12", "U10"], "Kongsberg": ["U9", "U10"], "Jutul": ["JU8"], "Holmen": ["U9"]}, "2026-W44": {"Ringerike": ["JU12"], "Jar": ["U10", "U12", "U9", "U11"], "Tønsberg": ["U9"], "Frisk Asker": ["U12"]}, "2026-W45": {"Tønsberg": ["JU12"], "Jar": ["U12", "U10", "U11", "U9"], "Sandefjord Penguins": ["U7"]}, "2026-W46": {"Jar": ["JU10", "U12"], "Ringerike": ["JU12"], "Frisk Asker": ["U12"], "Jutul": ["U11"], "Kongsberg": ["U8"]}, "2026-W47": {"Ringerike": ["JU12"], "Jar": ["U10", "U9", "U11"], "Frisk Asker": ["U12"], "Skien": ["U7"]}, "2026-W48": {"Skien": ["JU10"], "Jar": ["U10", "U11", "U12", "U9"], "Sandefjord Penguins": ["U8"]}, "2026-W49": {"Frisk Asker": ["U12", "U12"], "Jar": ["JU8"], "Jutul": ["U11"], "Holmen": ["U9"]}, "2026-W50": {"Jar": ["U10", "U11", "U12"], "Holmen": ["U11"], "Tønsberg": ["U8"], "Kongsberg": ["U7"]}, "2027-W01": {"Jutul": ["U11", "U7"], "Holmen": ["U11"], "Jar": ["U9"]}, "2027-W02": {"Skien": ["JU8", "U8"], "Jar": ["U10", "U10"], "Jutul": ["U12"], "Ringerike": ["U12"]}, "2027-W03": {"Ringerike": ["JU10"], "Jar": ["U12", "U10"], "Holmen": ["U9"], "Tønsberg": ["U7"]}, "2027-W04": {"Kongsberg": ["JU12"], "Ringerike": ["U10"], "Jutul": ["U9"]}, "2027-W05": {"Jar": ["JU10", "U8"], "Holmen": ["U10"], "Tønsberg": ["U10"]}, "2027-W06": {"Jar": ["U9", "U7"], "Jutul": ["U10"]}, "2027-W08": {"Holmen": ["U8"], "Ringerike": ["U9"], "Jar": ["JU8"]}, "2027-W09": {"Jutul": ["U8"], "Holmen": ["U7"]}, "2027-W10": {"Ringerike": ["JU8"], "Sandefjord Penguins": ["U8"]}, "2027-W14": {"Jar": ["U8"], "Holmen": ["U7"]}};
+const HEATMAP_WEEKS = ["2026-W36", "2026-W37", "2026-W38", "2026-W39", "2026-W40", "2026-W41", "2026-W42", "2026-W43", "2026-W44", "2026-W45", "2026-W46", "2026-W47", "2026-W48", "2026-W49", "2026-W50", "2027-W01", "2027-W02", "2027-W03", "2027-W04", "2027-W05", "2027-W06", "2027-W08", "2027-W09", "2027-W10", "2027-W14"];
+const HEATMAP_CLUBS = ["Frisk Asker", "Holmen", "Jar", "Jutul", "Kongsberg", "Ringerike", "Sandefjord Penguins", "Skien", "Tønsberg"];
+const HEATMAP_CLUB_COLORS_BY_THEME = {"dark": {"Frisk Asker": {"bg": "#1a3a5c", "text": "#64b5f6"}, "Holmen": {"bg": "#1b3a1b", "text": "#81c784"}, "Jar": {"bg": "#3a2e0a", "text": "#ffd54f"}, "Jutul": {"bg": "#2a1a3a", "text": "#ba68c8"}, "Kongsberg": {"bg": "#3a1a1a", "text": "#e57373"}, "Ringerike": {"bg": "#0a2a3a", "text": "#4dd0e1"}, "Sandefjord Penguins": {"bg": "#3a3a0a", "text": "#fff176"}, "Skien": {"bg": "#1a3a2a", "text": "#aed581"}, "Tønsberg": {"bg": "#3a1a0a", "text": "#ff8a65"}}, "light": {"Frisk Asker": {"bg": "#dbeafe", "text": "#1d4ed8"}, "Holmen": {"bg": "#dcfce7", "text": "#15803d"}, "Jar": {"bg": "#fef3c7", "text": "#b45309"}, "Jutul": {"bg": "#ede9fe", "text": "#6d28d9"}, "Kongsberg": {"bg": "#ffe4e6", "text": "#be123c"}, "Ringerike": {"bg": "#cffafe", "text": "#0e7490"}, "Sandefjord Penguins": {"bg": "#fef9c3", "text": "#a16207"}, "Skien": {"bg": "#ecfccb", "text": "#4d7c0f"}, "Tønsberg": {"bg": "#ffedd5", "text": "#c2410c"}}};
+const CLUB_STATS = {"Jar": {"hosted": 45, "away": 66, "teams": 8, "travel_km": 4414, "team_list": ["Jar 2", "Jar 1", "Jar 3", "Jar 4", "Jar", "Jar 5", "Jar 6", "Jar 7"]}, "Sandefjord Penguins": {"hosted": 4, "away": 0, "teams": 0, "travel_km": 0, "team_list": []}, "Kongsberg": {"hosted": 6, "away": 27, "teams": 1, "travel_km": 1993, "team_list": ["Kongsberg"]}, "Holmen": {"hosted": 17, "away": 58, "teams": 5, "travel_km": 2315, "team_list": ["Holmen 1", "Holmen 2", "Holmen 3", "Holmen", "Holmen 4"]}, "Skien": {"hosted": 7, "away": 32, "teams": 1, "travel_km": 3593, "team_list": ["Skien"]}, "Ringerike": {"hosted": 12, "away": 76, "teams": 4, "travel_km": 5031, "team_list": ["Ringerike 1", "Ringerike", "Ringerike 2", "Ringerike 3"]}, "Tønsberg": {"hosted": 8, "away": 52, "teams": 3, "travel_km": 4604, "team_list": ["Tønsberg", "Tønsberg 2", "Tønsberg 1"]}, "Jar/Jutul": {"hosted": 0, "away": 12, "teams": 1, "travel_km": 0, "team_list": ["Jar/Jutul"]}, "Jutul": {"hosted": 14, "away": 76, "teams": 4, "travel_km": 2273, "team_list": ["Jutul 1", "Jutul 2", "Jutul", "Jutul 3"]}, "Sandefjord": {"hosted": 0, "away": 18, "teams": 1, "travel_km": 1596, "team_list": ["Sandefjord"]}, "Frisk Asker": {"hosted": 10, "away": 108, "teams": 6, "travel_km": 4778, "team_list": ["Frisk Asker 3", "Frisk Asker 1", "Frisk Asker 2", "Frisk Asker", "Frisk Asker 4", "Frisk Asker 5"]}};
+const ALL_CLUBS = ["Frisk Asker", "Holmen", "Jar", "Jar/Jutul", "Jutul", "Kongsberg", "Ringerike", "Sandefjord", "Sandefjord Penguins", "Skien", "Tønsberg"];
+
+// Shared helpers
+function getClubFromTeam(team) {
+  const clubs = ["Jar","Frisk Asker","Sandefjord","Jutul","Holmen","Skien","Ringerike","Kongsberg","Tonsberg","Tønsberg"];
+  for (const c of clubs) {
+    if (team === c || team.startsWith(c + ' ')) return c;
+  }
+  return team.split(' ')[0];
+}
+
+// Render static club summary table
+(function() {
+  const body = document.getElementById('clubSummaryBody');
+  if (!body) return;
+  const clubs = (ALL_CLUBS || []).slice().sort((a, b) => a.localeCompare(b));
+  if (!clubs.length) return;
+  body.innerHTML = '';
+  clubs.forEach((club) => {
+    const stats = CLUB_STATS[club] || {};
+    const tr = document.createElement('tr');
+
+    const tdClub = document.createElement('td');
+    tdClub.textContent = club;
+    tdClub.className = 'club-summary-name';
+    tr.appendChild(tdClub);
+
+    ['teams', 'hosted', 'away', 'travel_km'].forEach((key) => {
+      const td = document.createElement('td');
+      const value = stats[key] || 0;
+      td.textContent = key === 'travel_km' ? value.toLocaleString() : value;
+      td.className = 'numeric-cell';
+      tr.appendChild(td);
+    });
+
+    body.appendChild(tr);
+  });
+})();
+
+// Render team game counts table
+(function() {
+  const body = document.getElementById('teamGameCountsBody');
+  if (!body) return;
+  const sorted = Object.entries(TEAM_GAME_COUNTS).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  sorted.forEach(([label, count]) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--border-dim)';
+    const tdLabel = document.createElement('td');
+    tdLabel.style.padding = '6px 12px';
+    tdLabel.textContent = label;
+    const tdCount = document.createElement('td');
+    tdCount.style.padding = '6px 12px';
+    tdCount.style.textAlign = 'right';
+    tdCount.textContent = count;
+    const tdLast = document.createElement('td');
+    tdLast.style.padding = '6px 12px';
+    tdLast.style.color = 'var(--text-muted)';
+    let lastDate = '';
+    for (const t of TOURNAMENTS) {
+      if (t.m.some(([h, a]) => h === label || a === label)) {
+        lastDate = t.d;
+      }
+    }
+    tdLast.textContent = lastDate || '-';
+    tr.appendChild(tdLabel);
+    tr.appendChild(tdCount);
+    tr.appendChild(tdLast);
+    body.appendChild(tr);
+  });
+})();
+
+// Render team travel distances table
+(function() {
+  const body = document.getElementById('teamTravelBody');
+  if (!body) return;
+  const sorted = Object.entries(TEAM_TRAVEL).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const maxKm = sorted.length > 0 ? sorted[0][1] : 0;
+  let awayCounts = {};
+  TOURNAMENTS.forEach(t => {
+    if (t.cx) return;
+    const hostClub = t.h;
+    if (!hostClub) return;
+    t.m.forEach(([h, a]) => {
+      const hClub = getClubFromTeam(h);
+      if (hClub !== hostClub) awayCounts[h] = (awayCounts[h] || 0) + 1;
+      const aClub = getClubFromTeam(a);
+      if (aClub !== hostClub) awayCounts[a] = (awayCounts[a] || 0) + 1;
+    });
+  });
+  sorted.forEach(([label, km]) => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--border-dim)';
+    const isMost = km === maxKm && km > 0;
+    if (isMost) {
+      tr.style.background = 'rgba(251,191,36,.08)';
+    }
+    const tdLabel = document.createElement('td');
+    tdLabel.style.padding = '6px 12px';
+    if (isMost) {
+      tdLabel.innerHTML = '<span class="travel-icon"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 13.7C17.3 9 20 5 20 2a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"/></svg></span> <strong>' + label + '</strong> <span style="font-size:10px;color:var(--amber);font-weight:600">(størst anslått reise)</span>';
+    } else {
+      tdLabel.textContent = label;
+    }
+    const tdKm = document.createElement('td');
+    tdKm.style.padding = '6px 12px';
+    tdKm.style.textAlign = 'right';
+    tdKm.textContent = km.toLocaleString();
+    if (isMost) {
+      tdKm.style.color = 'var(--amber)';
+      tdKm.style.fontWeight = '600';
+    }
+    const tdAway = document.createElement('td');
+    tdAway.style.padding = '6px 12px';
+    tdAway.style.textAlign = 'right';
+    tdAway.textContent = awayCounts[label] || 0;
+    if (isMost) tdAway.style.color = 'var(--amber)';
+    tr.appendChild(tdLabel);
+    tr.appendChild(tdKm);
+    tr.appendChild(tdAway);
+    body.appendChild(tr);
+  });
+})();
+
+// Render calendar heatmap
+(function() {
+  const head = document.getElementById('heatmapHead');
+  const body = document.getElementById('heatmapBody');
+  const legend = document.getElementById('heatmapLegend');
+  if (!head || !body || !legend) return;
+  if (!HEATMAP_WEEKS.length || !HEATMAP_CLUBS.length) {
+    body.innerHTML = '<tr><td colspan="' + (HEATMAP_WEEKS.length + 1) + '" style="padding:16px;text-align:center;color:var(--text-muted)">Ingen turneringsdata for varmekart</td></tr>';
+    return;
+  }
+
+  const currentTheme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+  const HEATMAP_CLUB_COLORS = HEATMAP_CLUB_COLORS_BY_THEME[currentTheme] || HEATMAP_CLUB_COLORS_BY_THEME.dark || {};
+  const DEFAULT_CLUB_COLOR = currentTheme === 'light'
+    ? {bg: '#e4e4e7', text: '#52525b'}
+    : {bg: '#2a2a2a', text: '#999'};
+
+  // Build legend
+  HEATMAP_CLUBS.forEach(club => {
+    const c = HEATMAP_CLUB_COLORS[club] || DEFAULT_CLUB_COLOR;
+    const span = document.createElement('span');
+    span.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;color:' + c.text;
+    span.innerHTML = '<span style="display:inline-block;width:12px;height:12px;border-radius:2px;background:' + c.bg + ';border:1px solid ' + c.text + '"></span>' + club;
+    legend.appendChild(span);
+  });
+
+  // Build header row: week labels with month grouping
+  let headerRow = '<tr><th style="position:sticky;left:0;z-index:1;background:var(--bg);padding:6px 10px;text-align:left;color:var(--text-muted);font-weight:600;min-width:110px">Klubb</th>';
+  const MONTHS_NO = ["","jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
+  let lastMonth = '';
+  HEATMAP_WEEKS.forEach(wk => {
+    const parts = wk.split('-W');
+    const year = parseInt(parts[0]);
+    const week = parseInt(parts[1]);
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const firstThursday = new Date(Date.UTC(year, 0, 4 - jan4Day + 4));
+    const monday = new Date(firstThursday.getTime());
+    monday.setUTCDate(monday.getUTCDate() + (week - 1) * 7);
+    const month = MONTHS_NO[monday.getUTCMonth() + 1];
+    const monthLabel = month !== lastMonth ? month : '';
+    if (month !== lastMonth && month) lastMonth = month;
+    headerRow += '<th style="padding:4px 2px;text-align:center;font-weight:600;font-size:10px;color:var(--text-muted)">' + monthLabel + '<br><span style="font-size:9px;color:var(--text-muted)">' + wk.slice(-2) + '</span></th>';
+  });
+  headerRow += '</tr>';
+  head.innerHTML = headerRow;
+
+  // Build body: one row per club
+  let bodyHtml = '';
+  HEATMAP_CLUBS.forEach(club => {
+    const c = HEATMAP_CLUB_COLORS[club] || DEFAULT_CLUB_COLOR;
+    bodyHtml += '<tr style="border-bottom:1px solid var(--border-dim)">';
+    bodyHtml += '<td style="position:sticky;left:0;z-index:0;background:var(--bg);padding:6px 10px;font-size:12px;color:' + c.text + ';font-weight:600">' + club + '</td>';
+    HEATMAP_WEEKS.forEach(wk => {
+      const weekData = HEATMAP[wk] || {};
+      const clubData = weekData[club];
+      if (clubData && clubData.length) {
+        const label = clubData.join(',');
+        bodyHtml += '<td style="background:' + c.bg + ';border:1px solid ' + c.text + ';padding:3px 4px;text-align:center;font-size:10px;color:' + c.text + ';font-weight:600;white-space:nowrap">' + label + '</td>';
+      } else {
+        bodyHtml += '<td style="background:var(--heatmap-empty-bg);border:1px solid var(--border-dim);padding:3px 4px;text-align:center"></td>';
+      }
+    });
+    bodyHtml += '</tr>';
+  });
+  body.innerHTML = bodyHtml;
+})();
+
+(function() {
+  var THEME_KEY = 'rvv-theme';
+  var toggle = document.getElementById('themeToggle');
+  if (toggle) {
+    toggle.addEventListener('click', function() {
+      var current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+      var next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem(THEME_KEY, next);
+    });
+  }
+})();
+
+// Schedule-only helpers and rendering
+const MONTHS = ["jan","feb","mar","apr","mai","jun","jul","aug","sep","okt","nov","des"];
+const WEEKDAYS = ["son","man","tir","ons","tor","fre","lor"];
+
+function parseDate(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function formatDateInfo(dateStr) {
+  const d = parseDate(dateStr);
+  return { day: d.getDate(), month: MONTHS[d.getMonth()], weekday: WEEKDAYS[d.getDay()] };
+}
+
+function slotLabel(n) {
+  const labels = ["Bane 1", "Bane 2", "Bane 3", "Bane 4"];
+  return n >= 0 && n < labels.length ? labels[n] : 'Bane ' + (n + 1);
+}
+
+// Populate filter selects
+(function() {
+  const arenaSel = document.getElementById('filterArena');
+  const clubSel = document.getElementById('filterClub');
+  if (!arenaSel || !clubSel) return;
+
+  const arenas = [...new Set(TOURNAMENTS.map(t => t.a))].sort();
+  const clubs = new Set();
+  TOURNAMENTS.forEach(t => {
+    clubs.add(t.h);
+    t.m.forEach(([h, a]) => { clubs.add(getClubFromTeam(h)); clubs.add(getClubFromTeam(a)); });
+  });
+  arenas.forEach(a => { const o = document.createElement('option'); o.value = a; o.textContent = a; arenaSel.appendChild(o); });
+  [...clubs].sort().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; clubSel.appendChild(o); });
+})();
+
+function buildMatchHTML(matches, byes) {
+  const rounds = {};
+
+  matches.forEach(([home, away, slot, roundNumber]) => {
+    const roundKey = Number.isFinite(roundNumber) && roundNumber > 0 ? String(roundNumber) : '0';
+    if (!rounds[roundKey]) rounds[roundKey] = { matches: [], byes: [] };
+    rounds[roundKey].matches.push([home, away, slot]);
+  });
+
+  if (byes && Object.keys(byes).length) {
+    for (const [roundNum, labels] of Object.entries(byes)) {
+      const roundKey = String(parseInt(roundNum, 10) || 0);
+      if (!rounds[roundKey]) rounds[roundKey] = { matches: [], byes: [] };
+      for (const label of labels) {
+        rounds[roundKey].byes.push(label);
+      }
+    }
+  }
+
+  const roundKeys = Object.keys(rounds).sort((a, b) => Number(a) - Number(b));
+  if (!roundKeys.length) {
+    return '<div class="match-grid"><div class="match-row"><span class="bye-label">Ingen kamper</span></div></div>';
+  }
+
+  return roundKeys.map((roundKey) => {
+    const round = rounds[roundKey];
+    const roundLabel = roundKey === '0' ? 'Uten runde' : 'Runde ' + roundKey;
+    let html = '<section class="round-group">' +
+      '<div class="round-group-header"><span>' + roundLabel + '</span><span class="round-group-count">' + round.matches.length + ' kamper</span></div>' +
+      '<div class="match-grid">' +
+      round.matches.map(([home, away, slot]) =>
+        '<div class="match-row"><span>' + home + '</span><span class="vs">vs</span><span>' + away +
+        '</span><span class="slot">' + slotLabel(slot) + '</span></div>'
+      ).join('') +
+      '</div>';
+
+    if (round.byes.length) {
+      html += '<div class="round-byes">' + round.byes.map((label) =>
+        '<div class="match-row bye-row"><span class="bye-label">Pause</span><span class="vs">&middot;</span><span>' + label + '</span><span class="slot"></span></div>'
+      ).join('') + '</div>';
+    }
+
+    html += '</section>';
+    return html;
+  }).join('');
+}
+
+function render() {
+  var ageSel = document.getElementById('filterAge');
+  var arenaSel = document.getElementById('filterArena');
+  var clubSel = document.getElementById('filterClub');
+  var searchSel = document.getElementById('filterSearch');
+  var timeline = document.getElementById('timeline');
+  var totalTournaments = document.getElementById('totalTournaments');
+  var visibleCount = document.getElementById('visibleCount');
+  var totalCount = document.getElementById('totalCount');
+  var monthRange = document.getElementById('monthRange');
+
+  var age = ageSel ? ageSel.value : '';
+  var arena = arenaSel ? arenaSel.value : '';
+  var club = clubSel ? clubSel.value : '';
+  var search = searchSel ? searchSel.value.toLowerCase().trim() : '';
+
+  var html = '';
+  var visible = 0;
+
+  for (var i = 0; i < TOURNAMENTS.length; i++) {
+    var t = TOURNAMENTS[i];
+    if (age && t.g !== age) continue;
+    if (arena && t.a !== arena) continue;
+    if (club && t.h !== club) {
+      var hasClub = t.m.some(function(m) { return getClubFromTeam(m[0]) === club || getClubFromTeam(m[1]) === club; });
+      if (!hasClub) continue;
+    }
+    if (search) {
+      var haystack = (t.a + ' ' + t.h + ' ' + t.g + ' ' + t.m.map(function(m) { return m[0] + ' ' + m[1]; }).join(' ')).toLowerCase();
+      if (haystack.indexOf(search) === -1) continue;
+    }
+
+    visible++;
+    if (!timeline) continue;
+
+    var di = formatDateInfo(t.d);
+    var timeRangeHtml = '';
+    if (t.ts) {
+      var timeLabel = t.te ? (t.ts + '–' + t.te) : t.ts;
+      timeRangeHtml = '<div class="time-range">' + timeLabel + '</div>';
+    }
+    var cancelledClass = t.cx ? ' cancelled' : '';
+    var cancelledBadge = t.cx
+      ? '<div class="cancelled-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>AVLYST' + (t.cr ? ': ' + t.cr : '') + '</div>'
+      : '';
+    html += '<div class="tournament-card' + cancelledClass + '" onclick="this.classList.toggle(\'expanded\')">' +
+      cancelledBadge +
+      '<div class="tournament-card-header">' +
+        '<div class="tournament-date"><div class="day">' + di.day + '</div><div class="month">' + di.month + '</div><div class="weekday">' + di.weekday + '</div>' + timeRangeHtml + '</div>' +
+        '<div class="tournament-info"><h3>' + t.h + ' <span>&middot;</span> ' + t.a + '</h3>' +
+          '<div class="tournament-meta">' +
+            '<span class="tag tag--age"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>' + t.g + '</span>' +
+            '<span class="tag tag--arena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>' + t.a + '</span>' +
+            '<span class="tag tag--teams"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' + t.m.length + ' kamper</span>' +
+            (t.tr ? '<span class="tag tag--travel">' + t.tr + '</span>' : '') +
+          '</div></div>' +
+        '<div class="tournament-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>' +
+      '</div>' +
+      '<div class="matches"><div class="matches-inner">' +
+        '<div class="matches-header"><h4>Kamper per runde</h4><span class="count">' + t.m.length + ' stk</span></div>' +
+        buildMatchHTML(t.m, t.b) +
+      '</div></div></div>';
+  }
+
+  if (totalTournaments) totalTournaments.textContent = TOURNAMENTS.length;
+  if (visibleCount) visibleCount.textContent = visible;
+  if (totalCount) totalCount.textContent = TOURNAMENTS.length;
+
+  if (TOURNAMENTS.length && monthRange) {
+    var first = parseDate(TOURNAMENTS[0].d);
+    var last = parseDate(TOURNAMENTS[TOURNAMENTS.length - 1].d);
+    monthRange.textContent = MONTHS[first.getMonth()] + ' ' + first.getFullYear() + ' \u2013 ' + MONTHS[last.getMonth()] + ' ' + last.getFullYear();
+  }
+
+  if (!timeline) return;
+  timeline.innerHTML = html ||
+    '<div class="no-results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><p>Ingen turneringer matcher filteret</p></div>';
+}
+
+var ageFilter = document.getElementById('filterAge');
+var arenaFilter = document.getElementById('filterArena');
+var clubFilter = document.getElementById('filterClub');
+var searchFilter = document.getElementById('filterSearch');
+var clearFilter = document.getElementById('filterClear');
+var clubDashboard = document.getElementById('clubDashboard');
+
+if (ageFilter) ageFilter.addEventListener('change', render);
+if (arenaFilter) arenaFilter.addEventListener('change', render);
+if (clubFilter) clubFilter.addEventListener('change', function() {
+  var club = this.value;
+  var dashboard = clubDashboard;
+  if (club && dashboard && CLUB_STATS[club]) {
+    var s = CLUB_STATS[club];
+    document.getElementById('clubDashName').textContent = club;
+    document.getElementById('clubDashHosted').textContent = s.hosted;
+    document.getElementById('clubDashAway').textContent = s.away;
+    document.getElementById('clubDashTravel').textContent = (s.travel_km || 0).toLocaleString();
+    document.getElementById('clubDashTeams').textContent = s.teams;
+    dashboard.style.display = 'block';
+  } else if (dashboard) {
+    dashboard.style.display = 'none';
+  }
+  render();
+});
+if (searchFilter) searchFilter.addEventListener('input', render);
+if (clearFilter) clearFilter.addEventListener('click', function() {
+  if (ageFilter) ageFilter.value = '';
+  if (arenaFilter) arenaFilter.value = '';
+  if (clubFilter) clubFilter.value = '';
+  if (searchFilter) searchFilter.value = '';
+  if (clubDashboard) clubDashboard.style.display = 'none';
+  render();
+});
+
+
+render();
+
+</script>
+</body>
+</html>
