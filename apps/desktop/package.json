@@ -34,7 +34,7 @@
     ],
     "publish": {
       "provider": "github",
-      "owner": "niclasl",
+      "owner": "niclas-lindgren",
       "repo": "hockey",
       "releaseType": "release"
     },

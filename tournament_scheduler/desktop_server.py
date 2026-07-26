@@ -1269,6 +1269,21 @@ class Handler(BaseHTTPRequestHandler):
                 cp["name"] = stage
                 stages.append(cp)
             self._send(200, {"stages": stages, "work_dir": wd})
+        elif path == "/manifest":
+            # The same operator-facing run manifest rvv-miniputt operator run
+            # writes (see docs/run-manifest-schema.md) — lets a future
+            # supervisor UI show the same objective/capability/outcome state
+            # as the CLI and harness agents, without re-deriving it from
+            # stage checkpoints.
+            from tournament_scheduler.pipeline.run_manifest import RunManifest
+
+            wd = _load_json(_settings_path(), {}).get("work_dir", str(_app_dir() / "pipeline-cache"))
+            self._send(200, RunManifest(wd).read())
+        elif path == "/questions":
+            from tournament_scheduler.pipeline.escalation import unanswered_questions
+
+            wd = _load_json(_settings_path(), {}).get("work_dir", str(_app_dir() / "pipeline-cache"))
+            self._send(200, {"questions": unanswered_questions(wd)})
         elif len(parts) == 3 and parts[1] == "checkpoint":
             stage = parts[2]
             if stage in STAGE_CHECKPOINT_FILES:
@@ -1314,13 +1329,6 @@ class Handler(BaseHTTPRequestHandler):
                     if key in SECRET_KEYS or key in LLM_SECRET_KEYS:
                         _set_secret(key, str(value or ""))
                 self._send(200, _redacted_settings())
-            elif path == "/run":
-                with _STATE_LOCK:
-                    if _STATE.running:
-                        self._send(409, {"error": "En kjøring pågår allerede."})
-                        return
-                threading.Thread(target=_run_pipeline, args=(payload,), daemon=True).start()
-                self._send(202, {"started": True})
             elif path == "/open":
                 target = str(payload.get("path") or "")
                 if not target:
@@ -1328,6 +1336,21 @@ class Handler(BaseHTTPRequestHandler):
                     return
                 webbrowser.open(Path(target).expanduser().resolve().as_uri())
                 self._send(200, {"opened": target})
+            elif path == "/questions/answer":
+                from tournament_scheduler.pipeline.escalation import answer_question
+
+                question_id = str(payload.get("id") or "")
+                answer = str(payload.get("answer") or "")
+                if not question_id or not answer:
+                    self._send(400, {"error": "Mangler id eller svar."})
+                    return
+                wd = _load_json(_settings_path(), {}).get("work_dir", str(_app_dir() / "pipeline-cache"))
+                try:
+                    entry = answer_question(wd, question_id, answer, decided_by=payload.get("decided_by"))
+                except ValueError as exc:
+                    self._send(404, {"error": str(exc)})
+                    return
+                self._send(200, entry)
             elif path == "/run/command":
                 self._handle_run_command(payload)
             elif path == "/run/command/result":

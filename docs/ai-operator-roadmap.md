@@ -215,6 +215,25 @@ Make the preferred product model clear while retaining CLI, harness, and develop
 
 ## 7. Reposition the desktop app as an optional supervisor console
 
+**Status: partially implemented — see `docs/desktop-app.md` for the full
+breakdown.** Confirmed and documented that the app can be omitted without
+losing operator capability (the CLI already reaches every capability the
+backend calls). Fixed a dead/broken endpoint (`POST /run` called an
+undefined function, unreachable from the actual UI, now removed) and a real
+release-pipeline bug (`keyring` wasn't installed for the Linux leg of
+`release.yml`, silently degrading credential storage on Linux release
+builds). Added `GET /manifest` and `GET /questions` /
+`POST /questions/answer` so the backend can serve the same run manifest and
+escalation questions the CLI uses. The stage *execution* was already shared
+with the CLI (same stage modules, same checkpoints) — not duplicated.
+**Not resolved:** `_run_smart`'s bounded retry loop still makes its own
+per-stage LLM calls for narration instead of delegating to `operator run`
+(issue #2) and translating its manifest into UI narration — left in place
+deliberately, since replacing it risks removing real end-user-facing
+behavior (live LLM narration) in a session with no way to run the actual
+Electron app to verify the change. See `docs/desktop-app.md` for the
+specific follow-up.
+
 ### Goal
 
 Avoid building a second independent product while preserving a path to a non-technical supervisory interface.
