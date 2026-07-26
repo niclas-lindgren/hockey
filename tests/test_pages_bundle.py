@@ -180,6 +180,57 @@ class TestAssetRewriting:
         assert content == original
 
 
+class TestExcludedFileLinkRewriting:
+    def test_excluded_file_links_are_disabled_and_reported(self, tmp_path):
+        export_dir = _export_dir(tmp_path)
+        review_packets = export_dir / "review_packets"
+        review_packets.mkdir()
+        (review_packets / "club_a.xlsx").write_bytes(b"review data")
+        (export_dir / "season_plan.xlsx").write_bytes(b"not a real workbook")
+        (export_dir / "season_plan.csv").write_text("club,date\n", encoding="utf-8")
+        (export_dir / "season_plan.html").write_text(
+            (
+                '<a href="season_plan.xlsx" class="export-link-btn">Excel</a>'
+                '<a href="review_packets/club_a.xlsx">Review packet</a>'
+                '<a href="calendars.html">Calendar</a>'
+                '<a href="https://example.com/page">External</a>'
+                '<img src="season_plan.csv">'
+            ),
+            encoding="utf-8",
+        )
+
+        result = build_public_bundle(str(export_dir), str(tmp_path / "public"))
+
+        assert result.status == "ok"
+        content = (tmp_path / "public" / "season_plan.html").read_text(encoding="utf-8")
+        assert '<a href="season_plan.xlsx"' not in content
+        assert '<a href="review_packets/club_a.xlsx"' not in content
+        assert '<img src="season_plan.csv"' not in content
+        assert 'data-excluded-href="season_plan.xlsx"' in content
+        assert 'href="calendars.html"' in content
+        assert 'href="https://example.com/page"' in content
+
+        report = json.loads((tmp_path / "pages_privacy_report.json").read_text())
+        rewrites = report["rewritten_links"]
+        assert any(
+            entry["target"] == "season_plan.xlsx"
+            and entry["attribute"] == "href"
+            and entry["action"] == "disabled"
+            for entry in rewrites
+        )
+        assert any(
+            entry["target"] == "review_packets/club_a.xlsx"
+            and entry["scope"] == "excluded_directory"
+            for entry in rewrites
+        )
+        assert any(
+            entry["target"] == "season_plan.csv"
+            and entry["attribute"] == "src"
+            and entry["action"] == "removed"
+            for entry in rewrites
+        )
+
+
 class TestMissingExportDir:
     def test_missing_export_dir_returns_failed(self, tmp_path):
         result = build_public_bundle(str(tmp_path / "nope"), str(tmp_path / "public"))

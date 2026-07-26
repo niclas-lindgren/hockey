@@ -30,12 +30,14 @@ produces, and ``docs/ai-operator-roadmap.md`` for the product rationale.
 
 from __future__ import annotations
 
+import html as _html
 import json
 import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from .capability_result import CapabilityResult
 
@@ -100,8 +102,77 @@ _PHONE_PATTERN = re.compile(
     r"(?i)(tel:|\b(tlf|tel|phone)[:\s]*)\+?[0-9][0-9\s\-()]{5,}[0-9]"
 )
 _ROOT_ABSOLUTE_LINK_PATTERN = re.compile(r"((?:href|src)=[\"'])/(?!/)([^\"']*)")
+_LINK_ATTRIBUTE_PATTERN = re.compile(r'(?P<attr>href|src)=(?P<quote>["\'])(?P<target>.*?)(?P=quote)', re.IGNORECASE)
 
 _REDACTED = "[redacted]"
+
+
+def _excluded_link_scope(target: str, excluded_file_names: set[str], excluded_directory_names: set[str]) -> str | None:
+    parsed = urlsplit(target)
+    if parsed.scheme or parsed.netloc or target.startswith(("#", "mailto:", "tel:", "//")):
+        return None
+
+    path = parsed.path.lstrip("/")
+    if not path:
+        return None
+
+    parts = [part for part in path.split("/") if part not in {"", ".", ".."}]
+    if not parts:
+        return None
+
+    if parts[-1] in excluded_file_names:
+        return "excluded_file"
+    if any(part in excluded_directory_names for part in parts):
+        return "excluded_directory"
+    return None
+
+
+def _rewrite_excluded_file_links(
+    text: str,
+    excluded_file_names: set[str],
+    excluded_directory_names: set[str],
+    *,
+    source_file: str,
+) -> tuple[str, list[dict[str, Any]]]:
+    counts: dict[tuple[str, str, str, str], int] = {}
+
+    def replace(match: re.Match[str]) -> str:
+        attr = match.group("attr").lower()
+        target = match.group("target")
+        scope = _excluded_link_scope(target, excluded_file_names, excluded_directory_names)
+        if scope is None:
+            return match.group(0)
+
+        escaped_target = _html.escape(target, quote=True)
+        if attr == "href":
+            action = "disabled"
+            replacement = (
+                f'href="#" aria-disabled="true" data-excluded-href="{escaped_target}" '
+                'style="pointer-events:none;opacity:0.6;cursor:not-allowed"'
+            )
+        else:
+            action = "removed"
+            replacement = f'data-excluded-src="{escaped_target}"'
+
+        key = (attr, target, action, scope)
+        counts[key] = counts.get(key, 0) + 1
+        return replacement
+
+    rewritten = _LINK_ATTRIBUTE_PATTERN.sub(replace, text)
+    rewrites: list[dict[str, Any]] = []
+    for (attr, target, action, scope), count in counts.items():
+        rewrites.append(
+            {
+                "file": source_file,
+                "attribute": attr,
+                "target": target,
+                "action": action,
+                "scope": scope,
+                "replacement": "disabled href" if action == "disabled" else "removed src",
+                "count": count,
+            }
+        )
+    return rewritten, rewrites
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +185,7 @@ class PrivacyReport:
     included_files: list[str] = field(default_factory=list)
     excluded_files: list[dict[str, str]] = field(default_factory=list)
     redactions: list[dict[str, Any]] = field(default_factory=list)
+    rewritten_links: list[dict[str, Any]] = field(default_factory=list)
     blocking_findings: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -121,6 +193,7 @@ class PrivacyReport:
             "included_files": list(self.included_files),
             "excluded_files": list(self.excluded_files),
             "redactions": list(self.redactions),
+            "rewritten_links": list(self.rewritten_links),
             "blocking_findings": list(self.blocking_findings),
         }
 
@@ -209,31 +282,35 @@ def build_public_bundle(
     output_path.mkdir(parents=True, exist_ok=True)
 
     report = PrivacyReport()
+    excluded_file_names: set[str] = set()
+    excluded_directory_names: set[str] = set()
+    binary_assets: list[Path] = []
+    text_assets: list[tuple[Path, str]] = []
 
     for entry in sorted(export_path.iterdir()):
         if entry.is_dir():
             report.excluded_files.append(
                 {"file": entry.name, "reason": "directories are not published by default"}
             )
+            excluded_directory_names.add(entry.name)
             continue
 
         if entry.name not in names:
             report.excluded_files.append(
                 {"file": entry.name, "reason": "not in the public filename allowlist"}
             )
+            excluded_file_names.add(entry.name)
             continue
 
         if entry.suffix.lower() not in _ALLOWED_EXTENSIONS:
             report.excluded_files.append(
                 {"file": entry.name, "reason": f"unknown/unapproved file type '{entry.suffix}'"}
             )
+            excluded_file_names.add(entry.name)
             continue
 
         if entry.suffix.lower() not in _TEXT_EXTENSIONS:
-            # Known static asset type (image, icon) but not text — copy
-            # as-is; there is no meaningful way to pattern-scan it here.
-            shutil.copyfile(entry, output_path / entry.name)
-            report.included_files.append(entry.name)
+            binary_assets.append(entry)
             continue
 
         try:
@@ -242,6 +319,7 @@ def build_public_bundle(
             report.excluded_files.append(
                 {"file": entry.name, "reason": "could not be read as UTF-8 text"}
             )
+            excluded_file_names.add(entry.name)
             continue
 
         secrets = _find_secrets(text, overrides)
@@ -250,12 +328,41 @@ def build_public_bundle(
                 report.blocking_findings.append(
                     {"file": entry.name, "category": category, "detail": matched_text}
                 )
+            excluded_file_names.add(entry.name)
             continue
 
+        text_assets.append((entry, text))
+
+    if report.blocking_findings:
+        report_path = output_path.parent / _PRIVACY_REPORT_FILENAME
+        report.write(report_path)
+        shutil.rmtree(output_path, ignore_errors=True)
+        finding_summary = ", ".join(
+            f"{f['file']}:{f['category']}" for f in report.blocking_findings
+        )
+        return CapabilityResult.blocked(
+            f"Publisering blokkert — mulige hemmeligheter funnet: {finding_summary}",
+            capability="pages_bundle",
+            problems=[f"{f['file']}: {f['category']}" for f in report.blocking_findings],
+            artifacts=[str(report_path)],
+        )
+
+    for entry in binary_assets:
+        shutil.copyfile(entry, output_path / entry.name)
+        report.included_files.append(entry.name)
+
+    for entry, text in text_assets:
         text, redaction_counts = _redact_contact_and_paths(text)
         text = _rewrite_root_absolute_links(text)
+        text, link_rewrites = _rewrite_excluded_file_links(
+            text,
+            excluded_file_names,
+            excluded_directory_names,
+            source_file=entry.name,
+        )
         for category, count in redaction_counts:
             report.redactions.append({"file": entry.name, "category": category, "count": count})
+        report.rewritten_links.extend(link_rewrites)
 
         (output_path / entry.name).write_text(text, encoding="utf-8")
         report.included_files.append(entry.name)

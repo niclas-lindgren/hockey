@@ -428,9 +428,12 @@ filesystem paths, email addresses, and labeled phone numbers
 dates and scores survive untouched) are redacted rather than blocking.
 Root-absolute `href="/..."`/`src="/..."` links are rewritten relative so
 the bundle still resolves under the GitHub Pages project subpath
-(`/<repo>/latest/`, `/<repo>/runs/<run-id>/`). Every decision — included,
-excluded (with reason), redacted (with category and count), or blocking —
-is written to `pages_privacy_report.json` next to the bundle.
+(`/<repo>/latest/`, `/<repo>/runs/<run-id>/`). Links inside included HTML
+that still point at files excluded from the public bundle are disabled or
+removed and logged in the same privacy report. Every decision — included,
+excluded (with reason), redacted (with category and count), rewritten
+links (with target and action), or blocking — is written to
+`pages_privacy_report.json` next to the bundle.
 `operator_action._execute_publish_pages` (#17) now always builds this
 bundle first and publishes it instead of the raw export directory; a
 blocked/failed sanitization result is returned immediately and the git
