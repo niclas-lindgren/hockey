@@ -184,5 +184,6 @@ gitleaks detect --source . --config .gitleaks.toml --redact
 - [Pipeline guide](docs/rvv-miniputt-pipeline.md)
 - [Rules report](docs/rvv-miniputt-rules-report.md)
 - [Desktop app prototype](docs/desktop-app.md)
+- [CI: required checks and branch protection](docs/ci.md)
 - `./scripts/rules-report.sh` or `make rules-report` — regenerate the report and run sync tests
 - [Kampveileder 3 mot 3](https://www.hockey.no/contentassets/9f67f790b75f4362a8bb2fb1524923fc/kampveileder-for-3-mot-3-spill---u7ju7---u11ju11.pdf)
