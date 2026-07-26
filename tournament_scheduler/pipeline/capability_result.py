@@ -24,7 +24,10 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .operator_action import OperatorAction
 
 # ---------------------------------------------------------------------------
 # Schema version
@@ -69,7 +72,8 @@ class CapabilityResult:
         Concrete issues encountered, even when ``status`` is ``ok`` (e.g. a
         non-fatal warning worth surfacing).
     suggested_actions:
-        Concrete next steps an operator (human or agent) could take.
+        Concrete next steps an operator (human or agent) could take, as
+        human-readable prose.
     requires_human:
         True when this result cannot be resolved without human judgment,
         credentials, or authorization.
@@ -78,6 +82,11 @@ class CapabilityResult:
         ``"stage2_scraping"``). Optional — callers that already track this
         out-of-band (such as a dict keyed by capability name) may leave it
         blank.
+    actions:
+        The same next steps as ``suggested_actions``, but machine-callable:
+        a list of :class:`~tournament_scheduler.pipeline.operator_action.OperatorAction`.
+        Optional and purely additive — ``suggested_actions`` remains the
+        human-readable form and existing consumers of it are unaffected.
     """
 
     status: str
@@ -89,6 +98,7 @@ class CapabilityResult:
     suggested_actions: list[str] = field(default_factory=list)
     requires_human: bool = False
     capability: str = ""
+    actions: "list[OperatorAction]" = field(default_factory=list)
 
     def __post_init__(self) -> None:
         status_value = self.status.value if isinstance(self.status, CapabilityStatus) else str(self.status)
@@ -137,6 +147,7 @@ class CapabilityResult:
             "problems": list(self.problems),
             "suggested_actions": list(self.suggested_actions),
             "requires_human": self.requires_human,
+            "actions": [action.to_dict() for action in self.actions],
         }
 
     def to_json(self, **kwargs: Any) -> str:
@@ -149,6 +160,8 @@ class CapabilityResult:
         Unknown/future fields are dropped rather than rejected so a manifest
         written by a newer schema version can still be read by older code.
         """
+        from .operator_action import OperatorAction
+
         return cls(
             status=data.get("status", CapabilityStatus.FAILED.value),
             summary=data.get("summary", ""),
@@ -159,6 +172,7 @@ class CapabilityResult:
             suggested_actions=list(data.get("suggested_actions", []) or []),
             requires_human=bool(data.get("requires_human", False)),
             capability=data.get("capability", ""),
+            actions=[OperatorAction.from_dict(a) for a in (data.get("actions") or []) if isinstance(a, dict)],
         )
 
     @property
