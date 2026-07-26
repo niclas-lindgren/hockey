@@ -75,6 +75,22 @@ Allow the human to request an outcome such as “produce the best trustworthy se
 
 ## 3. Make calendar source health and recovery agent-friendly
 
+**Status: implemented.** `tournament_scheduler/pipeline/source_health.py`
+computes one `CapabilityResult` per configured source from the Stage 2
+checkpoint and the unified scrape cache: reachability/block state, event
+count vs. the existing expectation heuristic, cache age, scraper
+strategy/engine, and a comparison against the previous scrape (the cache now
+retains exactly one generation of history via `previous_sources`) to flag
+sources that went sparse or duplicate-heavy. Inspect it with
+`rvv-miniputt sources status` (`--json` for the raw capability results).
+`rvv-miniputt run` also folds non-`ok` findings into the "scraping"
+capability's `problems`/`suggested_actions` in the run manifest. Recovery
+remains the existing composable `recovery-targets` / `recovery-inject` /
+`scrape` / `scrape-llm` commands — this capability tells an operator which
+source needs one of those and why, rather than requiring manual checkpoint
+inspection. See `tests/test_source_health.py` and
+`tests/test_cache_manager_history.py`.
+
 ### Goal
 
 Turn calendar ingestion from a collection of scraping commands into a capability the operator can inspect, reason about, and repair.

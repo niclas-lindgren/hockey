@@ -49,6 +49,7 @@ Useful inspection and recovery commands include:
 - `/rvv-miniputt logs` or `scripts/rvv-miniputt logs list`
 - `/rvv-miniputt calendars` or `scripts/rvv-miniputt calendars`
 - `/rvv-miniputt calendars --refresh` or `scripts/rvv-miniputt calendars --refresh`
+- `scripts/rvv-miniputt sources status` — per-source health (reachability, event counts, cache age, suggested recovery actions)
 
 ## Product architecture
 
