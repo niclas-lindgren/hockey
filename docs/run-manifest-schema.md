@@ -74,6 +74,9 @@ Fields:
   "schema_version": 1,
   "run_id": "20260726T091500Z-3f2a9c1d",
   "objective": "Produce the best trustworthy season plan from the current workbook.",
+  "active_capability": null,
+  "last_completed_capability": "export",
+  "next_recommended_capability": null,
   "current_capability": "export",
   "input_fingerprint": {
     "path": "/path/to/input.xlsx",
@@ -100,7 +103,10 @@ Fields:
 | `schema_version`       | Run-manifest schema version.                                                              |
 | `run_id`                | Unique ID for this run (`<UTC timestamp>-<8 hex chars>`).                                  |
 | `objective`             | The active objective, in the human's own words if provided, else a sensible default.       |
-| `current_capability`    | Name of the capability that most recently ran or is running.                               |
+| `active_capability`     | Capability currently executing, or `null` if none is (issue #15). Set before a capability runs, cleared once it produces a result or the run finalizes — a finalized run always has `active_capability: null`, even after an interrupted or aborted run is read back. |
+| `last_completed_capability` | Capability most recently recorded a result for, whatever the outcome (issue #15).       |
+| `next_recommended_capability` | What should run next: the following stage in `config → scraping → planning → export` after a clean result, the same capability again after a `blocked`/`failed`/`requires_human` result, or `null` once `export` completes cleanly (issue #15). |
+| `current_capability`    | Deprecated alias, mirrored from `active_capability` while a capability is running and from `last_completed_capability` once it finishes. Kept only for older consumers reading this exact key. |
 | `input_fingerprint`     | Path + SHA-256 of the input workbook at run start.                                          |
 | `started_at` / `updated_at` / `ended_at` | ISO-8601 UTC timestamps. `ended_at` is `null` until `finalize()` is called.  |
 | `final_outcome`         | `in_progress` until finalized, then one of `ok`, `warning`, `blocked`, `failed`.            |
@@ -323,6 +329,16 @@ synthesized from the legacy `stage*.json` checkpoints, with
 difference. Every field the manifest normally promises is still populated —
 derived from data that was already on disk — so callers do not need a
 special code path for old work directories.
+
+A manifest file that *does* exist but predates `active_capability` /
+`last_completed_capability` / `next_recommended_capability` (issue #15) is
+backfilled the same way on read, without discarding anything: `read()` fills
+in the missing keys from the legacy `current_capability` and `capabilities`
+history. Notably, `active_capability` is only backfilled from
+`current_capability` while `final_outcome` is still `in_progress` — a
+pre-#15 *finalized* manifest whose `current_capability` was never cleared
+(exactly the bug #15 fixes) correctly gets `active_capability: null` once
+read again, rather than perpetuating the stale value.
 
 ## Manifest persistence reliability (issue #14)
 

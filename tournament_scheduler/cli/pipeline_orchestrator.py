@@ -71,6 +71,22 @@ def _manifest_record(work_dir: str, capability: str, status: str, summary: str, 
         _warn_manifest_failure(work_dir, f"registrere kapabilitet '{capability}' i", exc)
 
 
+def _manifest_set_active(work_dir: str, capability: str) -> None:
+    """Best-effort mark *capability* active before it starts executing (issue #15).
+
+    Counterpart to ``_manifest_record`` below, called before rather than
+    after a stage runs, so a crash mid-stage still leaves a durable record
+    of what was in progress when execution stopped instead of showing
+    whatever the previous stage last recorded.
+    """
+    try:
+        from ..pipeline.run_manifest import RunManifest
+
+        RunManifest(work_dir).set_current_capability(capability)
+    except Exception as exc:
+        _warn_manifest_failure(work_dir, f"markere kapabilitet '{capability}' som aktiv i", exc)
+
+
 def _manifest_start_run(work_dir: str, input_path: str, objective: str | None = None) -> None:
     """Best-effort start of a new run manifest at the top of ``rvv-miniputt run``."""
     try:
@@ -1265,6 +1281,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
     plan: dict[str, Any] | None = None
 
+    _manifest_set_active(args.work_dir, "config")
     cfg, abort = _run_stage1(args, state, strict, _log, resume_from)
     if abort:
         _manifest_record(args.work_dir, "config", "failed", "Stage 1 (config) failed or aborted the run.")
@@ -1282,6 +1299,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     start = datetime.strptime(cfg["start_date"], "%Y-%m-%d")
     end = datetime.strptime(cfg["end_date"], "%Y-%m-%d")
 
+    _manifest_set_active(args.work_dir, "scraping")
     scraping, abort, stage2_failed = _run_stage2(args, cfg, state, start, end, strict, _log, resume_from)
     if abort:
         _manifest_record(args.work_dir, "scraping", "failed", "Stage 2 (scraping) failed or aborted the run.")
@@ -1332,6 +1350,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     last_attempt: int = 0
     attempt_qualities: list[tuple[int, dict[str, Any]]] = []
 
+    _manifest_set_active(args.work_dir, "planning")
     for attempt in range(1, max_plan_attempts + 1):
         last_attempt = attempt
         attempt_iterations = base_iterations + attempt - 1
@@ -1472,6 +1491,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         _write_run_log(args.work_dir, log_start, log_lines, success=False)
         return 1
 
+    _manifest_set_active(args.work_dir, "export")
     stage4_generated_calendars, abort, stage4_failed = _run_stage4_export(
         args, plan, state, strict, _log, resume_from
     )

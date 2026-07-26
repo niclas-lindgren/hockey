@@ -73,6 +73,34 @@ def _new_run_id() -> str:
     return f"{timestamp}-{uuid.uuid4().hex[:8]}"
 
 
+def _next_recommended_capability(
+    last_completed: str | None, last_entry: dict[str, Any] | None
+) -> str | None:
+    """What an operator should run next, given the last completed capability
+    and its recorded result (issue #15).
+
+    Reuses the canonical stage sequence from ``pipeline.state.StageName``
+    (config -> scraping -> planning -> export). A capability outside that
+    sequence (e.g. a per-source health check) or a blocked/failed/
+    requires-human result is treated as unresolved: the same capability is
+    recommended again rather than advancing to the next stage.
+    """
+    from .state import StageName  # local import: avoid a cycle at module load
+
+    sequence = [stage.value for stage in StageName]
+
+    if last_completed is None:
+        return sequence[0]
+    if last_entry is not None and (
+        last_entry.get("status") in ("blocked", "failed") or last_entry.get("requires_human")
+    ):
+        return last_completed
+    if last_completed not in sequence:
+        return None
+    idx = sequence.index(last_completed)
+    return sequence[idx + 1] if idx + 1 < len(sequence) else None
+
+
 # ---------------------------------------------------------------------------
 # RunManifest
 # ---------------------------------------------------------------------------
@@ -128,6 +156,14 @@ class RunManifest:
             "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
             "run_id": run_id or _new_run_id(),
             "objective": objective,
+            # active_capability: set before a capability executes, cleared once
+            # it produces a result or the run finalizes (issue #15).
+            "active_capability": None,
+            "last_completed_capability": None,
+            "next_recommended_capability": _next_recommended_capability(None, None),
+            # current_capability: deprecated alias, mirrors last_completed_capability
+            # (or the in-progress capability while one is active). Kept so
+            # older consumers reading this exact key don't break.
             "current_capability": None,
             "input_fingerprint": input_fingerprint or {},
             "started_at": now,
@@ -146,14 +182,27 @@ class RunManifest:
         return manifest
 
     def set_current_capability(self, name: str) -> None:
-        """Record which capability is now active, without appending a result."""
+        """Mark *name* as the active capability, before it has a result (issue #15).
+
+        Sets ``active_capability`` and mirrors it onto the legacy
+        ``current_capability`` key. Call this before a capability starts
+        executing so an interrupted run still shows what was in progress
+        when execution stopped, even though no result was ever recorded
+        for it.
+        """
         manifest = self.read()
+        manifest["active_capability"] = name
         manifest["current_capability"] = name
         manifest["updated_at"] = _now_iso()
         self._write(manifest)
 
     def record_capability(self, result: CapabilityResult) -> dict[str, Any]:
         """Append a capability result to the run history.
+
+        Clears ``active_capability`` (the capability is no longer in
+        progress — it just produced a result, however that turned out) and
+        updates ``last_completed_capability`` and
+        ``next_recommended_capability`` (issue #15).
 
         Returns the recorded entry (the result dict plus a ``recorded_at``
         timestamp).
@@ -163,7 +212,12 @@ class RunManifest:
         entry["recorded_at"] = _now_iso()
         manifest.setdefault("capabilities", []).append(entry)
         if result.capability:
+            manifest["active_capability"] = None
+            manifest["last_completed_capability"] = result.capability
             manifest["current_capability"] = result.capability
+            manifest["next_recommended_capability"] = _next_recommended_capability(
+                result.capability, entry
+            )
         manifest["updated_at"] = entry["recorded_at"]
         self._write(manifest)
         return entry
@@ -235,6 +289,11 @@ class RunManifest:
         manifest = self.read()
         now = _now_iso()
         manifest["final_outcome"] = outcome_value
+        # A finalized run always has active_capability: null (issue #15) —
+        # cleared here as a safety net even though record_capability already
+        # clears it on the normal path, so an early-abort finalize can't
+        # leave a stale active capability behind.
+        manifest["active_capability"] = None
         manifest["updated_at"] = now
         manifest["ended_at"] = now
         self._write(manifest)
@@ -427,7 +486,34 @@ class RunManifest:
                 recovery_reason="not_a_json_object", recovery_detail=type(data).__name__, backup_path=backup_path
             )
         data.setdefault("manifest_recovery", None)
+        self._backfill_capability_state_fields(data)
         return data
+
+    def _backfill_capability_state_fields(self, data: dict[str, Any]) -> None:
+        """Add active/last-completed/next-recommended capability fields to a
+        manifest written before issue #15, without discarding anything.
+
+        A pre-fix finalized manifest could have a stale non-null
+        ``current_capability`` — that was exactly the bug — so
+        ``active_capability`` is only backfilled from it while the run is
+        still ``in_progress``; a finalized legacy manifest correctly gets
+        ``active_capability: None`` here even though it never explicitly
+        cleared one.
+        """
+        if "active_capability" in data and "last_completed_capability" in data and "next_recommended_capability" in data:
+            return
+        capabilities = data.get("capabilities") or []
+        last_entry = capabilities[-1] if capabilities else None
+        last_completed = last_entry.get("capability") if last_entry else None
+        data.setdefault("last_completed_capability", last_completed)
+        if data.get("final_outcome") == RunOutcome.IN_PROGRESS.value:
+            data.setdefault("active_capability", data.get("current_capability"))
+        else:
+            data.setdefault("active_capability", None)
+        data.setdefault(
+            "next_recommended_capability",
+            _next_recommended_capability(last_completed, last_entry),
+        )
 
     def exists(self) -> bool:
         return self.path.exists()
@@ -590,10 +676,14 @@ class RunManifest:
             }
         )
 
+        last_entry = capabilities[-1] if capabilities else None
         return {
             "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
             "run_id": _LEGACY_RUN_ID,
             "objective": None,
+            "active_capability": None,
+            "last_completed_capability": current_capability,
+            "next_recommended_capability": _next_recommended_capability(current_capability, last_entry),
             "current_capability": current_capability,
             "input_fingerprint": {},
             "started_at": earliest_updated,

@@ -30,6 +30,9 @@ class TestRunManifestLifecycle:
         assert data["objective"] == "Produce the best season plan"
         assert data["final_outcome"] == "in_progress"
         assert data["current_capability"] is None
+        assert data["active_capability"] is None
+        assert data["last_completed_capability"] is None
+        assert data["next_recommended_capability"] == "config"
         assert data["capabilities"] == []
         assert data["run_id"]
         assert data["started_at"] == data["updated_at"]
@@ -47,7 +50,21 @@ class TestRunManifestLifecycle:
     def test_set_current_capability(self, manifest):
         manifest.start_run("objective")
         manifest.set_current_capability("scraping")
-        assert manifest.read()["current_capability"] == "scraping"
+        data = manifest.read()
+        assert data["current_capability"] == "scraping"
+        assert data["active_capability"] == "scraping"
+
+    def test_active_capability_survives_interruption(self, manifest):
+        """An interrupted run (no finalize call) can identify the capability
+        that was active when execution stopped (issue #15)."""
+        manifest.start_run("objective")
+        manifest.record_capability(CapabilityResult.ok("config ready", capability="config"))
+        manifest.set_current_capability("scraping")
+        # Simulate a crash: no record_capability("scraping") call, no finalize.
+        data = manifest.read()
+        assert data["active_capability"] == "scraping"
+        assert data["last_completed_capability"] == "config"
+        assert data["final_outcome"] == "in_progress"
 
 
 class TestRunManifestCapabilityOutcomes:
@@ -64,6 +81,14 @@ class TestRunManifestCapabilityOutcomes:
         assert len(data["capabilities"]) == 1
         assert data["capabilities"][0]["status"] == status
         assert data["current_capability"] == "scraping"
+        assert data["last_completed_capability"] == "scraping"
+        # Recording a result always ends the "in progress" window for that
+        # capability, whatever the outcome (issue #15).
+        assert data["active_capability"] is None
+        if status in ("blocked", "failed"):
+            assert data["next_recommended_capability"] == "scraping"
+        else:
+            assert data["next_recommended_capability"] == "planning"
 
     def test_record_capability_appends_history(self, manifest):
         manifest.start_run("objective")
@@ -71,14 +96,34 @@ class TestRunManifestCapabilityOutcomes:
         manifest.record_capability(CapabilityResult.warning("1 source blocked", capability="scraping"))
         data = manifest.read()
         assert [c["capability"] for c in data["capabilities"]] == ["config", "scraping"]
+        assert data["last_completed_capability"] == "scraping"
+        assert data["next_recommended_capability"] == "planning"
+
+    def test_next_recommended_capability_follows_full_sequence(self, manifest):
+        manifest.start_run("objective")
+        assert manifest.read()["next_recommended_capability"] == "config"
+        for capability, following in (
+            ("config", "scraping"),
+            ("scraping", "planning"),
+            ("planning", "export"),
+        ):
+            manifest.record_capability(CapabilityResult.ok("done", capability=capability))
+            assert manifest.read()["next_recommended_capability"] == following
+        manifest.record_capability(CapabilityResult.ok("done", capability="export"))
+        assert manifest.read()["next_recommended_capability"] is None
 
     @pytest.mark.parametrize("outcome", ["ok", "warning", "blocked", "failed"])
     def test_finalize_sets_terminal_outcome(self, manifest, outcome):
         manifest.start_run("objective")
+        manifest.set_current_capability("export")
         manifest.finalize(outcome)
         data = manifest.read()
         assert data["final_outcome"] == outcome
         assert data["ended_at"] is not None
+        # A finalized run always has active_capability: null (issue #15),
+        # even when finalize is called directly after an abort without an
+        # intervening record_capability call.
+        assert data["active_capability"] is None
 
     def test_finalize_rejects_in_progress(self, manifest):
         manifest.start_run("objective")
@@ -116,6 +161,9 @@ class TestRunManifestBackwardCompatibility:
         assert [c["capability"] for c in data["capabilities"]] == ["config", "scraping"]
         assert all(c["status"] == "ok" for c in data["capabilities"])
         assert data["current_capability"] == "scraping"
+        assert data["last_completed_capability"] == "scraping"
+        assert data["active_capability"] is None
+        assert data["next_recommended_capability"] == "planning"
 
     def test_synthesized_manifest_reflects_failed_stage(self, tmp_path):
         work_dir = tmp_path / "pipeline"
@@ -140,3 +188,63 @@ class TestRunManifestBackwardCompatibility:
         manifest.path.write_text("not valid json{{{", encoding="utf-8")
         data = manifest.read()
         assert data["synthesized_from_legacy_checkpoints"] is True
+
+    def test_legacy_on_disk_manifest_backfills_new_fields_in_progress(self, tmp_path):
+        """A manifest written before issue #15 (no active_capability etc.)
+        that is still in progress backfills active_capability from the old
+        current_capability field."""
+        work_dir = tmp_path / "pipeline"
+        manifest = RunManifest(work_dir)
+        manifest.path.write_text(
+            json.dumps(
+                {
+                    "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
+                    "run_id": "old-run",
+                    "objective": "objective",
+                    "current_capability": "scraping",
+                    "input_fingerprint": {},
+                    "started_at": "2026-01-01T00:00:00+00:00",
+                    "updated_at": "2026-01-01T00:00:00+00:00",
+                    "ended_at": None,
+                    "final_outcome": "in_progress",
+                    "capabilities": [{"capability": "config", "status": "ok"}],
+                    "pending_questions": [],
+                    "action_log": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        data = manifest.read()
+        assert data["active_capability"] == "scraping"
+        assert data["last_completed_capability"] == "config"
+        assert data["next_recommended_capability"] == "scraping"
+
+    def test_legacy_on_disk_manifest_clears_stale_active_capability_once_finalized(self, tmp_path):
+        """This is the exact issue #15 bug, applied retroactively: a manifest
+        written before the fix, whose current_capability was never cleared
+        by finalize(), must not report an active capability once read again."""
+        work_dir = tmp_path / "pipeline"
+        manifest = RunManifest(work_dir)
+        manifest.path.write_text(
+            json.dumps(
+                {
+                    "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
+                    "run_id": "old-run",
+                    "objective": "objective",
+                    "current_capability": "export",
+                    "input_fingerprint": {},
+                    "started_at": "2026-01-01T00:00:00+00:00",
+                    "updated_at": "2026-01-01T00:00:00+00:00",
+                    "ended_at": "2026-01-01T00:05:00+00:00",
+                    "final_outcome": "ok",
+                    "capabilities": [{"capability": "export", "status": "ok"}],
+                    "pending_questions": [],
+                    "action_log": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        data = manifest.read()
+        assert data["active_capability"] is None
+        assert data["last_completed_capability"] == "export"
+        assert data["next_recommended_capability"] is None
