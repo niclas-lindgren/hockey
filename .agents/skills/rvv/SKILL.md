@@ -58,7 +58,7 @@ The following remain Pi-specific adapters on top of the repo workflow:
    - Stage 3: inspect verdict tone and apply refinement if rough
    - Stage 4: export only after the plan looks good
 4. Use `/rvv-miniputt scrape --club <navn>` for single-club troubleshooting
-5. Use `/rvv-miniputt scrape-llm --club <navn>` for blocked SPA/calendar sources
+5. Use `/rvv-miniputt scrape-llm --club <navn>` for blocked SPA/calendar sources; in a plain terminal, the portable CLI now explains the browser-tool requirement instead of silently failing
 6. Use `/rvv-miniputt status` or `/rvv-miniputt logs` to inspect results
 7. Use `/rvv-miniputt calendars` when you want calendar output from cache
 
@@ -76,7 +76,7 @@ The following remain Pi-specific adapters on top of the repo workflow:
 | `/rvv-miniputt calendars` | Generate calendars from cache |
 | `/rvv-miniputt calendars --refresh` | Force full re-scrape + calendar generation |
 | `/rvv-miniputt scrape --club <navn>` | Troubleshoot one club's deterministic scrape |
-| `/rvv-miniputt scrape-llm --club <navn>` | Run LLM-guided scraping for a blocked source |
+| `/rvv-miniputt scrape-llm --club <navn>` | Run LLM-guided scraping for a blocked source (Pi/browser tooling required; terminal-only CLI prints the capability boundary) |
 | `/rvv-miniputt guide` | Interactive wizard for new users |
 
 ### `run` flags

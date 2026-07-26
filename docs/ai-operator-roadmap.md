@@ -88,7 +88,8 @@ capability's `problems`/`suggested_actions` in the run manifest. Recovery
 remains the existing composable `recovery-targets` / `recovery-inject` /
 `scrape` / `scrape-llm` commands — this capability tells an operator which
 source needs one of those and why, rather than requiring manual checkpoint
-inspection. See `tests/test_source_health.py` and
+inspection. The portable `scrape-llm` CLI now prints the browser-tool boundary
+explicitly when the required browser automation is missing. See `tests/test_source_health.py` and
 `tests/test_cache_manager_history.py`.
 
 ### Goal

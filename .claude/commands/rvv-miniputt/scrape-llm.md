@@ -21,6 +21,7 @@ scripts/rvv-miniputt scrape-llm --club "<name>" <user-args>
 python3 -m tournament_scheduler.cli.rvv_cli scrape-llm --club "<name>" <user-args>
 ```
 
+- The portable CLI still needs Pi/browser automation to actually scrape. If you run it from a plain terminal, it prints the missing capability and exits instead of failing silently.
 - `--club` is required. Must match a source that has an LLM scraper strategy (e.g. `Jar`, `Holmen`, `Jutul`, `Tønsberg`, `Sandefjord`).
 - Results are cached to `.pipeline/cache/scraped_data.json` by default (`--cache-results` is on).
 - After scraping, suggest running `/rvv-miniputt:run --resume-from 3` to replan with the new data.

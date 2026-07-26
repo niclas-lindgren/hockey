@@ -76,7 +76,7 @@ Stage 2 supports multiple source types:
 
 - `outlook` / `html` — Playwright-based browser scraping
 - `ical` / `google` — HTTP/iCal scraping
-- JS-heavy sites that fail deterministic scraping — use the Pi ScraperAgent (`.pi/lib/scraper-agent.ts`) or another harness for LLM-guided scraping
+- JS-heavy sites that fail deterministic scraping — use the Pi ScraperAgent (`.pi/lib/scraper-agent.ts`) or another browser-enabled harness for LLM-guided scraping. In a plain terminal, `scripts/rvv-miniputt scrape-llm` now reports the browser-tool boundary instead of pretending it can drive the page itself.
 
 ### BookUp credentials
 
