@@ -7,7 +7,7 @@
 - [x] Add a `scrape-llm` CLI subcommand with explicit browser-tool guidance
   - Files: tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tests/test_rvv_cli_portability.py
   - Approach: add a parser branch and handler that accepts the existing scrape-llm flags, resolves the requested club strategy, and prints a clear actionable message when browser automation is required or the club should use deterministic scraping instead; make the command exit non-zero with no traceback.
-- [ ] Update docs and skill text to match the terminal/browser capability boundary
+- [x] Update docs and skill text to match the terminal/browser capability boundary
   - Files: .agents/skills/rvv/SKILL.md, .claude/commands/rvv-miniputt/scrape-llm.md, docs/rvv-miniputt-pipeline.md, docs/ai-operator-roadmap.md
   - Approach: explain which environments can actually drive the LLM browser flow, point terminal-only users at the new CLI message, and keep the slash-command examples aligned with the supported recovery path.
 
@@ -22,6 +22,13 @@ Issue source: GitHub #26 (open). The repo already has the Pi slash command and s
 
 ## Log
 
+
+### 2026-07-26 — Update docs and skill text to match the terminal/browser capability boundary
+**Done:** Clarified in the RVV skill, the Pi/Claude command docs, and the operator roadmap that `scrape-llm` needs browser tooling and that the portable CLI now reports the missing capability explicitly.
+**Rationale:** This removes the stale assumption that a plain terminal can silently run the browser-assisted recovery flow and keeps the operator guidance aligned with the new CLI behavior.
+**Findings:** The browser-assisted path remains Pi/browser-enabled only; terminal-only sessions now get a precise capability boundary and a deterministic `scrape` fallback for sources that do not need LLM navigation.
+**Files:** .agents/skills/rvv/SKILL.md, .claude/commands/rvv-miniputt/scrape-llm.md, docs/rvv-miniputt-pipeline.md, docs/ai-operator-roadmap.md
+**Commit:** 1e011b8
 ### 2026-07-26 — Add a `scrape-llm` CLI subcommand with explicit browser-tool guidance
 **Done:** Added a real `scrape-llm` parser and handler that accepts the existing flags, normalizes club aliases, and prints an explicit browser-tool boundary instead of an argparse failure.
 **Rationale:** This gives terminal users a real subcommand that immediately explains the missing browser capability and points them at the browser-enabled recovery path or deterministic `scrape` when appropriate.
