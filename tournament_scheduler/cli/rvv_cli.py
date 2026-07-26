@@ -24,7 +24,7 @@ from rich.console import Console
 from .args import build_parser as _build_parser
 from .pipeline_orchestrator import _cmd_calendars, _cmd_operator_run, _cmd_run, _cmd_scrape
 from .recovery_cli import _cmd_recovery_inject, _cmd_recovery_targets, _cmd_scrape_merge
-from .reporting import _cmd_logs, _cmd_sources_status, _cmd_status
+from .reporting import _cmd_candidates, _cmd_logs, _cmd_sources_status, _cmd_status
 
 _console = Console()
 
@@ -824,6 +824,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_auto_adjust(args)
     elif args.command == "verdict":
         return _cmd_verdict(args)
+    elif args.command == "candidates":
+        return _cmd_candidates(args)
     else:
         parser.print_help()
         return 0

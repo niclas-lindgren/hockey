@@ -388,3 +388,109 @@ def _cmd_logs(args: argparse.Namespace) -> int:
     count = getattr(args, "count", 10) or 10
     _console.print(_build_logs_list_text(work_dir, count))
     return 0
+
+
+_CANDIDATE_STATUS_STYLE = {"pass": "green", "warn": "yellow", "fail": "red", "failed": "red"}
+
+
+def _read_stage3_checkpoint(work_dir: Path) -> dict[str, Any] | None:
+    checkpoint = _read_checkpoint(work_dir, "stage3_planning.json")
+    if not checkpoint:
+        return None
+    return checkpoint.get("data") or {}
+
+
+def _most_consequential_metric_deltas(
+    selected: dict[str, Any], runner_up: dict[str, Any], *, limit: int = 3
+) -> list[tuple[str, float, float, float]]:
+    """Return the *limit* fairness metrics with the largest score delta.
+
+    Each tuple is ``(label, selected_score, runner_up_score, delta)`` sorted
+    by ``abs(delta)`` descending, comparing the selected candidate against
+    the next-best-ranked candidate.
+    """
+    selected_by_key = {m["key"]: m for m in selected.get("metrics", []) if isinstance(m, dict)}
+    runner_up_by_key = {m["key"]: m for m in runner_up.get("metrics", []) if isinstance(m, dict)}
+
+    deltas: list[tuple[str, float, float, float]] = []
+    for key, metric in selected_by_key.items():
+        other = runner_up_by_key.get(key)
+        if other is None:
+            continue
+        selected_score = float(metric.get("score", 0))
+        runner_up_score = float(other.get("score", 0))
+        delta = selected_score - runner_up_score
+        if delta != 0:
+            deltas.append((str(metric.get("label", key)), selected_score, runner_up_score, delta))
+
+    deltas.sort(key=lambda item: abs(item[3]), reverse=True)
+    return deltas[:limit]
+
+
+def _build_candidates_text(work_dir: Path) -> str:
+    data = _read_stage3_checkpoint(work_dir)
+    if not data or not data.get("candidates"):
+        return (
+            f"Ingen kandidatdata funnet i {work_dir}/. "
+            "Kjør 'rvv-miniputt run --iterations N' (N > 1) for å generere flere kandidater."
+        )
+
+    candidates: list[dict[str, Any]] = data["candidates"]
+    selected_attempt = data.get("selected_candidate_attempt")
+
+    lines = [f"=== Plankandidater ({len(candidates)}) ===", ""]
+    lines.append(f"{'Forsøk'.ljust(8)} {'Seed'.ljust(8)} {'Status'.ljust(8)} {'Score'.ljust(7)} {'Turneringer'.ljust(12)} Valgt")
+    lines.append(f"{'─' * 8} {'─' * 8} {'─' * 8} {'─' * 7} {'─' * 12} {'─' * 5}")
+    for candidate in candidates:
+        attempt = candidate.get("attempt")
+        seed = candidate.get("seed")
+        status = str(candidate.get("status", "?"))
+        score = candidate.get("score")
+        count = candidate.get("tournament_count", 0)
+        marker = "←" if attempt == selected_attempt else ""
+        lines.append(
+            f"{str(attempt).ljust(8)} {str(seed if seed is not None else 'default').ljust(8)} "
+            f"{status.ljust(8)} {str(score if score is not None else '-').ljust(7)} {str(count).ljust(12)} {marker}"
+        )
+
+    ranked = sorted(
+        (c for c in candidates if c.get("rank") is not None),
+        key=lambda c: tuple(c["rank"]),
+        reverse=True,
+    )
+    if len(ranked) >= 2:
+        selected, runner_up = ranked[0], ranked[1]
+        deltas = _most_consequential_metric_deltas(selected, runner_up)
+        if deltas:
+            lines.append("")
+            lines.append(
+                f"Mest utslagsgivende forskjeller (forsøk {selected['attempt']} vs. forsøk {runner_up['attempt']}):"
+            )
+            for label, sel_score, other_score, delta in deltas:
+                sign = "+" if delta > 0 else ""
+                lines.append(f"  {label}: {sel_score:.0f} vs {other_score:.0f} ({sign}{delta:.0f})")
+
+    fingerprints = candidates[0]
+    lines.append("")
+    lines.append(f"Planner-versjon: {fingerprints.get('planner_version', '?')}")
+    lines.append(f"Config-fingerprint: {str(fingerprints.get('config_fingerprint', '?'))[:16]}...")
+    lines.append(f"Kilde-fingerprint: {str(fingerprints.get('source_fingerprint', '?'))[:16]}...")
+
+    return "\n".join(lines)
+
+
+def _cmd_candidates(args: argparse.Namespace) -> int:
+    work_dir = Path(args.work_dir)
+    if getattr(args, "json", False):
+        data = _read_stage3_checkpoint(work_dir) or {}
+        print(json.dumps(
+            {
+                "candidates": data.get("candidates", []),
+                "selected_candidate_attempt": data.get("selected_candidate_attempt"),
+            },
+            indent=2,
+            ensure_ascii=False,
+        ))
+        return 0
+    _console.print(_build_candidates_text(work_dir))
+    return 0

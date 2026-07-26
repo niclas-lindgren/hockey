@@ -27,8 +27,32 @@ from ..models import CalendarEvent, Game, Roster, SeasonPlan, Team, Tournament
 from ..season_planner import SeasonPlanner
 from ..roster_loader import RosterLoader
 from ..club_registry import CLUB_REGISTRY
+from .fingerprints import stable_payload_sha256
 from .state import PipelineState, StageName, StageStatus
 from .stage3_helpers import (_build_club_arenas, _build_events_by_club, _build_parallel_games, _build_roster, _build_round_length, _find_team, _make_planner, _plan_to_dict)
+
+# ---------------------------------------------------------------------------
+# Candidate reproducibility and ranking
+# ---------------------------------------------------------------------------
+
+# Bump only when the planner's search algorithm changes in a way that could
+# produce a different plan from the same seed/config/source fingerprint.
+PLANNER_VERSION = "1"
+
+# Deterministic candidate ranking: a hard-constraint ("fail") status always
+# loses to "warn"/"pass" regardless of aggregate score, so a good average
+# score can never hide a hard-constraint violation (e.g. an arena/day
+# collision). Ties within the same status are broken by aggregate score,
+# then by tournament count, then by earliest attempt (stable iteration
+# order) — every step here is a plain comparison, so candidate selection is
+# fully deterministic for a given set of seeds.
+_STATUS_RANK = {"fail": 0, "warn": 1, "pass": 2}
+
+
+def _candidate_rank(status: str, score: int, tournament_count: int) -> tuple[int, int, int]:
+    return (_STATUS_RANK.get(status, 1), score, tournament_count)
+
+
 # ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
@@ -136,15 +160,28 @@ def run(
     target_tournament_counts_by_age_group = config.get("target_tournament_counts_by_age_group")
     planning_critic_hints, penalty_hints = _extract_planning_critic_hints(config)
 
+    config_fingerprint = stable_payload_sha256(config)
+    source_fingerprint = stable_payload_sha256(scraping_result)
+
     best_plan: SeasonPlan | None = None
     best_planner: SeasonPlanner | None = None
-    best_score: int = -1
+    best_rank: tuple[int, int, int] | None = None
+    best_attempt: int | None = None
+    candidates: list[dict[str, Any]] = []
 
     n_iters = max(1, iterations)
     seeds: list[int | None] = [None] if n_iters == 1 else list(range(n_iters))
 
     for idx, seed in enumerate(seeds, start=1):
         print(f"[plan] Forsøk {idx}/{n_iters} (seed={seed if seed is not None else 'default'})", flush=True)
+        candidate: dict[str, Any] = {
+            "attempt": idx,
+            "seed": seed,
+            "planner_version": PLANNER_VERSION,
+            "config_fingerprint": config_fingerprint,
+            "source_fingerprint": source_fingerprint,
+            "penalty_hints": dict(penalty_hints) if penalty_hints else {},
+        }
         planner = _make_planner(
             roster,
             pg_config,
@@ -162,17 +199,34 @@ def run(
         plan = planner.build_plan(start_date, end_date)
         if plan is None or not plan.tournaments:
             print(f"[plan] Forsøk {idx}/{n_iters}: ingen plan kunne bygges", flush=True)
+            candidate.update({"status": "failed", "score": None, "tournament_count": 0, "rank": None})
+            candidates.append(candidate)
             continue
-        score = int(_build_fairness_gate(planner, plan).get("score", 0))
-        print(f"[plan] Forsøk {idx}/{n_iters}: fairness score={score}", flush=True)
-        if score > best_score:
-            best_score = score
+
+        gate = _build_fairness_gate(planner, plan)
+        status = str(gate.get("status", "pass"))
+        score = int(gate.get("score", 0))
+        tournament_count = len(plan.tournaments)
+        rank = _candidate_rank(status, score, tournament_count)
+        candidate.update({
+            "status": status,
+            "score": score,
+            "tournament_count": tournament_count,
+            "rank": list(rank),
+            "metrics": gate.get("metrics", []),
+        })
+        candidates.append(candidate)
+
+        print(f"[plan] Forsøk {idx}/{n_iters}: fairness score={score} (status={status})", flush=True)
+        if best_rank is None or rank > best_rank:
+            best_rank = rank
             best_plan = plan
             best_planner = planner
+            best_attempt = idx
 
     if best_plan is None or best_planner is None:
         reason = "Klarte ikke å generere noen plan."
-        state.write_stage(StageName.PLANNING, {}, status=StageStatus.FAILED)
+        state.write_stage(StageName.PLANNING, {"candidates": candidates}, status=StageStatus.FAILED)
         if strict:
             raise Stage3Error(reason)
         return {}
@@ -185,6 +239,8 @@ def run(
     checkpoint: dict[str, Any] = {
         "plan": plan_dict,
         "rules_report": rules_report,
+        "candidates": candidates,
+        "selected_candidate_attempt": best_attempt,
     }
     if planning_critic_hints is not None:
         checkpoint["planning_critic_hints"] = planning_critic_hints
