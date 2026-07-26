@@ -1,0 +1,177 @@
+# AI operator implementation roadmap
+
+This backlog translates the product direction in `ai-operator-product-direction.md` into ordered implementation slices. Each section is intentionally written so it can later become a GitHub issue.
+
+## 1. Define the operator run manifest and structured capability results
+
+### Goal
+
+Create the shared data contract that lets an AI operator understand workspace state, capability outcomes, evidence, confidence, artifacts, blockers, and suggested next actions without parsing human-oriented console logs.
+
+### Scope
+
+- Define a versioned run manifest stored under `.pipeline/`.
+- Define a structured capability-result schema with at least:
+  - `status`
+  - `summary`
+  - `evidence`
+  - `confidence`
+  - `artifacts`
+  - `problems`
+  - `suggested_actions`
+  - `requires_human`
+- Record the active objective, current capability, input fingerprints, run ID, timestamps, and final outcome.
+- Add JSON output to portable CLI commands where practical.
+- Preserve current human-readable terminal output.
+- Document schema evolution and backward compatibility.
+
+### Acceptance criteria
+
+- An agent can inspect one documented JSON file or CLI response and determine what happened, what remains blocked, and what it should do next.
+- Existing checkpoint files remain usable or have a compatibility path.
+- Tests cover `ok`, `warning`, `blocked`, and `failed` outcomes.
+- The core contract contains no LLM-provider-specific requirements.
+
+## 2. Add one goal-oriented AI operator entry point
+
+### Goal
+
+Allow the human to request an outcome such as “produce the best trustworthy season plan” without manually coordinating pipeline stages and recovery commands.
+
+### Scope
+
+- Add an operator entry point, for example `rvv-miniputt operator run`.
+- Accept an explicit objective and sensible default objective.
+- Inspect workspace state and resume from the earliest stale or problematic capability.
+- Execute routine recovery and bounded retries.
+- Stop and escalate only when human judgment, credentials, authorization, or unrecoverable source data are required.
+- Produce a final structured summary and human-readable report.
+- Keep harness adapters thin wrappers around the portable entry point.
+
+### Acceptance criteria
+
+- A normal season run can be completed through one goal-oriented command.
+- The operator resumes safely after interruption.
+- Retry limits and stopping conditions are deterministic and documented.
+- The final result distinguishes completed work, warnings, blockers, and requested human decisions.
+
+## 3. Make calendar source health and recovery agent-friendly
+
+### Goal
+
+Turn calendar ingestion from a collection of scraping commands into a capability the operator can inspect, reason about, and repair.
+
+### Scope
+
+- Provide structured source-health results for every configured calendar.
+- Record reachability, authentication state, event count, expected range, date coverage, cache age, parser/strategy, and last successful fetch.
+- Attach provenance to imported events.
+- Compare fresh results against cache and previous known-good snapshots.
+- Detect suspiciously sparse, structurally changed, or duplicate-heavy sources.
+- Expose recovery actions as composable operations rather than requiring manual checkpoint editing.
+- Preserve a clear boundary around credentials and external access.
+
+### Acceptance criteria
+
+- The operator can identify which source is unreliable and why.
+- Every planned event can be traced to a source snapshot or manual recovery input.
+- Routine retries and cache fallback can happen without human coordination.
+- The operator escalates with a focused question when credentials or policy decisions are required.
+
+## 4. Make plan generation reproducible and candidate comparison explainable
+
+### Goal
+
+Let the operator generate and compare alternative plans while preserving deterministic validity and a complete audit trail.
+
+### Scope
+
+- Record planner version, configuration, penalty weights, random seed, and input/source fingerprints for every candidate.
+- Separate hard-constraint validity from soft-objective scores.
+- Produce a documented score breakdown.
+- Retain multiple candidate summaries rather than only the selected result.
+- Add comparison output showing the most consequential trade-offs.
+- Support locked assignments and approved human decisions.
+- Define deterministic tie-breaking and candidate-selection behavior.
+
+### Acceptance criteria
+
+- A candidate can be reproduced from its recorded metadata.
+- An agent and human can explain why one candidate was preferred.
+- Hard-constraint failures cannot be hidden by a good aggregate score.
+- Manual locks survive refinement and reruns.
+
+## 5. Add a human escalation and approval protocol
+
+### Goal
+
+Give the operator a consistent way to pause for genuine human decisions and continue afterward without losing state.
+
+### Scope
+
+- Define escalation types such as credentials, incomplete data, ambiguous policy, destructive repair, impossible constraints, and external publication.
+- Store pending questions in the run manifest.
+- Include context, alternatives, recommendation, and impact for every question.
+- Allow a human answer to be recorded as a durable decision.
+- Resume from the correct capability after an answer.
+- Prevent repeated questions that have already been answered for the active run.
+
+### Acceptance criteria
+
+- Every blocked run explains exactly what decision is needed.
+- Human decisions are auditable and survive restart.
+- The operator can resume without rerunning unaffected work.
+- External writes remain explicitly authorized.
+
+## 6. Reframe the README around the AI operator workflow
+
+### Goal
+
+Make the preferred product model clear while retaining CLI, harness, and developer documentation.
+
+### Scope
+
+- Lead with the AI-operator product promise.
+- Show one primary goal-oriented quick start.
+- Move detailed harness adapter material into a development/integration section.
+- Explain the deterministic core and optional role of AI judgment.
+- Link to the product-direction and roadmap documents.
+- Keep manual stage and recovery commands as debugging/advanced workflows.
+
+### Acceptance criteria
+
+- A new reader understands within the first screen that RVV Miniputt is an AI-operated season-planning system.
+- The README clearly distinguishes preferred usage, portable CLI usage, and development internals.
+- Existing commands remain discoverable without dominating the product explanation.
+
+## 7. Reposition the desktop app as an optional supervisor console
+
+### Goal
+
+Avoid building a second independent product while preserving a path to a non-technical supervisory interface.
+
+### Scope
+
+- Document the desktop app as an optional surface over the same operator capabilities.
+- Show objective, progress, source health, pending questions, candidate comparison, approvals, and artifacts.
+- Remove or avoid business logic duplicated in Electron.
+- Consume structured capability results and the run manifest.
+- Verify packaging and GitHub release configuration.
+
+### Acceptance criteria
+
+- The desktop app can be omitted without reducing core operator capability.
+- It does not implement separate scheduling or recovery behavior.
+- A future non-technical user can supervise the same run state used by CLI and harness agents.
+
+## Suggested delivery order
+
+1. Run manifest and capability-result contract.
+2. Goal-oriented operator entry point.
+3. Calendar source health and recovery.
+4. Reproducible candidate comparison.
+5. Human escalation and approval.
+6. README restructuring.
+7. Desktop supervisor console.
+
+The first two items establish the operator architecture. Items three through five make it trustworthy. Items six and seven clarify and broaden the user experience after the core workflow is stable.
