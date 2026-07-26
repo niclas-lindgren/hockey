@@ -527,7 +527,7 @@ def build_parser() -> argparse.ArgumentParser:
     # scrape-llm — capability-gated LLM browser guidance for blocked sources
     scrape_llm = sub.add_parser(
         "scrape-llm",
-        help="Show the browser-tool requirements for LLM-guided single-club recovery",
+        help="Show browser-tool requirements for LLM-guided single-club recovery (Pi or browser-enabled harness only)",
     )
     scrape_llm.add_argument(
         "--club", required=True,

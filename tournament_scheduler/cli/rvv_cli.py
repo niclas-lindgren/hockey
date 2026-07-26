@@ -623,10 +623,18 @@ def _cmd_scrape_llm(args: argparse.Namespace) -> int:
         return 1
 
     _console.print(
-        "\n[yellow]![/yellow] Denne kommandoen krever browser-verktøy "
-        "(Pi ScraperAgent / Playwright browser_worker)."
+        "\n[yellow]![/yellow] Denne kommandoen krever browser-verktøy: Pi ScraperAgent + Playwright browser_worker, "
+        "eller et annet allerede browser-aktivert harness."
     )
-    _console.print("  Et rent terminalmiljø kan ikke kjøre den direkte her.")
+    _console.print(
+        "  Pi: bruk [bold]/rvv-miniputt scrape-llm[/bold] i en Pi-session med [bold]rvv_miniputt_scrape_llm[/bold]."
+    )
+    _console.print(
+        "  Browser-aktivert Claude/OpenCode/Codex: fungerer bare hvis sesjonen allerede har browser-kontroll."
+    )
+    _console.print(
+        "  Rent terminal/CI: kan ikke drive siden; bruk [bold]rvv-miniputt scrape[/bold] eller åpne en browser-aktivert sesjon."
+    )
     if strategy.credential_env_vars:
         _console.print(
             f"  Krever miljøvariabler: {', '.join(strategy.credential_env_vars)}"
@@ -635,9 +643,6 @@ def _cmd_scrape_llm(args: argparse.Namespace) -> int:
         _console.print(
             f"  Oppstartssekvens: {len(strategy.initial_navigation)} steg før agent-løkken."
         )
-    _console.print(
-        "  Bruk [bold]/rvv-miniputt scrape-llm[/bold] i Pi eller et miljø med browser-kontroll."
-    )
     _console.print(
         f"  For strategi-JSON: [bold]python3 -m tournament_scheduler.pipeline.scraper_strategies --name \"{club_name}\"[/bold]"
     )

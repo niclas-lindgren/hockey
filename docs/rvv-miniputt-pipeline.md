@@ -78,6 +78,14 @@ Stage 2 supports multiple source types:
 - `ical` / `google` — HTTP/iCal scraping
 - JS-heavy sites that fail deterministic scraping — use the Pi ScraperAgent (`.pi/lib/scraper-agent.ts`) or another browser-enabled harness for LLM-guided scraping. In a plain terminal, `scripts/rvv-miniputt scrape-llm` now reports the browser-tool boundary instead of pretending it can drive the page itself.
 
+### Browser-capability boundary
+
+`scripts/rvv-miniputt scrape-llm --club <name>` is a capability probe, not a guaranteed scraper. It can actually recover a source only in an environment that exposes browser control:
+
+- Pi: the `rvv_miniputt_scrape_llm` extension tool / `/rvv-miniputt scrape-llm`
+- Browser-enabled harnesses: Claude Code, OpenCode, Codex, or similar only when they have a Playwright/browser controller wired in
+- Plain terminal or CI: no browser control; the command should immediately explain the missing capability and exit
+
 ### BookUp credentials
 
 Some BookUp calendars require authentication before scraping works.
