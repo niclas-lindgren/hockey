@@ -216,6 +216,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optionally run a Stage 3 checkpoint critic loop before Stage 4 export (default: 0/off)",
     )
 
+    op_questions = operator_sub.add_parser(
+        "questions",
+        help="List pending (unanswered) escalation questions raised by the last operator run",
+    )
+    op_questions.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    op_questions.add_argument(
+        "--json",
+        action="store_true",
+        help="Print pending questions as JSON instead of a human-readable list",
+    )
+
+    op_answer = operator_sub.add_parser(
+        "answer",
+        help="Record a durable human answer to a pending escalation question",
+    )
+    op_answer.add_argument("question_id", help="Question id, as shown by 'operator questions'")
+    op_answer.add_argument("answer", help="The human's answer/decision")
+    op_answer.add_argument(
+        "--decided-by",
+        default=None,
+        help="Optional name/identifier of who made this decision, for the audit trail",
+    )
+    op_answer.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+
     # logs
     logs = sub.add_parser("logs", help="Show structured pipeline run logs")
     logs.add_argument(

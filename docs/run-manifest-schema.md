@@ -86,7 +86,9 @@ Fields:
   "capabilities": [
     { "...": "one CapabilityResult entry per recorded capability, in order, each with a recorded_at timestamp" }
   ],
-  "pending_questions": []
+  "pending_questions": [
+    { "...": "one Question entry per escalation raised in this workspace — see below" }
+  ]
 }
 ```
 
@@ -100,12 +102,68 @@ Fields:
 | `started_at` / `updated_at` / `ended_at` | ISO-8601 UTC timestamps. `ended_at` is `null` until `finalize()` is called.  |
 | `final_outcome`         | `in_progress` until finalized, then one of `ok`, `warning`, `blocked`, `failed`.            |
 | `capabilities`          | Ordered history of every `CapabilityResult` recorded during the run.                        |
-| `pending_questions`     | Reserved for the human escalation/approval protocol (roadmap item 5). Always `[]` today.    |
+| `pending_questions`     | Escalation questions raised in this workspace, answered or not — see below.                 |
 
 `rvv-miniputt run` starts a manifest at the beginning of every run, records a
 capability result after each of the four pipeline stages, and finalizes the
 manifest with the run's terminal outcome. Manifest writes are best-effort:
 a failure to write the manifest never aborts the pipeline itself.
+
+`start_run()` resets `capabilities` and the run's timestamps/outcome for the
+new run, but **carries `pending_questions` forward unchanged** from any
+existing manifest. Escalation questions and their human answers are durable
+workspace state, not per-run state — a human answers a question in a
+separate CLI invocation from the one that raised it, so that answer has to
+survive the next `start_run()` call or the escalation protocol below
+couldn't work at all.
+
+## Human escalation and approval protocol
+
+Defined in `tournament_scheduler/pipeline/escalation.py`. Any capability that
+returns a `CapabilityResult` with `requires_human: true` can be turned into a
+`Question` and raised into `pending_questions`:
+
+```json
+{
+  "id": "abbee2e6f80e4678",
+  "type": "credentials",
+  "capability": "scraping",
+  "summary": "Kongsberg ishall blocked",
+  "context": "event_count=0; strategy=browser",
+  "alternatives": ["Set credentials via KONGSBERG_USER", "Try scrape-llm"],
+  "recommendation": "Set credentials via KONGSBERG_USER",
+  "impact": "Timeout loading the page",
+  "created_at": "2026-07-26T09:16:00+00:00",
+  "answered": false,
+  "answer": null,
+  "decided_by": null,
+  "decided_at": null
+}
+```
+
+`type` is one of six escalation types: `credentials`, `incomplete_data`,
+`ambiguous_policy`, `destructive_repair`, `impossible_constraints`,
+`external_publication`. A question's `id` is a stable hash of
+`(type, capability, summary)`, so raising the *same* question again — from a
+retried or resumed run — is a no-op rather than a duplicate, and raising a
+question that was already answered leaves the recorded answer untouched
+instead of reopening it.
+
+`rvv-miniputt operator run` raises a question for every capability result
+that came back `requires_human: true` after the pipeline finishes, and
+prints any still-unanswered ones as part of its final summary. Inspect and
+resolve them with:
+
+```bash
+rvv-miniputt operator questions [--json]
+rvv-miniputt operator answer <question-id> "<answer>" [--decided-by NAME]
+```
+
+Answering records a durable, auditable decision — it does not itself change
+pipeline state. Running `rvv-miniputt operator run` again afterwards picks
+up from the earliest stale/pending capability as usual (see item 2); the
+human's answer being on record just means the same question won't be raised
+a second time.
 
 ## Inspecting a run
 
