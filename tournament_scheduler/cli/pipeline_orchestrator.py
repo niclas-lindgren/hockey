@@ -13,6 +13,52 @@ _console = Console()
 
 _STAGE_NAMES = {1: "stage1", 2: "stage2", 3: "stage3"}
 
+_DEFAULT_OPERATOR_OBJECTIVE = "Produce the best trustworthy season plan from the current workbook."
+
+
+def _manifest_record(work_dir: str, capability: str, status: str, summary: str, **kwargs: Any) -> None:
+    """Best-effort append to the run manifest. Never raises — the manifest is
+    an operator-facing summary layered on top of the pipeline, not a
+    dependency of it."""
+    try:
+        from ..pipeline.capability_result import CapabilityResult
+        from ..pipeline.run_manifest import RunManifest
+
+        RunManifest(work_dir).record_capability(
+            CapabilityResult(status=status, summary=summary, capability=capability, **kwargs)
+        )
+    except Exception:
+        pass
+
+
+def _manifest_start_run(work_dir: str, input_path: str, objective: str | None = None) -> None:
+    """Best-effort start of a new run manifest at the top of ``rvv-miniputt run``."""
+    try:
+        from ..pipeline.fingerprints import file_sha256
+        from ..pipeline.run_manifest import RunManifest
+
+        input_fingerprint: dict[str, Any] = {"path": input_path}
+        try:
+            input_fingerprint["sha256"] = file_sha256(input_path)
+        except OSError:
+            pass
+        RunManifest(work_dir).start_run(
+            objective or _DEFAULT_OPERATOR_OBJECTIVE,
+            input_fingerprint=input_fingerprint,
+        )
+    except Exception:
+        pass
+
+
+def _manifest_finalize(work_dir: str, outcome: str) -> None:
+    """Best-effort finalization of the run manifest at the end of a run."""
+    try:
+        from ..pipeline.run_manifest import RunManifest
+
+        RunManifest(work_dir).finalize(outcome)
+    except Exception:
+        pass
+
 
 def _judge_stage(
     stage_num: int,
@@ -1167,22 +1213,43 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if resume_from > 1:
         _console.print(f"[dim]Gjenopptar fra Stage {resume_from}[/dim]")
 
+    _manifest_start_run(args.work_dir, args.input, getattr(args, "objective", None))
+
     plan: dict[str, Any] | None = None
 
     cfg, abort = _run_stage1(args, state, strict, _log, resume_from)
     if abort:
+        _manifest_record(args.work_dir, "config", "failed", "Stage 1 (config) failed or aborted the run.")
+        _manifest_finalize(args.work_dir, "failed")
         _write_run_log(args.work_dir, log_start, log_lines, success=False)
         return 1
+    _manifest_record(
+        args.work_dir,
+        "config",
+        "ok",
+        f"{len(cfg.get('sources', []))} source(s) configured, "
+        f"{cfg.get('start_date', '?')} → {cfg.get('end_date', '?')}",
+    )
 
     start = datetime.strptime(cfg["start_date"], "%Y-%m-%d")
     end = datetime.strptime(cfg["end_date"], "%Y-%m-%d")
 
     scraping, abort, stage2_failed = _run_stage2(args, cfg, state, start, end, strict, _log, resume_from)
     if abort:
+        _manifest_record(args.work_dir, "scraping", "failed", "Stage 2 (scraping) failed or aborted the run.")
+        _manifest_finalize(args.work_dir, "failed")
         _write_run_log(args.work_dir, log_start, log_lines, success=False)
         return 1
     if stage2_failed:
         run_failed = True
+    _scraping_blocked = (scraping or {}).get("blocked", [])
+    _manifest_record(
+        args.work_dir,
+        "scraping",
+        "failed" if stage2_failed else ("warning" if _scraping_blocked else "ok"),
+        f"{len((scraping or {}).get('sources', []))} source(s) scraped, {len(_scraping_blocked)} blocked",
+        problems=list(_scraping_blocked),
+    )
 
     # Retry Stage 3 planning when the verdict is still rough and we actually
     # have a populated tournament plan to improve. This gives the planner a
@@ -1235,6 +1302,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
             _log, attempt_iterations, penalty_hints,
         )
         if abort:
+            _manifest_record(args.work_dir, "planning", "failed", "Stage 3 (planning) failed or aborted the run.")
+            _manifest_finalize(args.work_dir, "failed")
             _write_run_log(args.work_dir, log_start, log_lines, success=False)
             return 1
         if stage3_failed:
@@ -1305,6 +1374,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
             args, cfg, scraping, state, start, end, strict, resume_from, _log, plan
         )
         if mid_abort:
+            _manifest_record(args.work_dir, "planning", "failed", "Mid-planning critic loop aborted the run.")
+            _manifest_finalize(args.work_dir, "failed")
             _write_run_log(args.work_dir, log_start, log_lines, success=False)
             return 1
         if mid_failed:
@@ -1319,10 +1390,21 @@ def _cmd_run(args: argparse.Namespace) -> int:
         )
         _log(f"Planning remained rough after {max_plan_attempts} attempts")
 
+    _manifest_record(
+        args.work_dir,
+        "planning",
+        "failed" if run_failed and plan is None else ("warning" if plan_needs_attention else "ok"),
+        f"{final_tournament_count} tournament(s) planned, verdict tone={final_tone}",
+        confidence=1.0 if final_tone == "strong" else (0.6 if final_tone == "mixed" else 0.3),
+        requires_human=plan_needs_attention,
+    )
+
     # ── LLM approval gate (between Stage 3 and Stage 4) ──────────────────────
     # Only runs when RVV_APPROVAL_ENDPOINT is set (opt-in).  If not configured
     # the gate is skipped silently so non-LLM deployments are unaffected.
     if not _run_approval_gate(args, plan, state, strict, _console, _log):
+        _manifest_record(args.work_dir, "planning", "blocked", "LLM approval gate rejected the plan.")
+        _manifest_finalize(args.work_dir, "blocked")
         _write_run_log(args.work_dir, log_start, log_lines, success=False)
         return 1
 
@@ -1330,10 +1412,18 @@ def _cmd_run(args: argparse.Namespace) -> int:
         args, plan, state, strict, _log, resume_from
     )
     if abort:
+        _manifest_record(args.work_dir, "export", "failed", "Stage 4 (export) failed or aborted the run.")
+        _manifest_finalize(args.work_dir, "failed")
         _write_run_log(args.work_dir, log_start, log_lines, success=False)
         return 1
     if stage4_failed:
         run_failed = True
+    _manifest_record(
+        args.work_dir,
+        "export",
+        "failed" if stage4_failed else "ok",
+        "Export produced calendars_html output" if stage4_generated_calendars else "Export completed",
+    )
 
     # ── Skill-driven refinement loop (post-Stage 4) ──────────────────────────
     # When the plan verdict tone is 'rough', attempt automated improvements by
@@ -1359,9 +1449,11 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if run_failed or plan_needs_attention:
         _console.print("\n[bold yellow]⚠ Pipeline fullført med feil.[/bold yellow]")
         _log("Pipeline completed with failures")
+        _manifest_finalize(args.work_dir, "failed" if run_failed else "warning")
     else:
         _console.print("\n[bold green]✓ Pipeline fullført.[/bold green]")
         _log("Pipeline completed successfully")
+        _manifest_finalize(args.work_dir, "ok")
     _write_run_log(args.work_dir, log_start, log_lines, success=not (run_failed or plan_needs_attention))
     return 1 if plan_needs_attention else 0
 

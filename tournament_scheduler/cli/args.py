@@ -19,6 +19,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=".pipeline",
         help="Pipeline work directory (default: .pipeline)",
     )
+    status.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the AI-operator run manifest as JSON instead of the human-readable summary",
+    )
 
     # calendars
     cal = sub.add_parser("calendars", help="Calendar viewer commands")

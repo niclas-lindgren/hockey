@@ -4,6 +4,12 @@ This backlog translates the product direction in `ai-operator-product-direction.
 
 ## 1. Define the operator run manifest and structured capability results
 
+**Status: implemented.** See
+[`docs/run-manifest-schema.md`](run-manifest-schema.md) for the schema,
+`tournament_scheduler/pipeline/capability_result.py` and
+`tournament_scheduler/pipeline/run_manifest.py` for the implementation, and
+`rvv-miniputt status --json` for inspecting a run.
+
 ### Goal
 
 Create the shared data contract that lets an AI operator understand workspace state, capability outcomes, evidence, confidence, artifacts, blockers, and suggested next actions without parsing human-oriented console logs.
