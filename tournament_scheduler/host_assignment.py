@@ -191,7 +191,16 @@ def find_slot_for_tournament(
     if required_minutes <= 0:
         return None
 
-    search_hosts = [host_club]
+    # A joint-club team (e.g. "Jar/Jutul") has no single physical arena of
+    # its own — try each constituent club's arena instead, in a
+    # deterministic order, before falling through to the general candidate
+    # list. The per-candidate slot search below already picks the first one
+    # with a free slot, so this reuses that mechanism rather than adding a
+    # separate "most available" comparison.
+    if "/" in host_club:
+        search_hosts = sorted(part.strip() for part in host_club.split("/") if part.strip())
+    else:
+        search_hosts = [host_club]
     if candidate_hosts:
         for candidate in candidate_hosts:
             if candidate not in search_hosts:

@@ -142,7 +142,14 @@ class TournamentScheduler:
             ``(host_club_used, start_HH:MM, end_HH:MM)`` for the best slot in
             the host club's own hall, or ``None`` if no sufficient slot exists.
         """
-        host_entry = get_club(host_club)
+        try:
+            host_entry = get_club(host_club)
+        except KeyError:
+            # host_club isn't in the registry at all (e.g. a joint-club team
+            # name like "Jar/Jutul" that has no single physical arena) — the
+            # docstring above already promises this falls back to None like
+            # any other "no known calendar source" club, not a crash.
+            return None
         if not host_entry.is_known:
             return None
 
