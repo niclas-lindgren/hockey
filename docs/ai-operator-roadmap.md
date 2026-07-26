@@ -114,6 +114,23 @@ Turn calendar ingestion from a collection of scraping commands into a capability
 
 ## 4. Make plan generation reproducible and candidate comparison explainable
 
+**Status: implemented.** `stage3_planning.run()` now records reproducibility
+metadata and a compact summary for every `--iterations` candidate under a
+`candidates` list on the Stage 3 checkpoint (planner version, config and
+source fingerprints, seed, penalty hints, per-metric score breakdown), plus
+`selected_candidate_attempt`. Candidate selection now ranks by
+`(hard_constraint_status, aggregate_score, tournament_count)` instead of raw
+score alone — a "fail" status (a hard-constraint violation, e.g. an
+arena/day collision) can no longer be outscored by a good aggregate score
+from a candidate that actually violates a hard constraint. Tie-breaking is
+fully deterministic (documented in `_candidate_rank`). Locked
+assignments/human decisions continue to work unchanged via the existing
+manual-adjustments merge. Inspect candidates with `rvv-miniputt candidates`
+(`--json` for raw data), which also shows the most consequential fairness
+metric differences between the selected candidate and its runner-up. See
+`tests/test_stage3_planning.py::TestCandidateTracking` and
+`tests/test_candidates_cli.py`.
+
 ### Goal
 
 Let the operator generate and compare alternative plans while preserving deterministic validity and a complete audit trail.

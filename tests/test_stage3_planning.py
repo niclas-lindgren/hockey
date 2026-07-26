@@ -346,6 +346,123 @@ class TestIterationsFlag:
         assert score_multi >= score_single
 
 
+class TestCandidateRankFunction:
+    """Unit tests for the pure candidate-ranking helper."""
+
+    def test_fail_status_always_ranks_below_warn_and_pass(self):
+        from tournament_scheduler.pipeline.stage3_planning import _candidate_rank
+
+        fail_rank = _candidate_rank("fail", score=99, tournament_count=100)
+        warn_rank = _candidate_rank("warn", score=1, tournament_count=1)
+        pass_rank = _candidate_rank("pass", score=1, tournament_count=1)
+
+        assert fail_rank < warn_rank
+        assert fail_rank < pass_rank
+        assert warn_rank < pass_rank
+
+    def test_same_status_breaks_tie_by_score_then_tournament_count(self):
+        from tournament_scheduler.pipeline.stage3_planning import _candidate_rank
+
+        assert _candidate_rank("pass", 80, 5) < _candidate_rank("pass", 90, 5)
+        assert _candidate_rank("pass", 90, 5) < _candidate_rank("pass", 90, 6)
+
+    def test_unknown_status_is_treated_like_warn(self):
+        from tournament_scheduler.pipeline.stage3_planning import _candidate_rank
+
+        assert _candidate_rank("mystery", 50, 1) == _candidate_rank("warn", 50, 1)
+
+
+class TestCandidateTracking:
+    """Tests for per-candidate reproducibility metadata recorded on the checkpoint."""
+
+    def _fake_plan(self) -> SeasonPlan:
+        return SeasonPlan(
+            tournaments=[
+                Tournament(
+                    date=date(2025, 10, 5),
+                    arena="Kongsberghallen",
+                    age_group="U10",
+                    teams=[
+                        Team(club="Kongsberg", label="Kongsberg U10A", age_group="U10"),
+                        Team(club="Skien", label="Skien U10A", age_group="U10"),
+                    ],
+                    games=[],
+                )
+            ]
+        )
+
+    def test_real_run_records_one_candidate_per_iteration(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+            iterations=3,
+        )
+
+        assert len(result["candidates"]) == 3
+        assert [c["attempt"] for c in result["candidates"]] == [1, 2, 3]
+        assert result["selected_candidate_attempt"] in (1, 2, 3)
+        for candidate in result["candidates"]:
+            assert candidate["planner_version"]
+            assert candidate["config_fingerprint"]
+            assert candidate["source_fingerprint"]
+            assert candidate["status"] in ("pass", "warn", "fail")
+            assert isinstance(candidate["rank"], list)
+
+    def test_config_fingerprint_is_stable_for_identical_config(self, tmp_path):
+        cfg = _make_config()
+        start, end = datetime(2025, 9, 1), datetime(2025, 12, 15)
+
+        state_a = PipelineState(tmp_path / "a")
+        result_a = run(cfg, {}, state_a, start, end, iterations=1)
+
+        state_b = PipelineState(tmp_path / "b")
+        result_b = run(cfg, {}, state_b, start, end, iterations=1)
+
+        fp_a = result_a["candidates"][0]["config_fingerprint"]
+        fp_b = result_b["candidates"][0]["config_fingerprint"]
+        assert fp_a == fp_b
+
+    def test_selected_candidate_matches_exported_plan(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+            iterations=2,
+        )
+        selected = result["selected_candidate_attempt"]
+        selected_candidate = next(c for c in result["candidates"] if c["attempt"] == selected)
+        assert selected_candidate["score"] == result["plan"]["fairness_gate"]["score"]
+
+    def test_fail_status_candidate_is_never_selected_over_a_passing_one(self, tmp_path):
+        """A high raw score on a "fail" (hard-constraint) candidate must not
+        win over a lower-scoring "pass" candidate — this is the exact bug
+        issue #4 calls out: a good aggregate score must not hide a
+        hard-constraint violation."""
+        state = PipelineState(tmp_path / "pipeline")
+        fake_planner = MagicMock()
+        fake_planner.build_plan.return_value = self._fake_plan()
+        fake_planner.rules_report.return_value = {"ok": True}
+
+        with patch(
+            "tournament_scheduler.pipeline.stage3_planning._make_planner",
+            return_value=fake_planner,
+        ), patch(
+            "tournament_scheduler.pipeline.stage3_planning._build_fairness_gate",
+            side_effect=[
+                {"status": "fail", "score": 99, "metrics": []},  # attempt 1: high score, hard fail
+                {"status": "pass", "score": 40, "metrics": []},  # attempt 2: lower score, but passes
+            ],
+        ):
+            result = run(_make_config(), {}, state, datetime(2025, 9, 1), datetime(2025, 12, 15), iterations=2)
+
+        assert result["selected_candidate_attempt"] == 2
+        assert [c["status"] for c in result["candidates"]] == ["fail", "pass"]
+        assert [c["score"] for c in result["candidates"]] == [99, 40]
+
+
 class TestPlanToDict:
     def test_serializes_round_number(self):
         home = Team(club="Kongsberg", label="Kongsberg U10A", age_group="U10")

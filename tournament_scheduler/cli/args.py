@@ -540,4 +540,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline work directory (default: .pipeline)",
     )
 
+    # candidates
+    candidates = sub.add_parser(
+        "candidates",
+        help="Compare Stage 3 plan candidates (from --iterations > 1): reproducibility "
+        "metadata, ranking, and the most consequential trade-offs vs. the runner-up",
+    )
+    candidates.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    candidates.add_argument(
+        "--json",
+        action="store_true",
+        help="Print candidates as JSON instead of a human-readable comparison",
+    )
+
     return parser
