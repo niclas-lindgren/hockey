@@ -1787,6 +1787,12 @@ def _cmd_operator_publish(args: argparse.Namespace) -> int:
         action_kwargs["export_dir"] = args.export_dir
     if getattr(args, "run_id", None):
         action_kwargs["run_id"] = args.run_id
+    if getattr(args, "extra_public_files", None):
+        from ..pipeline.pages_bundle import DEFAULT_ALLOWED_FILENAMES
+
+        action_kwargs["allowed_filenames"] = DEFAULT_ALLOWED_FILENAMES | set(args.extra_public_files)
+    if getattr(args, "allow_findings", None):
+        action_kwargs["allow_findings"] = set(args.allow_findings)
 
     action = DEFAULT_REGISTRY.build("publish_pages", **action_kwargs)
     try:

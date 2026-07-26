@@ -285,6 +285,29 @@ class TestPublishPagesExecutor:
         assert result.status == "failed"
         assert "eksport" in result.summary.lower()
 
+    def test_routes_through_the_sanitizer_before_publishing(self, tmp_path):
+        """A secret in the raw export must block before any git operation runs (issue #18)."""
+        export_dir = tmp_path / "export"
+        export_dir.mkdir()
+        (export_dir / "season_plan.html").write_text(
+            "<p>key=AKIAABCDEFGHIJKLMNOP</p>", encoding="utf-8"
+        )
+        PipelineState(tmp_path).write_stage(
+            StageName.EXPORT,
+            {"output_files": {"html": str(export_dir / "season_plan.html")}},
+            status=StageStatus.DONE,
+        )
+
+        action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path)
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "blocked"
+        # No git repo exists at repo_dir — if this had reached pages_publish it
+        # would have failed with a git error, not blocked with a privacy finding.
+        assert not (tmp_path / ".git").exists()
+
 
 class TestCapabilityResultActionsField:
     def test_defaults_to_empty_list(self):

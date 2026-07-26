@@ -49,6 +49,8 @@ rvv-miniputt operator run --publish                      # or fold publishing in
 
 Running either command is the human approval for this external write (see [AI operator implementation roadmap](docs/ai-operator-roadmap.md#17-add-operator-driven-github-pages-publishing)). Publishing is idempotent per run and never force-pushes history.
 
+Before anything is published, the raw export is sanitized into a separate public bundle (see [issue #18](docs/ai-operator-roadmap.md#18-create-a-sanitized-public-pages-bundle-and-privacy-report)): only the HTML/ICS season-plan views are copied by default (never Excel/Spond exports or per-club review packets), probable secrets block publication outright, and local paths/contact info are redacted. Inspect what would go public in `<work-dir>/pages_privacy_report.json`.
+
 In Pi, start the workflow with:
 
 ```bash

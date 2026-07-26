@@ -342,6 +342,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     op_publish.set_defaults(push=True)
     op_publish.add_argument(
+        "--extra-public-file",
+        dest="extra_public_files",
+        action="append",
+        default=[],
+        metavar="FILENAME",
+        help="Allow an additional filename into the sanitized public bundle (issue #18); repeatable",
+    )
+    op_publish.add_argument(
+        "--allow-finding",
+        dest="allow_findings",
+        action="append",
+        default=[],
+        metavar="TEXT",
+        help="Acknowledge a specific flagged string as a false positive so it no longer blocks "
+        "publication (issue #18); repeatable",
+    )
+    op_publish.add_argument(
         "--json",
         action="store_true",
         help="Print the publish result as JSON",

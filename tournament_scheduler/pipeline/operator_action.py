@@ -17,7 +17,7 @@ Core actions registered by default:
 - ``rerun_planning`` — rerun Stage 3 with the current config/source data
 - ``compare_candidates`` — summarize Stage 3's recorded plan candidates (#4)
 - ``export_selected_plan`` — run Stage 4 export for the current plan
-- ``publish_pages`` — publish the current Stage 4 export to GitHub Pages (#17)
+- ``publish_pages`` — sanitize (#18) and publish the current Stage 4 export to GitHub Pages (#17)
 
 Risk levels and the approval rule: ``destructive`` (discards meaningful
 data) and ``external`` (writes artifacts meant to leave the system, e.g.
@@ -448,10 +448,12 @@ def _execute_publish_pages(
     branch: str = "gh-pages",
     remote: str = "origin",
     push: bool = True,
+    allowed_filenames: "frozenset[str] | set[str] | None" = None,
+    allow_findings: "frozenset[str] | set[str] | None" = None,
 ) -> "CapabilityResult":
     from pathlib import Path
 
-    from . import pages_publish
+    from . import pages_bundle, pages_publish
     from .capability_result import CapabilityResult
     from .run_manifest import RunManifest
     from .state import PipelineState, StageName
@@ -471,14 +473,33 @@ def _execute_publish_pages(
     if run_id is None:
         run_id = RunManifest(work_dir).read().get("run_id") or "unknown-run"
 
-    return pages_publish.publish(
-        export_dir=export_dir,
+    # A raw Stage 4 export may contain rosters, contact info, or internal
+    # notes (Excel/Spond exports, review_packets/) that must never reach a
+    # public URL — sanitize into a separate bundle first (issue #18) and
+    # publish that instead of the raw export directory. A blocked/failed
+    # sanitization result is returned as-is; the git publish step never
+    # runs on unsanitized content.
+    public_bundle_dir = str(Path(work_dir) / "public_bundle")
+    bundle_result = pages_bundle.build_public_bundle(
+        export_dir,
+        public_bundle_dir,
+        allowed_filenames=allowed_filenames,
+        allow_findings=allow_findings,
+    )
+    if not bundle_result.is_terminal_success:
+        return bundle_result
+
+    publish_result = pages_publish.publish(
+        export_dir=public_bundle_dir,
         run_id=run_id,
         repo_dir=repo_dir,
         branch=branch,
         remote=remote,
         push=push,
     )
+    publish_result.evidence = list(bundle_result.evidence) + list(publish_result.evidence)
+    publish_result.artifacts = list(publish_result.artifacts) + list(bundle_result.artifacts)
+    return publish_result
 
 
 def build_default_registry() -> ActionRegistry:

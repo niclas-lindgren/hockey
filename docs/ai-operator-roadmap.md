@@ -403,3 +403,38 @@ invocations that shouldn't auto-approve (e.g. an unattended harness run).
 See `tests/test_pages_publish.py` (initial branch creation, `/latest/`
 updates, `/runs/<run-id>/` retention, no-op republish, and push failure) and
 `tests/test_operator_action.py::TestPublishPagesExecutor`.
+
+### 18. Create a sanitized public Pages bundle and privacy report
+
+**Status: implemented.** `tournament_scheduler/pipeline/pages_bundle.py`
+adds `build_public_bundle()`, a fail-closed gate in front of #17: only an
+explicit filename allowlist (`DEFAULT_ALLOWED_FILENAMES` —
+`season_plan.html`, `season_plan_report.html`, `calendars.html`,
+`season_plan.ics`) is ever copied from the raw Stage 4 export into a
+separate bundle directory, so Excel/CSV/Spond exports and
+`review_packets/` (which carry roster, contact, and organizer data) are
+excluded by default rather than merely unscanned — a directory or an
+unapproved extension is excluded even if a caller allowlists its filename.
+Included text files are pattern-scanned for probable secrets (AWS/GitHub/
+Slack tokens, private key blocks, generic `key=`/`token=`/`password=`
+assignments, `Bearer` headers, and bearer-style URL query params): any
+match blocks the whole bundle (`CapabilityResult.blocked`,
+`requires_human=True`, nothing written to the output directory) unless the
+matched text is explicitly acknowledged via `allow_findings`. Local
+filesystem paths, email addresses, and labeled phone numbers
+(`tel:`/`Tlf`/`Phone` context — unlabeled digit runs are left alone so
+dates and scores survive untouched) are redacted rather than blocking.
+Root-absolute `href="/..."`/`src="/..."` links are rewritten relative so
+the bundle still resolves under the GitHub Pages project subpath
+(`/<repo>/latest/`, `/<repo>/runs/<run-id>/`). Every decision — included,
+excluded (with reason), redacted (with category and count), or blocking —
+is written to `pages_privacy_report.json` next to the bundle.
+`operator_action._execute_publish_pages` (#17) now always builds this
+bundle first and publishes it instead of the raw export directory; a
+blocked/failed sanitization result is returned immediately and the git
+publish step never runs. CLI: `rvv-miniputt operator publish
+--extra-public-file NAME` (extend the allowlist) and `--allow-finding TEXT`
+(acknowledge a specific false positive). See `tests/test_pages_bundle.py`
+(default allowlist, directory/extension exclusion, secret blocking,
+false-positive overrides, redaction, and asset rewriting) and
+`tests/test_operator_action.py::TestPublishPagesExecutor::test_routes_through_the_sanitizer_before_publishing`.
