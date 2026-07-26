@@ -88,6 +88,9 @@ Fields:
   ],
   "pending_questions": [
     { "...": "one Question entry per escalation raised in this workspace — see below" }
+  ],
+  "action_log": [
+    { "...": "one entry per observe-decide-act loop step (issue #11) — see below" }
   ]
 }
 ```
@@ -103,6 +106,7 @@ Fields:
 | `final_outcome`         | `in_progress` until finalized, then one of `ok`, `warning`, `blocked`, `failed`.            |
 | `capabilities`          | Ordered history of every `CapabilityResult` recorded during the run.                        |
 | `pending_questions`     | Escalation questions raised in this workspace, answered or not — see below.                 |
+| `action_log`            | Ordered history of every operator-loop action taken in this workspace — see below.          |
 
 `rvv-miniputt run` starts a manifest at the beginning of every run, records a
 capability result after each of the four pipeline stages, and finalizes the
@@ -164,6 +168,74 @@ pipeline state. Running `rvv-miniputt operator run` again afterwards picks
 up from the earliest stale/pending capability as usual (see item 2); the
 human's answer being on record just means the same question won't be raised
 a second time.
+
+## The observe-decide-act operator loop (issue #11)
+
+`rvv-miniputt operator run` starts every invocation with a bounded recovery
+pass over calendar source health, implemented in
+`tournament_scheduler/pipeline/operator_loop.py`:
+
+```
+observe (source_health, issue #3)
+    -> decide (a pure policy function, no LLM required)
+        -> act (dispatch through the #10 OperatorAction registry)
+            -> evaluate (re-observe)
+                -> continue, retry, escalate, or finish
+```
+
+The policy (`decide_action_for_source`) is a plain, synchronous function —
+no network or LLM call — so it runs and is fully unit-tested without any LLM
+provider configured. An LLM harness may *propose* an action instead of the
+default policy, but a proposal that isn't a known registry action ID is
+rejected and the loop falls back to the deterministic policy: the harness can
+influence *which* registered action runs, never invent a new one.
+
+The loop is bounded on two axes so it can never run forever: at most
+`max_retries_per_source` attempts per source (default 2) before escalating,
+and at most `max_actions` actions in total across all sources (default 10).
+It also detects "no progress" — an action that produced the same result as
+the previous attempt on that source — and escalates immediately instead of
+burning through the remaining retry budget. None of the loop's own
+policy-selected actions require human approval; if a custom action proposer
+names one that does, the loop escalates instead of executing it.
+
+Every step is appended to `action_log` via `RunManifest.record_action_transition()`:
+
+```json
+{
+  "target": "Jar",
+  "action_id": "retry_source",
+  "arguments": { "work_dir": "...", "source_name": "Jar" },
+  "rationale": "status=blocked attempt=0",
+  "policy_rule": "blocked+attempt_0->retry_source",
+  "result": { "...": "the CapabilityResult the action produced" },
+  "transition": "resolved",
+  "recorded_at": "2026-07-26T09:16:05+00:00"
+}
+```
+
+| Field         | Meaning                                                                                          |
+|----------------|----------------------------------------------------------------------------------------------------|
+| `target`       | What the action operated on — a source name.                                                      |
+| `action_id` / `arguments` | The exact registered `OperatorAction` invoked (empty `action_id` when the loop escalated without acting). |
+| `rationale`    | Free-text explanation of why this action was chosen.                                              |
+| `policy_rule`  | Stable identifier for the deterministic rule that selected it, independent of prose.               |
+| `result`       | The `CapabilityResult` the action produced.                                                       |
+| `transition`   | What the loop did next: `resolved`, `retry`, `escalate`, or `no_progress_stop`.                    |
+
+Because the loop reasons from on-disk state (the Stage 2 checkpoint and the
+unified scrape cache) rather than in-process counters, it resumes safely
+across separate `operator run` invocations — a source that was mid-retry
+when the process was interrupted picks back up from its actual observed
+health, not from a lost in-memory attempt count.
+
+When the loop repairs at least one source (`actions_taken > 0`),
+`_cmd_operator_run` forces the pipeline to resume from at least Stage 2 even
+if auto-detection would otherwise have found "nothing pending" or a later
+stage — only an actual Stage 2 rerun rewrites the checkpoint the rest of the
+pipeline reads. An explicit `--resume-from` always wins over this
+adjustment, and a failure inside the recovery pass itself degrades silently
+to a normal run rather than crashing `operator run`.
 
 ## Inspecting a run
 
