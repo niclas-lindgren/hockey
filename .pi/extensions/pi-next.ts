@@ -157,7 +157,7 @@ export default function piNextExtension(pi: ExtensionAPI) {
   pi.registerCommand("pi-next", {
     description: "Run the pi-next autonomous .ps-next workflow (alias for /skill:pi-next)",
     getArgumentCompletions: (prefix) => {
-      const words = ["auto", "fresh", "plan", "backlog list", "backlog add", "backlog done"];
+      const words = ["auto", "auto github", "fresh", "plan", "backlog list", "backlog add", "backlog done"];
       const filtered = words.filter((w) => w.startsWith(prefix));
       return filtered.length ? filtered.map((value) => ({ value, label: value })) : null;
     },
@@ -187,7 +187,7 @@ export default function piNextExtension(pi: ExtensionAPI) {
   pi.registerCommand("pi-next-fresh", {
     description: "Start a fresh Pi session and run pi-next there; useful after each completed task/backlog item",
     getArgumentCompletions: (prefix) => {
-      const words = ["auto", "plan", "backlog list"];
+      const words = ["auto", "auto github", "plan", "backlog list"];
       const filtered = words.filter((w) => w.startsWith(prefix));
       return filtered.length ? filtered.map((value) => ({ value, label: value })) : null;
     },

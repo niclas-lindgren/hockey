@@ -66,7 +66,7 @@ The portable, harness-neutral contract is the `.ps-next` file layout plus the he
 
 Parse the user's arguments first.
 
-- `auto [feature]` — run full lifecycle. If no feature is supplied, use the top open backlog item.
+- `auto [github] [feature]` — run full lifecycle. If `github` is supplied, select an open GitHub issue and use it as the plan source; if it is omitted, use the top open backlog item. Explicit feature text still wins when provided.
 - bare integer, e.g. `210` — use that backlog item.
 - `plan [feature]` — create `.ps-next/PLAN.md` only, then stop.
 - `backlog list` — show open backlog items.
@@ -91,9 +91,15 @@ If `$PS_DIR/.continue-here.md` exists, read it and surface the checkpoint before
 
 Routing:
 
+Evaluate these routes in order; use the first matching route.
+
 1. `PLAN=exists` and `UNCHECKED > 0` → execute remaining tasks.
 2. `PLAN=exists` and `UNCHECKED = 0` → verify and archive.
-3. no plan + explicit feature/freeform/`auto feature` → create plan, then execute unless mode is `plan`.
+3. no plan + one of:
+  - `auto github`
+  - explicit feature/freeform
+  - `auto feature`
+  → create plan, then execute unless mode is `plan`.
 4. no plan + integer arg → fetch that backlog item, create plan, then execute.
 5. no plan + no args + open backlog → auto-select top open backlog item, create plan, then execute.
 6. no plan + no backlog → ask the user for the feature.
