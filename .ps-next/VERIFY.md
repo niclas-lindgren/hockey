@@ -1,16 +1,13 @@
 # Verification Report
 
-STATUS: NEEDS_REVIEW
+STATUS: PASS_WITH_MANUAL
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| pytest.ini contains registered slow and integration markers and default addopts exclude them. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Canonical full-planner tests in tests/test_stage3_planning.py, tests/test_season_planner.py, and tests/test_rules_report_doc.py are marked slow. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Pipeline subprocess integration tests in tests/test_claude_orchestration.py are marked integration. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| .pi/extensions/pi-next.ts runs quick/standard Python quality gates without slow/integration tests and full quality gates with the full pytest suite. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| run: python3 -m pytest -q tests/test_stage3_planning.py tests/test_season_planner.py tests/test_rules_report_doc.py -m "not slow and not integration" --no-cov | PASS | exit 0; output: ============================= test session starts ==============================
-platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0
-rootdir: /Users/nic |
-| run: python3 -m pytest -q tests/test_pi_next_skill_boundary.py --no-cov | PASS | exit 0; output: ============================= test session starts ==============================
-platform linux -- Python 3.12.3, pytest-9.0.3, pluggy-1.6.0
-rootdir: /Users/nic |
+| `scripts/rvv-miniputt scrape-llm --club Holmen` produces an explicit actionable message about browser-tool requirements instead of an invalid-choice error. | PASS | `python3 -m tournament_scheduler.cli.rvv_cli scrape-llm --club Holmen` prints the browser-tool boundary and exits 1; covered by `tests/test_rvv_cli_portability.py::test_scrape_llm_cli_prints_browser_tool_guidance`. |
+| The portable CLI help/dispatch shows `scrape-llm` as a real subcommand. | PASS | `build_parser().parse_args(["scrape-llm", ...])` succeeds in `tests/test_rvv_cli_portability.py::test_run_parser_accepts_scrape_llm_flags`. |
+| The RVV skill/docs contain an explicit browser-tool boundary for LLM-guided scraping. | PASS | Updated `.agents/skills/rvv/SKILL.md`, `.claude/commands/rvv-miniputt/scrape-llm.md`, `docs/rvv-miniputt-pipeline.md`, and `docs/ai-operator-roadmap.md`. |
+| Tests pass for the new CLI behavior. | PASS | `python3 -m pytest tests/test_rvv_cli_portability.py -q` passed; `pi_next_quality_gate(level=quick)` passed. |
+
+## Notes
+- `pi_next_quality_gate(level=full)` fails on unrelated pre-existing `tests/test_season_planner.py` assertions (`jar_u10_counts` still all zero). This is outside the scrape-llm CLI/docs scope.
