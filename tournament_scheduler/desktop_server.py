@@ -1280,10 +1280,15 @@ class Handler(BaseHTTPRequestHandler):
             wd = _load_json(_settings_path(), {}).get("work_dir", str(_app_dir() / "pipeline-cache"))
             self._send(200, RunManifest(wd).read())
         elif path == "/questions":
-            from tournament_scheduler.pipeline.escalation import unanswered_questions
+            from tournament_scheduler.pipeline.escalation import all_questions, unanswered_questions
 
             wd = _load_json(_settings_path(), {}).get("work_dir", str(_app_dir() / "pipeline-cache"))
-            self._send(200, {"questions": unanswered_questions(wd)})
+            # ?all=1 also returns answered and stale decisions (issue #12) —
+            # the audit trail a supervisor UI needs to show why an old
+            # answer stopped applying, not just what's still open.
+            include_all = self._query_param("all") in ("1", "true")
+            questions = all_questions(wd) if include_all else unanswered_questions(wd)
+            self._send(200, {"questions": questions})
         elif len(parts) == 3 and parts[1] == "checkpoint":
             stage = parts[2]
             if stage in STAGE_CHECKPOINT_FILES:
@@ -1347,6 +1352,27 @@ class Handler(BaseHTTPRequestHandler):
                 wd = _load_json(_settings_path(), {}).get("work_dir", str(_app_dir() / "pipeline-cache"))
                 try:
                     entry = answer_question(wd, question_id, answer, decided_by=payload.get("decided_by"))
+                except ValueError as exc:
+                    self._send(404, {"error": str(exc)})
+                    return
+                self._send(200, entry)
+            elif path == "/questions/promote":
+                from tournament_scheduler.pipeline.escalation import promote_question
+
+                question_id = str(payload.get("id") or "")
+                scope = str(payload.get("scope") or "")
+                if not question_id or not scope:
+                    self._send(400, {"error": "Mangler id eller scope."})
+                    return
+                wd = _load_json(_settings_path(), {}).get("work_dir", str(_app_dir() / "pipeline-cache"))
+                try:
+                    entry = promote_question(
+                        wd,
+                        question_id,
+                        scope,
+                        new_scope_key=str(payload.get("scope_key") or ""),
+                        decided_by=payload.get("decided_by"),
+                    )
                 except ValueError as exc:
                     self._send(404, {"error": str(exc)})
                     return

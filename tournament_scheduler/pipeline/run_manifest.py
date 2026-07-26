@@ -242,10 +242,19 @@ class RunManifest:
         unless a question with the same ``id`` was already raised in this
         workspace, answered or not.
 
+        For anything narrower than ``workspace`` scope, the id already bakes
+        in ``(scope, scope_key)`` (see ``escalation._question_id``), so a
+        context change (new run, new workbook, new season) naturally
+        produces a new id rather than reusing an old answer. When that
+        happens, any older, still-fresh entry sharing this question's
+        ``(type, capability, summary, scope)`` — i.e. the same decision in
+        an earlier context — is marked ``stale`` rather than deleted or
+        overwritten, preserving its audit history (issue #12).
+
         Returns the newly stored question, or the existing entry when this
-        exact question (same type/capability/summary, hence same id) has
-        already been raised — so a capability can call this unconditionally
-        every time it blocks without ever asking the same thing twice.
+        exact question, in this exact scope context, has already been
+        raised — so a capability can call this unconditionally every time
+        it blocks without ever asking the same thing twice.
         """
         manifest = self.read()
         existing = manifest.setdefault("pending_questions", [])
@@ -253,10 +262,94 @@ class RunManifest:
         for entry in existing:
             if entry.get("id") == question_id:
                 return entry
+
+        scope = question.get("scope", "workspace")
+        if scope != "workspace":
+            signature = (question.get("type"), question.get("capability"), question.get("summary"), scope)
+            for entry in existing:
+                entry_signature = (entry.get("type"), entry.get("capability"), entry.get("summary"), entry.get("scope"))
+                if (
+                    entry_signature == signature
+                    and entry.get("scope_key") != question.get("scope_key")
+                    and not entry.get("stale")
+                ):
+                    entry["stale"] = True
+                    entry["stale_reason"] = (
+                        f"scope_key changed ({entry.get('scope_key')!r} -> {question.get('scope_key')!r})"
+                    )
+
         existing.append(question)
         manifest["updated_at"] = _now_iso()
         self._write(manifest)
         return question
+
+    def promote_question(
+        self,
+        question_id: str,
+        new_scope: str,
+        *,
+        new_scope_key: str = "",
+        decided_by: str | None = None,
+    ) -> dict[str, Any]:
+        """Promote *question_id* to a broader scope (issue #12).
+
+        Copies the source entry's content and answer into a new entry under
+        *new_scope*, which must be strictly broader than the source entry's
+        current scope (``run < input_version < season < workspace``). The
+        source entry is left untouched — still auditable at its original
+        scope — and gains a ``promoted_to`` pointer to the new entry's id.
+
+        Returns the existing promoted entry unchanged if this exact
+        promotion was already made (idempotent, like ``add_pending_question``).
+        """
+        from .escalation import _question_id, scope_order  # local import: avoid a cycle at module load
+
+        manifest = self.read()
+        pending = manifest.setdefault("pending_questions", [])
+        source = next((entry for entry in pending if entry.get("id") == question_id), None)
+        if source is None:
+            raise ValueError(f"No question with id {question_id!r} in {self.path}")
+
+        source_scope = source.get("scope", "workspace")
+        if scope_order(new_scope) <= scope_order(source_scope):
+            raise ValueError(
+                f"Cannot promote from {source_scope!r} to {new_scope!r}: "
+                "the target scope must be strictly broader than the source scope"
+            )
+
+        resolved_key = "" if new_scope == "workspace" else new_scope_key
+        promoted_id = _question_id(source["type"], source["capability"], source["summary"], new_scope, resolved_key)
+
+        for entry in pending:
+            if entry.get("id") == promoted_id:
+                return entry
+
+        now = _now_iso()
+        promoted = dict(source)
+        promoted.update(
+            {
+                "id": promoted_id,
+                "scope": new_scope,
+                "scope_key": resolved_key,
+                "stale": False,
+                "stale_reason": None,
+                "promoted_from": source["id"],
+                "promoted_at": now,
+            }
+        )
+        if decided_by is not None:
+            promoted["decided_by"] = decided_by
+
+        source["promoted_to"] = promoted_id
+        pending.append(promoted)
+        manifest["updated_at"] = now
+        self._write(manifest)
+        return promoted
+
+    def all_questions(self) -> list[dict[str, Any]]:
+        """Return every question ever raised in this workspace — answered,
+        unanswered, stale, and promoted — the full audit trail."""
+        return list(self.read().get("pending_questions", []))
 
     def answer_question(
         self, question_id: str, answer: str, *, decided_by: str | None = None

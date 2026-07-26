@@ -215,15 +215,21 @@ def _cmd_operator(args: argparse.Namespace) -> int:
         return _cmd_operator_questions(args)
     elif args.operator_command == "answer":
         return _cmd_operator_answer(args)
-    _console.print("[yellow]Bruk: rvv-miniputt operator run|questions|answer[/yellow]")
+    elif args.operator_command == "promote":
+        return _cmd_operator_promote(args)
+    _console.print("[yellow]Bruk: rvv-miniputt operator run|questions|answer|promote[/yellow]")
     return 1
 
 
 def _cmd_operator_questions(args: argparse.Namespace) -> int:
-    """Handle ``rvv-miniputt operator questions`` — list unanswered escalation questions."""
-    from ..pipeline.escalation import unanswered_questions
+    """Handle ``rvv-miniputt operator questions`` — list escalation questions.
 
-    questions = unanswered_questions(args.work_dir)
+    Defaults to unanswered questions only, matching the pre-#12 behavior;
+    ``--all`` also includes answered and stale ones (the full audit trail).
+    """
+    from ..pipeline.escalation import all_questions, unanswered_questions
+
+    questions = all_questions(args.work_dir) if getattr(args, "all", False) else unanswered_questions(args.work_dir)
 
     if getattr(args, "json", False):
         import json as _json
@@ -235,10 +241,18 @@ def _cmd_operator_questions(args: argparse.Namespace) -> int:
         _console.print("Ingen ubesvarte spørsmål.")
         return 0
 
-    _console.print(f"[bold]Ubesvarte spørsmål[/bold] ({len(questions)})\n")
+    _console.print(f"[bold]Spørsmål[/bold] ({len(questions)})\n")
     for question in questions:
-        _console.print(f"[yellow]?[/yellow] ({question.get('type')}) {question.get('summary')}")
+        marker = "[yellow]?[/yellow]" if not question.get("answered") else "[green]✓[/green]"
+        _console.print(f"{marker} ({question.get('type')}) {question.get('summary')}")
         _console.print(f"    id: [dim]{question.get('id')}[/dim]")
+        scope = question.get("scope", "workspace")
+        if scope != "workspace":
+            _console.print(f"    [dim]scope: {scope} ({question.get('scope_key')})[/dim]")
+        if question.get("stale"):
+            _console.print(f"    [red]FORELDET:[/red] {question.get('stale_reason')}")
+        if question.get("answered"):
+            _console.print(f"    [green]Svar: {question.get('answer')}[/green]")
         if question.get("context"):
             _console.print(f"    Kontekst: {question['context']}")
         if question.get("recommendation"):
@@ -247,7 +261,9 @@ def _cmd_operator_questions(args: argparse.Namespace) -> int:
             _console.print(f"    Konsekvens: {question['impact']}")
         for alt in question.get("alternatives") or []:
             _console.print(f"    · {alt}")
-        _console.print(f"    [dim]Svar med: rvv-miniputt operator answer {question.get('id')} \"<svar>\"[/dim]\n")
+        if not question.get("answered"):
+            _console.print(f"    [dim]Svar med: rvv-miniputt operator answer {question.get('id')} \"<svar>\"[/dim]")
+        _console.print("")
     return 0
 
 
@@ -266,6 +282,28 @@ def _cmd_operator_answer(args: argparse.Namespace) -> int:
     _console.print(f"[green]✓[/green] Registrert svar på spørsmål {entry['id']}: {entry['answer']}")
     _console.print(
         "[dim]Kjør 'rvv-miniputt operator run' på nytt for å fortsette der pipelinen stoppet.[/dim]"
+    )
+    return 0
+
+
+def _cmd_operator_promote(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt operator promote <id> <scope>`` — broaden a decision's scope (issue #12)."""
+    from ..pipeline.escalation import promote_question
+
+    try:
+        entry = promote_question(
+            args.work_dir,
+            args.question_id,
+            args.scope,
+            new_scope_key=getattr(args, "scope_key", "") or "",
+            decided_by=getattr(args, "decided_by", None),
+        )
+    except ValueError as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        return 1
+
+    _console.print(
+        f"[green]✓[/green] Forfremmet spørsmål {args.question_id} til scope '{entry['scope']}' (ny id: {entry['id']})"
     )
     return 0
 

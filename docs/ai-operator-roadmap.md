@@ -316,7 +316,30 @@ registered action runs but can't invent a new one. Tests in
 
 ### 12. Scope durable operator decisions and escalation questions
 
-Not yet implemented.
+**Status: implemented.** `tournament_scheduler/pipeline/escalation.py` adds
+`DecisionScope` (`run` / `input_version` / `season` / `workspace`, narrowest
+to broadest) and `scope`/`scope_key` fields on `Question`. Anything narrower
+than `workspace` bakes `(scope, scope_key)` into the question's stable id,
+so a context change (new run, new workbook, new season) naturally produces
+a fresh escalation instead of silently reusing an old answer; the
+superseded entry is marked `stale: true` with a `stale_reason` rather than
+deleted, preserving its audit history
+(`RunManifest.add_pending_question()`). `workspace` scope is unchanged from
+pre-#12 behavior and remains the default, so every existing call site and
+question is unaffected unless it opts into a narrower scope.
+`RunManifest.promote_question()` / `escalation.promote_question()` copy an
+answered decision into a new entry under a strictly broader scope without
+touching the original. `_raise_escalation_questions` in
+`pipeline_orchestrator.py` now scopes capability escalations to
+`input_version` (falling back to `workspace` without a fingerprint) as a
+concrete example of a run-specific-turned-durable question. CLI:
+`rvv-miniputt operator questions --all` (include answered/stale) and
+`rvv-miniputt operator promote <id> <scope> [--scope-key KEY]`; desktop API:
+`GET /questions?all=1`, `POST /questions/promote`. See
+[`docs/run-manifest-schema.md`](run-manifest-schema.md#decision-scoping-issue-12)
+for the full scope table and examples. Tests in `tests/test_escalation.py`
+(all four scopes, staleness, promotion, and backward compatibility with
+pre-#12 questions) and `tests/test_desktop_server_escalation.py`.
 
 ### 13. Make source readiness depend on coverage and downstream impact
 

@@ -137,21 +137,29 @@ returns a `CapabilityResult` with `requires_human: true` can be turned into a
   "alternatives": ["Set credentials via KONGSBERG_USER", "Try scrape-llm"],
   "recommendation": "Set credentials via KONGSBERG_USER",
   "impact": "Timeout loading the page",
+  "scope": "workspace",
+  "scope_key": "",
   "created_at": "2026-07-26T09:16:00+00:00",
   "answered": false,
   "answer": null,
   "decided_by": null,
-  "decided_at": null
+  "decided_at": null,
+  "stale": false,
+  "stale_reason": null,
+  "promoted_from": null,
+  "promoted_at": null
 }
 ```
 
 `type` is one of six escalation types: `credentials`, `incomplete_data`,
 `ambiguous_policy`, `destructive_repair`, `impossible_constraints`,
 `external_publication`. A question's `id` is a stable hash of
-`(type, capability, summary)`, so raising the *same* question again — from a
-retried or resumed run — is a no-op rather than a duplicate, and raising a
-question that was already answered leaves the recorded answer untouched
-instead of reopening it.
+`(type, capability, summary)` and, for anything narrower than `workspace`
+scope, `(scope, scope_key)` too — see "Decision scoping" below. Raising the
+*same* question in the *same* scope context again — from a retried or
+resumed run — is a no-op rather than a duplicate, and raising a question
+that was already answered leaves the recorded answer untouched instead of
+reopening it.
 
 `rvv-miniputt operator run` raises a question for every capability result
 that came back `requires_human: true` after the pipeline finishes, and
@@ -159,15 +167,72 @@ prints any still-unanswered ones as part of its final summary. Inspect and
 resolve them with:
 
 ```bash
-rvv-miniputt operator questions [--json]
+rvv-miniputt operator questions [--json] [--all]
 rvv-miniputt operator answer <question-id> "<answer>" [--decided-by NAME]
+rvv-miniputt operator promote <question-id> <scope> [--scope-key KEY] [--decided-by NAME]
 ```
 
 Answering records a durable, auditable decision — it does not itself change
 pipeline state. Running `rvv-miniputt operator run` again afterwards picks
 up from the earliest stale/pending capability as usual (see item 2); the
 human's answer being on record just means the same question won't be raised
-a second time.
+a second time **within the scope it was answered in** — see below.
+
+### Decision scoping (issue #12)
+
+A decision's `scope` controls how durable it is — whether an answer given in
+one context (a run, a workbook, a season) should be silently reused in a
+different one, or should become `stale` and force a fresh escalation. Four
+scopes, narrowest to broadest:
+
+| Scope           | `scope_key`                              | Reused when...                                  | Example                                                              |
+|------------------|--------------------------------------------|--------------------------------------------------|------------------------------------------------------------------------|
+| `run`            | the raising run's `run_id`                 | the exact same run raises it again               | "one fewer weekend this run — a rink is closed for maintenance"       |
+| `input_version`  | the workbook's `input_fingerprint.sha256`  | the exact same workbook is used again            | "U12 has too few teams to fill its bracket" (specific to this file)   |
+| `season`         | a caller-supplied season identifier        | the same season, across any run or workbook      | "skip the Christmas week for every tournament this season"            |
+| `workspace`      | always `""` (ignored)                      | any context — this is the pre-#12 default        | "Kongsberg ishall always needs LLM-based scraping"                    |
+
+A scope narrower than `workspace` bakes `(scope, scope_key)` into the
+question's `id`, so a context change (a new run, a re-uploaded workbook, a
+new season) naturally produces a *different* id — the old entry is never
+silently reinterpreted as an answer for the new context. Instead, when the
+new occurrence is raised, the older entry sharing the same `(type,
+capability, summary, scope)` is marked `stale: true` with a `stale_reason`,
+while its `answer` and `decided_by` stay on record — the audit trail is
+never deleted, only superseded. `workspace`-scoped questions never go
+stale this way, since their id doesn't vary with context at all — that's
+the durable, "policy-level" tier, matching every question raised before
+issue #12 existed.
+
+`rvv-miniputt operator questions` defaults to unanswered questions only
+(pre-#12 behavior); `--all` also lists answered and stale ones, so a human
+can see the full history including what stopped applying and why.
+
+**Promoting a decision** copies an answered question into a new entry under
+a strictly broader scope (`run < input_version < season < workspace`),
+without touching the original — useful when a decision that started as
+"true for this run" turns out to actually be a standing policy:
+
+```bash
+rvv-miniputt operator promote <question-id> workspace
+rvv-miniputt operator promote <question-id> season --scope-key 2026-2027
+```
+
+The source entry gains a `promoted_to` pointer to the new entry; the new
+entry gets `promoted_from` pointing back. `season` scope has no generic key
+to derive automatically (there's no single "season identifier" elsewhere in
+the pipeline), so promoting to it — or raising a `season`-scoped question
+directly — always requires an explicit `--scope-key`.
+
+By default, `_raise_escalation_questions` (the scan that runs after every
+`rvv-miniputt operator run`) scopes capability escalations to
+`input_version` when the manifest has an input fingerprint, since a blocked
+capability's cause is almost always a fact about *that* workbook's data —
+falling back to `workspace` when no fingerprint is available. Escalations
+raised directly by capability code (e.g. the observe-decide-act loop's
+`request_credentials` action, issue #11) keep the `workspace` default,
+since a missing credential is a standing fact about a source, not something
+tied to one run or workbook.
 
 ## The observe-decide-act operator loop (issue #11)
 

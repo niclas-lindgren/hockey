@@ -32,10 +32,13 @@ Run it again after an interruption and it resumes automatically; run it again wi
 When something needs a human decision (missing credentials, incomplete source data, an ambiguous policy call), the operator raises a question instead of guessing:
 
 ```bash
-rvv-miniputt operator questions              # list what's blocking, with context and a recommendation
-rvv-miniputt operator answer <id> "<answer>" # record a durable decision
-rvv-miniputt operator run                    # resume — the same question is never asked twice
+rvv-miniputt operator questions                        # list what's blocking, with context and a recommendation
+rvv-miniputt operator answer <id> "<answer>"            # record a durable decision
+rvv-miniputt operator run                               # resume — the same question, in the same context, is never asked twice
+rvv-miniputt operator promote <id> workspace             # turn a one-off answer into a standing policy decision
 ```
+
+Decisions are scoped (run / input_version / season / workspace, see [`docs/run-manifest-schema.md`](docs/run-manifest-schema.md#decision-scoping-issue-12)) so an answer tied to one workbook doesn't get silently reused after a new one is uploaded — it's marked stale instead, and `operator questions --all` shows the full history.
 
 In Pi, start the workflow with:
 
