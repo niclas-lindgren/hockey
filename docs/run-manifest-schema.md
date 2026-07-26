@@ -317,12 +317,80 @@ prints the current run manifest as JSON. The existing human-readable
 
 Work directories populated before this schema existed have per-stage
 checkpoint files but no `run_manifest.json`. `RunManifest.read()` handles
-this transparently: when no manifest file exists (or it fails to parse), a
-manifest-shaped view is synthesized from the legacy `stage*.json`
-checkpoints, with `"synthesized_from_legacy_checkpoints": true` set so
-callers can tell the difference. Every field the manifest normally promises
-is still populated — derived from data that was already on disk — so
-callers do not need a special code path for old work directories.
+this transparently: when no manifest file exists, a manifest-shaped view is
+synthesized from the legacy `stage*.json` checkpoints, with
+`"synthesized_from_legacy_checkpoints": true` set so callers can tell the
+difference. Every field the manifest normally promises is still populated —
+derived from data that was already on disk — so callers do not need a
+special code path for old work directories.
+
+## Manifest persistence reliability (issue #14)
+
+Manifest operations are still best-effort — a persistence problem never
+aborts the scheduling pipeline itself — but a failure is never silently
+invisible the way it used to be:
+
+**Atomic writes.** `RunManifest._write()` writes to a temp file next to
+`run_manifest.json` and swaps it into place with `os.replace()`, which is
+atomic on the same filesystem. A write failure (permissions, a full disk)
+raises `ManifestPersistenceError` (a `RuntimeError` subclass) and leaves the
+previous valid manifest completely untouched — there is no window where a
+half-written file could be read back.
+
+**Corrupted-manifest recovery.** If `run_manifest.json` exists but fails to
+parse (invalid JSON, or valid JSON that isn't an object), `read()` no longer
+treats that identically to "no manifest ever existed": the corrupted file is
+first copied aside to `run_manifest.json.corrupted-<id>` (best-effort, next
+to the original), and the returned manifest — still synthesized from the
+legacy checkpoints, so callers get a usable result either way — carries a
+`manifest_recovery` field describing what happened:
+
+```json
+{
+  "manifest_recovery": {
+    "recovered": true,
+    "reason": "invalid_json",
+    "detail": "Expecting value: line 1 column 1 (char 0)",
+    "backup_path": "/path/to/.pipeline/run_manifest.json.corrupted-20260726T121500Z-a1b2c3d4",
+    "detected_at": "2026-07-26T12:15:00+00:00"
+  }
+}
+```
+
+`manifest_recovery` is `null` on every healthy read (present as a field
+either way, for a stable shape). `rvv-miniputt status --json` surfaces this
+automatically, since it just prints `RunManifest(work_dir).read()` — a
+corrupted manifest produces a visible diagnostic there without any extra
+plumbing. A corruption recovery also caps a would-be `ok` synthesized
+outcome at `warning`, since a workspace that just lost its manifest is not
+the same thing as a clean one.
+
+**Operator-state health check.** `RunManifest.check_health()` (and the
+module-level `is_durable(work_dir)` convenience wrapper) performs a real
+read-then-write round trip and reports `{"healthy", "writable",
+"manifest_recovery", "detail"}` without raising. Run it directly with:
+
+```bash
+rvv-miniputt operator health [--json]
+```
+
+**Visible warnings instead of silent swallowing.** The manifest wrapper
+functions in `cli/pipeline_orchestrator.py` (`_manifest_start_run`,
+`_manifest_record`, `_manifest_finalize`, `_raise_escalation_questions`)
+used to catch every exception with a bare `pass`. They now call
+`_warn_manifest_failure()`, which prints a visible `⚠` warning to the
+console, appends a line to `<work_dir>/logs/manifest_warnings.log`, and
+marks that work dir "degraded" for the rest of the process. `_manifest_finalize`
+checks that marker and caps an `ok` outcome at `warning` — a scheduling run
+that completed cleanly but couldn't reliably record having done so must
+never look identical to a genuinely clean run.
+
+**Approval-gated actions require durable persistence.** `ActionRegistry.execute()`
+(issue #10) now checks `is_durable(work_dir)` before running an
+*approved* action that itself `requires_approval` (destructive/external risk).
+If the manifest isn't writable, it raises `PersistenceUnavailableError`
+instead of executing — an approved destructive or external action must not
+run without a reliable way to record that it happened.
 
 ## Versioning
 

@@ -33,6 +33,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable
 
+from .run_manifest import is_durable as _manifest_is_durable
+
 if TYPE_CHECKING:
     from .capability_result import CapabilityResult
 
@@ -178,6 +180,20 @@ class ApprovalRequiredError(ActionError):
     code = "approval_required"
 
 
+class PersistenceUnavailableError(ActionError):
+    """Raised when an approval-gated action would run without durable
+    manifest persistence to record it (issue #14).
+
+    A human's approval for a destructive/external action is itself an
+    operator decision — if the manifest can't durably record what's about
+    to happen (and, once it happens, what did happen), the action must not
+    run at all, rather than executing untracked and hoping the record can
+    be written after the fact.
+    """
+
+    code = "persistence_unavailable"
+
+
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
@@ -230,14 +246,26 @@ class ActionRegistry:
 
         Raises :class:`UnknownActionError` for an unrecognized id, or
         :class:`ApprovalRequiredError` when ``action.requires_approval`` is
-        set and *approved* is not ``True``. Both fail fast, before any
-        executor code runs.
+        set and *approved* is not ``True``. For an approved, approval-gated
+        action, also raises :class:`PersistenceUnavailableError` when the
+        run manifest for its ``work_dir`` argument isn't durably writable
+        (issue #14) — an approved destructive/external action must not run
+        without a reliable way to record that it did. All three checks fail
+        fast, before any executor code runs.
         """
         entry = self._get(action.action_id)
         if action.requires_approval and not approved:
             raise ApprovalRequiredError(
                 action.action_id, "This action requires explicit human approval before it can run."
             )
+        if action.requires_approval and approved:
+            work_dir = action.arguments.get("work_dir")
+            if work_dir and not _manifest_is_durable(work_dir):
+                raise PersistenceUnavailableError(
+                    action.action_id,
+                    "Run manifest is not durably writable; refusing to execute an approved "
+                    "action that would go unrecorded.",
+                )
         return entry.executor(**action.arguments)
 
 

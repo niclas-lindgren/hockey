@@ -217,7 +217,9 @@ def _cmd_operator(args: argparse.Namespace) -> int:
         return _cmd_operator_answer(args)
     elif args.operator_command == "promote":
         return _cmd_operator_promote(args)
-    _console.print("[yellow]Bruk: rvv-miniputt operator run|questions|answer|promote[/yellow]")
+    elif args.operator_command == "health":
+        return _cmd_operator_health(args)
+    _console.print("[yellow]Bruk: rvv-miniputt operator run|questions|answer|promote|health[/yellow]")
     return 1
 
 
@@ -306,6 +308,31 @@ def _cmd_operator_promote(args: argparse.Namespace) -> int:
         f"[green]✓[/green] Forfremmet spørsmål {args.question_id} til scope '{entry['scope']}' (ny id: {entry['id']})"
     )
     return 0
+
+
+def _cmd_operator_health(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt operator health`` — the operator-state health check (issue #14)."""
+    from ..pipeline.run_manifest import RunManifest
+
+    result = RunManifest(args.work_dir).check_health()
+
+    if getattr(args, "json", False):
+        import json as _json
+
+        print(_json.dumps(result, indent=2, ensure_ascii=False))
+        return 0 if result["healthy"] else 1
+
+    if result["healthy"]:
+        _console.print("[green]✓[/green] Run manifest er sunn og skrivbar.")
+        return 0
+    if result["writable"]:
+        _console.print(f"[yellow]⚠[/yellow] Run manifest ble gjenopprettet: {result['detail']}")
+        recovery = result.get("manifest_recovery") or {}
+        if recovery.get("backup_path"):
+            _console.print(f"    [dim]Sikkerhetskopi av skadet fil: {recovery['backup_path']}[/dim]")
+        return 1
+    _console.print(f"[red]✗[/red] Run manifest kan ikke skrives: {result['detail']}")
+    return 1
 
 
 # ---------------------------------------------------------------------------

@@ -41,6 +41,16 @@ RUN_MANIFEST_SCHEMA_VERSION = 1
 _LEGACY_RUN_ID = "legacy"
 
 
+class ManifestPersistenceError(RuntimeError):
+    """A run manifest read or write could not be completed reliably (issue #14).
+
+    A subclass of ``RuntimeError`` so every pre-existing ``except Exception``
+    (or ``except RuntimeError``) call site keeps working unchanged; new code
+    can catch this specifically to distinguish "the manifest is unreliable"
+    from an unrelated bug.
+    """
+
+
 class RunOutcome(str, Enum):
     """Overall outcome of an operator run, mirroring capability statuses."""
 
@@ -386,37 +396,123 @@ class RunManifest:
         populated by a version of the pipeline that predates this schema),
         a read-only manifest is synthesized from the legacy stage checkpoint
         files so callers always get a consistent shape.
+
+        When the file *does* exist but is corrupted (invalid JSON, or valid
+        JSON that isn't an object), that is a genuinely different situation
+        from "no manifest yet" (issue #14): the corrupted file is backed up
+        alongside itself rather than silently discarded, and the returned
+        (synthesized) manifest carries a non-``None`` ``manifest_recovery``
+        key describing what happened — so ``rvv-miniputt status --json``
+        surfaces the corruption as a visible diagnostic instead of masking
+        it behind an indistinguishable "legacy workspace" view.
         """
         if not self.path.exists():
             return self._synthesize_from_legacy_checkpoints()
         try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            return self._synthesize_from_legacy_checkpoints()
+            raw = self.path.read_text(encoding="utf-8")
+        except OSError as exc:
+            return self._synthesize_from_legacy_checkpoints(
+                recovery_reason="read_error", recovery_detail=str(exc)
+            )
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            backup_path = self._backup_corrupted_manifest(raw)
+            return self._synthesize_from_legacy_checkpoints(
+                recovery_reason="invalid_json", recovery_detail=str(exc), backup_path=backup_path
+            )
         if not isinstance(data, dict):
-            return self._synthesize_from_legacy_checkpoints()
+            backup_path = self._backup_corrupted_manifest(raw)
+            return self._synthesize_from_legacy_checkpoints(
+                recovery_reason="not_a_json_object", recovery_detail=type(data).__name__, backup_path=backup_path
+            )
+        data.setdefault("manifest_recovery", None)
         return data
 
     def exists(self) -> bool:
         return self.path.exists()
 
+    def check_health(self) -> dict[str, Any]:
+        """Round-trip check for the operator-state health check (issue #14).
+
+        Reads the current manifest (or the synthesized legacy view, if none
+        exists yet) and writes it straight back — content-neutral either
+        way, so a permissions problem, a full disk, or any other write
+        failure is caught proactively instead of only being discovered the
+        next time something tries to record real state. Never raises —
+        failure is reported in the returned dict.
+        """
+        try:
+            manifest = self.read()
+            recovery = manifest.get("manifest_recovery")
+            self._write(manifest)
+            return {
+                "healthy": recovery is None,
+                "writable": True,
+                "manifest_recovery": recovery,
+                "detail": "" if recovery is None else f"Manifest was recovered: {recovery.get('reason')}",
+            }
+        except ManifestPersistenceError as exc:
+            return {"healthy": False, "writable": False, "manifest_recovery": None, "detail": str(exc)}
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _write(self, manifest: dict[str, Any]) -> None:
-        try:
-            self.path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-        except (OSError, ValueError) as exc:
-            raise RuntimeError(f"Failed to write run manifest {self.path}: {exc}") from exc
+    def _backup_corrupted_manifest(self, raw_content: str) -> str | None:
+        """Best-effort copy of a corrupted manifest file aside, preserving it
+        for inspection instead of silently overwriting it on the next write.
 
-    def _synthesize_from_legacy_checkpoints(self) -> dict[str, Any]:
+        Returns the backup path, or ``None`` if even the backup couldn't be
+        written (still safe — the corruption diagnostic is reported either
+        way, this is purely an extra recovery aid).
+        """
+        backup_path = self.path.with_name(f"{self.path.name}.corrupted-{_new_run_id()}")
+        try:
+            backup_path.write_text(raw_content, encoding="utf-8")
+            return str(backup_path)
+        except OSError:
+            return None
+
+    def _write(self, manifest: dict[str, Any]) -> None:
+        """Atomically replace the manifest file's contents.
+
+        Writes to a temp file in the same directory (so the eventual
+        ``os.replace`` is an atomic rename on the same filesystem) and only
+        then swaps it into place — a crash or failure mid-write leaves the
+        previous valid manifest untouched rather than a half-written file
+        (issue #14).
+        """
+        payload = json.dumps(manifest, indent=2, ensure_ascii=False)
+        tmp_path = self.path.with_name(f"{self.path.name}.tmp-{uuid.uuid4().hex[:8]}")
+        try:
+            tmp_path.write_text(payload, encoding="utf-8")
+            os.replace(tmp_path, self.path)
+        except (OSError, ValueError) as exc:
+            try:
+                tmp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise ManifestPersistenceError(f"Failed to write run manifest {self.path}: {exc}") from exc
+
+    def _synthesize_from_legacy_checkpoints(
+        self,
+        *,
+        recovery_reason: str | None = None,
+        recovery_detail: str | None = None,
+        backup_path: str | None = None,
+    ) -> dict[str, Any]:
         """Build a manifest-shaped view from ``stage*.json`` checkpoints.
 
         This is the backward-compatibility path required for work
         directories that were populated before ``run_manifest.json`` existed:
         every field the manifest promises is still populated, just derived
         from data that was already on disk.
+
+        When called because an *existing* manifest file was corrupted
+        (``recovery_reason`` set — issue #14), the returned manifest's
+        ``manifest_recovery`` key documents what happened instead of the
+        corruption being indistinguishable from "no manifest ever existed".
         """
         from .state import PipelineState, StageName
 
@@ -476,6 +572,23 @@ class RunManifest:
             final_outcome = RunOutcome.WARNING.value
         else:
             final_outcome = RunOutcome.OK.value
+        # A corrupted-manifest recovery always makes the workspace state at
+        # least suspect, regardless of what the legacy checkpoints alone
+        # would otherwise imply.
+        if recovery_reason is not None and final_outcome == RunOutcome.OK.value:
+            final_outcome = RunOutcome.WARNING.value
+
+        manifest_recovery = (
+            None
+            if recovery_reason is None
+            else {
+                "recovered": True,
+                "reason": recovery_reason,
+                "detail": recovery_detail,
+                "backup_path": backup_path,
+                "detected_at": _now_iso(),
+            }
+        )
 
         return {
             "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
@@ -491,4 +604,18 @@ class RunManifest:
             "pending_questions": [],
             "action_log": [],
             "synthesized_from_legacy_checkpoints": True,
+            "manifest_recovery": manifest_recovery,
         }
+
+
+def is_durable(work_dir: str | os.PathLike[str]) -> bool:
+    """Convenience wrapper around ``RunManifest.check_health()`` (issue #14).
+
+    Used as a pre-execution gate for approval-required operator actions
+    (see ``pipeline/operator_action.py``): an approved destructive/external
+    action must not run if there is no reliable way to record it happened.
+    Only ``writable`` matters here — a manifest that recovered from past
+    corruption but can currently be written to is still durable enough to
+    proceed.
+    """
+    return bool(RunManifest(work_dir).check_health().get("writable"))

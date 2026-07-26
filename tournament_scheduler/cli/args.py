@@ -279,6 +279,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline work directory (default: .pipeline)",
     )
 
+    op_health = operator_sub.add_parser(
+        "health",
+        help="Check whether the run manifest is durably writable and free of unrecovered corruption (issue #14)",
+    )
+    op_health.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    op_health.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the health check result as JSON",
+    )
+
     # logs
     logs = sub.add_parser("logs", help="Show structured pipeline run logs")
     logs.add_argument(

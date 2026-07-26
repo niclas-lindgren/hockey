@@ -347,7 +347,27 @@ Not yet implemented. Depends on #10/#11.
 
 ### 14. Make operator manifest persistence observable and reliable
 
-Not yet implemented.
+**Status: implemented.** `RunManifest._write()` now writes atomically (temp
+file + `os.replace()`), raising `ManifestPersistenceError` on failure and
+leaving the previous valid manifest untouched. `RunManifest.read()`
+distinguishes "no manifest yet" from "manifest exists but is corrupted": a
+corrupted file is backed up alongside itself and the returned (still
+usable, synthesized) manifest carries a `manifest_recovery` diagnostic that
+`rvv-miniputt status --json` surfaces automatically. `RunManifest.check_health()`
+/ `run_manifest.is_durable()` add the operator-state health check, exposed
+via `rvv-miniputt operator health [--json]`. The manifest wrapper functions
+in `cli/pipeline_orchestrator.py` no longer swallow exceptions silently —
+`_warn_manifest_failure()` prints a visible warning, logs it to
+`<work_dir>/logs/manifest_warnings.log`, and caps the run's final outcome at
+`warning` instead of `ok` when persistence degraded anywhere during the
+run. `ActionRegistry.execute()` (issue #10) now refuses to run an approved,
+approval-required action when its manifest isn't durably writable, raising
+`PersistenceUnavailableError`. See
+[`docs/run-manifest-schema.md`](run-manifest-schema.md#manifest-persistence-reliability-issue-14)
+for the full behavior and JSON shapes. Tests in
+`tests/test_manifest_persistence.py` (34 tests: atomic writes, corruption
+recovery, health check, visible warnings, outcome downgrade, the
+approval/durability gate, and backward compatibility).
 
 ### 15. Clarify active, completed, and recommended capability state
 
