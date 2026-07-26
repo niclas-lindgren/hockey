@@ -87,9 +87,22 @@ def test_status_marks_downstream_stale_when_input_workbook_fingerprint_changes(t
     assert PipelineState(work_dir).is_stale(StageName.EXPORT)
 
 
-def test_logs_list_subcommand_is_available_from_python_cli() -> None:
+def test_logs_list_subcommand_is_available_from_python_cli(tmp_path) -> None:
+    log_dir = tmp_path / "logs"
+    log_dir.mkdir()
+    run_id = "run-20260101_120000"
+    (log_dir / f"{run_id}.jsonl").write_text(
+        '{"type": "run_meta", "run_id": "run-20260101_120000", '
+        '"exit_status": "success", "start_time": "2026-01-01T12:00:00", '
+        '"end_time": "2026-01-01T12:01:00", "duration_ms": 60000}\n',
+        encoding="utf-8",
+    )
+
     result = subprocess.run(
-        [sys.executable, "-m", "tournament_scheduler.cli.rvv_cli", "logs", "list", "--count", "1"],
+        [
+            sys.executable, "-m", "tournament_scheduler.cli.rvv_cli",
+            "logs", "list", "--count", "1", "--work-dir", str(tmp_path),
+        ],
         cwd=ROOT,
         capture_output=True,
         text=True,

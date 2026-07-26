@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import datetime
-from pathlib import Path
 from typing import Sequence
 
 from rich.console import Console
@@ -190,18 +189,10 @@ def _do_re_export(work_dir: str, export_dir: str, *, timestamped_export: bool = 
 
 def _load_plan_and_updater(work_dir: str):
     """Load the season plan and return (plan, updater, state). Raises SystemExit on error."""
-    from ..pipeline.state import PipelineState, StageName
+    from ..pipeline.state import PipelineState
     from ..pipeline.tournament_updater import TournamentUpdater
 
-    work_path = Path(work_dir)
     state = PipelineState(work_dir)
-    if not state.checkpoint_path(StageName.PLANNING).exists():
-        _console.print(
-            f"[red]✗[/red] Ingen Stage 3-plan funnet i {work_path}/. "
-            f"Kjør [bold]rvv-miniputt run[/bold] først."
-        )
-        sys.exit(1)
-
     updater = TournamentUpdater(state=state)
     try:
         plan = updater.load_plan()
@@ -523,12 +514,9 @@ def _load_critic_state(
 
     Returns (None, []) when no checkpoint exists so callers can detect and abort.
     """
-    from ..pipeline.state import StageName
     from .plan_critic import generate_critic_summary
     from ..pipeline.tournament_updater import TournamentUpdater
 
-    if not state.checkpoint_path(StageName.PLANNING).exists():
-        return None, []
     try:
         season_plan = TournamentUpdater(state=state).load_plan()
     except ValueError:
