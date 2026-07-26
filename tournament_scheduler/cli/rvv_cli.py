@@ -22,7 +22,16 @@ from typing import Sequence
 from rich.console import Console
 
 from .args import build_parser as _build_parser
-from .pipeline_orchestrator import _cmd_calendars, _cmd_operator_publish, _cmd_operator_run, _cmd_run, _cmd_scrape
+from .pipeline_orchestrator import (
+    _cmd_calendars,
+    _cmd_operator_publish,
+    _cmd_operator_publish_history,
+    _cmd_operator_rollback,
+    _cmd_operator_run,
+    _cmd_operator_verify,
+    _cmd_run,
+    _cmd_scrape,
+)
 from .recovery_cli import _cmd_recovery_inject, _cmd_recovery_targets, _cmd_scrape_merge
 from .reporting import _cmd_candidates, _cmd_logs, _cmd_sources_status, _cmd_status
 
@@ -221,7 +230,16 @@ def _cmd_operator(args: argparse.Namespace) -> int:
         return _cmd_operator_health(args)
     elif args.operator_command == "publish":
         return _cmd_operator_publish(args)
-    _console.print("[yellow]Bruk: rvv-miniputt operator run|questions|answer|promote|health|publish[/yellow]")
+    elif args.operator_command == "verify":
+        return _cmd_operator_verify(args)
+    elif args.operator_command == "rollback":
+        return _cmd_operator_rollback(args)
+    elif args.operator_command == "publish-history":
+        return _cmd_operator_publish_history(args)
+    _console.print(
+        "[yellow]Bruk: rvv-miniputt operator run|questions|answer|promote|health|publish|verify|"
+        "rollback|publish-history[/yellow]"
+    )
     return 1
 
 

@@ -478,3 +478,51 @@ approval, `--confirm-public`, reusable exact approval via a durable answer,
 rejected approval, changed-bundle invalidation, dry-run) and
 `tests/test_pages_publish.py::TestBundleFingerprint` /
 `TestTargetFingerprint` / `TestDiffLatest`.
+
+### 20. Verify GitHub Pages publication and support rollback
+
+**Status: implemented.** A successful `git push` is no longer treated as
+the whole story: `pages_publish.publish()` now writes a `_meta.json`
+(`{"run_id", "bundle_fingerprint"}`, deliberately no timestamp — a
+byte-identical republish must still be a no-op commit) into both
+`/latest/` and `/runs/<run_id>/`, and `_execute_publish_pages` (unless
+`verify=False`, and only when something was actually pushed) polls it via
+the new `pages_verify.verify_publication()`: bounded retries
+(`DEFAULT_MAX_ATTEMPTS=5`, `DEFAULT_RETRY_DELAY_SECONDS=3.0`, both
+overridable) until `_meta.json` reports the *exact* expected
+`bundle_fingerprint`/`run_id` (a different fingerprint — a stale cached
+page — is treated as "not yet", never as success), then fetches
+`/latest/` itself and every relative link/asset it references to confirm
+the season-plan/calendar pages and project-subpath assets actually load.
+If verification can't confirm reachability within the window, the
+publish result is downgraded from `ok` to `warning` (not `blocked` —
+propagation delay isn't a decision, just "check again shortly") rather
+than being reported as an unqualified success. HTTP calls go through an
+injectable `fetch` (default a `requests.get` wrapper) and `sleep` so tests
+never hit the network. CLI: `rvv-miniputt operator verify` (re-checks the
+last recorded publish from the run manifest when no target is given
+explicitly) and `operator publish --no-verify` /
+`--verify-max-attempts` / `--verify-retry-delay`.
+
+Rollback and history reuse existing git state rather than a new data
+store: `pages_publish.rollback_to_run()` copies an existing
+`/runs/<run_id>/` snapshot over `/latest/` (never touching `/runs/`
+itself, so no historical run is ever lost) and commits/pushes exactly
+like `publish()`; `list_publication_history()` parses `Publish run
+<id>`/`Rollback latest to run <id>` commit subjects from the branch's own
+`git log`, newest first — no separate history file to keep in sync.
+Rollback is gated the same way as `publish_pages` (#19): the new
+`rollback_pages` action (`external` risk, `requires_approval=True`)
+requires `confirm_public=True` on the exact invocation or a previously
+answered `external_publication` question scoped to that specific rollback
+target, so running the command at all is never itself sufficient
+authorization. CLI: `rvv-miniputt operator rollback <run-id>
+[--confirm-public]` and `rvv-miniputt operator publish-history`.
+
+See `tests/test_pages_verify.py` (immediate success, delayed
+availability via retries, a stale/different fingerprint never counting as
+success, a broken linked asset, and timeout-produces-warning-not-blocked),
+`tests/test_pages_publish.py::TestMetaJson` / `TestRollbackToRun` /
+`TestPublicationHistory`, and
+`tests/test_operator_action.py::TestVerifyPagesExecutor` /
+`TestRollbackPagesExecutor` / `TestPublishPagesVerifyIntegration`.

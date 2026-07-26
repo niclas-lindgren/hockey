@@ -17,8 +17,10 @@ Core actions registered by default:
 - ``rerun_planning`` — rerun Stage 3 with the current config/source data
 - ``compare_candidates`` — summarize Stage 3's recorded plan candidates (#4)
 - ``export_selected_plan`` — run Stage 4 export for the current plan
-- ``publish_pages`` — sanitize (#18), gate on a per-bundle approval (#19), and
-  publish the current Stage 4 export to GitHub Pages (#17)
+- ``publish_pages`` — sanitize (#18), gate on a per-bundle approval (#19), publish
+  the current Stage 4 export to GitHub Pages (#17), and verify it's reachable (#20)
+- ``verify_pages`` — re-check that the last published Pages content is reachable (#20)
+- ``rollback_pages`` — roll ``/latest/`` back to a previously published run (#20)
 
 Risk levels and the approval rule: ``destructive`` (discards meaningful
 data) and ``external`` (writes artifacts meant to leave the system, e.g.
@@ -465,8 +467,13 @@ def _execute_publish_pages(
     allow_findings: "frozenset[str] | set[str] | None" = None,
     confirm_public: bool = False,
     dry_run: bool = False,
+    verify: bool = True,
+    verify_max_attempts: int | None = None,
+    verify_retry_delay_seconds: float | None = None,
+    fetch: "Callable[[str], Any] | None" = None,
+    sleep: "Callable[[float], None] | None" = None,
 ) -> "CapabilityResult":
-    """Publish the current export to GitHub Pages (issues #17/#18/#19).
+    """Publish the current export to GitHub Pages (issues #17/#18/#19/#20).
 
     Publishing a public URL is treated as a decision distinct from merely
     running this action at all: even when the caller already passed
@@ -490,10 +497,20 @@ def _execute_publish_pages(
     stays rejected rather than being asked again. ``dry_run=True`` always
     takes this preview path, even when a matching approval already exists,
     and never publishes.
+
+    After an actual push (``push=True`` and something changed), a push
+    succeeding is not treated as the whole story (issue #20): unless
+    ``verify=False``, ``pages_verify.verify_publication`` polls the
+    published URL with bounded retries. If it can't confirm the expected
+    content within that window, the final result is downgraded from ``ok``
+    to ``warning`` — "pushed, but not yet confirmed reachable" is reported
+    explicitly rather than as an unqualified success. Verification is
+    always skipped when ``push=False`` — there is no public URL to check
+    against local-only commits.
     """
     from pathlib import Path
 
-    from . import pages_bundle, pages_publish
+    from . import pages_bundle, pages_publish, pages_verify
     from .capability_result import CapabilityResult
     from .escalation import EscalationType, Question, raise_question
     from .run_manifest import RunManifest
@@ -615,14 +632,192 @@ def _execute_publish_pages(
         branch=branch,
         remote=remote,
         push=push,
+        bundle_fingerprint=bundle_fp,
     )
     publish_result.evidence = (
         list(bundle_result.evidence)
-        + [f"bundle_fingerprint={bundle_fp}", f"target_fingerprint={target_fp}"]
+        + [f"bundle_fingerprint={bundle_fp}", f"target_fingerprint={target_fp}", f"run_id={run_id}"]
         + list(publish_result.evidence)
     )
     publish_result.artifacts = list(publish_result.artifacts) + list(bundle_result.artifacts)
+
+    if push and verify and publish_result.status == "ok":
+        urls = [a for a in publish_result.artifacts if isinstance(a, str) and a.startswith("http")]
+        latest_url = urls[0] if urls else None
+        run_url = urls[1] if len(urls) > 1 else None
+        if latest_url is not None:
+            verify_kwargs: dict[str, Any] = {}
+            if verify_max_attempts is not None:
+                verify_kwargs["max_attempts"] = verify_max_attempts
+            if verify_retry_delay_seconds is not None:
+                verify_kwargs["retry_delay_seconds"] = verify_retry_delay_seconds
+            if fetch is not None:
+                verify_kwargs["fetch"] = fetch
+            if sleep is not None:
+                verify_kwargs["sleep"] = sleep
+            verify_result = pages_verify.verify_publication(
+                latest_url=latest_url,
+                run_url=run_url,
+                bundle_fingerprint=bundle_fp,
+                run_id=run_id,
+                **verify_kwargs,
+            )
+            publish_result.evidence = list(publish_result.evidence) + [f"verify_status={verify_result.status}"] + list(
+                verify_result.evidence
+            )
+            if verify_result.status != "ok":
+                publish_result.status = verify_result.status
+                publish_result.summary = f"{publish_result.summary} {verify_result.summary}"
+                publish_result.problems = list(publish_result.problems) + list(verify_result.problems)
+                publish_result.suggested_actions = list(publish_result.suggested_actions) + list(
+                    verify_result.suggested_actions
+                )
+
     return publish_result
+
+
+def _last_ok_pages_publish_capability(work_dir: str) -> dict[str, Any] | None:
+    from .run_manifest import RunManifest
+
+    manifest = RunManifest(work_dir).read()
+    for entry in reversed(manifest.get("capabilities") or []):
+        if entry.get("capability") == "pages_publish" and entry.get("status") in ("ok", "warning"):
+            return entry
+    return None
+
+
+def _evidence_value(entry: dict[str, Any], key: str) -> str | None:
+    prefix = f"{key}="
+    for item in entry.get("evidence") or []:
+        if isinstance(item, str) and item.startswith(prefix):
+            return item[len(prefix):]
+    return None
+
+
+def _execute_verify_pages(
+    *,
+    work_dir: str,
+    latest_url: str | None = None,
+    run_url: str | None = None,
+    bundle_fingerprint: str | None = None,
+    run_id: str | None = None,
+    max_attempts: int | None = None,
+    retry_delay_seconds: float | None = None,
+    fetch: "Callable[[str], Any] | None" = None,
+    sleep: "Callable[[float], None] | None" = None,
+) -> "CapabilityResult":
+    """Verify the last published GitHub Pages content is reachable (issue #20).
+
+    Resolves *latest_url*/*run_url*/*bundle_fingerprint*/*run_id* from the
+    run manifest's last recorded ``pages_publish`` capability result when
+    not given explicitly, so ``rvv-miniputt operator verify`` with no
+    arguments re-checks whatever was published most recently.
+    """
+    from . import pages_verify
+    from .capability_result import CapabilityResult
+
+    if latest_url is None or bundle_fingerprint is None or run_id is None:
+        last = _last_ok_pages_publish_capability(work_dir)
+        if last is None:
+            return CapabilityResult.failed(
+                "Ingen tidligere Pages-publisering funnet å verifisere.", capability="pages_verify"
+            )
+        urls = [a for a in (last.get("artifacts") or []) if isinstance(a, str) and a.startswith("http")]
+        latest_url = latest_url or (urls[0] if urls else None)
+        run_url = run_url or (urls[1] if len(urls) > 1 else None)
+        bundle_fingerprint = bundle_fingerprint or _evidence_value(last, "bundle_fingerprint")
+        run_id = run_id or _evidence_value(last, "run_id")
+        if not latest_url or not bundle_fingerprint or not run_id:
+            return CapabilityResult.failed(
+                "Kunne ikke utlede URL, fingeravtrykk eller run_id fra siste Pages-publisering.",
+                capability="pages_verify",
+            )
+
+    verify_kwargs: dict[str, Any] = {}
+    if max_attempts is not None:
+        verify_kwargs["max_attempts"] = max_attempts
+    if retry_delay_seconds is not None:
+        verify_kwargs["retry_delay_seconds"] = retry_delay_seconds
+    if fetch is not None:
+        verify_kwargs["fetch"] = fetch
+    if sleep is not None:
+        verify_kwargs["sleep"] = sleep
+
+    return pages_verify.verify_publication(
+        latest_url=latest_url,
+        run_url=run_url,
+        bundle_fingerprint=bundle_fingerprint,
+        run_id=run_id,
+        **verify_kwargs,
+    )
+
+
+def _execute_rollback_pages(
+    *,
+    work_dir: str,
+    run_id: str,
+    repo_dir: str = ".",
+    branch: str = "gh-pages",
+    remote: str = "origin",
+    push: bool = True,
+    confirm_public: bool = False,
+) -> "CapabilityResult":
+    """Roll ``/latest/`` back to a previously published run (issue #20).
+
+    Gated the same way as ``publish_pages`` (issue #19): requires either
+    ``confirm_public=True`` on this exact invocation or a previously
+    answered ``external_publication`` question for this exact rollback
+    target (branch/remote/run_id) — running this action at all
+    (``approved=True`` at the registry level) is not sufficient on its own.
+    """
+    from . import pages_publish
+    from .capability_result import CapabilityResult
+    from .escalation import EscalationType, Question, raise_question
+    from .run_manifest import RunManifest
+
+    target_fp = pages_publish.target_fingerprint(repo_dir=repo_dir, branch=branch, remote=remote, run_id=run_id)
+    question = Question(
+        type=EscalationType.EXTERNAL_PUBLICATION.value,
+        capability="pages_publish",
+        summary=(
+            f"Godkjenn tilbakerulling av '/latest/' til kjøring {run_id} på '{branch}' (mål {target_fp[:12]})?"
+        ),
+    )
+
+    approved_now = confirm_public
+    if not approved_now:
+        existing = next(
+            (q for q in RunManifest(work_dir).all_questions() if q.get("id") == question.id), None
+        )
+        if existing is not None and existing.get("answered"):
+            if _is_publication_approved_answer(existing.get("answer") or ""):
+                approved_now = True
+            else:
+                return CapabilityResult.blocked(
+                    f"Tilbakerulling til kjøring {run_id} ble avvist tidligere (svar: {existing.get('answer')!r}).",
+                    capability="pages_publish",
+                    problems=["Godkjenning avvist for denne tilbakerullingen."],
+                    evidence=[f"target_fingerprint={target_fp}"],
+                )
+        else:
+            question.context = (
+                f"Ruller '/latest/' på '{branch}' tilbake til den tidligere publiserte kjøringen {run_id} "
+                "— historiske kjøringer under /runs/ berøres ikke."
+            )
+            question.alternatives = [
+                "Kjør 'rvv-miniputt operator rollback --confirm-public' for å rulle tilbake med en gang",
+                f"Svar 'godkjenn' på spørsmål {question.id} for en varig godkjenning",
+            ]
+            question.recommendation = "Bekreft at dette er riktig kjøring å rulle 'latest' tilbake til."
+            raise_question(work_dir, question)
+            return CapabilityResult.blocked(
+                f"Tilbakerulling krever eksplisitt godkjenning (mål {target_fp[:12]}).",
+                capability="pages_publish",
+                suggested_actions=list(question.alternatives),
+                evidence=[f"target_fingerprint={target_fp}", f"question_id={question.id}"],
+            )
+
+    return pages_publish.rollback_to_run(run_id=run_id, repo_dir=repo_dir, branch=branch, remote=remote, push=push)
 
 
 def build_default_registry() -> ActionRegistry:
@@ -702,6 +897,25 @@ def build_default_registry() -> ActionRegistry:
             requires_approval=True,
         ),
         _execute_publish_pages,
+    )
+    registry.register(
+        OperatorAction(
+            action_id="verify_pages",
+            description="Verify that the last published GitHub Pages content is reachable.",
+            capability="pages_verify",
+            risk_level=RiskLevel.SAFE.value,
+        ),
+        _execute_verify_pages,
+    )
+    registry.register(
+        OperatorAction(
+            action_id="rollback_pages",
+            description="Roll '/latest/' back to a previously published run on GitHub Pages.",
+            capability="pages_publish",
+            risk_level=RiskLevel.EXTERNAL.value,
+            requires_approval=True,
+        ),
+        _execute_rollback_pages,
     )
 
     return registry

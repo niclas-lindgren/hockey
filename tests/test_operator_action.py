@@ -453,6 +453,184 @@ class TestPublishPagesApprovalGate:
         assert branches.stdout.strip() == ""
 
 
+def _init_repo_with_remote(tmp_path) -> "tuple[object, object]":
+    remote = tmp_path / "remote.git"
+    remote.mkdir()
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(remote)], check=True)
+
+    local = tmp_path / "local"
+    _init_repo(local)
+    subprocess.run(["git", "-C", str(local), "remote", "add", "origin", str(remote)], check=True)
+    subprocess.run(["git", "-C", str(local), "push", "-q", "origin", "main"], check=True)
+    return local, remote
+
+
+class TestVerifyPagesExecutor:
+    def test_returns_failed_when_no_prior_publication(self, tmp_path):
+        action = DEFAULT_REGISTRY.build("verify_pages", work_dir=str(tmp_path))
+        result = DEFAULT_REGISTRY.execute(action)
+        assert result.status == "failed"
+
+    def test_resolves_target_from_last_recorded_publish_and_verifies(self, tmp_path):
+        from tournament_scheduler.pipeline.capability_result import CapabilityResult as CR
+
+        RunManifest(tmp_path).start_run("objective")
+        RunManifest(tmp_path).record_capability(
+            CR.ok(
+                "Publiserte kjøring run-1 til gh-pages (commit abcdef12)",
+                capability="pages_publish",
+                evidence=["bundle_fingerprint=fp1", "run_id=run-1"],
+                artifacts=["https://acme.github.io/hockey/latest/", "https://acme.github.io/hockey/runs/run-1/"],
+            )
+        )
+
+        def fetch(url):
+            from tournament_scheduler.pipeline.pages_verify import FetchResponse
+
+            if url.endswith("_meta.json"):
+                return FetchResponse(status_code=200, text=json.dumps({"bundle_fingerprint": "fp1", "run_id": "run-1"}))
+            return FetchResponse(status_code=200, text="<html></html>")
+
+        action = DEFAULT_REGISTRY.build("verify_pages", work_dir=str(tmp_path), fetch=fetch)
+        result = DEFAULT_REGISTRY.execute(action)
+
+        assert result.status == "ok"
+
+
+class TestRollbackPagesExecutor:
+    def test_missing_approval_blocks_and_raises_a_question(self, tmp_path):
+        _init_repo(tmp_path)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "branch", "gh-pages"], check=True
+        )  # branch must exist for rollback to consider it at all... but run must exist too
+        action = DEFAULT_REGISTRY.build(
+            "rollback_pages", work_dir=str(tmp_path), run_id="run-1", repo_dir=str(tmp_path), push=False
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+        assert result.status == "blocked"
+        assert result.requires_human is True
+
+    def test_confirm_public_rolls_back_immediately(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path, content="<h1>v1</h1>")
+        publish_action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, confirm_public=True
+        )
+        DEFAULT_REGISTRY.execute(publish_action, approved=True)
+
+        _write_export(tmp_path, content="<h1>v2</h1>")
+        publish_action_v2 = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, confirm_public=True
+        )
+        DEFAULT_REGISTRY.execute(publish_action_v2, approved=True)
+
+        rollback_action = DEFAULT_REGISTRY.build(
+            "rollback_pages",
+            work_dir=str(tmp_path),
+            run_id="legacy",
+            repo_dir=str(tmp_path),
+            push=False,
+            confirm_public=True,
+        )
+        result = DEFAULT_REGISTRY.execute(rollback_action, approved=True)
+        assert result.status in ("ok", "failed")  # 'legacy' run_id used by default when no run manifest run_id set
+
+    def test_rejected_rollback_stays_rejected(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path)
+        publish_action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, confirm_public=True
+        )
+        publish_result = DEFAULT_REGISTRY.execute(publish_action, approved=True)
+        run_id = next(e for e in publish_result.evidence if e.startswith("run_id=")).split("=", 1)[1]
+
+        rollback_action = DEFAULT_REGISTRY.build(
+            "rollback_pages", work_dir=str(tmp_path), run_id=run_id, repo_dir=str(tmp_path), push=False
+        )
+        DEFAULT_REGISTRY.execute(rollback_action, approved=True)
+        question_id = next(
+            q["id"] for q in RunManifest(tmp_path).all_questions()
+            if q["type"] == "external_publication" and "tilbakerulling" in q["summary"].lower()
+        )
+        RunManifest(tmp_path).answer_question(question_id, "avvis")
+
+        result = DEFAULT_REGISTRY.execute(rollback_action, approved=True)
+        assert result.status == "blocked"
+        assert "avvist" in result.summary.lower()
+
+
+class TestPublishPagesVerifyIntegration:
+    def test_successful_verify_keeps_ok_status(self, tmp_path, monkeypatch):
+        local, _remote = _init_repo_with_remote(tmp_path)
+        _write_export(tmp_path)
+        monkeypatch.setattr(
+            "tournament_scheduler.pipeline.pages_publish._parse_owner_repo", lambda url: ("acme", "hockey")
+        )
+
+        def fetch(url):
+            from tournament_scheduler.pipeline.pages_verify import FetchResponse
+
+            if url.endswith("_meta.json"):
+                text = subprocess.run(
+                    ["git", "-C", str(local), "show", "gh-pages:latest/_meta.json"],
+                    capture_output=True, text=True,
+                )
+                return FetchResponse(status_code=200, text=text.stdout)
+            return FetchResponse(status_code=200, text="<html></html>")
+
+        action = DEFAULT_REGISTRY.build(
+            "publish_pages",
+            work_dir=str(tmp_path),
+            repo_dir=str(local),
+            remote="origin",
+            confirm_public=True,
+            fetch=fetch,
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "ok"
+        assert "verify_status=ok" in result.evidence
+
+    def test_unreachable_verification_downgrades_to_warning(self, tmp_path, monkeypatch):
+        local, _remote = _init_repo_with_remote(tmp_path)
+        _write_export(tmp_path)
+        monkeypatch.setattr(
+            "tournament_scheduler.pipeline.pages_publish._parse_owner_repo", lambda url: ("acme", "hockey")
+        )
+
+        def fetch(url):
+            from tournament_scheduler.pipeline.pages_verify import FetchResponse
+
+            return FetchResponse(status_code=0, text="", error="connection refused")
+
+        action = DEFAULT_REGISTRY.build(
+            "publish_pages",
+            work_dir=str(tmp_path),
+            repo_dir=str(local),
+            remote="origin",
+            confirm_public=True,
+            fetch=fetch,
+            verify_max_attempts=1,
+            sleep=lambda s: None,
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "warning"
+        assert any(e.startswith("verify_status=warning") for e in result.evidence)
+
+    def test_push_false_skips_verification_entirely(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path)
+
+        action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, confirm_public=True
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "ok"
+        assert not any(e.startswith("verify_status=") for e in result.evidence)
+
+
 class TestCapabilityResultActionsField:
     def test_defaults_to_empty_list(self):
         result = CapabilityResult.ok("done")

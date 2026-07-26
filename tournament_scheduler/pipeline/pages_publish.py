@@ -35,6 +35,7 @@ Implementation notes:
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -267,6 +268,7 @@ def publish(
     branch: str = "gh-pages",
     remote: str = "origin",
     push: bool = True,
+    bundle_fingerprint: str | None = None,
 ) -> CapabilityResult:
     """Publish *export_dir* (a Stage 4 export bundle) to the Pages branch.
 
@@ -276,6 +278,15 @@ def publish(
     pushes it to *remote* unless ``push=False``. Returns a
     :class:`CapabilityResult` describing the outcome — never raises for
     anything past initial argument/repo validation.
+
+    When *bundle_fingerprint* is given, a ``_meta.json`` (``{"run_id":
+    ..., "bundle_fingerprint": ...}``) is written into both directories —
+    this is what :mod:`pages_verify` polls to confirm the *expected*
+    content (not a stale cached page with different content) is actually
+    reachable. Deliberately has no timestamp or other varying field: a
+    republish of byte-identical content must still produce byte-identical
+    output so the existing no-op-on-no-changes behavior isn't broken by
+    this file.
     """
     export_path = Path(export_dir)
     if not export_path.is_dir() or not any(export_path.iterdir()):
@@ -355,6 +366,13 @@ def publish(
         is_new_run_snapshot = not run_dir.exists()
         _copy_bundle(export_path, run_dir)
 
+        if bundle_fingerprint is not None:
+            meta_payload = json.dumps(
+                {"run_id": run_id, "bundle_fingerprint": bundle_fingerprint}, indent=2
+            )
+            (branch_root / "latest" / "_meta.json").write_text(meta_payload, encoding="utf-8")
+            (run_dir / "_meta.json").write_text(meta_payload, encoding="utf-8")
+
         _git(["add", "-A"], cwd=tmp_dir)
         status_proc = _git(["status", "--porcelain"], cwd=tmp_dir)
 
@@ -412,3 +430,178 @@ def publish(
         if worktree_added:
             _git(["worktree", "remove", "--force", tmp_dir], cwd=repo_root)
         shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# Rollback and publication history (issue #20)
+# ---------------------------------------------------------------------------
+
+_PUBLISH_COMMIT_RE = re.compile(r"^Publish run (\S+)$")
+_ROLLBACK_COMMIT_RE = re.compile(r"^Rollback latest to run (\S+)$")
+
+
+def rollback_to_run(
+    *,
+    run_id: str,
+    repo_dir: str = ".",
+    branch: str = "gh-pages",
+    remote: str = "origin",
+    push: bool = True,
+) -> CapabilityResult:
+    """Restore ``/latest/`` to a previously published run's immutable snapshot.
+
+    Copies ``/runs/<run_id>/`` (which must already exist on *branch* — a
+    rollback can only target a run that was actually published before,
+    never fabricate one) over ``/latest/`` and commits/pushes the result
+    exactly like :func:`publish`. Never touches ``/runs/`` itself — every
+    historical run remains reachable at its own immutable URL regardless
+    of what ``/latest/`` currently points to.
+    """
+    try:
+        repo_root = _require_git_repo_root(repo_dir)
+    except PagesPublishError as exc:
+        return CapabilityResult.failed(str(exc), capability="pages_publish")
+
+    owner_repo = _parse_owner_repo(_remote_url(repo_root, remote))
+
+    tmp_dir = tempfile.mkdtemp(prefix="rvv-pages-rollback-")
+    worktree_added = False
+    try:
+        if push:
+            _git(["fetch", remote, branch], cwd=repo_root)
+
+        local_exists = _branch_exists_locally(repo_root, branch)
+        remote_exists = push and _branch_exists_on_remote(repo_root, remote, branch)
+
+        if not local_exists and remote_exists:
+            proc = _git(["branch", "--track", branch, f"{remote}/{branch}"], cwd=repo_root)
+            if proc.returncode != 0:
+                return CapabilityResult.failed(
+                    f"Kunne ikke opprette lokal branch '{branch}': {proc.stderr.strip()}",
+                    capability="pages_publish",
+                )
+            local_exists = True
+
+        if not local_exists:
+            return CapabilityResult.failed(
+                f"Branch '{branch}' finnes ikke ennå — ingenting å rulle tilbake til.",
+                capability="pages_publish",
+            )
+
+        proc = _git(["worktree", "add", tmp_dir, branch], cwd=repo_root)
+        if proc.returncode != 0:
+            return CapabilityResult.failed(
+                f"Kunne ikke sette opp arbeidskatalog for '{branch}': {proc.stderr.strip()}",
+                capability="pages_publish",
+            )
+        worktree_added = True
+
+        if remote_exists:
+            ff_proc = _git(["merge", "--ff-only", f"{remote}/{branch}"], cwd=tmp_dir)
+            if ff_proc.returncode != 0:
+                return CapabilityResult.failed(
+                    f"Lokal '{branch}' har divergert fra {remote}/{branch} og kan ikke "
+                    f"fast-forwardes automatisk — løs manuelt før tilbakerulling.",
+                    capability="pages_publish",
+                )
+
+        run_dir = Path(tmp_dir) / "runs" / run_id
+        if not run_dir.is_dir():
+            return CapabilityResult.failed(
+                f"Fant ingen publisert kjøring '{run_id}' under runs/ på '{branch}'.",
+                capability="pages_publish",
+            )
+
+        latest_dir = Path(tmp_dir) / "latest"
+        if latest_dir.exists():
+            shutil.rmtree(latest_dir)
+        shutil.copytree(run_dir, latest_dir)
+
+        _git(["add", "-A"], cwd=tmp_dir)
+        status_proc = _git(["status", "--porcelain"], cwd=tmp_dir)
+
+        latest_url, run_url = (
+            _pages_urls(owner_repo[0], owner_repo[1], run_id) if owner_repo else (None, None)
+        )
+        artifacts = [url for url in (latest_url, run_url) if url]
+
+        if not status_proc.stdout.strip():
+            sha = _git(["rev-parse", "HEAD"], cwd=tmp_dir).stdout.strip()
+            return CapabilityResult.ok(
+                f"'/latest/' er allerede kjøring {run_id} — ingen tilbakerulling nødvendig.",
+                capability="pages_publish",
+                evidence=[f"commit_sha={sha}", f"branch={branch}"],
+                artifacts=artifacts,
+            )
+
+        commit_proc = _git(
+            [
+                "-c", "user.email=rvv-miniputt-operator@localhost",
+                "-c", "user.name=RVV Miniputt operator",
+                "commit", "-m", f"Rollback latest to run {run_id}",
+            ],
+            cwd=tmp_dir,
+        )
+        if commit_proc.returncode != 0:
+            return CapabilityResult.failed(
+                f"Kunne ikke committe tilbakerulling: {commit_proc.stderr.strip()}",
+                capability="pages_publish",
+            )
+        sha = _git(["rev-parse", "HEAD"], cwd=tmp_dir).stdout.strip()
+
+        if push:
+            push_proc = _git(["push", remote, f"{branch}:{branch}"], cwd=repo_root)
+            if push_proc.returncode != 0:
+                return CapabilityResult.failed(
+                    f"Rullet tilbake lokalt (commit {sha}), men push til {remote}/{branch} feilet: "
+                    f"{push_proc.stderr.strip()}",
+                    capability="pages_publish",
+                    evidence=[f"commit_sha={sha}", f"branch={branch}"],
+                    problems=[push_proc.stderr.strip()],
+                )
+
+        return CapabilityResult.ok(
+            f"Rullet '/latest/' tilbake til kjøring {run_id} (commit {sha[:8]})",
+            capability="pages_publish",
+            evidence=[f"commit_sha={sha}", f"branch={branch}", f"rolled_back_to_run_id={run_id}"],
+            artifacts=artifacts,
+        )
+    finally:
+        if worktree_added:
+            _git(["worktree", "remove", "--force", tmp_dir], cwd=repo_root)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def list_publication_history(*, repo_dir: str = ".", branch: str = "gh-pages") -> list[dict[str, str]]:
+    """Read-only, newest-first publication history parsed from *branch*'s commit log.
+
+    Each entry: ``{"commit_sha", "date", "kind" ("publish"|"rollback"), "run_id"}``.
+    Returns an empty list if *repo_dir* isn't a git repo or *branch*
+    doesn't exist yet — never raises.
+    """
+    try:
+        repo_root = _require_git_repo_root(repo_dir)
+    except PagesPublishError:
+        return []
+    if not _branch_exists_locally(repo_root, branch):
+        return []
+
+    proc = _git(["log", branch, "--date=iso-strict", "--format=%H%x1f%ad%x1f%s"], cwd=repo_root)
+    if proc.returncode != 0:
+        return []
+
+    history: list[dict[str, str]] = []
+    for line in proc.stdout.splitlines():
+        parts = line.split("\x1f")
+        if len(parts) != 3:
+            continue
+        sha, date, subject = parts
+        publish_match = _PUBLISH_COMMIT_RE.match(subject)
+        rollback_match = _ROLLBACK_COMMIT_RE.match(subject)
+        if publish_match:
+            history.append({"commit_sha": sha, "date": date, "kind": "publish", "run_id": publish_match.group(1)})
+        elif rollback_match:
+            history.append(
+                {"commit_sha": sha, "date": date, "kind": "rollback", "run_id": rollback_match.group(1)}
+            )
+    return history

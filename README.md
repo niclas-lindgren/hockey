@@ -57,7 +57,13 @@ rvv-miniputt operator questions                         # shows the pending publ
 rvv-miniputt operator answer <id> "godkjenn"             # durable approval — the next 'operator publish' actually pushes
 ```
 
-Publishing is idempotent per run and never force-pushes history.
+Publishing is idempotent per run and never force-pushes history. A successful push isn't the last word either (see [issue #20](docs/ai-operator-roadmap.md#20-verify-github-pages-publication-and-support-rollback)): `operator publish` polls the published URL afterward and reports `warning` instead of `ok` if the expected content isn't confirmed reachable within a bounded window. If a publish turns out to be bad, roll `/latest/` back to any previously published run without losing history:
+
+```bash
+rvv-miniputt operator verify                            # re-check the last publish is actually reachable
+rvv-miniputt operator publish-history                   # list every publish/rollback on the Pages branch
+rvv-miniputt operator rollback <run-id> --confirm-public # restore /latest/ to that run (immutable /runs/ untouched)
+```
 
 In Pi, start the workflow with:
 

@@ -10,8 +10,10 @@ import pytest
 from tournament_scheduler.pipeline.pages_publish import (
     bundle_fingerprint,
     diff_latest,
+    list_publication_history,
     publish,
     resolve_urls,
+    rollback_to_run,
     target_fingerprint,
 )
 
@@ -295,3 +297,110 @@ class TestDiffLatest:
         assert diff["update"] == ["latest/index.html", "latest/season_plan.html"]
         assert diff["remove"] == ["latest/season_plan.ics"]
         assert diff["add"] == []
+
+
+class TestMetaJson:
+    def test_writes_meta_json_with_run_id_and_fingerprint(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+        _write_export_bundle(export_dir)
+
+        publish(export_dir=str(export_dir), run_id="run-1", repo_dir=str(local), push=False, bundle_fingerprint="fp1")
+
+        check = tmp_path / "check"
+        _worktree_at(local, "gh-pages", check)
+        import json
+
+        latest_meta = json.loads((check / "latest" / "_meta.json").read_text())
+        run_meta = json.loads((check / "runs" / "run-1" / "_meta.json").read_text())
+        assert latest_meta == {"run_id": "run-1", "bundle_fingerprint": "fp1"}
+        assert run_meta == {"run_id": "run-1", "bundle_fingerprint": "fp1"}
+
+    def test_identical_content_and_fingerprint_republish_is_still_a_noop(self, tmp_path):
+        """_meta.json must not carry a timestamp or other varying field — it would break idempotency."""
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+        _write_export_bundle(export_dir)
+
+        first = publish(
+            export_dir=str(export_dir), run_id="run-1", repo_dir=str(local), push=False, bundle_fingerprint="fp1"
+        )
+        second = publish(
+            export_dir=str(export_dir), run_id="run-1", repo_dir=str(local), push=False, bundle_fingerprint="fp1"
+        )
+
+        first_sha = next(e for e in first.evidence if e.startswith("commit_sha=")).split("=", 1)[1]
+        second_sha = next(e for e in second.evidence if e.startswith("commit_sha=")).split("=", 1)[1]
+        assert first_sha == second_sha
+        assert "Ingen endringer" in second.summary
+
+
+class TestRollbackToRun:
+    def test_rollback_fails_when_branch_does_not_exist(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        result = rollback_to_run(run_id="run-1", repo_dir=str(local), push=False)
+        assert result.status == "failed"
+
+    def test_rollback_fails_when_run_was_never_published(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+        _write_export_bundle(export_dir)
+        publish(export_dir=str(export_dir), run_id="run-1", repo_dir=str(local), push=False)
+
+        result = rollback_to_run(run_id="run-does-not-exist", repo_dir=str(local), push=False)
+        assert result.status == "failed"
+
+    def test_rollback_restores_latest_to_an_earlier_run_without_deleting_history(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+
+        _write_export_bundle(export_dir, content="<h1>v1</h1>")
+        publish(export_dir=str(export_dir), run_id="run-1", repo_dir=str(local), push=False, bundle_fingerprint="fp1")
+
+        _write_export_bundle(export_dir, content="<h1>v2 (bad)</h1>")
+        publish(export_dir=str(export_dir), run_id="run-2", repo_dir=str(local), push=False, bundle_fingerprint="fp2")
+
+        result = rollback_to_run(run_id="run-1", repo_dir=str(local), push=False)
+        assert result.status == "ok"
+        assert "rolled_back_to_run_id=run-1" in result.evidence
+
+        check = tmp_path / "check"
+        _worktree_at(local, "gh-pages", check)
+        assert (check / "latest" / "season_plan.html").read_text(encoding="utf-8") == "<h1>v1</h1>"
+        # Immutable history for both runs must still be intact.
+        assert (check / "runs" / "run-1" / "season_plan.html").read_text(encoding="utf-8") == "<h1>v1</h1>"
+        assert (check / "runs" / "run-2" / "season_plan.html").read_text(encoding="utf-8") == "<h1>v2 (bad)</h1>"
+
+    def test_rollback_to_the_run_already_published_is_a_noop(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+        _write_export_bundle(export_dir)
+        publish(export_dir=str(export_dir), run_id="run-1", repo_dir=str(local), push=False)
+
+        first = rollback_to_run(run_id="run-1", repo_dir=str(local), push=False)
+        assert first.status == "ok"
+        assert "ingen tilbakerulling" in first.summary.lower()
+
+
+class TestPublicationHistory:
+    def test_empty_history_when_branch_does_not_exist(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        assert list_publication_history(repo_dir=str(local)) == []
+
+    def test_lists_publish_and_rollback_events_newest_first(self, tmp_path):
+        local = _init_repo_with_remote(tmp_path)
+        export_dir = tmp_path / "export"
+
+        _write_export_bundle(export_dir, content="<h1>v1</h1>")
+        publish(export_dir=str(export_dir), run_id="run-1", repo_dir=str(local), push=False)
+        _write_export_bundle(export_dir, content="<h1>v2</h1>")
+        publish(export_dir=str(export_dir), run_id="run-2", repo_dir=str(local), push=False)
+        rollback_to_run(run_id="run-1", repo_dir=str(local), push=False)
+
+        history = list_publication_history(repo_dir=str(local))
+
+        assert [(h["kind"], h["run_id"]) for h in history] == [
+            ("rollback", "run-1"),
+            ("publish", "run-2"),
+            ("publish", "run-1"),
+        ]

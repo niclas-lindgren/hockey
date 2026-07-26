@@ -372,9 +372,125 @@ def build_parser() -> argparse.ArgumentParser:
         "never publish, even if an approval already exists for this bundle",
     )
     op_publish.add_argument(
+        "--no-verify",
+        dest="verify",
+        action="store_false",
+        help="Skip polling the published URL for reachability after a successful push (issue #20)",
+    )
+    op_publish.set_defaults(verify=True)
+    op_publish.add_argument(
+        "--verify-max-attempts",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Bounded retry count for post-publish verification (default: pages_verify's own default)",
+    )
+    op_publish.add_argument(
+        "--verify-retry-delay",
+        dest="verify_retry_delay_seconds",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Delay between post-publish verification attempts (default: pages_verify's own default)",
+    )
+    op_publish.add_argument(
         "--json",
         action="store_true",
         help="Print the publish result as JSON",
+    )
+
+    op_verify = operator_sub.add_parser(
+        "verify",
+        help="Re-check that the last published GitHub Pages content is reachable (issue #20)",
+    )
+    op_verify.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    op_verify.add_argument(
+        "--max-attempts",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Bounded retry count (default: pages_verify's own default)",
+    )
+    op_verify.add_argument(
+        "--retry-delay",
+        dest="retry_delay_seconds",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Delay between attempts (default: pages_verify's own default)",
+    )
+    op_verify.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the verification result as JSON",
+    )
+
+    op_rollback = operator_sub.add_parser(
+        "rollback",
+        help="Roll '/latest/' back to a previously published run on GitHub Pages (issue #20)",
+    )
+    op_rollback.add_argument("run_id", help="A previously published run id, as shown by 'operator publish-history'")
+    op_rollback.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    op_rollback.add_argument(
+        "--repo-dir",
+        default=".",
+        help="Git repository directory (default: current directory)",
+    )
+    op_rollback.add_argument(
+        "--branch",
+        default="gh-pages",
+        help="Pages branch (default: gh-pages)",
+    )
+    op_rollback.add_argument(
+        "--remote",
+        default="origin",
+        help="Git remote to push to (default: origin)",
+    )
+    op_rollback.add_argument(
+        "--no-push",
+        dest="push",
+        action="store_false",
+        help="Commit the rollback locally but do not push to the remote",
+    )
+    op_rollback.set_defaults(push=True)
+    op_rollback.add_argument(
+        "--confirm-public",
+        action="store_true",
+        help="Explicitly authorize this rollback right now (issue #19/#20) — without this (or a "
+        "prior durable 'godkjenn' answer for this exact rollback), it only raises an approval question",
+    )
+    op_rollback.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the rollback result as JSON",
+    )
+
+    op_publish_history = operator_sub.add_parser(
+        "publish-history",
+        help="List the publish/rollback history on the Pages branch (issue #20)",
+    )
+    op_publish_history.add_argument(
+        "--repo-dir",
+        default=".",
+        help="Git repository directory (default: current directory)",
+    )
+    op_publish_history.add_argument(
+        "--branch",
+        default="gh-pages",
+        help="Pages branch (default: gh-pages)",
+    )
+    op_publish_history.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the history as JSON",
     )
 
     # logs
