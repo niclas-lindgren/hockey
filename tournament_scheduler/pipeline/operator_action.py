@@ -17,6 +17,7 @@ Core actions registered by default:
 - ``rerun_planning`` — rerun Stage 3 with the current config/source data
 - ``compare_candidates`` — summarize Stage 3's recorded plan candidates (#4)
 - ``export_selected_plan`` — run Stage 4 export for the current plan
+- ``publish_pages`` — publish the current Stage 4 export to GitHub Pages (#17)
 
 Risk levels and the approval rule: ``destructive`` (discards meaningful
 data) and ``external`` (writes artifacts meant to leave the system, e.g.
@@ -438,6 +439,48 @@ def _execute_export_selected_plan(*, work_dir: str, export_dir: str = "export") 
     )
 
 
+def _execute_publish_pages(
+    *,
+    work_dir: str,
+    run_id: str | None = None,
+    export_dir: str | None = None,
+    repo_dir: str = ".",
+    branch: str = "gh-pages",
+    remote: str = "origin",
+    push: bool = True,
+) -> "CapabilityResult":
+    from pathlib import Path
+
+    from . import pages_publish
+    from .capability_result import CapabilityResult
+    from .run_manifest import RunManifest
+    from .state import PipelineState, StageName
+
+    state = PipelineState(work_dir)
+    export_checkpoint = state.read_stage(StageName.EXPORT) or {}
+    output_files = export_checkpoint.get("output_files") or {}
+
+    if export_dir is None:
+        html_path = output_files.get("html")
+        if not html_path:
+            return CapabilityResult.failed(
+                "Ingen Stage 4-eksport funnet — kjør eksport før publisering.", capability="pages_publish"
+            )
+        export_dir = str(Path(html_path).parent)
+
+    if run_id is None:
+        run_id = RunManifest(work_dir).read().get("run_id") or "unknown-run"
+
+    return pages_publish.publish(
+        export_dir=export_dir,
+        run_id=run_id,
+        repo_dir=repo_dir,
+        branch=branch,
+        remote=remote,
+        push=push,
+    )
+
+
 def build_default_registry() -> ActionRegistry:
     """Build the registry of core operator actions this module ships."""
     registry = ActionRegistry()
@@ -505,6 +548,16 @@ def build_default_registry() -> ActionRegistry:
             requires_approval=True,
         ),
         _execute_export_selected_plan,
+    )
+    registry.register(
+        OperatorAction(
+            action_id="publish_pages",
+            description="Publish the current Stage 4 export to GitHub Pages (gh-pages branch).",
+            capability="pages_publish",
+            risk_level=RiskLevel.EXTERNAL.value,
+            requires_approval=True,
+        ),
+        _execute_publish_pages,
     )
 
     return registry

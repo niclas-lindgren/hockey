@@ -40,6 +40,15 @@ rvv-miniputt operator promote <id> workspace             # turn a one-off answer
 
 Decisions are scoped (run / input_version / season / workspace, see [`docs/run-manifest-schema.md`](docs/run-manifest-schema.md#decision-scoping-issue-12)) so an answer tied to one workbook doesn't get silently reused after a new one is uploaded — it's marked stale instead, and `operator questions --all` shows the full history.
 
+Once an export looks good, publish it to a shareable GitHub Pages URL without running anything in GitHub Actions:
+
+```bash
+rvv-miniputt operator publish                           # publish the last export to gh-pages: /latest/ + /runs/<run-id>/
+rvv-miniputt operator run --publish                      # or fold publishing into the run itself
+```
+
+Running either command is the human approval for this external write (see [AI operator implementation roadmap](docs/ai-operator-roadmap.md#17-add-operator-driven-github-pages-publishing)). Publishing is idempotent per run and never force-pushes history.
+
 In Pi, start the workflow with:
 
 ```bash

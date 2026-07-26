@@ -215,6 +215,11 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="Optionally run a Stage 3 checkpoint critic loop before Stage 4 export (default: 0/off)",
     )
+    op_run.add_argument(
+        "--publish",
+        action="store_true",
+        help="After a successful run, publish the exported season plan to GitHub Pages (issue #17)",
+    )
 
     op_questions = operator_sub.add_parser(
         "questions",
@@ -292,6 +297,54 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="Print the health check result as JSON",
+    )
+
+    op_publish = operator_sub.add_parser(
+        "publish",
+        help="Publish the current exported season plan to GitHub Pages (issue #17)",
+    )
+    op_publish.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    op_publish.add_argument(
+        "--export-dir",
+        default=None,
+        help="Override export bundle directory (default: resolved from the last Stage 4 export)",
+    )
+    op_publish.add_argument(
+        "--run-id",
+        default=None,
+        help="Override the run id used for the immutable /runs/<run-id>/ path "
+        "(default: the current run manifest's run_id)",
+    )
+    op_publish.add_argument(
+        "--repo-dir",
+        default=".",
+        help="Git repository directory to publish from (default: current directory)",
+    )
+    op_publish.add_argument(
+        "--branch",
+        default="gh-pages",
+        help="Pages branch to publish to (default: gh-pages)",
+    )
+    op_publish.add_argument(
+        "--remote",
+        default="origin",
+        help="Git remote to push to (default: origin)",
+    )
+    op_publish.add_argument(
+        "--no-push",
+        dest="push",
+        action="store_false",
+        help="Commit the Pages branch locally but do not push to the remote",
+    )
+    op_publish.set_defaults(push=True)
+    op_publish.add_argument(
+        "--json",
+        action="store_true",
+        help="Print the publish result as JSON",
     )
 
     # logs

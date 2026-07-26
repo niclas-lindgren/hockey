@@ -1751,7 +1751,72 @@ def _cmd_operator_run(args: argparse.Namespace) -> int:
     rc = _cmd_run(args)
     _raise_escalation_questions(args.work_dir)
     _print_operator_summary(args.work_dir)
+
+    if rc == 0 and getattr(args, "publish", False):
+        publish_rc = _cmd_operator_publish(args)
+        rc = rc if publish_rc == 0 else publish_rc
+
     return rc
+
+
+def _cmd_operator_publish(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt operator publish`` — publish the exported plan to GitHub Pages (issue #17).
+
+    Running this command (interactively, or via ``operator run --publish``)
+    is itself the human decision that authorizes the external
+    ``publish_pages`` action, so it is always invoked with ``approved=True``
+    — issue #19 will add an explicit escalation gate for unattended/harness
+    invocations that shouldn't auto-approve.
+    """
+    from ..pipeline.operator_action import (
+        DEFAULT_REGISTRY,
+        ApprovalRequiredError,
+        PersistenceUnavailableError,
+        UnknownActionError,
+    )
+    from ..pipeline.run_manifest import ManifestPersistenceError, RunManifest
+
+    action_kwargs: dict[str, Any] = {
+        "work_dir": args.work_dir,
+        "repo_dir": getattr(args, "repo_dir", ".") or ".",
+        "branch": getattr(args, "branch", "gh-pages") or "gh-pages",
+        "remote": getattr(args, "remote", "origin") or "origin",
+        "push": getattr(args, "push", True),
+    }
+    if getattr(args, "export_dir", None):
+        action_kwargs["export_dir"] = args.export_dir
+    if getattr(args, "run_id", None):
+        action_kwargs["run_id"] = args.run_id
+
+    action = DEFAULT_REGISTRY.build("publish_pages", **action_kwargs)
+    try:
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+    except (UnknownActionError, ApprovalRequiredError, PersistenceUnavailableError) as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        return 1
+
+    try:
+        RunManifest(args.work_dir).record_capability(result)
+    except ManifestPersistenceError as exc:
+        _warn_manifest_failure(args.work_dir, "registrere Pages-publisering i", exc)
+
+    if getattr(args, "json", False):
+        import json as _json
+
+        print(_json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
+        return 0 if result.is_terminal_success else 1
+
+    if result.status == "ok":
+        _console.print(f"[green]✓[/green] {result.summary}")
+    elif result.status == "warning":
+        _console.print(f"[yellow]⚠[/yellow] {result.summary}")
+    else:
+        _console.print(f"[red]✗[/red] {result.summary}")
+    for artifact in result.artifacts:
+        _console.print(f"    [cyan]{artifact}[/cyan]")
+    for item in result.evidence:
+        _console.print(f"    [dim]{item}[/dim]")
+    return 0 if result.is_terminal_success else 1
 
 
 def _cmd_scrape(args: argparse.Namespace) -> int:

@@ -372,3 +372,34 @@ approval/durability gate, and backward compatibility).
 ### 15. Clarify active, completed, and recommended capability state
 
 Not yet implemented.
+
+## Third wave: public publishing (issues #17-#20)
+
+A third wave lets the operator publish an approved run to GitHub Pages
+without a custom GitHub Actions workflow. Delivery order: #17 first (the
+publish mechanism itself), then #18 (a sanitized public bundle and privacy
+report — #17 publishes the raw Stage 4 export as-is and does not sanitize
+it), #19 (an explicit approval gate for unattended/harness publish
+invocations), #20 (verification and rollback).
+
+### 17. Add operator-driven GitHub Pages publishing
+
+**Status: implemented.** `tournament_scheduler/pipeline/pages_publish.py`
+adds `publish()`, which copies a Stage 4 export bundle onto a dedicated
+`gh-pages` branch under both `/latest/` (overwritten every publish) and the
+immutable `/runs/<run-id>/`, plus a root `index.html` (redirects to
+`/latest/`) and `.nojekyll`. It never touches the caller's checkout — a
+short-lived `git worktree` does the branch checkout/commit — and never force
+pushes: a diverged local `gh-pages` is reported as a failure rather than
+overwritten, and a push failure leaves the commit intact locally for a
+retry. Republishing an unchanged bundle for the same run id is a no-op (no
+empty commit). The public URL is derived from the `origin` remote
+(`https://<owner>.github.io/<repo>/...`). Registered as the `publish_pages`
+operator action (`external` risk, `requires_approval=True`, same invariant
+as `export_selected_plan` from #10). CLI: `rvv-miniputt operator publish`
+and `rvv-miniputt operator run --publish`; running either is itself the
+human approval for this pass — #19 will add an explicit escalation gate for
+invocations that shouldn't auto-approve (e.g. an unattended harness run).
+See `tests/test_pages_publish.py` (initial branch creation, `/latest/`
+updates, `/runs/<run-id>/` retention, no-op republish, and push failure) and
+`tests/test_operator_action.py::TestPublishPagesExecutor`.

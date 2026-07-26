@@ -176,6 +176,7 @@ class TestDefaultRegistryCoreActions:
             "rerun_planning",
             "compare_candidates",
             "export_selected_plan",
+            "publish_pages",
         ],
     )
     def test_core_action_is_registered(self, action_id):
@@ -183,6 +184,11 @@ class TestDefaultRegistryCoreActions:
 
     def test_export_selected_plan_requires_approval(self):
         action = DEFAULT_REGISTRY.build("export_selected_plan", work_dir=".")
+        assert action.requires_approval is True
+        assert action.risk_level == "external"
+
+    def test_publish_pages_requires_approval(self):
+        action = DEFAULT_REGISTRY.build("publish_pages", work_dir=".")
         assert action.requires_approval is True
         assert action.risk_level == "external"
 
@@ -270,6 +276,14 @@ class TestExportSelectedPlanExecutor:
         action = DEFAULT_REGISTRY.build("export_selected_plan", work_dir=str(tmp_path))
         result = DEFAULT_REGISTRY.execute(action, approved=True)
         assert result.status == "failed"
+
+
+class TestPublishPagesExecutor:
+    def test_returns_failed_when_no_export_checkpoint(self, tmp_path):
+        action = DEFAULT_REGISTRY.build("publish_pages", work_dir=str(tmp_path))
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+        assert result.status == "failed"
+        assert "eksport" in result.summary.lower()
 
 
 class TestCapabilityResultActionsField:
