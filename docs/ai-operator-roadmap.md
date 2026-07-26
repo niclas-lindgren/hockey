@@ -297,7 +297,22 @@ structured `UnknownActionError`/`ApprovalRequiredError` (both carry a stable
 
 ### 11. Implement an observe-decide-act AI operator loop
 
-Not yet implemented.
+**Status: implemented.** `tournament_scheduler/pipeline/operator_loop.py`
+adds `run_source_recovery_loop()`, a bounded observe (source_health, #3)
+-> decide (pure policy function) -> act (dispatch through the #10
+`ActionRegistry`) -> evaluate -> continue/retry/escalate/finish loop for
+calendar source recovery. `rvv-miniputt operator run` runs it unconditionally
+before deciding where to resume from, and forces at least a Stage 2 rerun
+when it repairs anything. Bounded by `max_retries_per_source` (default 2)
+and `max_actions` (default 10), plus no-progress detection that escalates
+instead of retrying an action that produced an identical result twice in a
+row. Every step is recorded in the run manifest's new `action_log` field via
+`RunManifest.record_action_transition()` — see
+[`docs/run-manifest-schema.md`](run-manifest-schema.md). The policy function
+never calls an LLM; an optional `action_proposer` may steer *which*
+registered action runs but can't invent a new one. Tests in
+`tests/test_operator_loop.py` (19 tests) and the wiring into
+`_cmd_operator_run` in `tests/test_operator_run.py`.
 
 ### 12. Scope durable operator decisions and escalation questions
 

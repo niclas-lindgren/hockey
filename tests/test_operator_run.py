@@ -258,3 +258,122 @@ def test_second_invocation_with_nothing_pending_does_not_rerun_stages(tmp_path):
 
     assert rc == 0
     stage2.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Recovery-loop wiring (issue #11): _cmd_operator_run must run the
+# observe-decide-act loop before deciding where to resume from, and force a
+# Stage 2 rerun when the loop actually repaired something, even if
+# auto-detection would otherwise have seen "all done" or a later stage.
+# ---------------------------------------------------------------------------
+
+
+def test_recovery_loop_invoked_with_work_dir_before_run(tmp_path):
+    args = _operator_args(tmp_path)
+    with patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._run_recovery_loop", return_value=None
+    ) as mock_recovery, patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=0
+    ):
+        _cmd_operator_run(args)
+
+    mock_recovery.assert_called_once_with(str(tmp_path))
+
+
+def test_recovery_loop_action_taken_forces_resume_to_stage_2_when_otherwise_all_done(tmp_path):
+    state = PipelineState(tmp_path)
+    for stage in (StageName.CONFIG, StageName.SCRAPING, StageName.PLANNING, StageName.EXPORT):
+        state.write_stage(stage, {"x": 1}, status=StageStatus.DONE)
+
+    args = _operator_args(tmp_path)
+    recovery_summary = {
+        "actions_taken": 1,
+        "sources_resolved": ["Jar"],
+        "sources_escalated": [],
+        "stopped_reason": "completed",
+    }
+    with patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._run_recovery_loop",
+        return_value=recovery_summary,
+    ), patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=0) as mock_run:
+        rc = _cmd_operator_run(args)
+
+    mock_run.assert_called_once()
+    called_args = mock_run.call_args[0][0]
+    assert called_args.resume_from == "2"
+    assert rc == 0
+
+
+def test_recovery_loop_action_taken_does_not_move_resume_later_than_earliest_pending(tmp_path):
+    # Nothing at all has run yet, so auto-detection already wants stage 1 —
+    # a recovered source must not push the resume point *later* to stage 2.
+    args = _operator_args(tmp_path)
+    recovery_summary = {
+        "actions_taken": 1,
+        "sources_resolved": [],
+        "sources_escalated": [],
+        "stopped_reason": "completed",
+    }
+    with patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._run_recovery_loop",
+        return_value=recovery_summary,
+    ), patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=0) as mock_run:
+        _cmd_operator_run(args)
+
+    called_args = mock_run.call_args[0][0]
+    assert called_args.resume_from == "1"
+
+
+def test_recovery_loop_no_actions_taken_does_not_force_a_rerun(tmp_path):
+    state = PipelineState(tmp_path)
+    for stage in (StageName.CONFIG, StageName.SCRAPING, StageName.PLANNING, StageName.EXPORT):
+        state.write_stage(stage, {"x": 1}, status=StageStatus.DONE)
+
+    args = _operator_args(tmp_path)
+    recovery_summary = {
+        "actions_taken": 0,
+        "sources_resolved": [],
+        "sources_escalated": [],
+        "stopped_reason": "completed",
+    }
+    with patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._run_recovery_loop",
+        return_value=recovery_summary,
+    ), patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run") as mock_run:
+        rc = _cmd_operator_run(args)
+
+    mock_run.assert_not_called()
+    assert rc == 0
+
+
+def test_recovery_loop_explicit_resume_from_wins_over_recovered_actions(tmp_path):
+    args = _operator_args(tmp_path, resume_from="4")
+    recovery_summary = {
+        "actions_taken": 1,
+        "sources_resolved": ["Jar"],
+        "sources_escalated": [],
+        "stopped_reason": "completed",
+    }
+    with patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._run_recovery_loop",
+        return_value=recovery_summary,
+    ), patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=0) as mock_run:
+        _cmd_operator_run(args)
+
+    called_args = mock_run.call_args[0][0]
+    assert called_args.resume_from == "4"
+
+
+def test_recovery_loop_exception_degrades_to_normal_run_instead_of_crashing(tmp_path):
+    # _run_recovery_loop itself must never propagate — a broken recovery
+    # attempt should leave the human with the same blocked sources they
+    # would have had anyway, not a crashed `operator run`.
+    args = _operator_args(tmp_path)
+    with patch(
+        "tournament_scheduler.pipeline.operator_loop.run_source_recovery_loop",
+        side_effect=RuntimeError("boom"),
+    ), patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=0) as mock_run:
+        rc = _cmd_operator_run(args)
+
+    mock_run.assert_called_once()
+    assert rc == 0

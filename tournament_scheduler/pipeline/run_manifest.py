@@ -126,6 +126,11 @@ class RunManifest:
             "final_outcome": RunOutcome.IN_PROGRESS.value,
             "capabilities": [],
             "pending_questions": carried_questions,
+            # Per-run history of the observe-decide-act loop (issue #11).
+            # Resets each run like `capabilities` — unlike pending_questions,
+            # an action transition is only meaningful within the run that
+            # produced it.
+            "action_log": [],
         }
         self._write(manifest)
         return manifest
@@ -150,6 +155,58 @@ class RunManifest:
         if result.capability:
             manifest["current_capability"] = result.capability
         manifest["updated_at"] = entry["recorded_at"]
+        self._write(manifest)
+        return entry
+
+    def record_action_transition(
+        self,
+        *,
+        target: str,
+        action_id: str,
+        arguments: dict[str, Any],
+        rationale: str,
+        policy_rule: str,
+        result: CapabilityResult,
+        transition: str,
+    ) -> dict[str, Any]:
+        """Append one observe-decide-act loop step (issue #11) to ``action_log``.
+
+        Every field the loop's stopping-condition tests rely on is recorded
+        explicitly rather than left to be re-derived from ``result``:
+
+        target:
+            What the action operated on (e.g. a source name).
+        action_id / arguments:
+            The exact :class:`~tournament_scheduler.pipeline.operator_action.OperatorAction`
+            invoked — always one of the registry's known action IDs.
+        rationale:
+            Free-text explanation of why this action was chosen.
+        policy_rule:
+            Stable identifier for the deterministic rule that selected it
+            (e.g. ``"blocked+credentials->request_credentials"``), so a
+            transition can be attributed to policy without parsing prose.
+        result:
+            The :class:`CapabilityResult` the action produced.
+        transition:
+            What the loop did next: ``"resolved"``, ``"retry"``,
+            ``"escalate"``, or ``"no_progress_stop"``.
+
+        Returns the recorded entry.
+        """
+        manifest = self.read()
+        now = _now_iso()
+        entry = {
+            "target": target,
+            "action_id": action_id,
+            "arguments": dict(arguments),
+            "rationale": rationale,
+            "policy_rule": policy_rule,
+            "result": result.to_dict(),
+            "transition": transition,
+            "recorded_at": now,
+        }
+        manifest.setdefault("action_log", []).append(entry)
+        manifest["updated_at"] = now
         self._write(manifest)
         return entry
 
@@ -339,5 +396,6 @@ class RunManifest:
             "final_outcome": final_outcome,
             "capabilities": capabilities,
             "pending_questions": [],
+            "action_log": [],
             "synthesized_from_legacy_checkpoints": True,
         }

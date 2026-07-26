@@ -1542,6 +1542,20 @@ def _print_operator_summary(work_dir: str) -> None:
     _console.print(f"  Mål:      {manifest.get('objective') or '-'}")
     _console.print(f"  Resultat: [{outcome_style}]{outcome.upper()}[/{outcome_style}]")
 
+    action_log = manifest.get("action_log") or []
+    if action_log:
+        transition_icon = {"resolved": "✓", "retry": "↻", "escalate": "⛔", "no_progress_stop": "⏹"}
+        transition_style = {"resolved": "green", "retry": "yellow", "escalate": "red", "no_progress_stop": "red"}
+        _console.print(f"  Gjenopprettingsforsøk ({len(action_log)}):")
+        for entry in action_log:
+            transition = str(entry.get("transition", "?"))
+            icon = transition_icon.get(transition, "?")
+            style = transition_style.get(transition, "white")
+            action_id = entry.get("action_id") or "(ingen handling)"
+            _console.print(
+                f"    [{style}]{icon}[/{style}] {entry.get('target', '?'):<12} {action_id:<20} {transition}"
+            )
+
     capabilities = manifest.get("capabilities") or []
     if capabilities:
         _console.print("  Kapabiliteter:")
@@ -1581,20 +1595,44 @@ def _print_operator_summary(work_dir: str) -> None:
         )
 
 
+def _run_recovery_loop(work_dir: str) -> "dict[str, Any] | None":
+    """Best-effort observe-decide-act recovery pass (issue #11).
+
+    Runs unconditionally at the top of ``operator run``: a no-op when
+    Stage 2 hasn't produced a checkpoint yet or every source is already
+    healthy. Never raises — a failure here should degrade to "the human
+    sees the same blocked sources they would have anyway", not crash the
+    operator entry point.
+    """
+    try:
+        from ..pipeline.operator_loop import run_source_recovery_loop
+
+        return run_source_recovery_loop(work_dir)
+    except Exception:
+        return None
+
+
 def _cmd_operator_run(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt operator run`` — the goal-oriented AI operator entry point.
 
     A thin wrapper around ``rvv-miniputt run``, which already implements
     bounded retries, inter-stage judgment, and run-manifest bookkeeping: this
-    resolves the active objective, auto-detects where to resume from unless
-    the caller overrides it, skips work entirely when nothing is pending, and
-    prints a final structured summary once the run completes. It does not
-    duplicate any scheduling or recovery logic.
+    resolves the active objective, runs a bounded observe-decide-act
+    recovery pass over calendar source health (issue #11), auto-detects
+    where to resume from unless the caller overrides it, skips work
+    entirely when nothing is pending, and prints a final structured summary
+    once the run completes. It does not duplicate any scheduling or
+    recovery logic — the recovery pass only dispatches through the #10
+    action registry, which itself calls the same stage/scraper code the
+    portable CLI uses.
     """
     from ..pipeline.state import PipelineState
 
     args.objective = getattr(args, "objective", None) or _DEFAULT_OPERATOR_OBJECTIVE
     state = PipelineState(args.work_dir)
+
+    recovery_summary = _run_recovery_loop(args.work_dir)
+    recovered_any = bool(recovery_summary and recovery_summary.get("actions_taken"))
 
     explicit_resume = getattr(args, "resume_from", None)
     if getattr(args, "force", False):
@@ -1603,6 +1641,12 @@ def _cmd_operator_run(args: argparse.Namespace) -> int:
         args.resume_from = explicit_resume
     else:
         auto_stage = _resolve_operator_resume_stage(state)
+        if recovered_any:
+            # The recovery pass repaired the unified scrape cache, but only
+            # an actual Stage 2 rerun rewrites the stage2_scraping.json
+            # checkpoint to reflect that — force it back into the plan even
+            # if auto-detection otherwise thought nothing was pending.
+            auto_stage = 2 if auto_stage is None else min(auto_stage, 2)
         if auto_stage is None:
             _console.print("[bold]🏒 RVV Miniputt operator[/bold]\n")
             _console.print(f"[dim]Mål:[/dim] {args.objective}")
