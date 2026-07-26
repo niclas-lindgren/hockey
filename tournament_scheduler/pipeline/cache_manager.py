@@ -151,6 +151,10 @@ class ScrapedDataCache:
         # This keeps the unified cache aligned with the latest configured inputs
         # and avoids stale calendar events leaking into later reports.
 
+        # Keep exactly one generation of history so source_health.py can detect
+        # sparse/duplicate-heavy sources by comparing against the last build,
+        # without growing the cache file unboundedly.
+        cache["previous_sources"] = cache.get("sources", {})
         cache["sources"] = sources_data
         cache["source_count"] = len(sources_data)
         cache["total_events"] = sum(

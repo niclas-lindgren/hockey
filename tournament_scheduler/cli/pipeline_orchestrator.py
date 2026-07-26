@@ -1243,12 +1243,28 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if stage2_failed:
         run_failed = True
     _scraping_blocked = (scraping or {}).get("blocked", [])
+    _health_problems: list[str] = []
+    _health_actions: list[str] = []
+    _health_requires_human = bool(_scraping_blocked)
+    try:
+        from ..pipeline.source_health import compute_source_health
+
+        for _health_result in compute_source_health(args.work_dir):
+            if _health_result.status == "ok":
+                continue
+            _health_problems.extend(_health_result.problems)
+            _health_actions.extend(_health_result.suggested_actions)
+            _health_requires_human = _health_requires_human or _health_result.requires_human
+    except Exception:
+        pass
     _manifest_record(
         args.work_dir,
         "scraping",
-        "failed" if stage2_failed else ("warning" if _scraping_blocked else "ok"),
+        "failed" if stage2_failed else ("warning" if (_scraping_blocked or _health_problems) else "ok"),
         f"{len((scraping or {}).get('sources', []))} source(s) scraped, {len(_scraping_blocked)} blocked",
-        problems=list(_scraping_blocked),
+        problems=list(_scraping_blocked) + _health_problems,
+        suggested_actions=_health_actions,
+        requires_human=_health_requires_human,
     )
 
     # Retry Stage 3 planning when the verdict is still rough and we actually

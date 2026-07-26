@@ -24,7 +24,7 @@ from rich.console import Console
 from .args import build_parser as _build_parser
 from .pipeline_orchestrator import _cmd_calendars, _cmd_operator_run, _cmd_run, _cmd_scrape
 from .recovery_cli import _cmd_recovery_inject, _cmd_recovery_targets, _cmd_scrape_merge
-from .reporting import _cmd_logs, _cmd_status
+from .reporting import _cmd_logs, _cmd_sources_status, _cmd_status
 
 _console = Console()
 
@@ -212,6 +212,19 @@ def _cmd_operator(args: argparse.Namespace) -> int:
     if args.operator_command == "run":
         return _cmd_operator_run(args)
     _console.print("[yellow]Bruk: rvv-miniputt operator run[/yellow]")
+    return 1
+
+
+# ---------------------------------------------------------------------------
+# sources subcommand handlers
+# ---------------------------------------------------------------------------
+
+
+def _cmd_sources(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt sources ...`` — dispatches to sub-subcommands."""
+    if args.sources_command == "status":
+        return _cmd_sources_status(args)
+    _console.print("[yellow]Bruk: rvv-miniputt sources status[/yellow]")
     return 1
 
 
@@ -783,6 +796,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_run(args)
     elif args.command == "operator":
         return _cmd_operator(args)
+    elif args.command == "sources":
+        return _cmd_sources(args)
     elif args.command == "logs":
         return _cmd_logs(args)
     elif args.command == "cancel":
