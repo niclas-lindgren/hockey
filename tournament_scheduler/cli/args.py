@@ -111,6 +111,93 @@ def build_parser() -> argparse.ArgumentParser:
     # inter-stage LLM judgment when no harness session is present.
     # See docs/rvv-miniputt-pipeline.md §"Headless / CI usage" for details.
 
+    # operator — the goal-oriented AI operator entry point (see docs/ai-operator-product-direction.md)
+    operator = sub.add_parser(
+        "operator",
+        help="Goal-oriented AI operator commands (thin wrapper around the portable pipeline)",
+    )
+    operator_sub = operator.add_subparsers(dest="operator_command")
+
+    op_run = operator_sub.add_parser(
+        "run",
+        help="Produce the best trustworthy season plan: inspects workspace state, "
+        "resumes from the earliest stale/pending capability, and reports a "
+        "structured summary",
+    )
+    op_run.add_argument(
+        "--objective",
+        default=None,
+        help="Explicit objective for this run (default: produce the best trustworthy season plan)",
+    )
+    op_run.add_argument(
+        "--work-dir",
+        default=".pipeline",
+        help="Pipeline work directory (default: .pipeline)",
+    )
+    op_run.add_argument(
+        "--input",
+        default="input.xlsx",
+        help="Path to pipeline input workbook (default: input.xlsx)",
+    )
+    op_run.add_argument(
+        "--export-dir",
+        default="export",
+        help="Export output directory (default: export)",
+    )
+    op_run.add_argument(
+        "--resume-from",
+        default=None,
+        help="Force resuming from a specific stage number or alias, overriding auto-detection "
+        "(1-4, config, scraping, planning, export)",
+    )
+    op_run.add_argument(
+        "--force",
+        action="store_true",
+        help="Run the full pipeline from stage 1 even if every stage already looks done and fresh",
+    )
+    op_run.add_argument(
+        "--log-level",
+        default="info",
+        choices=["info", "verbose"],
+        help="Console/log verbosity hint (default: info)",
+    )
+    op_run.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Force calendar cache refresh before Stage 2 when that stage runs",
+    )
+    op_run.add_argument(
+        "--non-strict",
+        action="store_true",
+        help="Continue on blocked sources or warnings instead of escalating",
+    )
+    op_run.add_argument(
+        "--allow-missing-sources",
+        action="store_true",
+        help="Treat blocked sources as an operator-approved skip and keep partial results",
+    )
+    op_run.add_argument(
+        "--no-timestamped-export",
+        dest="timestamped_export",
+        action="store_false",
+        help="Write exports flat into --export-dir instead of a timestamped subfolder",
+    )
+    op_run.set_defaults(timestamped_export=True)
+    op_run.add_argument(
+        "--iterations",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Run Stage 3 planner N times with different random seeds and keep the best plan (default: 1)",
+    )
+    op_run.add_argument(
+        "--mid-planning-critic-iterations",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Optionally run a Stage 3 checkpoint critic loop before Stage 4 export (default: 0/off)",
+    )
+
     # logs
     logs = sub.add_parser("logs", help="Show structured pipeline run logs")
     logs.add_argument(

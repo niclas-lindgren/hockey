@@ -1458,6 +1458,110 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return 1 if plan_needs_attention else 0
 
 
+# ---------------------------------------------------------------------------
+# Goal-oriented operator entry point
+# ---------------------------------------------------------------------------
+
+
+def _resolve_operator_resume_stage(state: "Any") -> "int | None":
+    """Return the 1-based index of the earliest stage that needs (re)running.
+
+    A stage needs running when it has no checkpoint yet, is not done, or was
+    invalidated (stale) by an upstream change. Returns ``None`` when every
+    stage is done and fresh — there is nothing pending for the operator to do.
+    """
+    from ..pipeline.state import StageName
+
+    for stage in (StageName.CONFIG, StageName.SCRAPING, StageName.PLANNING, StageName.EXPORT):
+        if not state.checkpoint_path(stage).exists():
+            return stage.index
+        if not state.is_done(stage) or state.is_stale(stage):
+            return stage.index
+    return None
+
+
+def _print_operator_summary(work_dir: str) -> None:
+    """Print the operator's final structured summary from the run manifest.
+
+    Best-effort: the manifest is an operator-facing summary layered on top of
+    the pipeline, so a failure to read it should never mask the pipeline's own
+    exit code or console output.
+    """
+    try:
+        from ..pipeline.run_manifest import RunManifest
+
+        manifest = RunManifest(work_dir).read()
+    except Exception:
+        return
+
+    outcome = str(manifest.get("final_outcome", "in_progress"))
+    outcome_style = {"ok": "green", "warning": "yellow", "blocked": "yellow", "failed": "red"}.get(outcome, "white")
+    icon_by_status = {"ok": "✓", "warning": "⚠", "blocked": "⛔", "failed": "✗"}
+    style_by_status = {"ok": "green", "warning": "yellow", "blocked": "yellow", "failed": "red"}
+
+    _console.print("\n[bold]Operator-sammendrag[/bold]")
+    _console.print(f"  Mål:      {manifest.get('objective') or '-'}")
+    _console.print(f"  Resultat: [{outcome_style}]{outcome.upper()}[/{outcome_style}]")
+
+    capabilities = manifest.get("capabilities") or []
+    if capabilities:
+        _console.print("  Kapabiliteter:")
+        for entry in capabilities:
+            status = str(entry.get("status", "?"))
+            icon = icon_by_status.get(status, "?")
+            style = style_by_status.get(status, "white")
+            name = str(entry.get("capability", "?"))
+            _console.print(f"    [{style}]{icon}[/{style}] {name:<10} {entry.get('summary', '')}")
+            for problem in entry.get("problems") or []:
+                _console.print(f"        [dim]· {problem}[/dim]")
+            if entry.get("requires_human"):
+                for action in entry.get("suggested_actions") or []:
+                    _console.print(f"        [cyan]→ {action}[/cyan]")
+
+    if outcome in ("blocked", "failed"):
+        _console.print(
+            "  [dim]Kjør 'rvv-miniputt status --json' for full detaljer, "
+            "eller 'rvv-miniputt logs show' for siste kjøringslogg.[/dim]"
+        )
+
+
+def _cmd_operator_run(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt operator run`` — the goal-oriented AI operator entry point.
+
+    A thin wrapper around ``rvv-miniputt run``, which already implements
+    bounded retries, inter-stage judgment, and run-manifest bookkeeping: this
+    resolves the active objective, auto-detects where to resume from unless
+    the caller overrides it, skips work entirely when nothing is pending, and
+    prints a final structured summary once the run completes. It does not
+    duplicate any scheduling or recovery logic.
+    """
+    from ..pipeline.state import PipelineState
+
+    args.objective = getattr(args, "objective", None) or _DEFAULT_OPERATOR_OBJECTIVE
+    state = PipelineState(args.work_dir)
+
+    explicit_resume = getattr(args, "resume_from", None)
+    if getattr(args, "force", False):
+        args.resume_from = "1"
+    elif explicit_resume:
+        args.resume_from = explicit_resume
+    else:
+        auto_stage = _resolve_operator_resume_stage(state)
+        if auto_stage is None:
+            _console.print("[bold]🏒 RVV Miniputt operator[/bold]\n")
+            _console.print(f"[dim]Mål:[/dim] {args.objective}")
+            _console.print(
+                "[green]✓[/green] Alle stadier er allerede fullført og oppdaterte — ingenting å gjøre."
+            )
+            _console.print("[dim]Bruk --force for å kjøre pipelinen på nytt fra bunnen.[/dim]")
+            _print_operator_summary(args.work_dir)
+            return 0
+        args.resume_from = str(auto_stage)
+
+    rc = _cmd_run(args)
+    _print_operator_summary(args.work_dir)
+    return rc
+
 
 def _cmd_scrape(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt scrape --club <name>`` — single-source scrape."""
