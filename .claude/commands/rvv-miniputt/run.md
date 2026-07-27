@@ -8,7 +8,8 @@ Run the RVV Miniputt season-scheduling pipeline by invoking each stage individua
 
 For focused troubleshooting, use:
 - `scripts/rvv-miniputt scrape --club <name>` for deterministic single-club scraping
-- `scripts/rvv-miniputt scrape-llm --club <name>` for LLM-guided recovery on blocked sources
+- `scripts/rvv-miniputt scrape-llm --club <name>` for browser-enabled LLM recovery on blocked sources
+- `scripts/rvv-miniputt recovery-targets` + `scripts/rvv-miniputt recovery-inject --source <name>` for terminal-only recovery after you have event JSON
 
 ## Rules
 

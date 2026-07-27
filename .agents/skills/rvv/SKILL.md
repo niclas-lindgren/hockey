@@ -61,7 +61,7 @@ The following remain Pi-specific adapters on top of the repo workflow:
 5. Use `/rvv-miniputt scrape-llm --club <navn>` for blocked SPA/calendar sources.
    - Pi sessions can use the extension tool path (`rvv_miniputt_scrape_llm`) and the Playwright worker.
    - Other harnesses only work when they provide their own browser controller.
-   - Plain terminal/CI sessions cannot drive the page; the CLI should explain the boundary and point to deterministic recovery instead.
+   - Plain terminal/CI sessions cannot drive the page; the CLI should explain the boundary and point to `rvv-miniputt recovery-targets` + `rvv-miniputt recovery-inject` so a terminal-only recovery script can still rehydrate the cache.
 6. Use `/rvv-miniputt status` or `/rvv-miniputt logs` to inspect results
 7. Use `/rvv-miniputt calendars` when you want calendar output from cache
 

@@ -164,6 +164,8 @@ def test_scrape_llm_cli_points_holmen_to_deterministic_scrape() -> None:
     assert "deterministisk skraper" in result.stdout
     assert 'rvv-miniputt scrape --club "Holmen"' in result.stdout
     assert "browser-worker" not in result.stdout
+    assert "recovery-targets" in result.stdout
+    assert "recovery-inject" in result.stdout
 
 
 def test_scrape_llm_cli_prints_browser_tool_guidance_for_browser_only_source() -> None:
@@ -186,3 +188,5 @@ def test_scrape_llm_cli_prints_browser_tool_guidance_for_browser_only_source() -
     assert "Playwright" in result.stdout
     assert "browser_worker" in result.stdout
     assert "/rvv-miniputt scrape-llm" in result.stdout
+    assert "recovery-targets" in result.stdout
+    assert "recovery-inject" in result.stdout

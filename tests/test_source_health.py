@@ -47,6 +47,7 @@ class TestComputeSourceHealth:
         assert result.requires_human is True
         assert "Timeout" in result.problems
         assert any("scrape-llm" in action for action in result.suggested_actions)
+        assert any("recovery-targets" in action for action in result.suggested_actions)
 
     def test_blocked_without_llm_fallback_suggests_manual_scrape(self, tmp_path):
         _write_scraping_checkpoint(
@@ -55,6 +56,7 @@ class TestComputeSourceHealth:
         )
         result = compute_source_health(str(tmp_path))[0]
         assert any("scrape --club" in action for action in result.suggested_actions)
+        assert any("recovery-inject" in action for action in result.suggested_actions)
 
     def test_skipped_source_is_warning(self, tmp_path):
         _write_scraping_checkpoint(

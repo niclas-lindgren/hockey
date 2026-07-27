@@ -1,9 +1,9 @@
 # Verification Report
 
-STATUS: NEEDS_REVIEW
+STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| Running `rvv-miniputt scrape --club Holmen` returns Sportello bookings through the deterministic pipeline without requiring `scrape-llm` or interactive browser control. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| The docs and operator guidance update Holmen to scriptable status while keeping browser-tool guidance for the remaining blocked sources. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
-| Tests pass for Sportello chunking/parsing and prove stage 2 dispatch routes Holmen through the new scraper. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| `rvv-miniputt scrape-llm --club Jar` prints an explicit browser-enabled warning and mentions the terminal-only recovery commands. | PASS | Covered by `tests/test_rvv_cli_portability.py::test_scrape_llm_cli_prints_browser_tool_guidance_for_browser_only_source` (`browser-verktøy`, `browser_worker`, `recovery-targets`, `recovery-inject`). |
+| `rvv-miniputt scrape-llm --club Holmen` prints a deterministic `scrape` recommendation instead of browser-tool guidance. | PASS | Covered by `tests/test_rvv_cli_portability.py::test_scrape_llm_cli_points_holmen_to_deterministic_scrape` (`deterministisk skraper`, `rvv-miniputt scrape --club "Holmen"`, no `browser-worker`). |
+| The docs and skill notes update to show `recovery-targets` and `recovery-inject` as the fallback for plain terminal sessions. | PASS | Updated `.claude/commands/rvv-miniputt/scrape-llm.md`, `.claude/commands/rvv-miniputt/run.md`, and `.agents/skills/rvv/SKILL.md`; verified by `tests/test_rvv_skill_boundary.py` and `tests/test_source_health.py`. |
