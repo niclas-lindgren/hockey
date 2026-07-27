@@ -338,7 +338,16 @@ def run(
             and cache.is_config_match(name, url, _source_type_for_match, _location_filter_for_match)
         ):
             _cached_events = entry.get("events", [])
-            source_results.append(_make_source_result(
+            _scraped_at = entry.get("scrape_timestamp", "")
+            _cache_age_hours = None
+            if _scraped_at:
+                try:
+                    _parsed = datetime.fromisoformat(str(_scraped_at))
+                    _now = datetime.now(_parsed.tzinfo) if _parsed.tzinfo else datetime.now()
+                    _cache_age_hours = round((_now - _parsed).total_seconds() / 3600, 1)
+                except Exception:
+                    _cache_age_hours = None
+            _cached_result = _make_source_result(
                 name=name,
                 url=source_cfg.get("url", entry.get("url", "")),
                 source_type=source_cfg.get("type", SOURCE_OUTLOOK).lower(),
@@ -348,7 +357,10 @@ def run(
                 block_reason="",
                 llm_fallback=False,
                 from_cache=True,
-            ))
+            )
+            if _cache_age_hours is not None:
+                _cached_result["cache_age_hours"] = _cache_age_hours
+            source_results.append(_cached_result)
             cached_names.append(name)
         else:
             sources_to_scrape.append(source_cfg)
@@ -640,7 +652,13 @@ if __name__ == "__main__":  # pragma: no cover
         n_sources = len(_result.get("sources", []))
         blocked = _result.get("blocked", [])
         cached = _result.get("cached", [])
-        print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(cached)} fra cache, {len(blocked)} blokkert")
+        cached_sources = [s for s in _result.get("sources", []) if isinstance(s, dict) and s.get("from_cache")]
+        if cached_sources:
+            ages = [s.get("cache_age_hours") for s in cached_sources if isinstance(s.get("cache_age_hours"), (int, float))]
+            age_text = f", cache alder ~{max(ages):.1f}t" if ages else ", fra cache"
+        else:
+            age_text = ""
+        print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(cached)} fra cache{age_text}, {len(blocked)} blokkert")
         if _result.get("warning"):
             print(_result["warning"])
         sys.exit(0)

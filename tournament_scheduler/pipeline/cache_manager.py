@@ -23,7 +23,7 @@ from typing import Any
 
 CACHE_DIR = "cache"
 CACHE_FILE = "scraped_data.json"
-DEFAULT_TTL_HOURS = 6
+DEFAULT_TTL_HOURS = 24
 
 
 def _compute_config_fingerprint(

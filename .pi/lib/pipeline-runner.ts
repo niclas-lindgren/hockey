@@ -4,7 +4,7 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname, resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import { parseRunArgs } from "./parsers";
 import { PipelineLogger } from "./pipeline-logger";
 import {
@@ -24,49 +24,28 @@ export interface PipelineRunResult {
   text: string;
 }
 
-function resolveFinalExportDir(workDir: string, fallbackExportDir: string): string {
-  const ckpt = readCheckpoint(workDir, "stage4_export.json");
-  const outputFiles = ckpt?.data && typeof ckpt.data === "object"
-    ? (ckpt.data as Record<string, unknown>).output_files as Record<string, unknown> | undefined
-    : undefined;
-  if (outputFiles) {
-    for (const value of Object.values(outputFiles)) {
-      if (typeof value === "string" && value.trim()) {
-        return dirname(value);
-      }
-    }
-  }
-  return fallbackExportDir;
-}
-
 function writeRunLogFile(
-  workDir: string,
-  fallbackExportDir: string,
+  exportDir: string,
   runId: string,
   startedAt: Date,
-  status: "success" | "failure",
+  status: "running" | "success" | "failure",
   lines: string[],
 ): string {
-  const finalExportDir = resolveFinalExportDir(workDir, fallbackExportDir);
-  const runLogPath = resolve(finalExportDir, `pipeline_run_${runId}.log`);
-  try {
-    mkdirSync(finalExportDir, { recursive: true });
-    writeFileSync(
-      runLogPath,
-      [
-        "# RVV Miniputt pipeline run",
-        `# Run ID: ${runId}`,
-        `# Status: ${status.toUpperCase()}`,
-        `# Started: ${startedAt.toISOString()}`,
-        `# Final export dir: ${finalExportDir}`,
-        "",
-        ...lines,
-        "",
-        buildRunSummaryText(workDir, runId),
-      ].join("\n"),
-      "utf-8",
-    );
-  } catch {}
+  const runLogPath = resolve(exportDir, `pipeline_run_${runId}.log`);
+  mkdirSync(exportDir, { recursive: true });
+  writeFileSync(
+    runLogPath,
+    [
+      "# RVV Miniputt pipeline run",
+      `# Run ID: ${runId}`,
+      `# Status: ${status.toUpperCase()}`,
+      `# Started: ${startedAt.toISOString()}`,
+      `# Export dir: ${exportDir}`,
+      "",
+      ...lines,
+    ].join("\n"),
+    "utf-8",
+  );
   return runLogPath;
 }
 
@@ -89,6 +68,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   mkdirSync(timestampedExportDir, { recursive: true });
 
   const logger = new PipelineLogger(workDir);
+  const runLogPath = resolve(timestampedExportDir, `pipeline_run_${logger.getRunId()}.log`);
 
   // Determine which stages to run
   const stagesToRun = STAGE_ORDER.slice(resumeFrom - 1);
@@ -114,6 +94,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   lines.push(`Input: ${inputPath}`);
   if (resumeFrom > 1) lines.push(`Gjenopptar fra: Trinn ${resumeFrom}`);
   lines.push("");
+  writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "running", lines);
 
   const baseArgs = ["--work-dir", workDir];
 
@@ -151,7 +132,9 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       onProgress?.({ stage: "config", status: "error", message: "Konfigurasjon feilet", error: msg });
       logger.stageEnd("config", "failed", msg);
       logger.finalize("failure");
-      const runLogPath = writeRunLogFile(workDir, timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
+      lines.push("");
+      lines.push(buildRunSummaryText(workDir, logger.getRunId()));
+      writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
       lines.push(`Run log: ${runLogPath}`);
       return { status: "failure", text: lines.join("\n") };
     }
@@ -204,7 +187,8 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       const sources = (data.sources as Array<Record<string, unknown>>) ?? [];
       for (const s of sources) {
         const cacheTag = s.from_cache ? " (cache)" : "";
-        lines.push(`  ${s.name}: ${s.event_count} events${cacheTag}`);
+        const cacheAge = typeof s.cache_age_hours === "number" ? `, ${s.cache_age_hours}h gammel` : "";
+        lines.push(`  ${s.name}: ${s.event_count} events${cacheTag}${cacheAge}`);
       }
     }
 
@@ -369,7 +353,9 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       onProgress?.({ stage: "planning", status: "error", message: "Planlegging feilet", error: msg });
       logger.stageEnd("planning", "failed", msg);
       logger.finalize("failure");
-      const runLogPath = writeRunLogFile(workDir, timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
+      lines.push("");
+      lines.push(buildRunSummaryText(workDir, logger.getRunId()));
+      writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
       lines.push(`Run log: ${runLogPath}`);
       return { status: "failure", text: lines.join("\n") };
     }
@@ -418,7 +404,9 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       onProgress?.({ stage: "export", status: "error", message: "Eksport feilet", error: msg });
       logger.stageEnd("export", "failed", msg);
       logger.finalize("failure");
-      const runLogPath = writeRunLogFile(workDir, timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
+      lines.push("");
+      lines.push(buildRunSummaryText(workDir, logger.getRunId()));
+      writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
       lines.push(`Run log: ${runLogPath}`);
       return { status: "failure", text: lines.join("\n") };
     }
@@ -449,7 +437,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   // Keep exports only in the timestamped folder.
   lines.push(`Eksporter lagret i ${timestampedExportDir}\n`);
 
-  const finalExportDir = resolveFinalExportDir(workDir, timestampedExportDir);
+  const finalExportDir = timestampedExportDir;
   const runLogPath = resolve(finalExportDir, `pipeline_run_${logger.getRunId()}.log`);
 
   // Finalize
@@ -479,23 +467,13 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   lines.push(`Run log: ${runLogPath}`);
   lines.push("");
   lines.push(buildRunSummaryText(workDir, logger.getRunId()));
+  lines.push(`Run log written: ${runLogPath}`);
 
   try {
-    mkdirSync(finalExportDir, { recursive: true });
-    writeFileSync(
-      runLogPath,
-      [
-        "# RVV Miniputt pipeline run",
-        `# Run ID: ${logger.getRunId()}`,
-        `# Status: ${overallStatus.toUpperCase()}`,
-        `# Started: ${logStart.toISOString()}`,
-        `# Final export dir: ${finalExportDir}`,
-        "",
-        ...lines,
-      ].join("\n"),
-      "utf-8",
-    );
-  } catch {}
+    writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, overallStatus, lines);
+  } catch (err) {
+    lines.push(`Run log write failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   return { status: overallStatus, text: lines.join("\n") };
 }
@@ -610,7 +588,7 @@ function assessConvergence(workDir: string): ConvergenceAssessment {
       reason: "Stage 3 er fortsatt rough",
       nextResumeFrom: 3,
       nextIterations: MAX_PLANNER_ITERATIONS,
-      signature: JSON.stringify({ stage: 3, status: gateStatus, score: gateScore, tournaments: tournamentCount, selectedAttempt, tone }),
+      signature: JSON.stringify({ stage: 3, status: gateStatus, score: gateScore, tournaments: tournamentCount }),
       summary: stage3Summary,
     };
   }

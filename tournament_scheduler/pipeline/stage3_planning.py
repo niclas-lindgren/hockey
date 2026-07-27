@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from typing import Any
+import threading
 
 from ..fairness_scoring import build_fairness_gate as _build_fairness_gate
 from ..models import CalendarEvent, Game, Roster, SeasonPlan, Team, Tournament
@@ -196,7 +197,22 @@ def run(
             max_hosting_days_per_month=max_hosting_days_per_month,
             penalty_hints=penalty_hints,
         )
+        stop_heartbeat = threading.Event()
+        heartbeat_started = datetime.now()
+
+        def _heartbeat() -> None:
+            while not stop_heartbeat.wait(20):
+                elapsed = datetime.now() - heartbeat_started
+                print(
+                    f"[plan] Forsøk {idx}/{n_iters}: fortsatt i gang ({int(elapsed.total_seconds())}s)",
+                    flush=True,
+                )
+
+        heartbeat_thread = threading.Thread(target=_heartbeat, daemon=True)
+        heartbeat_thread.start()
         plan = planner.build_plan(start_date, end_date)
+        stop_heartbeat.set()
+        heartbeat_thread.join(timeout=1)
         if plan is None or not plan.tournaments:
             print(f"[plan] Forsøk {idx}/{n_iters}: ingen plan kunne bygges", flush=True)
             candidate.update({"status": "failed", "score": None, "tournament_count": 0, "rank": None})

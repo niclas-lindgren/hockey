@@ -111,7 +111,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       "Støtter gjenopptak fra et bestemt trinn og kjører harness-iterasjoner til resultatet konvergerer.\n" +
       "Valgfrie flagg: --input <input.xlsx> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
       "--log-level <info|verbose> --force-refresh --iterations <N>\n" +
-      "Trinn 2 gjenbruker kalenderdata fra cache (under 6 timer gammel) med mindre --force-refresh er satt.\n" +
+      "Trinn 2 gjenbruker kalenderdata fra cache (under 24 timer gammel) med mindre --force-refresh er satt.\n" +
       "Hver kjøring logges strukturelt til .pipeline/logs/run-<dato>.jsonl for selvforbedringsanalyse.",
     getArgumentCompletions: (prefix) => {
       const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level", "--force-refresh", "--iterations"];
