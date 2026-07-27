@@ -28,13 +28,13 @@ work — see notes on each entry):
     Sportality/s8y SPA with no static calendar markup or export API found;
     varnerarena.no is blocked by a WAF page.
   - Holmen: holmenhockey.no links to a Sportello booking widget
-    (kalender.sportello.no/booking/11055) that is a JS-rendered SPA shell with
-    no discoverable .ics/iCal export.
+    (kalender.sportello.no/booking/11055) whose public GraphQL API is now
+    scraped deterministically.
 
-All four of the above would need either a discovered platform-specific export
-API (Sportello / Sportality·s8y / StyledCalendar) or a Playwright-based scraper
-for their JS-rendered booking widgets — analogous to Kongsberg's OUTLOOK
-integration but for different platforms/markup.
+The remaining JS-rendered widgets (Jutul, Jar, Frisk Asker) still need either
+a discovered platform-specific export API or a Playwright-based scraper for
+their booking widgets — analogous to Kongsberg's OUTLOOK integration but for
+different platforms/markup.
 
 Still missing URLs entirely (no calendar/booking system identified at all):
 Tønsberg, Sandefjord Penguins.
@@ -150,8 +150,8 @@ CLUB_REGISTRY: Dict[str, ClubCalendarSource] = {
         source="https://kalender.sportello.no/booking/11055",
         skip=False,
         note=(
-            "Sportello booking widget -- currently scraped via "
-            "Playwright (iframe-based). Maps to 176 events."
+            "Sportello booking widget -- scraped deterministically via the public GraphQL API. "
+            "Maps to 176 events."
         ),
     ),
     "Skien": ClubCalendarSource(

@@ -22,7 +22,7 @@ def _strategy(engine: CalendarEngine) -> ScraperStrategy:
         (CalendarEngine.OUTLOOK_IFRAME, "browser"),
         (CalendarEngine.DATE_PARAM, "browser"),
         (CalendarEngine.FORUMBOOKING, "browser"),
-        (CalendarEngine.SPORTELLO, "browser"),
+        (CalendarEngine.SPORTELLO, "sportello"),
         (CalendarEngine.TEAMUP_ICAL, "ical"),
         (CalendarEngine.GENERIC_ICAL, "ical"),
     ],

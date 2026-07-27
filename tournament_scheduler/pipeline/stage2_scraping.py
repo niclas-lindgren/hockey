@@ -4,7 +4,9 @@ For each configured calendar source:
   1. ``outlook`` / ``html`` sources use Playwright to load the page and extract
      events from the Outlook Web Calendar iframe (if present).
   2. ``ical`` / ``google`` sources use the deterministic ICAL scraper.
-  3. If a source returns zero events, block with a Norwegian-language error
+  3. Strategy-backed sources like BookUp, Sportello, and StyledCalendar route to
+     dedicated deterministic scrapers.
+  4. If a source returns zero events, block with a Norwegian-language error
      message rather than proceeding silently.
 
 Source config format (inside the validated Stage 1 config)::
@@ -48,6 +50,7 @@ from .scraper_ical import _run_ical_scraper
 from .scraper_outlook import _run_outlook_scraper, _parse_date_param_calendar, _parse_outlook_calendar
 from .scraper_recovery import _blocked_sources_warning, _recovery_hint_for_source
 from .scraper_styledcalendar import _run_styledcalendar_scraper
+from .scraper_sportello import _run_sportello_scraper
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -438,6 +441,7 @@ def _scrape_source(
     declared in ``STRATEGIES`` via :func:`~scraper_strategies.get_deterministic_scraper_type`:
 
     * ``"styledcalendar"`` (e.g. Bærum/Jutul) — calls ``_run_styledcalendar_scraper``
+    * ``"sportello"``     (e.g. Holmen) — calls ``_run_sportello_scraper``
     * ``"bookup"``         (e.g. Tønsberg, Sandefjord) — calls ``_run_bookup_scraper``
     * sources not in ``STRATEGIES`` fall back to ``source_type``-based routing:
 
@@ -481,6 +485,8 @@ def _scrape_source(
 
         if _scraper_type == "styledcalendar":
             events, _ = _run_styledcalendar_scraper(name, start_date, end_date)
+        elif _scraper_type == "sportello":
+            events, _ = _run_sportello_scraper(url, name, start_date, end_date)
         elif _scraper_type == "bookup":
             events, _ = _run_bookup_scraper(url, name, start_date, end_date)
         elif source_type in _BROWSER_SOURCE_TYPES:

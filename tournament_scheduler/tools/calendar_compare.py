@@ -39,7 +39,7 @@ FIDELITY_REPORT_DIR = "compare"
 _DAY_NAMES_NB = ["Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag", "Søndag"]
 
 # Sources that cannot be compared deterministically (require the Pi ScraperAgent)
-_NON_DETERMINISTIC_ENGINES = {"bookup_spa", "forumbooking", "sportello"}
+_NON_DETERMINISTIC_ENGINES = {"bookup_spa", "forumbooking"}
 
 
 # ---------------------------------------------------------------------------

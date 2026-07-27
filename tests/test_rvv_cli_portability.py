@@ -145,7 +145,7 @@ def test_logs_list_subcommand_is_available_from_python_cli(tmp_path) -> None:
     assert "run-" in result.stdout
 
 
-def test_scrape_llm_cli_prints_browser_tool_guidance() -> None:
+def test_scrape_llm_cli_points_holmen_to_deterministic_scrape() -> None:
     result = subprocess.run(
         [
             sys.executable,
@@ -154,6 +154,27 @@ def test_scrape_llm_cli_prints_browser_tool_guidance() -> None:
             "scrape-llm",
             "--club",
             "Holmen",
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "deterministisk skraper" in result.stdout
+    assert 'rvv-miniputt scrape --club "Holmen"' in result.stdout
+    assert "browser-worker" not in result.stdout
+
+
+def test_scrape_llm_cli_prints_browser_tool_guidance_for_browser_only_source() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "tournament_scheduler.cli.rvv_cli",
+            "scrape-llm",
+            "--club",
+            "Jar",
         ],
         cwd=ROOT,
         capture_output=True,

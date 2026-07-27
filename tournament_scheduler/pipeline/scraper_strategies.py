@@ -6,8 +6,8 @@ navigation patterns to expect, and whether there's a simple deterministic
 fallback (iframes, date params, iCal feed).
 
 Strategies are organised by **calendar engine** since clubs using the same
-platform (Bookup, Teamup, Forumbooking, Sportello) share the same navigation
-patterns even though their URLs differ.
+platform family usually share navigation patterns or API shapes (for example,
+Sportello's public GraphQL endpoint) even though their URLs differ.
 
 The ScraperAgent in the extension:
   1. Looks up the strategy for the current source
@@ -183,7 +183,8 @@ STRATEGIES: dict[str, ScraperStrategy] = {
         has_iframe=False,
         month_selector="",
         event_pattern="",
-        note="Sportello SPA booking widget. Pi's model navigates.",
+        direct_scraper=True,
+        note="Sportello SPA booking widget. Public GraphQL API is scraped deterministically.",
     ),
     "Jutul": ScraperStrategy(
         engine=CalendarEngine.STYLED_CALENDAR,
@@ -234,7 +235,7 @@ def get_deterministic_scraper_type(strategy: ScraperStrategy) -> str | None:
     * ``OUTLOOK_IFRAME``           → ``"browser"``
     * ``DATE_PARAM``               → ``"browser"``
     * ``FORUMBOOKING``             → ``"browser"``
-    * ``SPORTELLO``                → ``"browser"``
+    * ``SPORTELLO``                → ``"sportello"``
     * ``TEAMUP_ICAL``              → ``"ical"``
     * ``GENERIC_ICAL``             → ``"ical"``
 
@@ -247,7 +248,7 @@ def get_deterministic_scraper_type(strategy: ScraperStrategy) -> str | None:
         CalendarEngine.OUTLOOK_IFRAME: "browser",
         CalendarEngine.DATE_PARAM: "browser",
         CalendarEngine.FORUMBOOKING: "browser",
-        CalendarEngine.SPORTELLO: "browser",
+        CalendarEngine.SPORTELLO: "sportello",
         CalendarEngine.TEAMUP_ICAL: "ical",
         CalendarEngine.GENERIC_ICAL: "ical",
     }

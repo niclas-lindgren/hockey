@@ -99,7 +99,7 @@ The following remain Pi-specific adapters on top of the repo workflow:
 1. **Config** — loads `input.xlsx`, validates club configuration
 2. **Scraping** — scrapes calendar sources. Two-phase:
    - *Deterministic* — direct iCal feeds, iframe-based Outlook calendars, date-param pages
-   - *LLM-driven* — for blocked sources (BookUp, Forumbooking, Sportello, StyledCalendar), the **ScraperAgent** takes over
+   - *LLM-driven* — for blocked sources (BookUp, Forumbooking, StyledCalendar), the **ScraperAgent** takes over
 3. **Planning** — builds a season plan with constraint-solving
 4. **Export** — outputs Excel, iCal, CSV, and HTML
 
@@ -143,7 +143,7 @@ If these are not set, the pipeline prompts interactively during scraping. Withou
 | Tønsberg | BookUp SPA | Deterministic + LLM | Public availability view |
 | **Sandefjord Penguins** | **BookUp SPA** | **LLM-driven** | **Requires `BOOKUP_EMAIL` + `BOOKUP_PASSWORD`** |
 | Jar | Forumbooking | LLM-driven | HTML schema viewer with JS navigation |
-| Holmen | Sportello | LLM-driven | SPA booking widget |
+| Holmen | Sportello | Deterministic | Public GraphQL API on the Sportello SPA |
 | Jutul / Bærum ishall | StyledCalendar | LLM-driven | JS widget |
 
 ## Running with a local LLM

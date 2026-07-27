@@ -1083,6 +1083,38 @@ class TestStrategyBasedDispatch:
         assert src["event_count"] == 1
         assert src["blocked"] is False
 
+    def test_sportello_strategy_routes_to_sportello_scraper(self, tmp_path):
+        """A source whose strategy has CalendarEngine.SPORTELLO calls _run_sportello_scraper."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {
+                "name": "Holmen",
+                "type": SOURCE_OUTLOOK,
+                "url": "https://kalender.sportello.no/booking/11055",
+            },
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_sportello_scraper",
+            return_value=([_make_event("Holmen booking")], ""),
+        ) as mock_sportello, patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_bookup_scraper",
+            side_effect=AssertionError("bookup must not be called for sportello source"),
+        ), patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_styledcalendar_scraper",
+            side_effect=AssertionError("styledcalendar must not be called for sportello source"),
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        mock_sportello.assert_called_once()
+        src = result["sources"][0]
+        assert src["event_count"] == 1
+        assert src["blocked"] is False
+
 
 class TestCredentialedFallbackGate:
     """Credentialed fallback is only triggered on a clean zero-event return, never on exception."""

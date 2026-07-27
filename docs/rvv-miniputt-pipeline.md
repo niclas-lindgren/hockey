@@ -76,7 +76,7 @@ Stage 2 supports multiple source types:
 
 - `outlook` / `html` — Playwright-based browser scraping
 - `ical` / `google` — HTTP/iCal scraping
-- JS-heavy sites that fail deterministic scraping — use the Pi ScraperAgent (`.pi/lib/scraper-agent.ts`) or another browser-enabled harness for LLM-guided scraping. In a plain terminal, `scripts/rvv-miniputt scrape-llm` now reports the browser-tool boundary instead of pretending it can drive the page itself.
+- JS-heavy sites that fail deterministic scraping — use the Pi ScraperAgent (`.pi/lib/scraper-agent.ts`) or another browser-enabled harness for LLM-guided scraping. Holmen's Sportello calendar is the exception: it now has a deterministic GraphQL scraper and no longer depends on browser-only recovery. In a plain terminal, `scripts/rvv-miniputt scrape-llm` reports the browser-tool boundary for the remaining browser-only sources instead of pretending it can drive the page itself.
 
 ### Browser-capability boundary
 
@@ -196,7 +196,7 @@ Typical recovery loop:
 
 1. fix `input.xlsx` or source credentials
 2. rerun `rvv-miniputt run`
-3. if a JS source is still blocked, use Pi, Claude Code, Codex, or OpenCode for LLM-driven scraping
+3. if a JS source is still blocked, use Pi, Claude Code, Codex, or OpenCode for LLM-driven scraping (Holmen now uses the deterministic Sportello GraphQL scraper)
 4. inject the recovered events into the cache with `rvv-miniputt recovery-inject --source <navn>`
 5. normalize the Stage 2 checkpoint with `rvv-miniputt scrape-merge`
 6. rebuild calendars with `rvv-miniputt calendars`
