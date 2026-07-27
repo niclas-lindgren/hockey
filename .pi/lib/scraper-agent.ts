@@ -181,6 +181,8 @@ async function callLLM(
   ctx: ExtensionContext,
   system: string,
   user: string,
+  onUsage?: (details: Record<string, unknown>) => void,
+  meta: Record<string, unknown> = {},
 ): Promise<string> {
   const model = ctx.model;
   if (!model) {
@@ -227,8 +229,28 @@ async function callLLM(
 
   const result = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
+    usage?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      total_tokens?: number;
+    };
   };
-  return result?.choices?.[0]?.message?.content ?? "";
+  const content = result?.choices?.[0]?.message?.content ?? "";
+  const usage = result.usage;
+  if (usage && onUsage) {
+    const totalTokens = usage.total_tokens ?? (usage.prompt_tokens ?? 0) + (usage.completion_tokens ?? 0);
+    onUsage({
+      ...meta,
+      model: model.id,
+      provider: model.provider ?? undefined,
+      prompt_tokens: usage.prompt_tokens ?? 0,
+      completion_tokens: usage.completion_tokens ?? 0,
+      total_tokens: totalTokens,
+      tokens: totalTokens,
+      response_chars: content.length,
+    });
+  }
+  return content;
 }
 
 // ---------------------------------------------------------------------------
@@ -284,9 +306,17 @@ export class ScraperAgent {
   private buffer = "";
   private ctx: ExtensionContext;
   private pythonPath: string;
+  private onLLMInteraction?: (details: Record<string, unknown>) => void;
+  private onActivity?: (message: string) => void;
 
-  constructor(ctx: ExtensionContext) {
+  constructor(
+    ctx: ExtensionContext,
+    onLLMInteraction?: (details: Record<string, unknown>) => void,
+    onActivity?: (message: string) => void,
+  ) {
     this.ctx = ctx;
+    this.onLLMInteraction = onLLMInteraction;
+    this.onActivity = onActivity;
     const venv = resolve(ctx.cwd, "venv", "bin", "python3");
     this.pythonPath = existsSync(venv) ? venv : "python3";
   }
@@ -306,6 +336,7 @@ export class ScraperAgent {
       stdio: ["pipe", "pipe", "pipe"],
       cwd: this.ctx.cwd,
     });
+    this.onActivity?.("Browser worker startet");
 
     this.proc.stderr?.on("data", (chunk: Buffer) => {
       const text = chunk.toString();
@@ -362,6 +393,7 @@ export class ScraperAgent {
     const allEvents: CalendarEvent[] = [];
 
     // Step 1: Load the page
+    this.onActivity?.(`Laster ${url}`);
     let snap = await this.send({
       cmd: "goto",
       url,
@@ -442,6 +474,7 @@ export class ScraperAgent {
 
     // Step 3: Agent loop
     for (let i = 1; i <= maxIter; i++) {
+      this.onActivity?.(`Iterasjon ${i}/${maxIter} — prøver ekstraksjon`);
       // Try extraction first
       const extractResult = await this.send({
         cmd: "extract",
@@ -451,6 +484,9 @@ export class ScraperAgent {
       });
       if (extractResult.ok && extractResult.events) {
         allEvents.push(...extractResult.events);
+        if (extractResult.events.length > 0) {
+          this.onActivity?.(`Iterasjon ${i}/${maxIter} — fant ${extractResult.events.length} events (totalt ${allEvents.length})`);
+        }
         if (allEvents.length > 0) {
           // We got events — if it's a date-param calendar we're likely done
           // For iframe/outlook we need to navigate all months
@@ -462,7 +498,14 @@ export class ScraperAgent {
       const user = userMessage(snap, i, maxIter);
       let llmText: string;
       try {
-        llmText = await callLLM(this.ctx, system, user);
+        this.onActivity?.(`Iterasjon ${i}/${maxIter} — spør modellen om neste trekk`);
+        llmText = await callLLM(this.ctx, system, user, this.onLLMInteraction, {
+          iteration: i,
+          max_iterations: maxIter,
+          url,
+          strategy: systemType,
+          iframe: options.iframe ?? hasIframe,
+        });
       } catch (err) {
         console.error(`LLM-feil (iter ${i}):`, err);
         // Continue anyway — try a generic approach
@@ -494,10 +537,12 @@ export class ScraperAgent {
       }
 
       if (action.action === "done") {
+        this.onActivity?.(`Iterasjon ${i}/${maxIter} — modellen ba om ferdig`);
         break;
       }
 
       // Execute the action
+      this.onActivity?.(`Iterasjon ${i}/${maxIter} — utfører ${action.action}`);
       if (action.action === "click") {
         snap = await this.send({
           cmd: "click",
@@ -535,6 +580,7 @@ export class ScraperAgent {
       }
     }
 
+    this.onActivity?.(`Fullført — ${allEvents.length} events samlet`);
     return allEvents;
   }
 

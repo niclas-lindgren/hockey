@@ -238,7 +238,23 @@ def _build_logs_show_text(work_dir: Path, run_id: str) -> str:
             lines.append(f"    Data: {volume}")
 
     if llm_entries:
+        token_calls = 0
+        prompt_tokens = 0
+        completion_tokens = 0
+        total_tokens = 0
+        for entry in llm_entries:
+            prompt = int(entry.get("prompt_tokens") or 0)
+            completion = int(entry.get("completion_tokens") or 0)
+            total = int(entry.get("total_tokens") or entry.get("tokens") or 0)
+            if not prompt and not completion and not total:
+                continue
+            token_calls += 1
+            prompt_tokens += prompt
+            completion_tokens += completion
+            total_tokens += total or (prompt + completion)
+
         lines.extend(["", f"LLM-interaksjoner ({len(llm_entries)}):"])
+        lines.append(f"  Tokenbruk: kall={token_calls}, prompt={prompt_tokens}, completion={completion_tokens}, total={total_tokens}")
         for entry in llm_entries[:10]:
             confidence = f" (confidence: {entry['confidence']})" if entry.get("confidence") is not None else ""
             tokens = f" [{entry['tokens']} tokens]" if entry.get("tokens") is not None else ""
@@ -270,6 +286,11 @@ def _build_logs_stats_text(work_dir: Path) -> str:
     total_duration = sum((run["meta"] or {}).get("duration_ms", 0) for run in runs)
     average_duration = round(total_duration / len(runs)) if runs else 0
 
+    token_calls = 0
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
+
     lines = [
         "=== Pipeline selvforbedrings-statistikk ===",
         "",
@@ -293,6 +314,29 @@ def _build_logs_stats_text(work_dir: Path) -> str:
             stats["total_ms"] += int(entry["duration_ms"])
             if entry.get("status") == "failed":
                 stats["fails"] += 1
+
+        for entry in _load_jsonl_entries(log_path):
+            if entry.get("type") != "llm_interaction":
+                continue
+            prompt = int(entry.get("prompt_tokens") or 0)
+            completion = int(entry.get("completion_tokens") or 0)
+            total = int(entry.get("total_tokens") or entry.get("tokens") or 0)
+            if not prompt and not completion and not total:
+                continue
+            token_calls += 1
+            prompt_tokens += prompt
+            completion_tokens += completion
+            total_tokens += total or (prompt + completion)
+
+    if token_calls > 0:
+        lines.extend([
+            "Tokenbruk (alle kjøringer):",
+            f"  LLM-kall: {token_calls}",
+            f"  Prompt:   {prompt_tokens}",
+            f"  Completion: {completion_tokens}",
+            f"  Total:    {total_tokens}",
+            "",
+        ])
 
     if stage_stats:
         lines.extend([

@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------------------
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { basename, resolve } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, resolve } from "node:path";
 import { parseRunArgs } from "./parsers";
 import { PipelineLogger } from "./pipeline-logger";
 import {
@@ -16,11 +16,58 @@ import {
   resolveResumeStage,
   estimateDataVolume,
 } from "./pipeline-helpers";
+import { buildRunSummaryText } from "./log-inspector";
 import type { ProgressEvent, RunArgs } from "./types";
 
 export interface PipelineRunResult {
   status: "success" | "failure";
   text: string;
+}
+
+function resolveFinalExportDir(workDir: string, fallbackExportDir: string): string {
+  const ckpt = readCheckpoint(workDir, "stage4_export.json");
+  const outputFiles = ckpt?.data && typeof ckpt.data === "object"
+    ? (ckpt.data as Record<string, unknown>).output_files as Record<string, unknown> | undefined
+    : undefined;
+  if (outputFiles) {
+    for (const value of Object.values(outputFiles)) {
+      if (typeof value === "string" && value.trim()) {
+        return dirname(value);
+      }
+    }
+  }
+  return fallbackExportDir;
+}
+
+function writeRunLogFile(
+  workDir: string,
+  fallbackExportDir: string,
+  runId: string,
+  startedAt: Date,
+  status: "success" | "failure",
+  lines: string[],
+): string {
+  const finalExportDir = resolveFinalExportDir(workDir, fallbackExportDir);
+  const runLogPath = resolve(finalExportDir, `pipeline_run_${runId}.log`);
+  try {
+    mkdirSync(finalExportDir, { recursive: true });
+    writeFileSync(
+      runLogPath,
+      [
+        "# RVV Miniputt pipeline run",
+        `# Run ID: ${runId}`,
+        `# Status: ${status.toUpperCase()}`,
+        `# Started: ${startedAt.toISOString()}`,
+        `# Final export dir: ${finalExportDir}`,
+        "",
+        ...lines,
+        "",
+        buildRunSummaryText(workDir, runId),
+      ].join("\n"),
+      "utf-8",
+    );
+  } catch {}
+  return runLogPath;
 }
 
 export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onProgress?: (e: ProgressEvent) => void): Promise<PipelineRunResult> {
@@ -39,6 +86,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   const timestampedExportDir = resolve(exportDir, ts);
 
   mkdirSync(workDir, { recursive: true });
+  mkdirSync(timestampedExportDir, { recursive: true });
 
   const logger = new PipelineLogger(workDir);
 
@@ -81,6 +129,12 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
         cwdPath,
         "tournament_scheduler.pipeline.stage1_config",
         [...baseArgs, "--input", inputPath],
+        (event) => {
+          if (event.stream !== "stdout") return;
+          const line = event.line.trim();
+          if (!line.startsWith("[heartbeat]")) return;
+          onProgress?.({ stage: "config", status: "start", message: line.replace(/^\[heartbeat\]\s*/, "") });
+        },
       );
       if (verbose) logger.logStageOutput("config", stdout, stderr);
       if (stdout) lines.push(stdout);
@@ -97,6 +151,8 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       onProgress?.({ stage: "config", status: "error", message: "Konfigurasjon feilet", error: msg });
       logger.stageEnd("config", "failed", msg);
       logger.finalize("failure");
+      const runLogPath = writeRunLogFile(workDir, timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
+      lines.push(`Run log: ${runLogPath}`);
       return { status: "failure", text: lines.join("\n") };
     }
   } else {
@@ -122,6 +178,12 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
         cwdPath,
         "tournament_scheduler.pipeline.stage2_scraping",
         stage2Args,
+        (event) => {
+          if (event.stream !== "stdout") return;
+          const line = event.line.trim();
+          if (!line.startsWith("[heartbeat]")) return;
+          onProgress?.({ stage: "scraping", status: "start", message: line.replace(/^\[heartbeat\]\s*/, "") });
+        },
       );
       if (verbose) logger.logStageOutput("scraping", stdout, stderr);
       if (stdout) lines.push(stdout);
@@ -151,7 +213,11 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       onProgress?.({ stage: "scraping-extended", status: "start", message: `Utvidet skraping: ${blocked.length} blokkerte kilder` });
       try {
         const { ScraperAgent } = await import("./scraper-agent");
-        const agent = new ScraperAgent(ctx);
+        const agent = new ScraperAgent(
+          ctx,
+          (details) => logger.logLLMInteraction("scraping-extended", details),
+          (message) => onProgress?.({ stage: "scraping-extended", status: "start", message }),
+        );
         await agent.start();
 
         // Fetch strategies from Python for blocked sources
@@ -280,6 +346,10 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
         (event) => {
           if (event.stream !== "stdout") return;
           const line = event.line.trim();
+          if (line.startsWith("[heartbeat]")) {
+            onProgress?.({ stage: "planning", status: "start", message: line.replace(/^\[heartbeat\]\s*/, "") });
+            return;
+          }
           if (!line.startsWith("[plan]")) return;
           const message = line.replace(/^\[plan\]\s*/, "");
           onProgress?.({ stage: "planning", status: "start", message });
@@ -299,6 +369,8 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       onProgress?.({ stage: "planning", status: "error", message: "Planlegging feilet", error: msg });
       logger.stageEnd("planning", "failed", msg);
       logger.finalize("failure");
+      const runLogPath = writeRunLogFile(workDir, timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
+      lines.push(`Run log: ${runLogPath}`);
       return { status: "failure", text: lines.join("\n") };
     }
   } else {
@@ -323,6 +395,10 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
         (event) => {
           if (event.stream !== "stdout") return;
           const line = event.line.trim();
+          if (line.startsWith("[heartbeat]")) {
+            onProgress?.({ stage: "export", status: "start", message: line.replace(/^\[heartbeat\]\s*/, "") });
+            return;
+          }
           if (!line.startsWith("[progress]")) return;
           const message = line.replace(/^\[progress\]\s*/, "");
           onProgress?.({ stage: "export", status: "start", message });
@@ -342,6 +418,8 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       onProgress?.({ stage: "export", status: "error", message: "Eksport feilet", error: msg });
       logger.stageEnd("export", "failed", msg);
       logger.finalize("failure");
+      const runLogPath = writeRunLogFile(workDir, timestampedExportDir, logger.getRunId(), logStart, "failure", lines);
+      lines.push(`Run log: ${runLogPath}`);
       return { status: "failure", text: lines.join("\n") };
     }
   } else {
@@ -371,6 +449,9 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   // Keep exports only in the timestamped folder.
   lines.push(`Eksporter lagret i ${timestampedExportDir}\n`);
 
+  const finalExportDir = resolveFinalExportDir(workDir, timestampedExportDir);
+  const runLogPath = resolve(finalExportDir, `pipeline_run_${logger.getRunId()}.log`);
+
   // Finalize
   logger.finalize(overallStatus);
   onProgress?.({ stage: "done", status: overallStatus === "success" ? "ok" : "error", message: overallStatus === "success" ? "Pipeline fullført" : "Pipeline feilet" });
@@ -394,11 +475,42 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     lines.push(`  /rvv-miniputt logs show ${logger.getRunId()}  — vis detaljer for denne kjøringen`);
   }
 
+  lines.push("");
+  lines.push(`Run log: ${runLogPath}`);
+  lines.push("");
+  lines.push(buildRunSummaryText(workDir, logger.getRunId()));
+
+  try {
+    mkdirSync(finalExportDir, { recursive: true });
+    writeFileSync(
+      runLogPath,
+      [
+        "# RVV Miniputt pipeline run",
+        `# Run ID: ${logger.getRunId()}`,
+        `# Status: ${overallStatus.toUpperCase()}`,
+        `# Started: ${logStart.toISOString()}`,
+        `# Final export dir: ${finalExportDir}`,
+        "",
+        ...lines,
+      ].join("\n"),
+      "utf-8",
+    );
+  } catch {}
+
   return { status: overallStatus, text: lines.join("\n") };
 }
 
 const MAX_CONVERGENCE_ROUNDS = 3;
 const MAX_PLANNER_ITERATIONS = 5;
+
+interface ConvergenceAssessment {
+  converged: boolean;
+  reason: string;
+  nextResumeFrom: number;
+  nextIterations: number;
+  signature: string;
+  summary: string;
+}
 
 function serializeRunArgs(args: RunArgs): string[] {
   const parts: string[] = [];
@@ -447,12 +559,7 @@ function readTextIfExists(path: string): string {
   }
 }
 
-function assessConvergence(workDir: string): {
-  converged: boolean;
-  reason: string;
-  nextResumeFrom: number;
-  nextIterations: number;
-} {
+function assessConvergence(workDir: string): ConvergenceAssessment {
   const stage2 = extractCheckpointData(workDir, "stage2_scraping.json");
   const stage3 = extractCheckpointData(workDir, "stage3_planning.json");
   const stage4 = extractCheckpointData(workDir, "stage4_export.json");
@@ -468,6 +575,7 @@ function assessConvergence(workDir: string): {
     const blocked = Boolean(source.blocked) || blockedNames.has(name);
     return blocked || eventCount === 0;
   });
+  const stage2Summary = `Stage 2: ${sources.length} kilder, ${blockedNames.size} blokkert, ${unresolvedSources.length} uløst${warning ? ", warning" : ""}`;
 
   if (!stage2 || warning || sources.length === 0 || unresolvedSources.length > 0) {
     const detail = !stage2
@@ -482,27 +590,41 @@ function assessConvergence(workDir: string): {
       reason: `Stage 2 er ikke konvergert: ${detail}`,
       nextResumeFrom: 2,
       nextIterations: 1,
+      signature: JSON.stringify({ stage: 2, sources: sources.length, blocked: blockedNames.size, unresolved: unresolvedSources.length, warning }),
+      summary: stage2Summary,
     };
   }
 
   const stage3Plan = stage3?.plan as Record<string, unknown> | undefined;
+  const fairnessGate = (stage3Plan?.fairness_gate as Record<string, unknown> | undefined) ?? {};
+  const gateStatus = String(fairnessGate.status ?? "pass").toLowerCase();
+  const gateScore = Number(fairnessGate.score ?? 0) || 0;
+  const tournamentCount = Array.isArray(stage3Plan?.tournaments) ? (stage3Plan?.tournaments as unknown[]).length : 0;
+  const selectedAttempt = Number(stage3?.selected_candidate_attempt ?? 0) || 0;
   const tone = computePlanTone(stage3Plan);
+  const stage3Summary = `Stage 3: status=${gateStatus} score=${gateScore} turneringer=${tournamentCount} valg=${selectedAttempt}`;
+
   if (tone === "rough") {
     return {
       converged: false,
       reason: "Stage 3 er fortsatt rough",
       nextResumeFrom: 3,
       nextIterations: MAX_PLANNER_ITERATIONS,
+      signature: JSON.stringify({ stage: 3, status: gateStatus, score: gateScore, tournaments: tournamentCount, selectedAttempt, tone }),
+      summary: stage3Summary,
     };
   }
 
   const outputFiles = stage4?.output_files as Record<string, unknown> | undefined;
-  if (!outputFiles || Object.keys(outputFiles).length === 0) {
+  const outputFileCount = outputFiles ? Object.keys(outputFiles).length : 0;
+  if (!outputFiles || outputFileCount === 0) {
     return {
       converged: false,
       reason: "Stage 4 mangler eksportfiler",
       nextResumeFrom: 4,
       nextIterations: 1,
+      signature: JSON.stringify({ stage: 4, outputFileCount }),
+      summary: `Stage 4: ${outputFileCount} eksportfiler`,
     };
   }
 
@@ -518,6 +640,8 @@ function assessConvergence(workDir: string): {
       reason: "Stage 4-rapporten er fortsatt IKKE KLAR",
       nextResumeFrom: 3,
       nextIterations: MAX_PLANNER_ITERATIONS,
+      signature: JSON.stringify({ stage: 4, status: "ikke_klar", outputFileCount, reportPath }),
+      summary: `Stage 4: ${outputFileCount} filer, rapport ikke klar`,
     };
   }
 
@@ -526,6 +650,8 @@ function assessConvergence(workDir: string): {
     reason: `Konvergert (${tone})`,
     nextResumeFrom: 4,
     nextIterations: 1,
+    signature: JSON.stringify({ stage: 4, status: "ok", tone, outputFileCount, gateStatus, gateScore }),
+    summary: `Stage 4: ${outputFileCount} filer, tone=${tone}`,
   };
 }
 
@@ -538,15 +664,15 @@ export async function runPipelineConvergent(
   const maxRounds = MAX_CONVERGENCE_ROUNDS;
   const combined: string[] = [];
   let params: RunArgs = { ...initialParams };
+  let previousSignature: string | null = null;
   const innerProgress = (e: ProgressEvent) => {
     if (e.stage === "done") return;
     onProgress?.(e);
   };
 
   for (let round = 1; round <= maxRounds; round++) {
+    combined.push(`=== RVV Miniputt Pipeline — round ${round}/${maxRounds} ===`);
     if (round > 1) {
-      combined.push("");
-      combined.push(`↺ Convergence round ${round}/${maxRounds}`);
       combined.push(`  Re-running with --resume-from ${params.resume_from ?? "1"}`);
       if (typeof params.iterations === "number") {
         combined.push(`  Stage 3 iterations: ${params.iterations}`);
@@ -554,7 +680,6 @@ export async function runPipelineConvergent(
     }
 
     const result = await runPipeline(serializeRunArgs(params).join(" "), ctx, innerProgress);
-    combined.push(`=== RVV Miniputt Pipeline — round ${round}/${maxRounds} ===`);
     combined.push(result.text);
 
     if (result.status === "failure") {
@@ -565,6 +690,7 @@ export async function runPipelineConvergent(
     const workDir = params.work_dir ?? ".pipeline";
     const assessment = assessConvergence(workDir);
     combined.push(`Assessment: ${assessment.reason}`);
+    combined.push(`  ${assessment.summary}`);
 
     if (assessment.converged) {
       combined.push("Harness convergence: achieved");
@@ -572,20 +698,24 @@ export async function runPipelineConvergent(
       return { status: "success", text: combined.join("\n") };
     }
 
+    if (previousSignature && assessment.signature === previousSignature) {
+      combined.push("Harness convergence: no progress detected — stopping to avoid a retry loop");
+      break;
+    }
+    previousSignature = assessment.signature;
+
     if (round >= maxRounds) {
       combined.push("Harness convergence: max rounds reached without a good result");
       break;
     }
 
+    combined.push(`  Next: resume_from=${assessment.nextResumeFrom}, iterations=${assessment.nextIterations}`);
     params = {
       ...params,
       resume_from: String(assessment.nextResumeFrom),
       force_refresh: assessment.nextResumeFrom === 2 ? false : params.force_refresh,
       iterations: assessment.nextResumeFrom === 3
-        ? Math.min(
-            Math.max(Number(params.iterations ?? 1) || 1, 1) + round,
-            MAX_PLANNER_ITERATIONS,
-          )
+        ? assessment.nextIterations
         : params.iterations,
     };
   }

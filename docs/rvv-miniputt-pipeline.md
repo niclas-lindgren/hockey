@@ -200,7 +200,7 @@ Outside Pi, use the portable equivalents:
 - `scripts/rvv-miniputt status`
 - `scripts/rvv-miniputt logs list`
 
-The pipeline also stores per-run logs in `.pipeline/logs/`.
+The pipeline also stores per-run logs in `.pipeline/logs/` and writes a human-readable run log into the run's export folder.
 
 ### Recover from blocked sources
 

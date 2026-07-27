@@ -88,6 +88,61 @@ export function loadLLMInteractions(workDir: string, runId: string): LogEntry[] 
   return entries;
 }
 
+function summarizeTokenUsage(entries: LogEntry[]): { calls: number; prompt_tokens: number; completion_tokens: number; total_tokens: number } {
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let totalTokens = 0;
+  let calls = 0;
+
+  for (const entry of entries) {
+    const prompt = Number(entry.prompt_tokens ?? 0) || 0;
+    const completion = Number(entry.completion_tokens ?? 0) || 0;
+    const total = Number(entry.total_tokens ?? entry.tokens ?? 0) || 0;
+    if (!prompt && !completion && !total) continue;
+    calls++;
+    promptTokens += prompt;
+    completionTokens += completion;
+    totalTokens += total || (prompt + completion);
+  }
+
+  return { calls, prompt_tokens: promptTokens, completion_tokens: completionTokens, total_tokens: totalTokens };
+}
+
+export function summarizeRunTelemetry(workDir: string, runId: string): {
+  meta: RunMeta | null;
+  stages: StageMeta[];
+  llmInteractions: LogEntry[];
+  tokenUsage: { calls: number; prompt_tokens: number; completion_tokens: number; total_tokens: number };
+} {
+  const meta = loadRunHistory(workDir).find((r) => r.runId === runId)?.meta ?? null;
+  const stages = loadStageEntries(workDir, runId);
+  const llmInteractions = loadLLMInteractions(workDir, runId);
+  const tokenUsage = summarizeTokenUsage(llmInteractions);
+  return { meta, stages, llmInteractions, tokenUsage };
+}
+
+export function buildRunSummaryText(workDir: string, runId: string): string {
+  const summary = summarizeRunTelemetry(workDir, runId);
+  const lines: string[] = [
+    "=== Run statistics ===",
+    `Run:        ${runId}`,
+    `Status:     ${summary.meta?.exit_status ?? "ukjent"}`,
+    `Duration:   ${summary.meta ? formatDuration(summary.meta.duration_ms) : "─"}`,
+    `LLM calls:  ${summary.tokenUsage.calls}`,
+    `Tokens:     prompt=${summary.tokenUsage.prompt_tokens}, completion=${summary.tokenUsage.completion_tokens}, total=${summary.tokenUsage.total_tokens}`,
+  ];
+
+  const stageLines = summary.stages.filter((stage) => stage.duration_ms > 0 || stage.status !== "ok");
+  if (stageLines.length > 0) {
+    lines.push("", "Stage timings:");
+    for (const stage of stageLines) {
+      lines.push(`  ${stage.stage_index}. ${stage.stage_name} — ${stage.status} (${formatDuration(stage.duration_ms)})`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
 export function buildLogsListText(workDir: string, count: number): string {
   const runs = loadRunHistory(workDir).slice(0, count);
   if (runs.length === 0) {
@@ -169,8 +224,10 @@ export function buildLogsShowText(workDir: string, runId: string): string {
 
   // LLM interactions
   if (llms.length > 0) {
+    const tokenUsage = summarizeTokenUsage(llms);
     lines.push("");
     lines.push(`LLM-interaksjoner (${llms.length}):`);
+    lines.push(`  Tokenbruk: prompt=${tokenUsage.prompt_tokens}, completion=${tokenUsage.completion_tokens}, total=${tokenUsage.total_tokens}`);
     for (const llm of llms.slice(0, 10)) {
       const stage = (llm.stage_name as string) ?? "?";
       const action = (llm.action as string) ?? "?";
@@ -211,6 +268,11 @@ export function buildLogsStatsText(workDir: string): string {
   const totalDuration = runs.reduce((s, r) => s + (r.meta?.duration_ms ?? 0), 0);
   const avgDuration = runs.length > 0 ? Math.round(totalDuration / runs.length) : 0;
 
+  let tokenCalls = 0;
+  let promptTokens = 0;
+  let completionTokens = 0;
+  let totalTokens = 0;
+
   const lines: string[] = [
     "=== Pipeline selvforbedrings-statistikk ===",
     "",
@@ -235,6 +297,23 @@ export function buildLogsStatsText(workDir: string): string {
       stageStats[s.stage_name].totalMs += s.duration_ms;
       if (s.status === "failed") stageStats[s.stage_name].fails++;
     }
+
+    const tokenUsage = summarizeTokenUsage(loadLLMInteractions(workDir, rid));
+    if (tokenUsage.calls > 0) {
+      tokenCalls += tokenUsage.calls;
+      promptTokens += tokenUsage.prompt_tokens;
+      completionTokens += tokenUsage.completion_tokens;
+      totalTokens += tokenUsage.total_tokens;
+    }
+  }
+
+  if (tokenCalls > 0) {
+    lines.push("Tokenbruk (alle kjøringer):");
+    lines.push(`  LLM-kall: ${tokenCalls}`);
+    lines.push(`  Prompt:   ${promptTokens}`);
+    lines.push(`  Completion: ${completionTokens}`);
+    lines.push(`  Total:    ${totalTokens}`);
+    lines.push("");
   }
 
   if (Object.keys(stageStats).length > 0) {

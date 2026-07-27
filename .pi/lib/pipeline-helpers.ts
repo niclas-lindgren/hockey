@@ -33,21 +33,17 @@ export async function runStage(
 
     const stdoutLines: string[] = [];
     const stderrLines: string[] = [];
+    let lastActivity = Date.now();
+    const heartbeatMs = 15_000;
+    const heartbeatTimer = setInterval(() => {
+      if (Date.now() - lastActivity < heartbeatMs) return;
+      const idleMs = Date.now() - lastActivity;
+      onOutput?.({ stream: "stdout", line: `[heartbeat] ${module} kjører fortsatt (${Math.round(idleMs / 1000)}s siden siste output)` });
+      lastActivity = Date.now();
+    }, heartbeatMs);
 
-    const stdoutInterface = createInterface({ input: child.stdout! });
-    const stderrInterface = createInterface({ input: child.stderr! });
-
-    stdoutInterface.on("line", (line) => {
-      stdoutLines.push(line);
-      onOutput?.({ stream: "stdout", line });
-    });
-    stderrInterface.on("line", (line) => {
-      stderrLines.push(line);
-      onOutput?.({ stream: "stderr", line });
-    });
-
-    child.on("error", rejectPromise);
-    child.on("close", (code) => {
+    const finish = (code: number | null) => {
+      clearInterval(heartbeatTimer);
       stdoutInterface.close();
       stderrInterface.close();
       if (code === 0) {
@@ -56,7 +52,27 @@ export async function runStage(
       }
       const stderrText = stderrLines.join("\n").trim();
       rejectPromise(new Error(stderrText || `Stage module ${module} exited with code ${code ?? "unknown"}`));
+    };
+
+    const stdoutInterface = createInterface({ input: child.stdout! });
+    const stderrInterface = createInterface({ input: child.stderr! });
+
+    stdoutInterface.on("line", (line) => {
+      lastActivity = Date.now();
+      stdoutLines.push(line);
+      onOutput?.({ stream: "stdout", line });
     });
+    stderrInterface.on("line", (line) => {
+      lastActivity = Date.now();
+      stderrLines.push(line);
+      onOutput?.({ stream: "stderr", line });
+    });
+
+    child.on("error", (err) => {
+      clearInterval(heartbeatTimer);
+      rejectPromise(err);
+    });
+    child.on("close", finish);
   });
 }
 
