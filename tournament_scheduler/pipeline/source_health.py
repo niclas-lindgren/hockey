@@ -165,9 +165,12 @@ def _source_health_result(
                     f"Sett legitimasjon via miljøvariabler: {', '.join(strategy.credential_env_vars)}"
                 )
         if llm_fallback:
-            suggested_actions.append(f"Kjør 'rvv-miniputt scrape-llm --club \"{name}\"' for LLM-assistert gjenoppretting.")
+            suggested_actions.append(f"Kjør 'rvv-miniputt scrape-llm --club \"{name}\"' i en browser-aktivert Pi-/Claude-/Codex-session.")
         else:
             suggested_actions.append(f"Kjør 'rvv-miniputt scrape --club \"{name}\"' for feilsøking, eller sjekk URL manuelt.")
+        suggested_actions.append(
+            f"Hvis du bare har terminal: bruk 'rvv-miniputt recovery-targets' for å finne blokkerte kilder, og 'rvv-miniputt recovery-inject --source \"{name}\"' når du har event-JSON."
+        )
     else:
         if event_count == 0 and int(previous_event_count or 0) > 0:
             status = "warning"

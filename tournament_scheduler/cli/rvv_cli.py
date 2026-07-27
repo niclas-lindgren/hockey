@@ -620,6 +620,9 @@ def _cmd_scrape_llm(args: argparse.Namespace) -> int:
         _console.print(
             f"  Bruk [bold]rvv-miniputt scrape --club \"{requested_club}\"[/bold] i stedet."
         )
+        _console.print(
+            "  Hvis du bare har terminal og trenger å fylle cache på nytt, bruk [bold]rvv-miniputt recovery-targets[/bold] for å finne blokkerte kilder og [bold]rvv-miniputt recovery-inject --source \"<navn>\"[/bold] når du har event-JSON."
+        )
         return 1
 
     _console.print(
@@ -633,7 +636,7 @@ def _cmd_scrape_llm(args: argparse.Namespace) -> int:
         "  Browser-aktivert Claude/OpenCode/Codex: fungerer bare hvis sesjonen allerede har browser-kontroll."
     )
     _console.print(
-        "  Rent terminal/CI: kan ikke drive siden; bruk [bold]rvv-miniputt scrape[/bold] eller åpne en browser-aktivert sesjon."
+        "  Rent terminal/CI: kan ikke drive siden direkte; bruk [bold]rvv-miniputt recovery-targets[/bold] for å liste blokkede kilder, og [bold]rvv-miniputt recovery-inject --source \"<navn>\"[/bold] når du har event-JSON fra et eget script eller WebFetch."
     )
     if strategy.credential_env_vars:
         _console.print(
