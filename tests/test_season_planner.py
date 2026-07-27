@@ -2413,6 +2413,55 @@ class TestFairnessGate:
         assert gate["status"] in {"warn", "fail"}
         assert any(metric["status"] == "fail" for metric in gate["metrics"])
 
+    def test_travel_distance_threshold_is_cumulative_and_passes_at_the_default_boundary(self, monkeypatch):
+        jar = Team(club="Jar", label="Jar 1", age_group="U10")
+        kongsberg = Team(club="Kongsberg", label="Kongsberg 1", age_group="U10")
+        roster = Roster(teams=[jar, kongsberg])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"},
+            parallel_games_for_age_group={"U10": 3},
+            events_by_club={"Jar": [], "Kongsberg": []},
+        )
+        tournament = Tournament(
+            date=date(2026, 10, 3),
+            arena="Jarhallen",
+            age_group="U10",
+            teams=[jar, kongsberg],
+            games=[Game(home=jar, away=kongsberg, parallel_slot=0, round_number=1)],
+            host_club="Jar",
+        )
+        plan = SeasonPlan(
+            tournaments=[tournament],
+            start_date=date(2026, 10, 1),
+            end_date=date(2026, 10, 31),
+            diversity_score=1.0,
+            pairwise_matchup_score=1.0,
+            month_balance_score=1.0,
+            game_count_spread=0,
+        )
+        threshold = planner.fairness_thresholds["max_team_travel_km"]
+
+        monkeypatch.setattr(
+            "tournament_scheduler.fairness_scoring.compute_team_travel_distances",
+            lambda _plan: {jar.label: threshold, kongsberg.label: 0},
+        )
+        gate = planner._build_fairness_gate(plan)
+        travel_metric = next(metric for metric in gate["metrics"] if metric["key"] == "travel_distance")
+        assert travel_metric["threshold"] == threshold
+        assert travel_metric["status"] == "pass"
+        assert gate["status"] == "pass"
+
+        monkeypatch.setattr(
+            "tournament_scheduler.fairness_scoring.compute_team_travel_distances",
+            lambda _plan: {jar.label: threshold + 1, kongsberg.label: 0},
+        )
+        gate = planner._build_fairness_gate(plan)
+        travel_metric = next(metric for metric in gate["metrics"] if metric["key"] == "travel_distance")
+        assert travel_metric["status"] == "warn"
+        assert gate["status"] == "warn"
+
 
 class TestHostingDaysConstraint:
     """Unit tests for the max_hosting_days_per_month scoring constraint."""

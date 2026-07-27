@@ -23,7 +23,10 @@ from tournament_scheduler.game_generation import (
     pairwise_matchup_score as _pairwise_matchup_score,
     rebalance_rounds as _rebalance_rounds,
 )
-from tournament_scheduler.fairness_scoring import build_fairness_gate as _build_fairness_gate
+from tournament_scheduler.fairness_scoring import (
+    DEFAULT_FAIRNESS_THRESHOLDS,
+    build_fairness_gate as _build_fairness_gate,
+)
 from tournament_scheduler.host_assignment import (
     assign_hosts as _assign_hosts,
     default_target_count as _default_target_count,
@@ -79,18 +82,6 @@ from tournament_scheduler.warnings import (
 MIN_TEAMS_PER_TOURNAMENT = 3
 DEFAULT_TOURNAMENT_START_TIME = "10:00"
 ARENA_DAY_SEQUENCE_BUFFER_MINUTES = 5
-DEFAULT_FAIRNESS_THRESHOLDS = {
-    "max_game_count_spread": 2,
-    "max_hosting_deviation": 1,
-    "max_team_travel_km": 700,
-    "min_diversity_score": 0.75,
-    "min_pairwise_matchup_score": 0.25,
-    "min_month_balance_score": 0.75,
-    "max_same_weekend_club_load": 3,
-    "max_consecutive_weekend_club_load": 2,
-    "max_holiday_stretch_club_load": 2,
-}
-
 
 def _normalize_penalty_hints(raw: Optional[Dict[str, Any]]) -> Dict[str, float]:
     """Accept flat or structured planning hints and return numeric penalties."""

@@ -11,7 +11,10 @@ from tournament_scheduler.warnings import hosting_weekend_balance_breakdown
 DEFAULT_FAIRNESS_THRESHOLDS = {
     "max_game_count_spread": 2,
     "max_hosting_deviation": 1,
-    "max_team_travel_km": 700,
+    # Cumulative season travel across all away tournaments. RVV seasons with
+    # nine clubs routinely land in the low-thousands of km, so a 700 km cap
+    # was really a per-trip guess, not a realistic season-total threshold.
+    "max_team_travel_km": 4000,
     "min_diversity_score": 0.75,
     "min_pairwise_matchup_score": 0.25,
     "min_month_balance_score": 0.75,
@@ -156,7 +159,7 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         thresholds.get("max_team_travel_km", DEFAULT_FAIRNESS_THRESHOLDS["max_team_travel_km"]),
         direction="max",
         severity="warn",
-        detail=f"Lengst reisende lag har {max_team_travel} km total reise.",
+        detail=f"Lengst reisende lag har {max_team_travel} km total reise gjennom sesongen.",
         unit="km",
     )
     add_metric(
