@@ -71,8 +71,8 @@ class TestRunStage2:
         assert "llm_confidence" not in src
         assert src["event_count"] == 1
 
-    def test_zero_events_blocks_source(self, tmp_path):
-        """A source returning zero events blocks the pipeline."""
+    def test_zero_events_records_empty_calendar(self, tmp_path):
+        """A direct deterministic source returning zero events is tracked as empty, not blocked."""
         state = PipelineState(tmp_path / "pipeline")
         cfg = _make_config_with_sources([
             {"name": "HallX", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
@@ -82,19 +82,20 @@ class TestRunStage2:
             "tournament_scheduler.pipeline.stage2_scraping._run_outlook_scraper",
             return_value=([], ""),
         ):
-            with pytest.raises(Stage2Error) as exc_info:
-                run(
-                    cfg, state,
-                    datetime(2025, 9, 1), datetime(2025, 12, 1),
-                    strict=True,
-                )
-        assert "HallX" in str(exc_info.value)
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=True,
+            )
+
         assert state.checkpoint_path(StageName.SCRAPING).exists()
-        assert state.is_failed(StageName.SCRAPING)
+        assert state.is_done(StageName.SCRAPING)
         envelope = state.read_envelope(StageName.SCRAPING)
-        assert envelope["status"] == "failed"
-        assert envelope["data"]["blocked"] == ["HallX"]
-        assert envelope["data"]["sources"][0]["name"] == "HallX"
+        assert envelope["status"] == "done"
+        assert envelope["data"]["blocked"] == []
+        assert envelope["data"]["empty_sources"] == ["HallX"]
+        assert result["sources"][0]["empty_calendar"] is True
+        assert result["sources"][0]["blocked"] is False
 
     def test_zero_events_strict_false_does_not_raise(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -111,8 +112,9 @@ class TestRunStage2:
                 datetime(2025, 9, 1), datetime(2025, 12, 1),
                 strict=False,
             )
-        blocked = result.get("blocked", [])
-        assert "HallY" in blocked
+        assert result.get("blocked", []) == []
+        assert result.get("empty_sources", []) == ["HallY"]
+        assert result["sources"][0]["empty_calendar"] is True
 
     def test_allow_missing_sources_keeps_partial_results(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -137,11 +139,13 @@ class TestRunStage2:
 
         assert state.is_done(StageName.SCRAPING)
         assert not state.is_failed(StageName.SCRAPING)
-        assert result["blocked"] == ["Sandefjord Penguins"]
-        assert "--allow-missing-sources" in result["warning"]
+        assert result["blocked"] == []
+        assert result["empty_sources"] == ["Sandefjord Penguins"]
+        assert "tomme kilder" in result["warning"].lower()
         src = result["sources"][0]
-        assert "BOOKUP_EMAIL" in src["recovery_hint"]
-        assert "BOOKUP_PASSWORD" in src["recovery_hint"]
+        assert src.get("empty_calendar") is True
+        assert "BOOKUP_EMAIL" not in src
+        assert "BOOKUP_PASSWORD" not in src
 
     def test_outlook_source_with_events_passes(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
@@ -446,7 +450,7 @@ class TestUnifiedCache:
         cache = ScrapedDataCache(work_dir=work_dir).read()
         refreshed_ts = cache["sources"]["Kongsberg"]["scrape_timestamp"]
         assert datetime.fromisoformat(refreshed_ts) > datetime.fromisoformat(old_ts)
-        assert cache["sources"]["Kongsberg"]["blocked"] is True
+        assert cache["sources"]["Kongsberg"]["blocked"] is False
         assert cache["sources"]["Kongsberg"]["events"] == []
 
     def test_removed_source_is_pruned_from_unified_cache(self, tmp_path):
@@ -1114,6 +1118,35 @@ class TestStrategyBasedDispatch:
         src = result["sources"][0]
         assert src["event_count"] == 1
         assert src["blocked"] is False
+
+    def test_sportello_empty_calendar_is_not_blocked(self, tmp_path):
+        """Holmen's direct Sportello scraper can yield an empty calendar without being treated as blocked."""
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = _make_config_with_sources([
+            {
+                "name": "Holmen",
+                "type": SOURCE_OUTLOOK,
+                "url": "https://kalender.sportello.no/booking/11055",
+            },
+        ])
+
+        with patch(
+            "tournament_scheduler.pipeline.stage2_scraping._run_sportello_scraper",
+            return_value=([], "{}"),
+        ):
+            result = run(
+                cfg, state,
+                datetime(2025, 9, 1), datetime(2025, 12, 1),
+                strict=False,
+            )
+
+        src = result["sources"][0]
+        assert src["event_count"] == 0
+        assert src["blocked"] is False
+        assert src.get("empty_calendar") is True
+        assert src.get("empty_reason")
+        assert result.get("blocked") == []
+        assert result.get("empty_sources") == ["Holmen"]
 
 
 class TestCredentialedFallbackGate:

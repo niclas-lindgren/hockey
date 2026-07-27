@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -120,6 +120,8 @@ def run(
         effective_config = load_effective_config(state)
     except Exception:
         effective_config = {}
+    generated_at = datetime.now(timezone.utc).isoformat()
+    input_path = str(effective_config.get("input_path") or "input.xlsx")
     round_length_for_age_group: dict[str, int] = dict(effective_config.get("round_length_minutes", {}))
     configured_age_groups = list(dict.fromkeys(effective_config.get("age_groups", [])))
     if not configured_age_groups and not effective_config.get("age_groups_from_input", False):
@@ -164,7 +166,11 @@ def run(
         _progress("Genererer HTML-rapport")
         html_path = str(primary_export_path / f"{basename}.html")
         # Collect pipeline metadata for metrics section
-        pipeline_meta: dict[str, Any] = {}
+        pipeline_meta: dict[str, Any] = {
+            "generated_at": generated_at,
+            "input_path": input_path,
+            "input_file": Path(input_path).name,
+        }
         try:
             scraping_envelope = state.read_envelope(StageName.SCRAPING)
         except Exception as exc:
@@ -274,6 +280,8 @@ def run(
         errors.append(f"Review-pakker feilet: {exc}")
 
     checkpoint: dict[str, Any] = {
+        "generated_at": generated_at,
+        "input_path": input_path,
         "output_files": output_files,
         "errors": errors,
     }

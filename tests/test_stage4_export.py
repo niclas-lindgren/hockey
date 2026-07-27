@@ -583,6 +583,40 @@ class TestRunStage4:
         assert lines[0] == "date,arena,age_group,home,away,parallel_slot"
         assert len(lines) > 1  # header + at least one game row
 
+    def test_export_metadata_includes_generation_timestamp_and_input_path(self, tmp_path):
+        input_path = tmp_path / "input.xlsx"
+        _write_input_workbook(
+            input_path,
+            {
+                "start_date": "2025-09-01",
+                "end_date": "2025-12-01",
+                "teams": [],
+                "sources": [],
+            },
+        )
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.CONFIG,
+            {"input_path": str(input_path), "round_length_minutes": {}},
+            status=StageStatus.DONE,
+        )
+        result = run(
+            _make_plan_dict(), state,
+            export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
+        )
+
+        assert result["generated_at"]
+        assert result["input_path"] == str(input_path)
+        envelope = state.read_envelope(StageName.EXPORT)
+        assert envelope["data"]["generated_at"] == result["generated_at"]
+        assert envelope["data"]["input_path"] == str(input_path)
+
+        report_html = Path(result["output_files"]["html_report"]).read_text(encoding="utf-8")
+        assert "Generert" in report_html
+        assert input_path.name in report_html
+        assert str(input_path) in report_html
+
     def test_marks_checkpoint_done(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         run(

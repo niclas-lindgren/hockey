@@ -120,6 +120,7 @@ def _source_health_result(
     event_count = int(source.get("event_count") or 0)
     blocked = bool(source.get("blocked"))
     skipped = bool(source.get("skipped"))
+    empty_calendar = bool(source.get("empty_calendar"))
     llm_fallback = bool(source.get("llm_fallback"))
     expectation = source.get("event_expectation") or {}
     expectation_status = expectation.get("status", "not_applicable")
@@ -170,6 +171,12 @@ def _source_health_result(
             suggested_actions.append(f"Kjør 'rvv-miniputt scrape --club \"{name}\"' for feilsøking, eller sjekk URL manuelt.")
         suggested_actions.append(
             f"Hvis du bare har terminal: bruk 'rvv-miniputt recovery-targets' for å finne blokkerte kilder, og 'rvv-miniputt recovery-inject --source \"{name}\"' når du har event-JSON."
+        )
+    elif empty_calendar:
+        status = "warning"
+        problems.append(str(source.get("empty_reason") or "Kilde returnerte 0 hendelser i perioden."))
+        suggested_actions.append(
+            "Dette ser ut som en tom offentlig kalender — kontroller bare at det er forventet, ikke en skrapefeil."
         )
     else:
         if event_count == 0 and int(previous_event_count or 0) > 0:

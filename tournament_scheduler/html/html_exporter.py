@@ -183,6 +183,8 @@ class HtmlExporter:
         date_range = pipeline.get("date_range", f"{fmt_date(plan.start_date)} – {fmt_date(plan.end_date)}" if plan.start_date else "")
         if isinstance(date_range, str):
             date_range = date_range.replace("&ndash;", "–")
+        generated_at = str(pipeline.get("generated_at", ""))
+        input_path = str(pipeline.get("input_path", ""))
         scrape_age = pipeline.get("scrape_age", "")
         scrape_age_html = ""
         if scrape_age:
@@ -226,6 +228,8 @@ class HtmlExporter:
             scores_html=SCORES,
             metrics_html=METRICS,
             club_dashboard_html=CLUB_DASHBOARD,
+            generated_at=generated_at,
+            input_path=input_path,
             most_travel_team=most_travel_team,
             most_travel_km=str(most_travel_km),
         )
@@ -378,6 +382,8 @@ class HtmlExporter:
         scores_html: str,
         metrics_html: str,
         club_dashboard_html: str,
+        generated_at: str = "",
+        input_path: str = "",
         most_travel_team: str = "",
         most_travel_km: str = "0",
     ) -> str:
@@ -463,7 +469,16 @@ class HtmlExporter:
             else "Løs blokkeringene under før utsending."
         )
 
+        def _format_generated_at(value: str) -> str:
+            if not value:
+                return ""
+            return value.replace("T", " ").replace("+00:00", " UTC").replace("Z", " UTC")
+
         hidden_notes: list[str] = [f"Periode: {month_span}"]
+        if generated_at:
+            hidden_notes.append(f"Generert: {_format_generated_at(generated_at)}")
+        if input_path:
+            hidden_notes.append(f"Input: {input_path}")
         if weakest_metric:
             hidden_notes.append(
                 f"Svakeste metrikk: {weakest_metric.get('label', '')} ({int(weakest_metric.get('score', 0) or 0)}%)"
@@ -552,6 +567,8 @@ class HtmlExporter:
         card_defs = [
             ("Planstatus", status_labels.get(overall_status, "STATUS"), f"{len(active_tournaments)} turneringer, {sum(len(t.games) for t in active_tournaments)} kamper"),
             ("Datagrunnlag", f"{source_count} kilder", f"{event_count} kalenderhendelser, {len(blocked)} blokkert"),
+            ("Generert", _format_generated_at(generated_at) or "Ikke oppgitt", f"{len(active_tournaments)} turneringer fra denne kjøringen"),
+            ("Input", Path(input_path).name if input_path else "input.xlsx", input_path or "Inputfil ikke oppgitt"),
             ("Tidsrom", date_range or "Ikke oppgitt", f"{len(display_age_groups)} aldersgrupper"),
             ("Klubbfordeling", f"{len(host_counts)} vertsklubber", f"{len(missing_hosts)} RVV-klubber uten hjemmeturnering"),
         ]

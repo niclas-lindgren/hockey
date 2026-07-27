@@ -6,8 +6,8 @@ For each configured calendar source:
   2. ``ical`` / ``google`` sources use the deterministic ICAL scraper.
   3. Strategy-backed sources like BookUp, Sportello, and StyledCalendar route to
      dedicated deterministic scrapers.
-  4. If a source returns zero events, block with a Norwegian-language error
-     message rather than proceeding silently.
+  4. If a source returns zero events, record it separately as an empty calendar
+     unless the scraper itself failed.
 
 Source config format (inside the validated Stage 1 config)::
 
@@ -48,7 +48,7 @@ from .scraper_credentialed import _credentialed_scrape_months, _run_credentialed
 from .scraper_event_helpers import _events_to_dicts, _group_events_by_club
 from .scraper_ical import _run_ical_scraper
 from .scraper_outlook import _run_outlook_scraper, _parse_date_param_calendar, _parse_outlook_calendar
-from .scraper_recovery import _blocked_sources_warning, _recovery_hint_for_source
+from .scraper_recovery import _blocked_sources_warning, _empty_sources_warning, _recovery_hint_for_source
 from .scraper_styledcalendar import _run_styledcalendar_scraper
 from .scraper_sportello import _run_sportello_scraper
 
@@ -354,6 +354,7 @@ def run(
             sources_to_scrape.append(source_cfg)
 
     blocked: list[dict[str, Any]] = []
+    empty_sources: list[dict[str, Any]] = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_source = {
@@ -385,6 +386,8 @@ def run(
             source_results.append(source_result)
             if source_result.get("blocked"):
                 blocked.append({"name": source_cfg.get("name", "?"), **source_result})
+            if source_result.get("empty_calendar"):
+                empty_sources.append({"name": source_cfg.get("name", "?"), **source_result})
 
     event_expectation_warnings = _apply_event_count_expectations(
         source_results,
@@ -397,6 +400,7 @@ def run(
         "sources": source_results,
         "events_by_club": _group_events_by_club(source_results),
         "blocked": [b["name"] for b in blocked],
+        "empty_sources": [e["name"] for e in empty_sources],
         "cached": cached_names,
         "start_date": start_date.strftime("%Y-%m-%d"),
         "end_date": end_date.strftime("%Y-%m-%d"),
@@ -405,12 +409,19 @@ def run(
 
     status = StageStatus.DONE if (not blocked or allow_missing_sources) else StageStatus.FAILED
     checkpoint["checkpoint_path"] = str(state.checkpoint_path(StageName.SCRAPING))
+    warnings: list[str] = []
     if blocked:
-        checkpoint["warning"] = _blocked_sources_warning(
-            blocked,
-            state,
-            allow_missing_sources=allow_missing_sources,
+        warnings.append(
+            _blocked_sources_warning(
+                blocked,
+                state,
+                allow_missing_sources=allow_missing_sources,
+            )
         )
+    if empty_sources:
+        warnings.append(_empty_sources_warning(empty_sources, state))
+    if warnings:
+        checkpoint["warning"] = " ".join(warnings)
 
     state.write_stage(StageName.SCRAPING, checkpoint, status=status)
 
@@ -452,8 +463,10 @@ def _scrape_source(
     requires credentials, the function automatically retries with environment-
     variable credentials injected via Playwright login.
 
-    If that also fails, the result is marked with ``llm_fallback=True`` so the
-    caller can attempt LLM-driven scraping via browser_worker.
+    Direct deterministic sources that still end up empty are recorded as
+    ``empty_calendar=True`` so operators can distinguish a truly empty
+    calendar from a scraper crash. Strategy-backed browser sources that need
+    the LLM agent still surface as blocked with ``llm_fallback=True``.
     """
     name = source_cfg.get("name", "ukjent kilde")
     url = source_cfg.get("url", "")
@@ -525,17 +538,36 @@ def _scrape_source(
     # --- If still no events, assess LLM fallback viability ---
     if not events:
         strategy = get_strategy(name)
-        block_reason = (
-            f"Kilde '{name}' returnerte 0 hendelser -- "
-            "skraper odelagt eller hallen er stengt?"
-        )
-        recovery_hint = _recovery_hint_for_source(name)
-        result["blocked"] = True
-        result["block_reason"] = f"{block_reason} {recovery_hint}".strip()
-        result["recovery_hint"] = recovery_hint
+        if deterministic_raised:
+            block_reason = (
+                f"Kilde '{name}' feilet under skraping -- "
+                "kalenderen kunne ikke leses på en trygg måte."
+            )
+            recovery_hint = _recovery_hint_for_source(name)
+            result["blocked"] = True
+            result["block_reason"] = f"{block_reason} {recovery_hint}".strip()
+            result["recovery_hint"] = recovery_hint
 
-        # Mark for LLM fallback if the source has a strategy that needs it
-        if strategy and needs_llm_agent(strategy):
+            # Mark for LLM fallback if the source has a strategy that needs it
+            if strategy and needs_llm_agent(strategy):
+                result["llm_fallback"] = True
+                result["llm_strategy"] = {
+                    "engine": strategy.engine.value,
+                    "url": strategy.url,
+                    "initial_navigation": strategy.initial_navigation,
+                    "credential_env_vars": strategy.credential_env_vars,
+                    "month_selector": strategy.month_selector,
+                    "event_pattern": strategy.event_pattern,
+                }
+        elif strategy and needs_llm_agent(strategy):
+            block_reason = (
+                f"Kilde '{name}' returnerte 0 hendelser -- "
+                "den browserstyrte recovery-veien må brukes for denne kalenderen."
+            )
+            recovery_hint = _recovery_hint_for_source(name)
+            result["blocked"] = True
+            result["block_reason"] = f"{block_reason} {recovery_hint}".strip()
+            result["recovery_hint"] = recovery_hint
             result["llm_fallback"] = True
             result["llm_strategy"] = {
                 "engine": strategy.engine.value,
@@ -545,6 +577,12 @@ def _scrape_source(
                 "month_selector": strategy.month_selector,
                 "event_pattern": strategy.event_pattern,
             }
+        else:
+            result["empty_calendar"] = True
+            result["empty_reason"] = (
+                f"Kilde '{name}' returnerte 0 hendelser i perioden. "
+                "Det ser ut som en tom offentlig kalender, ikke en skrapefeil."
+            )
 
     result["events"] = _events_to_dicts(events, club_name=club_for_source_name(name))
     result["event_count"] = len(events)

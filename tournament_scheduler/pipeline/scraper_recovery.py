@@ -44,3 +44,12 @@ def _blocked_sources_warning(
     recovery = _recovery_hint_for_source(blocked[0].get("name", "")) if blocked else _recovery_hint_for_source("")
     prefix = "Delvise resultater er lagret" if allow_missing_sources else "Delvise resultater er lagret, men Stage 2 er markert som feilet"
     return f"{prefix} i {path}. Blokkerte kilder: {names}. {recovery}"
+
+
+def _empty_sources_warning(empty_sources: list[dict[str, Any]], state: PipelineState) -> str:
+    names = ", ".join(sorted({s.get('name', '?') for s in empty_sources})) or "ukjent kilde"
+    path = state.checkpoint_path(StageName.SCRAPING)
+    return (
+        f"Stage 2 er ferdig, men tomme kilder ble funnet i {path}: {names}. "
+        "Dette betyr at kalenderen returnerte 0 hendelser i perioden, ikke at skraperen krasjet."
+    )
