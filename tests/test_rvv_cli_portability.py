@@ -120,8 +120,8 @@ def test_status_marks_downstream_stale_when_input_workbook_fingerprint_changes(t
 
 
 def test_logs_list_subcommand_is_available_from_python_cli(tmp_path) -> None:
-    log_dir = tmp_path / "logs"
-    log_dir.mkdir()
+    log_dir = tmp_path / "export" / "2026-01-01T1200"
+    log_dir.mkdir(parents=True)
     run_id = "run-20260101_120000"
     (log_dir / f"{run_id}.jsonl").write_text(
         '{"type": "run_meta", "run_id": "run-20260101_120000", '

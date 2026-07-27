@@ -84,7 +84,7 @@ def _make_args(tmp_path: Path) -> argparse.Namespace:
         resume_from=None,
         allow_missing_sources=False,
         force_refresh=False,
-        export_dir="export",
+        export_dir=str(tmp_path / "export"),
         timestamped_export=False,
         log_level="info",
     )
@@ -358,7 +358,7 @@ def test_stage3_retries_export_best_composite_attempt_not_last(tmp_path: Path) -
     exported_plan = stage4_run.call_args.args[0]
     assert exported_plan["plan"]["tournaments"][0]["id"] == "best-early"
 
-    log_text = next((tmp_path / "logs").glob("pipeline_run_*_FAILED.log")).read_text(encoding="utf-8")
+    log_text = next((tmp_path / "export").glob("pipeline_run_*_FAILED.log")).read_text(encoding="utf-8")
     assert "Selected Stage 3 attempt 1/3" in log_text
     assert "attempt 2: gate=warn:100" in log_text
     assert "best-early" not in log_text  # Logs explain score components, not payload IDs.
@@ -413,7 +413,7 @@ def test_stage3_retries_log_later_composite_winner(tmp_path: Path) -> None:
     exported_plan = stage4_run.call_args.args[0]
     assert exported_plan["plan"]["tournaments"][0]["id"] == "best-late"
 
-    log_text = next((tmp_path / "logs").glob("pipeline_run_*_FAILED.log")).read_text(encoding="utf-8")
+    log_text = next((tmp_path / "export").glob("pipeline_run_*_FAILED.log")).read_text(encoding="utf-8")
     assert "Selected Stage 3 attempt 3/3" in log_text
     assert "attempt 1: gate=warn:99" in log_text
 

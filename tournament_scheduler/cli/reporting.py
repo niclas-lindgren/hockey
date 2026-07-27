@@ -62,13 +62,44 @@ def _load_jsonl_entries(log_path: Path) -> list[dict[str, Any]]:
     return entries
 
 
-def _load_run_history(work_dir: Path) -> list[dict[str, Any]]:
-    log_dir = work_dir / "logs"
-    if not log_dir.exists():
-        return []
 
+def _candidate_log_paths(work_dir: Path) -> list[Path]:
+    paths: list[Path] = []
+    legacy_dir = work_dir / "logs"
+    if legacy_dir.exists():
+        paths.extend(sorted(legacy_dir.glob("run-*.jsonl"), reverse=True))
+
+    for export_root in (work_dir / "export", work_dir.parent / "export"):
+        if export_root.exists():
+            paths.extend(sorted(export_root.rglob("run-*.jsonl"), reverse=True))
+
+    deduped: dict[str, Path] = {}
+    for path in paths:
+        run_id = path.stem
+        if run_id not in deduped:
+            deduped[run_id] = path
+            continue
+        existing = deduped[run_id]
+        if "export" in path.parts and "export" not in existing.parts:
+            deduped[run_id] = path
+            continue
+        if path.stat().st_mtime > existing.stat().st_mtime:
+            deduped[run_id] = path
+    return sorted(deduped.values(), key=lambda path: path.stat().st_mtime, reverse=True)
+
+
+
+def _find_log_path(work_dir: Path, run_id: str) -> Path | None:
+    for path in _candidate_log_paths(work_dir):
+        if path.stem == run_id:
+            return path
+    return None
+
+
+
+def _load_run_history(work_dir: Path) -> list[dict[str, Any]]:
     runs: list[dict[str, Any]] = []
-    for log_path in sorted(log_dir.glob("run-*.jsonl"), reverse=True):
+    for log_path in _candidate_log_paths(work_dir):
         run_id = log_path.stem
         meta = None
         for entry in reversed(_load_jsonl_entries(log_path)):
@@ -154,7 +185,7 @@ def _build_status_text(work_dir: Path) -> str:
 
     runs = _load_run_history(work_dir)
     if runs:
-        lines.extend(["", f"Logs: {work_dir / 'logs'}", f"  Siste {min(3, len(runs))} kjøringer:"])
+        lines.extend(["", f"Logs: {runs[0]['log_path'].parent}", f"  Siste {min(3, len(runs))} kjøringer:"])
         for run in runs[:3]:
             lines.append(f"    • {run['run_id']}.jsonl")
 
@@ -170,12 +201,13 @@ def _resolve_run_id(work_dir: Path, requested: str | None) -> str | None:
 
 def _build_logs_list_text(work_dir: Path, count: int) -> str:
     runs = _load_run_history(work_dir)[:count]
+    log_root = runs[0]["log_path"].parent if runs else (work_dir.parent / "export")
     if not runs:
-        return f"Ingen loggførte kjøringer funnet i {work_dir / 'logs'}/"
+        return f"Ingen loggførte kjøringer funnet i {log_root}/"
 
     lines = [
         "=== Pipeline kjøringshistorie ===",
-        f"Logg-katalog: {work_dir / 'logs'}/",
+        f"Logg-katalog: {log_root}/",
         f"Viser {len(runs)} siste kjøringer",
         "",
         f"{'Kjøring'.ljust(30)} {'Status'.ljust(12)} {'Varighet'.ljust(12)} {'Starter'.ljust(22)}",
@@ -191,9 +223,9 @@ def _build_logs_list_text(work_dir: Path, count: int) -> str:
 
 
 def _build_logs_show_text(work_dir: Path, run_id: str) -> str:
-    log_path = work_dir / "logs" / f"{run_id}.jsonl"
-    if not log_path.exists():
-        return f"Kjøring {run_id} ikke funnet i {work_dir / 'logs'}/"
+    log_path = _find_log_path(work_dir, run_id)
+    if not log_path:
+        return f"Kjøring {run_id} ikke funnet i {work_dir.parent / 'export'}/ eller {work_dir / 'logs'}/"
 
     entries = _load_jsonl_entries(log_path)
     run_meta = next((entry for entry in reversed(entries) if entry.get("type") == "run_meta" and entry.get("run_id") == run_id and entry.get("end_time")), None)
@@ -279,7 +311,7 @@ def _build_logs_show_text(work_dir: Path, run_id: str) -> str:
 def _build_logs_stats_text(work_dir: Path) -> str:
     runs = _load_run_history(work_dir)
     if not runs:
-        return f"Ingen loggførte kjøringer funnet i {work_dir / 'logs'}/"
+        return f"Ingen loggførte kjøringer funnet i {work_dir.parent / 'export'}/ eller {work_dir / 'logs'}/"
 
     success_runs = [run for run in runs if (run["meta"] or {}).get("exit_status") == "success"]
     failed_runs = [run for run in runs if (run["meta"] or {}).get("exit_status") == "failure"]
@@ -305,7 +337,7 @@ def _build_logs_stats_text(work_dir: Path) -> str:
 
     stage_stats: dict[str, dict[str, int]] = {}
     for run in runs:
-        log_path = work_dir / "logs" / f"{run['run_id']}.jsonl"
+        log_path = run["log_path"]
         for entry in _load_jsonl_entries(log_path):
             if entry.get("type") != "stage_meta" or not entry.get("duration_ms"):
                 continue
@@ -421,7 +453,7 @@ def _cmd_logs(args: argparse.Namespace) -> int:
     if subcommand == "show":
         run_id = _resolve_run_id(work_dir, getattr(args, "run_id", None))
         if not run_id:
-            _console.print(f"Ingen loggførte kjøringer funnet i {work_dir / 'logs'}/")
+            _console.print(f"Ingen loggførte kjøringer funnet i {work_dir.parent / 'export'}/ eller {work_dir / 'logs'}/")
             return 0
         _console.print(_build_logs_show_text(work_dir, run_id))
         return 0

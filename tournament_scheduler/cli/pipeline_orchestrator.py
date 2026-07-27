@@ -545,15 +545,62 @@ def _cmd_calendars(args: argparse.Namespace) -> int:
 
 
 
+def _resolve_run_log_dir(args: argparse.Namespace, state: "Any", start_time: datetime) -> Path:
+    """Return the export folder where the current run log should live."""
+    from ..pipeline.state import StageName
+
+    try:
+        export_envelope = state.read_envelope(StageName.EXPORT)
+        output_files = (export_envelope.get("data") or {}).get("output_files") or {}
+        if isinstance(output_files, dict):
+            for key in ("excel", "html_report", "html", "spond", "spond_games", "ical", "csv_games"):
+                path = output_files.get(key)
+                if path:
+                    return Path(path).resolve().parent
+    except Exception:
+        pass
+
+    export_dir = Path(getattr(args, "export_dir", "export"))
+    if not export_dir.is_absolute():
+        export_dir = Path.cwd() / export_dir
+    if getattr(args, "timestamped_export", True):
+        return export_dir / start_time.strftime("%Y-%m-%dT%H%M")
+    return export_dir
+
+
+
+def _archive_structured_run_log(work_dir: str, export_log_dir: Path) -> None:
+    """Move the JSONL run log into the export folder when it exists."""
+    try:
+        from ..pipeline.run_manifest import RunManifest
+
+        run_id = (RunManifest(work_dir).read().get("run_id") or "").strip()
+        if not run_id:
+            return
+        source_dir = Path(work_dir) / "logs"
+        source = source_dir / f"{run_id}.jsonl"
+        if not source.exists():
+            return
+        export_log_dir.mkdir(parents=True, exist_ok=True)
+        target = export_log_dir / source.name
+        if target.exists():
+            target.unlink()
+        source.replace(target)
+    except Exception:
+        pass
+
+
+
 def _write_run_log(
-    work_dir: str,
+    args: argparse.Namespace,
+    state: "Any",
     start_time: datetime,
     lines: list[str],
     *,
     success: bool,
 ) -> None:
-    """Write a per-run log file to .pipeline/logs/."""
-    log_dir = Path(work_dir) / "logs"
+    """Write a per-run log file into the export folder."""
+    log_dir = _resolve_run_log_dir(args, state, start_time)
     log_dir.mkdir(parents=True, exist_ok=True)
     timestamp = start_time.strftime("%Y%m%d_%H%M%S")
     status = "OK" if success else "FAILED"
@@ -567,6 +614,7 @@ def _write_run_log(
         content += line + "\n"
 
     log_path.write_text(content, encoding="utf-8")
+    _archive_structured_run_log(args.work_dir, log_dir)
     _console.print(f"[dim]Run log saved: {log_path}[/dim]")
 
 
@@ -1286,7 +1334,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if abort:
         _manifest_record(args.work_dir, "config", "failed", "Stage 1 (config) failed or aborted the run.")
         _manifest_finalize(args.work_dir, "failed")
-        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        _write_run_log(args, state, log_start, log_lines, success=False)
         return 1
     _manifest_record(
         args.work_dir,
@@ -1304,7 +1352,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if abort:
         _manifest_record(args.work_dir, "scraping", "failed", "Stage 2 (scraping) failed or aborted the run.")
         _manifest_finalize(args.work_dir, "failed")
-        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        _write_run_log(args, state, log_start, log_lines, success=False)
         return 1
     if stage2_failed:
         run_failed = True
@@ -1387,7 +1435,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if abort:
             _manifest_record(args.work_dir, "planning", "failed", "Stage 3 (planning) failed or aborted the run.")
             _manifest_finalize(args.work_dir, "failed")
-            _write_run_log(args.work_dir, log_start, log_lines, success=False)
+            _write_run_log(args, state, log_start, log_lines, success=False)
             return 1
         if stage3_failed:
             run_failed = True
@@ -1459,7 +1507,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         if mid_abort:
             _manifest_record(args.work_dir, "planning", "failed", "Mid-planning critic loop aborted the run.")
             _manifest_finalize(args.work_dir, "failed")
-            _write_run_log(args.work_dir, log_start, log_lines, success=False)
+            _write_run_log(args, state, log_start, log_lines, success=False)
             return 1
         if mid_failed:
             run_failed = True
@@ -1488,7 +1536,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if not _run_approval_gate(args, plan, state, strict, _console, _log):
         _manifest_record(args.work_dir, "planning", "blocked", "LLM approval gate rejected the plan.")
         _manifest_finalize(args.work_dir, "blocked")
-        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        _write_run_log(args, state, log_start, log_lines, success=False)
         return 1
 
     _manifest_set_active(args.work_dir, "export")
@@ -1498,7 +1546,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     if abort:
         _manifest_record(args.work_dir, "export", "failed", "Stage 4 (export) failed or aborted the run.")
         _manifest_finalize(args.work_dir, "failed")
-        _write_run_log(args.work_dir, log_start, log_lines, success=False)
+        _write_run_log(args, state, log_start, log_lines, success=False)
         return 1
     if stage4_failed:
         run_failed = True
@@ -1538,7 +1586,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
         _console.print("\n[bold green]✓ Pipeline fullført.[/bold green]")
         _log("Pipeline completed successfully")
         _manifest_finalize(args.work_dir, "ok")
-    _write_run_log(args.work_dir, log_start, log_lines, success=not (run_failed or plan_needs_attention))
+    _write_run_log(args, state, log_start, log_lines, success=not (run_failed or plan_needs_attention))
     return 1 if plan_needs_attention else 0
 
 
