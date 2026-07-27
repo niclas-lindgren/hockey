@@ -86,6 +86,18 @@ Stage 2 supports multiple source types:
 - Browser-enabled harnesses: Claude Code, OpenCode, Codex, or similar only when they have a Playwright/browser controller wired in
 - Plain terminal or CI: no browser control; the command should immediately explain the missing capability and exit
 
+If you only have a terminal, use the recovery bridge instead:
+
+```bash
+scripts/rvv-miniputt recovery-targets
+# recover or prepare event JSON for the blocked source
+python3 -m tournament_scheduler.cli.rvv_cli recovery-inject --source "<navn>" < recovered-events.json
+scripts/rvv-miniputt scrape-merge
+scripts/rvv-miniputt calendars
+```
+
+That flow is scriptable and does not require a live browser controller.
+
 ### BookUp credentials
 
 Some BookUp calendars require authentication before scraping works.
@@ -192,14 +204,16 @@ The pipeline also stores per-run logs in `.pipeline/logs/`.
 
 ### Recover from blocked sources
 
-Typical recovery loop:
+Typical recovery loop for a blocked JS-only source:
 
 1. fix `input.xlsx` or source credentials
 2. rerun `rvv-miniputt run`
-3. if a JS source is still blocked, use Pi, Claude Code, Codex, or OpenCode for LLM-driven scraping (Holmen now uses the deterministic Sportello GraphQL scraper)
-4. inject the recovered events into the cache with `rvv-miniputt recovery-inject --source <navn>`
-5. normalize the Stage 2 checkpoint with `rvv-miniputt scrape-merge`
-6. rebuild calendars with `rvv-miniputt calendars`
+3. if a JS source is still blocked, use Pi, Claude Code, Codex, or OpenCode for LLM-driven scraping; in a plain terminal, first run `scripts/rvv-miniputt recovery-targets` to confirm the blocked source, then gather event JSON with WebFetch or your own script
+4. inject the recovered events into the cache with `python3 -m tournament_scheduler.cli.rvv_cli recovery-inject --source "<navn>" < recovered-events.json`
+5. normalize the Stage 2 checkpoint with `scripts/rvv-miniputt scrape-merge`
+6. rebuild calendars with `scripts/rvv-miniputt calendars`
+
+Holmen's Sportello calendar now uses the deterministic GraphQL scraper, so it should not need this browser-only recovery path.
 
 ## Headless / CI usage
 

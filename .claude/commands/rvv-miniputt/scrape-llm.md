@@ -24,7 +24,7 @@ python3 -m tournament_scheduler.cli.rvv_cli scrape-llm --club "<name>" <user-arg
 - The portable CLI still needs browser automation to actually scrape.
   - Pi: available through the extension tool / slash-command path.
   - Browser-enabled harnesses: only when they provide their own Playwright/browser controller.
-  - Plain terminal or CI: unsupported for live browser navigation; use `rvv-miniputt recovery-targets` to list blocked sources and `rvv-miniputt recovery-inject --source "<navn>"` once you have event JSON from WebFetch or your own script.
+  - Plain terminal or CI: unsupported for live browser navigation; use `scripts/rvv-miniputt recovery-targets` to list blocked sources, recover the event JSON with WebFetch or your own script, then pipe it into `python3 -m tournament_scheduler.cli.rvv_cli recovery-inject --source "<navn>"` and finish with `scripts/rvv-miniputt scrape-merge`.
 - `--club` is required. Must match a source that has an LLM scraper strategy (e.g. `Jar`, `Holmen`, `Jutul`, `Tønsberg`, `Sandefjord`).
 - Results are cached to `.pipeline/cache/scraped_data.json` by default (`--cache-results` is on).
 - After scraping, suggest running `/rvv-miniputt:run --resume-from 3` to replan with the new data.

@@ -61,7 +61,7 @@ The following remain Pi-specific adapters on top of the repo workflow:
 5. Use `/rvv-miniputt scrape-llm --club <navn>` for blocked SPA/calendar sources.
    - Pi sessions can use the extension tool path (`rvv_miniputt_scrape_llm`) and the Playwright worker.
    - Other harnesses only work when they provide their own browser controller.
-   - Plain terminal/CI sessions cannot drive the page; the CLI should explain the boundary and point to `rvv-miniputt recovery-targets` + `rvv-miniputt recovery-inject` so a terminal-only recovery script can still rehydrate the cache.
+   - Plain terminal/CI sessions cannot drive the page; the CLI should explain the boundary and point to `scripts/rvv-miniputt recovery-targets`, `python3 -m tournament_scheduler.cli.rvv_cli recovery-inject --source "<navn>"`, and `scripts/rvv-miniputt scrape-merge` so a terminal-only recovery script can still rehydrate the cache.
 6. Use `/rvv-miniputt status` or `/rvv-miniputt logs` to inspect results
 7. Use `/rvv-miniputt calendars` when you want calendar output from cache
 
@@ -79,7 +79,7 @@ The following remain Pi-specific adapters on top of the repo workflow:
 | `/rvv-miniputt calendars` | Generate calendars from cache |
 | `/rvv-miniputt calendars --refresh` | Force full re-scrape + calendar generation |
 | `/rvv-miniputt scrape --club <navn>` | Troubleshoot one club's deterministic scrape |
-| `/rvv-miniputt scrape-llm --club <navn>` | Run LLM-guided scraping for a blocked source (Pi/browser tooling or another browser-enabled harness; plain terminal sessions only print the boundary) |
+| `/rvv-miniputt scrape-llm --club <navn>` | Run LLM-guided scraping for a blocked source (Pi/browser tooling or another browser-enabled harness; plain terminal sessions only print the boundary and point to recovery-targets/recovery-inject) |
 | `/rvv-miniputt guide` | Interactive wizard for new users |
 
 ### `run` flags

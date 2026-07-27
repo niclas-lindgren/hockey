@@ -1,9 +1,9 @@
 # Verification Report
 
-STATUS: PASS
+STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `rvv-miniputt scrape-llm --club Jar` prints an explicit browser-enabled warning and mentions the terminal-only recovery commands. | PASS | Covered by `tests/test_rvv_cli_portability.py::test_scrape_llm_cli_prints_browser_tool_guidance_for_browser_only_source` (`browser-verktøy`, `browser_worker`, `recovery-targets`, `recovery-inject`). |
-| `rvv-miniputt scrape-llm --club Holmen` prints a deterministic `scrape` recommendation instead of browser-tool guidance. | PASS | Covered by `tests/test_rvv_cli_portability.py::test_scrape_llm_cli_points_holmen_to_deterministic_scrape` (`deterministisk skraper`, `rvv-miniputt scrape --club "Holmen"`, no `browser-worker`). |
-| The docs and skill notes update to show `recovery-targets` and `recovery-inject` as the fallback for plain terminal sessions. | PASS | Updated `.claude/commands/rvv-miniputt/scrape-llm.md`, `.claude/commands/rvv-miniputt/run.md`, and `.agents/skills/rvv/SKILL.md`; verified by `tests/test_rvv_skill_boundary.py` and `tests/test_source_health.py`. |
+| `docs/rvv-miniputt-pipeline.md` explicitly shows the terminal-only recovery flow with `recovery-targets`, `recovery-inject`, and `scrape-merge`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The RVV skill and launcher docs show `recovery-targets`, `recovery-inject`, and the browser-capability boundary for `scrape-llm`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The regression test contains the terminal-only recovery bridge and browser-capability boundary in its assertions. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
