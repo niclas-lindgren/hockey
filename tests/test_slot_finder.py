@@ -130,3 +130,26 @@ class TestFindAvailableSlots:
         )
         # CHECK_DATE has no events -- entire window should be available.
         assert slots == [("08:00", "09:00")]
+
+    def test_previous_day_overnight_event_blocks_after_midnight(self):
+        previous_day = date(2026, 9, 4)
+        events = [_event(23, 0, 3.0, day=previous_day)]
+        slots = find_available_slots(
+            events=events,
+            check_date=CHECK_DATE,
+            required_minutes=60,
+            earliest_start="00:00",
+            latest_start="03:00",
+        )
+        assert slots == [("02:00", "03:00")]
+
+    def test_current_day_overnight_event_blocks_late_evening(self):
+        events = [_event(23, 0, 3.0)]
+        slots = find_available_slots(
+            events=events,
+            check_date=CHECK_DATE,
+            required_minutes=60,
+            earliest_start="22:30",
+            latest_start="23:30",
+        )
+        assert slots == []

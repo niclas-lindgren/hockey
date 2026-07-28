@@ -261,6 +261,51 @@ class TestSeasonPlanner:
         assert plan.arena_day_collisions == []
         assert plan.arena_counts.get("_arena_day_collisions", 0) == 0
 
+    def test_same_arena_third_tournament_after_latest_start_is_hard_collision(self, season_window):
+        start, end = season_window
+        free_dates = [start.date()]
+        roster = Roster(teams=[
+            Team(club="Jar", label="Jar U7-1", age_group="U7"),
+            Team(club="Jar", label="Jar U7-2", age_group="U7"),
+            Team(club="Jar", label="Jar U7-3", age_group="U7"),
+            Team(club="Jar", label="Jar U8-1", age_group="U8"),
+            Team(club="Jar", label="Jar U8-2", age_group="U8"),
+            Team(club="Jar", label="Jar U8-3", age_group="U8"),
+            Team(club="Jar", label="Jar U9-1", age_group="U9"),
+            Team(club="Jar", label="Jar U9-2", age_group="U9"),
+            Team(club="Jar", label="Jar U9-3", age_group="U9"),
+        ])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler(free_dates),
+            roster=roster,
+            club_arenas={"Jar": "Jarahallen"},
+            parallel_games_for_age_group={"U7": 4, "U8": 4, "U9": 4},
+            round_length_for_age_group={"U7": 60, "U8": 60, "U9": 60},
+            seed=0,
+        )
+
+        plan = planner.build_plan(start, end)
+
+        same_day = sorted(
+            [t for t in plan.tournaments if t.arena == "Jarahallen" and t.date == start.date()],
+            key=lambda t: t.start_time,
+        )
+        assert len(same_day) == 3
+        assert [t.start_time for t in same_day] == ["10:00", "13:20", "16:40"]
+        assert len(plan.arena_day_collisions) >= 1
+        assert plan.fairness_gate["status"] == "fail"
+        assert any(collision["arena"] == "Jarahallen" for collision in plan.arena_day_collisions)
+        assert any(
+            collision["conflicting_tournament_id"] == "sequence_overflow"
+            and "etter seneste gyldige start 16:00" in collision["message"]
+            for collision in plan.arena_day_collisions
+        )
+        assert any(
+            collision["conflicting_tournament_id"] == "unplaced"
+            and "Ingen gyldig ledig arenatid" in collision["message"]
+            for collision in plan.arena_day_collisions
+        )
+
     def test_each_tournament_is_single_age_group_with_round_robin_games(self, planner_and_plan):
         _, plan, *_ = planner_and_plan
         for tournament in plan.tournaments:

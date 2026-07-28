@@ -47,6 +47,7 @@ from tournament_scheduler.models import (
     team_key,
 )
 from tournament_scheduler.club_registry import club_for_arena as _club_for_arena
+from tournament_scheduler.arena_conflicts import find_arena_interval_collisions
 from tournament_scheduler.participant_selection import (
     age_group_deficit_spread as _age_group_deficit_spread,
     cap_per_club_deficit_aware as _cap_per_club_deficit_aware,
@@ -320,6 +321,8 @@ class SeasonPlanner:
         }
         host_counts_by_age: Dict[str, Dict[str, int]] = {age_group: {} for age_group in scheduled_counts}
         print("[plan] Bygger turneringer, verter og kamper...", flush=True)
+        reserved_events_by_club: Dict[str, List[CalendarEvent]] = {}
+        slot_failures: List[Dict[str, str]] = []
         for index, ((tournament_date, age_group), original_host_club) in enumerate(zip(scheduled, host_assignments), start=1):
             if index == 1 or index % 10 == 0:
                 print(f"[plan] Ferdigstiller turnering {index}/{len(scheduled)} ({age_group} {tournament_date})", flush=True)
@@ -352,12 +355,14 @@ class SeasonPlanner:
                 host_targets_by_age=host_targets_by_age,
                 host_counts_by_age=host_counts_by_age,
             )
+            slot_search_active = bool(self.events_by_club or reserved_events_by_club)
             slot = self._find_slot_for_tournament(
                 tournament_date,
                 original_host_club,
                 age_group,
                 provisional_games,
                 candidate_hosts=candidate_hosts,
+                reserved_events_by_club=reserved_events_by_club,
             )
 
             final_host_club = original_host_club
@@ -384,19 +389,29 @@ class SeasonPlanner:
             date_pref_total = sum(
                 p.vekt for p in self.date_preferences if p.fra <= tournament_date <= p.til
             )
-            plan.tournaments.append(
-                Tournament(
-                    date=tournament_date,
-                    arena=arena,
-                    age_group=age_group,
-                    teams=participants,
-                    games=games,
-                    host_club=final_host_club,
-                    start_time=start_time,
-                    preferanse_vekt=ag_weight,
-                    scoring_weight_term=ag_weight + date_pref_total,
-                )
+            tournament = Tournament(
+                date=tournament_date,
+                arena=arena,
+                age_group=age_group,
+                teams=participants,
+                games=games,
+                host_club=final_host_club,
+                start_time=start_time,
+                preferanse_vekt=ag_weight,
+                scoring_weight_term=ag_weight + date_pref_total,
             )
+            plan.tournaments.append(tournament)
+            reservation = self._reservation_event_for_tournament(tournament)
+            if reservation is not None:
+                reserved_events_by_club.setdefault(final_host_club, []).append(reservation)
+            if slot is None and slot_search_active:
+                slot_failures.append(
+                    self._slot_failure_collision(
+                        tournament,
+                        candidate_hosts=candidate_hosts,
+                        reason="Ingen gyldig ledig arenatid ble funnet etter kildebookinger og planlagte turneringer.",
+                    )
+                )
             # Record actual host so the tracking dict reflects committed assignments.
             month_key = (tournament_date.year, tournament_date.month)
             self._hosting_days_by_club_month.setdefault(
@@ -406,14 +421,21 @@ class SeasonPlanner:
             host_counts_by_age[age_group][final_host_club] = host_counts_by_age[age_group].get(final_host_club, 0) + 1
 
         expected_per_month = self._expected_monthly_load(start_date.date(), end_date.date(), len(scheduled))
-        self._sequence_same_arena_day_start_times(plan)
+        sequence_failures = self._sequence_same_arena_day_start_times(plan)
+        interval_collisions = find_arena_interval_collisions(
+            plan.tournaments,
+            self.round_length_for_age_group,
+        )
 
         plan.arena_counts = self._arena_counts(plan.tournaments)
         plan.diversity_score = self._diversity_score(plan.tournaments)
         plan.pairwise_matchup_score = self._pairwise_matchup_score(plan.tournaments)
         plan.month_balance_score = self._month_balance_score(expected_per_month)
-        plan.arena_day_collisions = []
-        plan.arena_counts.pop("_arena_day_collisions", None)
+        plan.arena_day_collisions = interval_collisions + sequence_failures + slot_failures
+        if plan.arena_day_collisions:
+            plan.arena_counts["_arena_day_collisions"] = len(plan.arena_day_collisions)
+        else:
+            plan.arena_counts.pop("_arena_day_collisions", None)
         if self.date_preferences:
             plan.date_preference_weights = [
                 {"fra": p.fra.isoformat(), "til": p.til.isoformat(), "vekt": p.vekt}
@@ -861,8 +883,64 @@ class SeasonPlanner:
                 self._club_cap_overrides,
             ) = saved_state
 
-    def _sequence_same_arena_day_start_times(self, plan: SeasonPlan) -> None:
+    def _reservation_event_for_tournament(self, tournament: Tournament) -> Optional[CalendarEvent]:
+        round_length = self.round_length_for_age_group.get(tournament.age_group)
+        if not round_length or not tournament.games or not tournament.start_time:
+            return None
+        try:
+            hour, minute = (int(part) for part in tournament.start_time.split(":", 1))
+            start_at = datetime.combine(tournament.date, datetime.min.time()).replace(hour=hour, minute=minute)
+        except (TypeError, ValueError):
+            return None
+        duration_minutes = matchday_duration_minutes(round_length, max(g.round_number for g in tournament.games))
+        if duration_minutes <= 0:
+            return None
+        return CalendarEvent(
+            date=tournament.date.strftime("%d.%m.%Y"),
+            name=f"Planlagt turnering {tournament.id} {tournament.age_group}",
+            datetime=start_at,
+            duration_hours=duration_minutes / 60.0,
+            location=tournament.arena,
+        )
+
+    def _slot_failure_collision(
+        self,
+        tournament: Tournament,
+        *,
+        candidate_hosts: Sequence[str],
+        reason: str,
+    ) -> Dict[str, str]:
+        round_length = self.round_length_for_age_group.get(tournament.age_group)
+        interval = "ukjent"
+        if round_length and tournament.start_time and tournament.games:
+            try:
+                hour, minute = (int(part) for part in tournament.start_time.split(":", 1))
+                start_at = datetime.combine(tournament.date, datetime.min.time()).replace(hour=hour, minute=minute)
+                duration_minutes = matchday_duration_minutes(round_length, max(g.round_number for g in tournament.games))
+                end_at = start_at + timedelta(minutes=duration_minutes)
+                interval = f"{start_at.strftime('%Y-%m-%d %H:%M')}–{end_at.strftime('%Y-%m-%d %H:%M')}"
+            except (TypeError, ValueError):
+                interval = f"{tournament.date.isoformat()} {tournament.start_time}"
+        candidates = ", ".join(candidate_hosts) if candidate_hosts else str(tournament.host_club or tournament.arena)
+        message = (
+            f"Arena conflict {tournament.arena} {tournament.date.isoformat()}: "
+            f"{tournament.id} ({tournament.age_group}) {interval}. {reason} Kandidater: {candidates}."
+        )
+        return {
+            "date": tournament.date.isoformat(),
+            "arena": tournament.arena,
+            "tournament_id": tournament.id,
+            "age_group": tournament.age_group,
+            "interval": interval,
+            "conflicting_tournament_id": "unplaced",
+            "conflicting_age_group": tournament.age_group,
+            "conflicting_interval": "ingen gyldig slot",
+            "message": message,
+        }
+
+    def _sequence_same_arena_day_start_times(self, plan: SeasonPlan) -> List[Dict[str, str]]:
         groups: Dict[Tuple[date, str], List[Tournament]] = {}
+        sequence_failures: List[Dict[str, str]] = []
         for tournament in plan.tournaments:
             if tournament.cancelled:
                 continue
@@ -894,9 +972,25 @@ class SeasonPlanner:
                 else:
                     cursor_minutes = max(cursor_minutes, requested_minutes)
 
-                # Clamp: no starting past 16:00
                 if cursor_minutes > _LATEST_START_MINUTES:
-                    cursor_minutes = _LATEST_START_MINUTES
+                    overflow_time = f"{cursor_minutes // 60:02d}:{cursor_minutes % 60:02d}"
+                    sequence_failures.append(
+                        {
+                            "date": tournament.date.isoformat(),
+                            "arena": tournament.arena,
+                            "tournament_id": tournament.id,
+                            "age_group": tournament.age_group,
+                            "interval": f"{tournament.date.isoformat()} {overflow_time}",
+                            "conflicting_tournament_id": "sequence_overflow",
+                            "conflicting_age_group": tournament.age_group,
+                            "conflicting_interval": "seneste gyldige start er 16:00",
+                            "message": (
+                                f"Arena conflict {tournament.arena} {tournament.date.isoformat()}: "
+                                f"{tournament.id} ({tournament.age_group}) måtte starte {overflow_time}, "
+                                "etter seneste gyldige start 16:00."
+                            ),
+                        }
+                    )
 
                 tournament.start_time = f"{cursor_minutes // 60:02d}:{cursor_minutes % 60:02d}"
 
@@ -907,6 +1001,8 @@ class SeasonPlanner:
                     else 0
                 )
                 cursor_minutes += duration_minutes + ARENA_DAY_SEQUENCE_BUFFER_MINUTES
+
+        return sequence_failures
 
     def _ordered_host_candidates(
         self,

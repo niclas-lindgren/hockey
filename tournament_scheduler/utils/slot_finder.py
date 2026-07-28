@@ -13,8 +13,8 @@ can pass the required hall occupancy for a tournament directly.
 
 from __future__ import annotations
 
-from datetime import date, time
-from typing import List, Tuple
+from datetime import date, datetime, time, timedelta
+from typing import List, Optional, Tuple
 
 from tournament_scheduler.utils.date_parser import DateParser
 
@@ -48,6 +48,35 @@ def matchday_duration_minutes(round_length: int, round_count: int, setup_buffer_
     return round_count * (round_length + max(0, setup_buffer_minutes))
 
 
+def _event_busy_range_on_date(event, check_date: date) -> Optional[Tuple[int, int]]:
+    """Return an event's busy range on *check_date* in minutes since midnight.
+
+    Events that cross midnight are projected onto both affected dates, so a
+    booking from 23:00 to 02:00 blocks 23:00-24:00 on its start date and
+    00:00-02:00 on the following date.
+    """
+    if getattr(event, "duration_hours", 0) <= 0 or not hasattr(event.datetime, "hour"):
+        return None
+    parsed = DateParser.parse(event.date)
+    if not parsed:
+        return None
+    event_start = event.datetime
+    if not isinstance(event_start, datetime):
+        event_start = datetime.combine(parsed.date(), time(event.datetime.hour, event.datetime.minute))
+    event_end = event_start + timedelta(minutes=int(event.duration_hours * 60))
+    day_start = datetime.combine(check_date, time.min)
+    day_end = day_start + timedelta(days=1)
+    if event_end <= day_start or event_start >= day_end:
+        return None
+    clipped_start = max(event_start, day_start)
+    clipped_end = min(event_end, day_end)
+    start_minutes = int((clipped_start - day_start).total_seconds() // 60)
+    end_minutes = int((clipped_end - day_start).total_seconds() // 60)
+    if end_minutes <= start_minutes:
+        return None
+    return start_minutes, end_minutes
+
+
 def find_available_slots(
     events: List,
     check_date: date,
@@ -75,21 +104,13 @@ def find_available_slots(
     earliest = parse_time(earliest_start)
     latest = parse_time(latest_start)
 
-    # Get all events on this date that have a parseable time-of-day.
-    events_today = []
-    for event in events:
-        parsed = DateParser.parse(event.date)
-        if parsed and parsed.date() == check_date:
-            if hasattr(event.datetime, 'hour'):
-                events_today.append(event)
-
-    # Build list of busy time ranges (in minutes since midnight).
+    # Build list of busy time ranges (in minutes since midnight), including
+    # the portion of overnight events that lands on check_date.
     busy_ranges = []
-    for event in events_today:
-        if event.duration_hours > 0:
-            start_minutes = event.datetime.hour * 60 + event.datetime.minute
-            end_minutes = start_minutes + int(event.duration_hours * 60)
-            busy_ranges.append((start_minutes, end_minutes))
+    for event in events:
+        busy_range = _event_busy_range_on_date(event, check_date)
+        if busy_range is not None:
+            busy_ranges.append(busy_range)
 
     busy_ranges.sort()
 

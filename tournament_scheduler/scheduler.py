@@ -136,7 +136,9 @@ class TournamentScheduler:
             host_club: The assigned host club.
             required_minutes: Total tournament duration required, in minutes.
             events_by_club: Calendar events keyed by club name (e.g. from
-                Stage 2's ``events_by_club`` checkpoint output).
+                Stage 2's ``events_by_club`` checkpoint output plus any
+                in-memory reservations for tournaments already placed in the
+                current plan).
 
         Returns:
             ``(host_club_used, start_HH:MM, end_HH:MM)`` for the best slot in

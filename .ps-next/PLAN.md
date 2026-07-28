@@ -7,7 +7,7 @@
 - [x] Add reusable arena interval conflict detection
   - Files: tournament_scheduler/arena_conflicts.py, tests/test_arena_conflicts.py
   - Approach: Create helpers that convert tournaments plus per-age-group round lengths into full datetime intervals, detect same-arena overlaps including overnight spans, and format structured collision dictionaries with arena/date/tournament IDs/intervals.
-- [ ] Reserve planned tournament intervals during host slot assignment
+- [x] Reserve planned tournament intervals during host slot assignment
   - Files: tournament_scheduler/host_assignment.py, tournament_scheduler/scheduler.py, tournament_scheduler/utils/slot_finder.py, tournament_scheduler/season_planner.py, tests/test_season_planner.py, tests/test_slot_finder.py
   - Approach: Extend slot lookup to merge already-planned reservation events with scraped bookings, remove the 16:00 clamp fallback, and derive `arena_day_collisions` from final planned intervals instead of clearing them.
 - [ ] Block export and public publish on hard arena conflicts
@@ -34,6 +34,13 @@ GitHub issue 27 reports Jarhallen overlap on 2026-09-05 from run-2026-07-27T22-1
 
 ## Log
 
+
+### 2026-07-28 — Reserve planned tournament intervals during host slot assignment
+**Done:** Slot lookup now considers already-planned tournament reservations in addition to scraped bookings; same-arena sequencing no longer clamps overflow to 16:00 and final plans preserve interval/overflow/unplaced arena conflicts.
+**Rationale:** Reservations prevent later tournaments from being placed into intervals already occupied by the in-memory plan, while hard conflict records make any remaining impossible placement fail the existing fairness gate.
+**Findings:** Targeted tests passed. Full quick pytest currently fails in unrelated tests/test_stage2_scraping.py::TestUnifiedCache::test_stale_cache_triggers_rescrape because the mocked Outlook scraper is not called.
+**Files:** tournament_scheduler/host_assignment.py; tournament_scheduler/scheduler.py; tournament_scheduler/season_planner.py; tournament_scheduler/utils/slot_finder.py; tests/test_season_planner.py; tests/test_slot_finder.py
+**Commit:** not committed
 ### 2026-07-28 — Add reusable arena interval conflict detection
 **Done:** Added arena_conflicts helpers for full datetime tournament occupancy intervals and structured same-arena overlap reports, including overnight spans.
 **Rationale:** A shared utility lets planning, export, and publish gates enforce the same hard arena-overlap rule instead of duplicating same-day checks.

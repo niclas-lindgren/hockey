@@ -169,6 +169,7 @@ def find_slot_for_tournament(
     games: List[Game],
     preferred_start: Optional[str] = None,
     candidate_hosts: Optional[Sequence[str]] = None,
+    reserved_events_by_club: Optional[Dict[str, List]] = None,
 ) -> Optional[Tuple[str, str, str]]:
     """Find a time-of-day slot for the tournament, preferring the assigned host.
 
@@ -176,7 +177,7 @@ def find_slot_for_tournament(
     only uses it to infer the hall occupancy duration and the participant set
     for travel-aware preferred-start heuristics.
     """
-    if not planner.events_by_club:
+    if not planner.events_by_club and not reserved_events_by_club:
         return None
 
     round_length = planner.round_length_for_age_group.get(age_group)
@@ -237,11 +238,16 @@ def find_slot_for_tournament(
                 else:
                     candidate_preferred_start = "11:00"
 
+        events_by_club = {club: list(events) for club, events in planner.events_by_club.items()}
+        if reserved_events_by_club:
+            for club, events in reserved_events_by_club.items():
+                events_by_club.setdefault(club, []).extend(events)
+
         slot = planner.scheduler.find_arena_slot_for_date(
             tournament_date,
             candidate_host,
             required_minutes,
-            planner.events_by_club,
+            events_by_club,
             preferred_start=candidate_preferred_start,
         )
         if slot is not None:
