@@ -63,11 +63,17 @@ def resolve_active_run_log_dir(
 
     try:
         envelope = state.read_envelope(StageName.EXPORT)
-        output_files = (envelope.get("data") or {}).get("output_files")
-        if isinstance(output_files, dict):
-            resolved = _export_dir_from_output_files(output_files)
-            if resolved is not None:
-                return resolved
+        # A stage invalidated by an upstream change (new run, changed input,
+        # etc.) keeps its old `data` in place — only `status`/`stale` change
+        # — so an unstaled "done" check is required or this happily reuses
+        # a previous run's export folder for the whole run before its own
+        # Stage 4 has produced fresh output_files.
+        if envelope.get("status") == "done" and not envelope.get("stale"):
+            output_files = (envelope.get("data") or {}).get("output_files")
+            if isinstance(output_files, dict):
+                resolved = _export_dir_from_output_files(output_files)
+                if resolved is not None:
+                    return resolved
     except Exception:
         pass
 

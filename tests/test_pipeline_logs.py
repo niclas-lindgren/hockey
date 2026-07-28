@@ -49,6 +49,32 @@ def test_resolve_active_run_log_dir_prefers_stage4_export_output_files(tmp_path:
     assert resolve_active_run_log_dir(state) == export_dir
 
 
+def test_resolve_active_run_log_dir_ignores_stale_stage4_checkpoint(tmp_path: Path) -> None:
+    """A new run's Stage 1/2/3 shouldn't route logs into a previous run's
+    export folder just because that old Stage 4 checkpoint's output_files
+    are still on disk — invalidating a stage (new run, changed input) marks
+    it stale/failed but doesn't clear its data, so status must be checked."""
+    work_dir = tmp_path / ".pipeline"
+    state = PipelineState(work_dir)
+
+    old_export_dir = tmp_path / "export" / "2026-07-27T2230"
+    old_export_dir.mkdir(parents=True)
+    state.write_stage(
+        StageName.EXPORT,
+        {"output_files": {"excel": str(old_export_dir / "season_plan.xlsx")}},
+        status=StageStatus.DONE,
+    )
+    # Simulate what _invalidate_downstream does when a new run's Stage 1
+    # completes: mark the old Stage 4 checkpoint stale without touching data.
+    state.write_stage(StageName.CONFIG, {"teams": 1}, status=StageStatus.DONE)
+
+    new_export_dir = tmp_path / "export" / "2026-07-28T0900"
+    resolved = resolve_active_run_log_dir(state, preferred_export_dir=new_export_dir)
+
+    assert resolved == new_export_dir
+    assert resolved != old_export_dir
+
+
 def test_logs_reporting_prefers_export_tree_over_legacy_workspace_logs(tmp_path: Path) -> None:
     work_dir = tmp_path / ".pipeline"
     state = PipelineState(work_dir)
