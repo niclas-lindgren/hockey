@@ -202,6 +202,8 @@ Outside Pi, use the portable equivalents:
 
 Run logs (`run-*.jsonl`) live in the export tree alongside the exported artifacts; `.pipeline/logs/` is only a legacy fallback when no export folder exists yet.
 
+When stages are invoked individually rather than through `rvv-miniputt run`/`operator run` — e.g. an agent following the stage-by-stage flow in `run.md` — no `pipeline_run_*.log` gets written, since that file is only produced by the single-process `operator run` orchestration. Each of the four stage scripts instead appends one line per invocation to `stage_run.log`, using the same location resolution as the JSONL run logs above (export tree once Stage 4 has run, `.pipeline/logs/` before that). It is the only debugging trail for a stage-by-stage session, so check it there before assuming a run left no record.
+
 ### Recover from blocked sources
 
 Typical recovery loop for a blocked JS-only source:

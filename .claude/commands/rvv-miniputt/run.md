@@ -170,6 +170,10 @@ After success, read `.pipeline/stage4_export.json` and report:
 - List of files written under `export/` (or the timestamped subfolder)
 - Any `errors` present in the checkpoint
 
+## Debugging log
+
+Each stage appends one line to `stage_run.log` as it starts/finishes (in `.pipeline/logs/` until Stage 4 has produced output, then in the export timestamp folder). This is the only run trail this stage-by-stage flow produces — the `pipeline_run_*.log` file only exists for `rvv-miniputt run`/`operator run` invocations. Check it if a stage seems stuck or behaved unexpectedly.
+
 ## Checkpoint review helper
 
 To pretty-print any checkpoint in a compact human-readable form:

@@ -629,6 +629,7 @@ if __name__ == "__main__":  # pragma: no cover
     )
     cli_args = parser.parse_args()
 
+    from .run_log_paths import append_stage_log_line  # noqa: E402
     from .state import PipelineState, StageName  # noqa: E402
     from .stage1_config import load_effective_config  # noqa: E402
     from datetime import datetime as _dt  # noqa: E402
@@ -661,7 +662,12 @@ if __name__ == "__main__":  # pragma: no cover
         print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(cached)} fra cache{age_text}, {len(blocked)} blokkert")
         if _result.get("warning"):
             print(_result["warning"])
+        append_stage_log_line(
+            _state,
+            f"Stage 2 OK: {n_sources} sources scanned, {len(cached)} from cache, {len(blocked)} blocked",
+        )
         sys.exit(0)
     except Stage2Error as _e:
+        append_stage_log_line(_state, f"Stage 2 FAILED: {_e}")
         print(str(_e), file=sys.stderr)
         sys.exit(1)

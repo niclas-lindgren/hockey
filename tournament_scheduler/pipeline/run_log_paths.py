@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
 from .state import PipelineState, StageName
+
+STAGE_LOG_FILENAME = "stage_run.log"
 
 # Prefer file outputs first so we land in the actual Stage 4 export folder.
 _PREFERRED_OUTPUT_KEYS = (
@@ -75,3 +78,35 @@ def resolve_active_run_log_dir(
         return export_dir
 
     return Path(state.work_dir) / "logs"
+
+
+def append_stage_log_line(
+    state: PipelineState,
+    message: str,
+    *,
+    preferred_export_dir: str | Path | None = None,
+) -> Path:
+    """Append one timestamped line to the active run's human-readable log.
+
+    Each of the four stage scripts writes here from its own ``__main__``
+    entry point, so a stage-by-stage session (e.g. an agent invoking each
+    stage as its own subprocess per ``run.md``, instead of going through
+    ``rvv-miniputt run``) still leaves a readable trail for debugging —
+    that path previously produced no log output at all, since only the
+    ``operator run`` orchestration wrote ``pipeline_run_*.log``.
+
+    Uses the same directory resolution as the rest of the export-folder
+    log routing: before Stage 4 has produced output this lands in
+    ``<work_dir>/logs/``, and once Stage 4 has run it moves to the export
+    timestamp folder, matching where ``log_update``/``log_cancellation``
+    already write. A run's log can therefore legitimately span both
+    locations — that mirrors existing behavior rather than introducing a
+    new split.
+    """
+    log_dir = resolve_active_run_log_dir(state, preferred_export_dir=preferred_export_dir)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / STAGE_LOG_FILENAME
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    with open(log_path, "a", encoding="utf-8") as handle:
+        handle.write(f"[{timestamp}] {message}\n")
+    return log_path

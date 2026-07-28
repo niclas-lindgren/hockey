@@ -179,6 +179,7 @@ if __name__ == "__main__":  # pragma: no cover
     parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
     cli_args = parser.parse_args()
 
+    from .run_log_paths import append_stage_log_line  # noqa: E402
     from .state import PipelineState  # noqa: E402
 
     _state = PipelineState(cli_args.work_dir)
@@ -187,7 +188,13 @@ if __name__ == "__main__":  # pragma: no cover
         _raw = _load_workbook_config(cli_args.input)
         print(f"Stage 1 OK — {len(_result.get('teams', []))} lag, "
               f"{_raw.get('start_date')} til {_raw.get('end_date')}")
+        append_stage_log_line(
+            _state,
+            f"Stage 1 OK: {len(_result.get('teams', []))} teams, "
+            f"{_raw.get('start_date')} to {_raw.get('end_date')}",
+        )
         sys.exit(0)
     except (Stage1Error, FileNotFoundError) as _e:
+        append_stage_log_line(_state, f"Stage 1 FAILED: {_e}")
         print(str(_e), file=sys.stderr)
         sys.exit(1)

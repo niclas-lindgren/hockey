@@ -341,6 +341,7 @@ if __name__ == "__main__":  # pragma: no cover
     parser.add_argument("--export-dir", default="export", help="Directory for output files")
     cli_args = parser.parse_args()
 
+    from .run_log_paths import append_stage_log_line  # noqa: E402
     from .state import PipelineState, StageName  # noqa: E402
 
     _state = PipelineState(cli_args.work_dir)
@@ -353,7 +354,15 @@ if __name__ == "__main__":  # pragma: no cover
         _result = run(_plan_ckpt, _state, export_dir=cli_args.export_dir)
         files = _result.get("output_files", {})
         print(f"Stage 4 OK — {len(files)} filer eksportert: {', '.join(files.values())}")
+        # Resolved after run() so it lands in the export folder run() just used,
+        # not the pre-export --export-dir/logs fallback.
+        append_stage_log_line(
+            _state,
+            f"Stage 4 OK: {len(files)} files exported",
+            preferred_export_dir=cli_args.export_dir,
+        )
         sys.exit(0)
     except Stage4Error as _e:
+        append_stage_log_line(_state, f"Stage 4 FAILED: {_e}", preferred_export_dir=cli_args.export_dir)
         print(str(_e), file=sys.stderr)
         sys.exit(1)

@@ -297,6 +297,7 @@ if __name__ == "__main__":  # pragma: no cover
     )
     cli_args = parser.parse_args()
 
+    from .run_log_paths import append_stage_log_line  # noqa: E402
     from .state import PipelineState, StageName  # noqa: E402
     from .stage1_config import load_effective_config  # noqa: E402
     from datetime import datetime as _dt  # noqa: E402
@@ -311,12 +312,20 @@ if __name__ == "__main__":  # pragma: no cover
     _start = _dt.strptime(_cfg["start_date"], "%Y-%m-%d")
     _end = _dt.strptime(_cfg["end_date"], "%Y-%m-%d")
 
+    append_stage_log_line(_state, f"Stage 3 starting: iterations={cli_args.iterations}")
     try:
         _result = run(_cfg, _scraping, _state, _start, _end, iterations=cli_args.iterations)
         plan = _result.get("plan", {})
         n = len(plan.get("tournaments", []))
         print(f"Stage 3 OK — {n} turneringer planlagt")
+        gate = plan.get("fairness_gate", {}) if isinstance(plan, dict) else {}
+        append_stage_log_line(
+            _state,
+            f"Stage 3 OK: {n} tournaments planned, "
+            f"fairness_gate={gate.get('status', 'n/a')}:{gate.get('score', 'n/a')}",
+        )
         sys.exit(0)
     except Stage3Error as _e:
+        append_stage_log_line(_state, f"Stage 3 FAILED: {_e}")
         print(str(_e), file=sys.stderr)
         sys.exit(1)
