@@ -26,7 +26,10 @@ export interface PipelineRunResult {
 // Stage 3 already searches multiple random seeds within a single invocation
 // (see "Forsøk N/M" in its output) — defaulting to more than one seed here
 // gives that search room to work without needing an outer retry wrapper.
-const DEFAULT_PLANNER_ITERATIONS = 5;
+// Kept low (3, not 5): each seed is a full independent re-run of the planner,
+// and in practice additional seeds past the first 2-3 rarely improve the
+// best-ranked plan enough to justify the extra wall-clock time.
+const DEFAULT_PLANNER_ITERATIONS = 3;
 
 // Python %Y-%m-%dT%H%M format
 function computeExportTimestamp(): string {
