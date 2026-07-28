@@ -661,11 +661,6 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
     <div id="club-filters">{club_filter_html}</div>
     <h2><span class="sidebar-icon">{_ICON_CALENDAR}</span> Måneder</h2>
     <div id="month-filters">{month_filter_html}</div>
-    <h2><span class="sidebar-icon">{_ICON_REFRESH}</span> Handlinger</h2>
-    <a class="refresh-btn" href="#" onclick="location.reload()">Oppdater side</a>
-    <span class="refresh-btn green cli-hint" title="Kjør denne kommandoen i terminalen for å tvinge re-skraping av alle kalendere">
-      <span class="sidebar-icon">{_ICON_TERMINAL}</span> Kjør <code>rvv-miniputt calendars --refresh</code>
-    </span>
     <p class="count-badge">{source_count} kilder, {total_events} hendelser<br>Oppdatert: {age_all}</p>
   </div>
   <div class="main">
