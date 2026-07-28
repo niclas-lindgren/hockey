@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -44,6 +45,13 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_EXPORT_DIR = "export"
 DEFAULT_BASENAME = "season_plan"
+
+# Matches the "%Y-%m-%dT%H%M" directory name this module generates below.
+# Callers (e.g. a stage-by-stage orchestrator that picks one export dir up
+# front to keep a run's logs and export together) sometimes pass an
+# already-timestamped --export-dir. Detecting that here keeps a second,
+# nested timestamp from being appended on top of it.
+_TIMESTAMP_DIR_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{4}$")
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +117,8 @@ def run(
 
     # Store the primary export path (may be flat or timestamped)
     primary_export_path = export_path
-    if timestamped_export:
+    already_timestamped = bool(_TIMESTAMP_DIR_RE.match(export_path.name))
+    if timestamped_export and not already_timestamped:
         ts_dir = datetime.now().strftime("%Y-%m-%dT%H%M")
         primary_export_path = export_path / ts_dir
         primary_export_path.mkdir(parents=True, exist_ok=True)
