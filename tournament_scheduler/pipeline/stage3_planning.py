@@ -234,6 +234,14 @@ def run(
         candidates.append(candidate)
 
         print(f"[plan] Forsøk {idx}/{n_iters}: fairness score={score} (status={status})", flush=True)
+        for metric in gate.get("metrics", []):
+            metric_status = str(metric.get("status", "pass"))
+            if metric_status == "pass":
+                continue
+            tag = "FEIL" if metric_status == "fail" else "ADVARSEL"
+            label = metric.get("label", metric.get("key", "?"))
+            detail = str(metric.get("detail", ""))
+            print(f"[plan] Forsøk {idx}/{n_iters}:   {tag} {label}: {detail}", flush=True)
         if best_rank is None or rank > best_rank:
             best_rank = rank
             best_plan = plan
