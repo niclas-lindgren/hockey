@@ -200,7 +200,7 @@ Outside Pi, use the portable equivalents:
 - `scripts/rvv-miniputt status`
 - `scripts/rvv-miniputt logs list`
 
-Run logs (`run-*.jsonl`) live in the export tree alongside the exported artifacts.
+Run logs (`run-*.jsonl`) live in the export tree alongside the exported artifacts; `.pipeline/logs/` is only a legacy fallback when no export folder exists yet.
 
 ### Recover from blocked sources
 

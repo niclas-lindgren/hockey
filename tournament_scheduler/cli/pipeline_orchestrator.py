@@ -9,6 +9,8 @@ from typing import Any
 
 from rich.console import Console
 
+from ..pipeline.run_log_paths import resolve_active_run_log_dir
+
 _console = Console()
 
 _STAGE_NAMES = {1: "stage1", 2: "stage2", 3: "stage3"}
@@ -547,25 +549,12 @@ def _cmd_calendars(args: argparse.Namespace) -> int:
 
 def _resolve_run_log_dir(args: argparse.Namespace, state: "Any", start_time: datetime) -> Path:
     """Return the export folder where the current run log should live."""
-    from ..pipeline.state import StageName
-
-    try:
-        export_envelope = state.read_envelope(StageName.EXPORT)
-        output_files = (export_envelope.get("data") or {}).get("output_files") or {}
-        if isinstance(output_files, dict):
-            for key in ("excel", "html_report", "html", "spond", "spond_games", "ical", "csv_games"):
-                path = output_files.get(key)
-                if path:
-                    return Path(path).resolve().parent
-    except Exception:
-        pass
-
     export_dir = Path(getattr(args, "export_dir", "export"))
     if not export_dir.is_absolute():
         export_dir = Path.cwd() / export_dir
     if getattr(args, "timestamped_export", True):
-        return export_dir / start_time.strftime("%Y-%m-%dT%H%M")
-    return export_dir
+        export_dir = export_dir / start_time.strftime("%Y-%m-%dT%H%M")
+    return resolve_active_run_log_dir(state, preferred_export_dir=export_dir)
 
 
 

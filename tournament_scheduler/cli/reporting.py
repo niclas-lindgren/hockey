@@ -65,6 +65,8 @@ def _load_jsonl_entries(log_path: Path) -> list[dict[str, Any]]:
 
 def _candidate_log_paths(work_dir: Path) -> list[Path]:
     paths: list[Path] = []
+    # Keep authoritative log history in the export tree; legacy
+    # ``.pipeline/logs`` files are intentionally not part of the lookup.
     for export_root in (work_dir / "export", work_dir.parent / "export"):
         if export_root.exists():
             paths.extend(sorted(export_root.rglob("run-*.jsonl"), reverse=True))

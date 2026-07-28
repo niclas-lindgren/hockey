@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Sequence
 
 from .args import build_parser
+from ..pipeline.run_log_paths import resolve_active_run_log_dir
+from ..pipeline.state import PipelineState
 
 
 def _latest_jsonl(log_dir: Path) -> Path | None:
@@ -74,10 +76,13 @@ def archive_latest_run_log(argv: Sequence[str] | None = None) -> list[Path]:
     if latest_export_log and latest_export_log.stat().st_mtime >= run_log.stat().st_mtime:
         return []
 
-    targets = [export_root]
-    latest_run_dir = _latest_export_run_dir(export_root)
-    if latest_run_dir and latest_run_dir != export_root:
-        targets.insert(0, latest_run_dir)
+    target_dir = resolve_active_run_log_dir(
+        PipelineState(work_dir),
+        preferred_export_dir=_latest_export_run_dir(export_root) or export_root,
+    )
+    targets = [target_dir]
+    if target_dir != export_root:
+        targets.append(export_root)
 
     return _copy_run_log(run_log, targets)
 

@@ -37,6 +37,7 @@ from typing import Any, Optional, Sequence
 
 from ..models import SeasonPlan, Tournament
 from .state import PipelineState, StageName, StageStatus
+from .run_log_paths import resolve_active_run_log_dir
 from .tournament_updater import TournamentUpdater, UpdateResult
 
 logger = logging.getLogger(__name__)
@@ -368,11 +369,11 @@ class CancellationWorkflow:
         result: CancelResult,
         run_id: Optional[str] = None,
     ) -> str:
-        """Write a structured ``tournament_cancellation`` entry to the pipeline logs."""
+        """Write a structured ``tournament_cancellation`` entry to the run log."""
         import json
         import os
 
-        log_dir = Path(self.state.work_dir) / "logs"
+        log_dir = resolve_active_run_log_dir(self.state)
         log_dir.mkdir(parents=True, exist_ok=True)
 
         if run_id:

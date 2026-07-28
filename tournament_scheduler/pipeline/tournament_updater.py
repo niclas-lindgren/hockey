@@ -9,7 +9,7 @@ Supports two operations after a season plan has been generated:
 
 Both operations read a ``SeasonPlan`` from a Stage 3 checkpoint, apply
 the modification, write an updated checkpoint, and log the change to the
-pipeline logs directory for traceability via ``rvv-miniputt logs``.
+active export folder for traceability via ``rvv-miniputt logs``.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from ..models import Game, Roster, SeasonPlan, Team, Tournament
 from ..scheduler import TournamentScheduler
 from ..season_planner import SeasonPlanner
 from .state import PipelineState, StageName, StageStatus
+from .run_log_paths import resolve_active_run_log_dir
 from .stage3_planning import _plan_to_dict
 from .stage3_helpers import _tournament_from_dict
 
@@ -691,18 +692,18 @@ class TournamentUpdater:
     # ------------------------------------------------------------------
 
     def log_update(self, result: UpdateResult, run_id: Optional[str] = None) -> str:
-        """Write a structured ``tournament_update`` entry to the pipeline logs.
+        """Write a structured ``tournament_update`` entry to the run log.
 
         Args:
             result: The update result to log.
             run_id: An optional run ID. If not provided, the most recent
-                log file in ``.pipeline/logs/`` is used, or a new run is
-                started if none exist.
+                log file in the active export tree is reused when present,
+                otherwise a new run file is started.
 
         Returns:
             The path to the log file that was appended to.
         """
-        log_dir = self._log_dir or Path(self.state.work_dir) / "logs"
+        log_dir = self._log_dir or resolve_active_run_log_dir(self.state)
         log_dir.mkdir(parents=True, exist_ok=True)
 
         if run_id:

@@ -10,6 +10,7 @@ Covers:
 """
 
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -572,7 +573,7 @@ class TestLogCancellation:
     def test_log_writes_jsonl_entry(
         self, four_team_tournament: Tournament, tmp_path: Any
     ):
-        """log_cancellation should append a JSONL entry to the pipeline logs."""
+        """log_cancellation should append a JSONL entry to the active export-folder log."""
         import json
 
         plan = SeasonPlan(tournaments=[four_team_tournament])
@@ -580,12 +581,24 @@ class TestLogCancellation:
         wf = CancellationWorkflow(state)
         tid = four_team_tournament.id
 
+        export_dir = tmp_path / "export" / "2026-07-27T2230"
+        export_dir.mkdir(parents=True)
+        state.write_stage(
+            StageName.EXPORT,
+            {"output_files": {"excel": str(export_dir / "season_plan.xlsx")}},
+            status=StageStatus.DONE,
+        )
+        legacy_log_dir = state.work_dir / "logs"
+        legacy_log_dir.mkdir(parents=True, exist_ok=True)
+        (legacy_log_dir / "run-legacy.jsonl").write_text("legacy\n", encoding="utf-8")
+
         result = wf.mark_cancelled(tid, "Loggtest avlysning", plan=plan)
-        log_path = wf.log_cancellation(result)
+        log_path = Path(wf.log_cancellation(result))
 
         with open(log_path, "r", encoding="utf-8") as f:
             entry = json.loads(f.read())
 
+        assert log_path.parent == export_dir
         assert entry["type"] == "tournament_cancellation"
         assert entry["tournament_id"] == tid
         assert entry["success"] is True

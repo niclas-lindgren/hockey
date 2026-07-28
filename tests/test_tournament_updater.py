@@ -8,6 +8,7 @@ Covers:
 """
 
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -363,20 +364,32 @@ class TestCheckpointRoundTrip:
         assert plan2.manual_adjustments["pinned_tournament_ids"] == [six_team_tournament.id]
 
     def test_log_update_writes_jsonl_entry(self, six_team_tournament: Tournament, tmp_path: Any):
-        """log_update should append a JSONL entry to the pipeline logs directory."""
+        """log_update should append a JSONL entry to the active export-folder log."""
         plan = SeasonPlan(tournaments=[six_team_tournament])
         state = make_state_with_plan(plan, tmp_path)
         updater = TournamentUpdater(state=state)
         tid = six_team_tournament.id
 
+        export_dir = tmp_path / "export" / "2026-07-27T2230"
+        export_dir.mkdir(parents=True)
+        state.write_stage(
+            StageName.EXPORT,
+            {"output_files": {"excel": str(export_dir / "season_plan.xlsx")}},
+            status=StageStatus.DONE,
+        )
+        legacy_log_dir = state.work_dir / "logs"
+        legacy_log_dir.mkdir(parents=True, exist_ok=True)
+        (legacy_log_dir / "run-legacy.jsonl").write_text("legacy\n", encoding="utf-8")
+
         # First create a log entry
         result = updater.drop_team(tid, "Jar 1", plan=plan)
-        log_path = updater.log_update(result)
+        log_path = Path(updater.log_update(result))
 
         import json
         with open(log_path, "r", encoding="utf-8") as f:
             entry = json.loads(f.read())
 
+        assert log_path.parent == export_dir
         assert entry["type"] == "tournament_update"
         assert entry["tournament_id"] == tid
         assert entry["operation"] == "team_drop"
