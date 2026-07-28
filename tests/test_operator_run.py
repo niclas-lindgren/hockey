@@ -156,6 +156,105 @@ def test_propagates_cmd_run_exit_code(tmp_path):
     assert rc == 1
 
 
+# ---------------------------------------------------------------------------
+# --publish (issue #32 follow-up): "run --publish" must behave exactly like
+# "run" followed by a separate "publish" — same flags, same per-run log, with
+# the publish outcome folded into that same log rather than left unlogged.
+# ---------------------------------------------------------------------------
+
+
+def test_publish_flag_triggers_publish_after_successful_run(tmp_path):
+    from tournament_scheduler.pipeline.capability_result import CapabilityResult
+
+    args = _operator_args(tmp_path, publish=True, confirm_public=True)
+    fake_result = CapabilityResult.ok("Published to https://example.com/latest/", capability="publish_pages")
+    with patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=0), patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._execute_operator_publish",
+        return_value=fake_result,
+    ) as mock_publish, patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._append_publish_outcome_to_run_log"
+    ) as mock_append_log:
+        rc = _cmd_operator_run(args)
+
+    mock_publish.assert_called_once_with(args)
+    mock_append_log.assert_called_once()
+    assert mock_append_log.call_args[0][2] is fake_result
+    assert rc == 0
+
+
+def test_publish_flag_skipped_when_run_fails(tmp_path):
+    args = _operator_args(tmp_path, publish=True, confirm_public=True)
+    with patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=1), patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._execute_operator_publish"
+    ) as mock_publish:
+        rc = _cmd_operator_run(args)
+
+    mock_publish.assert_not_called()
+    assert rc == 1
+
+
+def test_publish_flag_absent_never_calls_publish(tmp_path):
+    args = _operator_args(tmp_path)
+    with patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=0), patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._execute_operator_publish"
+    ) as mock_publish:
+        rc = _cmd_operator_run(args)
+
+    mock_publish.assert_not_called()
+    assert rc == 0
+
+
+def test_publish_rc_propagates_when_publish_action_registry_raises(tmp_path):
+    """_execute_operator_publish returns None when the registry itself raised (already printed)."""
+    args = _operator_args(tmp_path, publish=True, confirm_public=True)
+    with patch("tournament_scheduler.cli.pipeline_orchestrator._cmd_run", return_value=0), patch(
+        "tournament_scheduler.cli.pipeline_orchestrator._execute_operator_publish", return_value=None
+    ), patch("tournament_scheduler.cli.pipeline_orchestrator._append_publish_outcome_to_run_log") as mock_append_log:
+        rc = _cmd_operator_run(args)
+
+    mock_append_log.assert_not_called()
+    assert rc == 1
+
+
+def test_append_publish_outcome_to_run_log_appends_to_latest_run_log(tmp_path):
+    from tournament_scheduler.cli.pipeline_orchestrator import _append_publish_outcome_to_run_log
+    from tournament_scheduler.pipeline.capability_result import CapabilityResult
+
+    work_dir = tmp_path / "pipeline"
+    state = PipelineState(work_dir)
+    log_dir = work_dir / "logs"
+    log_dir.mkdir(parents=True)
+    log_path = log_dir / "pipeline_run_20250101_120000_OK.log"
+    log_path.write_text("# Pipeline run log\n# Status: SUCCESS\n", encoding="utf-8")
+
+    result = CapabilityResult(
+        status="ok",
+        summary="Publisert til https://example.com/latest/",
+        capability="publish_pages",
+        artifacts=["https://example.com/latest/"],
+        problems=[],
+    )
+    _append_publish_outcome_to_run_log(str(work_dir), state, result)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "# Publish" in content
+    assert "Status: ok" in content
+    assert "Publisert til https://example.com/latest/" in content
+    assert "artifact: https://example.com/latest/" in content
+
+
+def test_append_publish_outcome_to_run_log_is_a_noop_when_no_run_log_exists(tmp_path):
+    """Best-effort: must never raise even if there's nothing to append to."""
+    from tournament_scheduler.cli.pipeline_orchestrator import _append_publish_outcome_to_run_log
+    from tournament_scheduler.pipeline.capability_result import CapabilityResult
+
+    work_dir = tmp_path / "pipeline"
+    state = PipelineState(work_dir)
+    result = CapabilityResult.ok("Published", capability="publish_pages")
+
+    _append_publish_outcome_to_run_log(str(work_dir), state, result)  # must not raise
+
+
 def test_prints_final_summary_from_run_manifest(tmp_path, capsys):
     from tournament_scheduler.pipeline.capability_result import CapabilityResult
 

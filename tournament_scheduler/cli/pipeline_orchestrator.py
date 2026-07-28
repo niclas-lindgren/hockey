@@ -1790,14 +1790,26 @@ def _cmd_operator_run(args: argparse.Namespace) -> int:
     _print_operator_summary(args.work_dir)
 
     if rc == 0 and getattr(args, "publish", False):
-        publish_rc = _cmd_operator_publish(args)
+        publish_result = _execute_operator_publish(args)
+        if publish_result is None:
+            publish_rc = 1
+        else:
+            publish_rc = _print_pages_result(publish_result, as_json=getattr(args, "json", False))
+            _append_publish_outcome_to_run_log(args.work_dir, state, publish_result)
         rc = rc if publish_rc == 0 else publish_rc
 
     return rc
 
 
-def _cmd_operator_publish(args: argparse.Namespace) -> int:
-    """Handle ``rvv-miniputt operator publish`` — publish the exported plan to GitHub Pages (issue #17).
+def _execute_operator_publish(args: argparse.Namespace) -> "Any | None":
+    """Build and execute the ``publish_pages`` action, recording it in the run manifest.
+
+    Shared by ``_cmd_operator_publish`` (standalone ``operator publish``) and
+    ``_cmd_operator_run`` (``operator run --publish``) so both paths build
+    the exact same action from the exact same flags — see the module-level
+    docstring note on ``op_run`` in ``cli/args.py`` (issue #32 follow-up):
+    "run --publish" must behave identically to "run" followed by a separate
+    "publish", not a distinct, weaker code path.
 
     Always invoked with ``approved=True`` at the :class:`ActionRegistry`
     level — running this command at all is the coarse consent to attempt an
@@ -1805,9 +1817,12 @@ def _cmd_operator_publish(args: argparse.Namespace) -> int:
     its own to actually push to the Pages branch: ``_execute_publish_pages``
     additionally requires either ``--confirm-public`` on this exact
     invocation or a previously durable-answered approval for this exact
-    bundle/target (issue #19) — so ``operator run --publish`` alone (which
-    never sets ``--confirm-public``) only ever previews and raises an
-    approval question, never publishes unattended.
+    bundle/target (issue #19).
+
+    Returns the :class:`CapabilityResult` (whatever its status — the caller
+    renders blocked/failed outcomes too), or ``None`` if the action registry
+    itself raised before producing one (unknown action, missing approval, or
+    persistence unavailable) — in which case this already printed the error.
     """
     from ..pipeline.operator_action import (
         DEFAULT_REGISTRY,
@@ -1847,13 +1862,59 @@ def _cmd_operator_publish(args: argparse.Namespace) -> int:
         result = DEFAULT_REGISTRY.execute(action, approved=True)
     except (UnknownActionError, ApprovalRequiredError, PersistenceUnavailableError) as exc:
         _console.print(f"[red]✗[/red] {exc}")
-        return 1
+        return None
 
     try:
         RunManifest(args.work_dir).record_capability(result)
     except ManifestPersistenceError as exc:
         _warn_manifest_failure(args.work_dir, "registrere Pages-publisering i", exc)
 
+    return result
+
+
+def _append_publish_outcome_to_run_log(work_dir: str, state: "Any", result: "Any") -> None:
+    """Append a run-triggered publish step's outcome to that run's own log file.
+
+    ``_write_run_log`` (called inside ``_cmd_run``) already finishes and
+    closes the pipeline run's log before ``operator run --publish`` gets a
+    chance to publish — so without this, the publish step was completely
+    invisible to the log the user checks after the fact, even though it ran
+    in the very same invocation. "run --publish" is meant to be the same as
+    "run" plus publishing, so its log should be the same run log with the
+    publish outcome appended, not a separate silent action (issue #32
+    follow-up).
+
+    Best-effort: appended after the fact by locating the most recently
+    written ``pipeline_run_*.log`` for this workspace, so a failure here
+    (e.g. log dir missing) never affects the publish result itself.
+    """
+    try:
+        log_dir = resolve_active_run_log_dir(state)
+        candidates = sorted(
+            log_dir.glob("pipeline_run_*.log"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if not candidates:
+            return
+        log_path = candidates[0]
+        with log_path.open("a", encoding="utf-8") as handle:
+            handle.write(f"\n# Publish ({datetime.now().isoformat()})\n")
+            handle.write(f"# Status: {result.status}\n")
+            handle.write(f"{result.summary}\n")
+            for artifact in result.artifacts:
+                handle.write(f"  artifact: {artifact}\n")
+            for problem in result.problems:
+                handle.write(f"  problem: {problem}\n")
+    except Exception:
+        pass
+
+
+def _cmd_operator_publish(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt operator publish`` — publish the exported plan to GitHub Pages (issue #17)."""
+    result = _execute_operator_publish(args)
+    if result is None:
+        return 1
     return _print_pages_result(result, as_json=getattr(args, "json", False))
 
 

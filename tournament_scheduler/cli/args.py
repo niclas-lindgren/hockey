@@ -220,6 +220,84 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="After a successful run, publish the exported season plan to GitHub Pages (issue #17)",
     )
+    # The following mirror "operator publish"'s own flags exactly (same names/help/defaults) so
+    # "operator run --publish ..." behaves identically to running "operator run" followed by a
+    # separate "operator publish ..." — the only difference is that this bundles both into one
+    # invocation, and folds the publish outcome into the same per-run log (issue #32 follow-up).
+    op_run.add_argument(
+        "--repo-dir",
+        default=".",
+        help="Git repository directory to publish from (default: current directory)",
+    )
+    op_run.add_argument(
+        "--branch",
+        default="gh-pages",
+        help="Pages branch to publish to (default: gh-pages)",
+    )
+    op_run.add_argument(
+        "--remote",
+        default="origin",
+        help="Git remote to push to (default: origin)",
+    )
+    op_run.add_argument(
+        "--no-push",
+        dest="push",
+        action="store_false",
+        help="Commit the Pages branch locally but do not push to the remote",
+    )
+    op_run.set_defaults(push=True)
+    op_run.add_argument(
+        "--extra-public-file",
+        dest="extra_public_files",
+        action="append",
+        default=[],
+        metavar="FILENAME",
+        help="Allow an additional filename into the sanitized public bundle (issue #18); repeatable",
+    )
+    op_run.add_argument(
+        "--allow-finding",
+        dest="allow_findings",
+        action="append",
+        default=[],
+        metavar="TEXT",
+        help="Acknowledge a specific flagged string as a false positive so it no longer blocks "
+        "publication (issue #18); repeatable",
+    )
+    op_run.add_argument(
+        "--confirm-public",
+        action="store_true",
+        help="Explicitly authorize publishing this exact bundle to this exact target right now "
+        "(issue #19) — without this (or a prior durable 'godkjenn' answer for this exact bundle "
+        "and target), --publish only previews and raises an approval question",
+    )
+    op_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only show what would change under /latest/ and raise the approval question; "
+        "never publish, even if an approval already exists for this bundle",
+    )
+    op_run.add_argument(
+        "--no-verify",
+        dest="verify",
+        action="store_false",
+        help="Skip polling the published URL for reachability after a successful publish push (issue #20)",
+    )
+    op_run.set_defaults(verify=True)
+    op_run.add_argument(
+        "--verify-max-attempts",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Bounded retry count for post-publish verification (default: pages_verify's own default)",
+    )
+    op_run.add_argument(
+        "--verify-retry-delay",
+        dest="verify_retry_delay_seconds",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Delay between post-publish verification attempts (default: pages_verify's own default)",
+    )
 
     op_questions = operator_sub.add_parser(
         "questions",
