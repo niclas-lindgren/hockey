@@ -54,7 +54,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   const cwdPath = ctx.cwd;
   const inputPath  = resolve(cwdPath, params.input     ?? "input.xlsx");
   const workDir    = resolve(cwdPath, params.work_dir  ?? ".pipeline");
-  const exportDir  = resolve(cwdPath, params.export_dir ?? "export");
+  const exportRoot = resolve(cwdPath, params.export_dir ?? "export");
   const resumeFrom = params.resume_from ? resolveResumeStage(params.resume_from) : 1;
   const verbose    = params.log_level === "verbose";
 
@@ -62,12 +62,12 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   const now = new Date();
   const pad = (n: number) => n.toString().padStart(2, "0");
   const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}${pad(now.getMinutes())}`;
-  const timestampedExportDir = resolve(exportDir, ts);
+  const timestampedExportDir = params.timestamped_export === false ? exportRoot : resolve(exportRoot, ts);
 
   mkdirSync(workDir, { recursive: true });
   mkdirSync(timestampedExportDir, { recursive: true });
 
-  const logger = new PipelineLogger(workDir);
+  const logger = new PipelineLogger(workDir, timestampedExportDir, exportRoot);
   const runLogPath = resolve(timestampedExportDir, `pipeline_run_${logger.getRunId()}.log`);
 
   // Determine which stages to run

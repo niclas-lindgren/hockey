@@ -4,8 +4,8 @@
 
 import type { LogEntry, RunMeta, StageMeta, SelfImproveEntry } from "./types";
 import { STAGE_ORDER } from "./pipeline-helpers";
-import { existsSync, mkdirSync, readFileSync, readdirSync, appendFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, appendFileSync, statSync } from "node:fs";
+import { basename, join } from "node:path";
 import { cwd } from "node:process";
 
 function nowISO(): string {
@@ -40,14 +40,18 @@ function gitCommit(cwdPath: string): { hash: string; dirty: boolean } {
 }
 
 export class PipelineLogger {
+  private workDir: string;
   private logDir: string;
+  private historyRoot: string;
   private logPath: string;
   private runId: string;
   private startTime: number;
   private stageStarts: Map<string, number> = new Map();
 
-  constructor(workDir: string) {
-    this.logDir = join(workDir, "logs");
+  constructor(workDir: string, logDir?: string, historyRoot?: string) {
+    this.workDir = workDir;
+    this.logDir = logDir ?? join(workDir, "logs");
+    this.historyRoot = historyRoot ?? workDir;
     mkdirSync(this.logDir, { recursive: true });
     this.runId = runId();
     this.logPath = join(this.logDir, `${this.runId}.jsonl`);
@@ -59,6 +63,47 @@ export class PipelineLogger {
 
   private write(entry: LogEntry): void {
     appendFileSync(this.logPath, JSON.stringify(entry) + "\n", "utf-8");
+  }
+
+  private collectRunLogCandidates(root: string): string[] {
+    if (!existsSync(root)) return [];
+    const files: string[] = [];
+    const stack: string[] = [root];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      if (!current) continue;
+      for (const entry of readdirSync(current, { withFileTypes: true })) {
+        const fullPath = join(current, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(fullPath);
+        } else if (entry.isFile() && entry.name.startsWith("run-") && entry.name.endsWith(".jsonl")) {
+          files.push(fullPath);
+        }
+      }
+    }
+    return files;
+  }
+
+  private historicalRunLogPaths(): string[] {
+    const candidates = [
+      ...this.collectRunLogCandidates(this.historyRoot),
+      ...this.collectRunLogCandidates(join(this.workDir, "logs")),
+    ];
+
+    const deduped = new Map<string, string>();
+    for (const path of candidates) {
+      const key = basename(path);
+      const existing = deduped.get(key);
+      if (!existing) {
+        deduped.set(key, path);
+        continue;
+      }
+      if (statSync(path).mtimeMs >= statSync(existing).mtimeMs) {
+        deduped.set(key, path);
+      }
+    }
+
+    return [...deduped.values()].sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
   }
 
   logRunMeta(args: Record<string, string | undefined>, resumeFrom: number, stages: string[]): void {
@@ -159,16 +204,13 @@ export class PipelineLogger {
 
   private appendSelfImproveStats(): void {
     try {
-      const files = readdirSync(this.logDir)
-        .filter((f) => f.startsWith("run-") && f.endsWith(".jsonl"))
-        .sort()
-        .reverse();
+      const files = this.historicalRunLogPaths();
 
       const allRuns: RunMeta[] = [];
       const stageRuns: Record<string, StageMeta[]> = {};
 
       for (const file of files) {
-        const lines = readFileSync(join(this.logDir, file), "utf-8")
+        const lines = readFileSync(file, "utf-8")
           .trim()
           .split("\n")
           .filter(Boolean);

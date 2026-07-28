@@ -91,7 +91,7 @@ export async function interactiveGuide(ctx: ExtensionCommandContext): Promise<vo
       "Nokkel-filer:",
       "  input.xlsx               — klubb-/lag-konfigurasjon",
       "  .pipeline/               — mellomlagring (checkpoints)",
-      "  .pipeline/logs/          — kjoringslogg",
+      "  export/…/run-*.jsonl     — kjoringslogg",
       "  export/                  — ferdige filer (Excel, iCal, CSV)",
       "",
       "For mer informasjon, se PROJECT.md og AGENTS.md.",

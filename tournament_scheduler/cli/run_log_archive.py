@@ -1,4 +1,4 @@
-"""Archive the latest structured run log into the export folder."""
+"""Archive the latest structured run log into the export folder when needed."""
 
 from __future__ import annotations
 
@@ -32,6 +32,17 @@ def _latest_export_run_dir(export_dir: Path) -> Path | None:
     return child_dirs[0] if child_dirs else export_dir
 
 
+def _latest_export_run_log(export_dir: Path) -> Path | None:
+    if not export_dir.exists():
+        return None
+    candidates = sorted(
+        export_dir.rglob("run-*.jsonl"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
 def _copy_run_log(run_log: Path, targets: Sequence[Path]) -> list[Path]:
     copied: list[Path] = []
     for target_dir in targets:
@@ -59,6 +70,10 @@ def archive_latest_run_log(argv: Sequence[str] | None = None) -> list[Path]:
 
     export_dir = Path(getattr(args, "export_dir", "export"))
     export_root = export_dir if export_dir.is_absolute() else Path.cwd() / export_dir
+    latest_export_log = _latest_export_run_log(export_root)
+    if latest_export_log and latest_export_log.stat().st_mtime >= run_log.stat().st_mtime:
+        return []
+
     targets = [export_root]
     latest_run_dir = _latest_export_run_dir(export_root)
     if latest_run_dir and latest_run_dir != export_root:

@@ -38,3 +38,30 @@ def test_archive_latest_run_log_copies_into_export_root_and_latest_run_dir(tmp_p
     assert export_root / "run-new.jsonl" in copied
     assert (run_dir / "run-new.jsonl").read_text(encoding="utf-8") == "new\n"
     assert (export_root / "run-new.jsonl").read_text(encoding="utf-8") == "new\n"
+
+
+def test_archive_latest_run_log_skips_when_export_tree_already_has_newer_log(tmp_path: Path) -> None:
+    work_dir = tmp_path / ".pipeline"
+    log_dir = work_dir / "logs"
+    log_dir.mkdir(parents=True)
+
+    legacy_log = log_dir / "run-legacy.jsonl"
+    legacy_log.write_text("legacy\n", encoding="utf-8")
+
+    export_root = tmp_path / "export"
+    export_run_dir = export_root / "2026-07-27T2230"
+    export_run_dir.mkdir(parents=True)
+    existing_log = export_run_dir / "run-current.jsonl"
+    existing_log.write_text("current\n", encoding="utf-8")
+
+    legacy_time = datetime.now() - timedelta(minutes=5)
+    current_time = datetime.now()
+    os_import = __import__("os")
+    os_import.utime(legacy_log, (legacy_time.timestamp(), legacy_time.timestamp()))
+    os_import.utime(existing_log, (current_time.timestamp(), current_time.timestamp()))
+
+    copied = archive_latest_run_log(["run", "--work-dir", str(work_dir), "--export-dir", str(export_root)])
+
+    assert copied == []
+    assert existing_log.read_text(encoding="utf-8") == "current\n"
+    assert not (export_root / "run-legacy.jsonl").exists()
