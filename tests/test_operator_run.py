@@ -62,7 +62,7 @@ def _operator_args(tmp_path: Path, **overrides) -> argparse.Namespace:
     defaults = dict(
         work_dir=str(tmp_path),
         input="input.xlsx",
-        export_dir="export",
+        export_dir=str(tmp_path / "export"),
         objective=None,
         resume_from=None,
         force=False,
