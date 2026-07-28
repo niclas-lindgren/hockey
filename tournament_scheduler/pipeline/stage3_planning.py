@@ -242,6 +242,29 @@ def run(
             label = metric.get("label", metric.get("key", "?"))
             detail = str(metric.get("detail", ""))
             print(f"[plan] Forsøk {idx}/{n_iters}:   {tag} {label}: {detail}", flush=True)
+
+        # When a club's arena has no free slot near its assigned date, the
+        # scheduler falls back to a different host — this is the direct
+        # cause of "expected N hosting slots, got 0" in the metric above,
+        # distinct from missing calendar data entirely.
+        substitutions = planner.fallback_host_substitutions
+        if substitutions:
+            lost_counts: dict[str, int] = {}
+            gained_counts: dict[str, int] = {}
+            for _date, _age_group, original_host, final_host in substitutions:
+                lost_counts[original_host] = lost_counts.get(original_host, 0) + 1
+                gained_counts[final_host] = gained_counts.get(final_host, 0) + 1
+            lost_summary = ", ".join(
+                f"{club} mistet {count}" for club, count in sorted(lost_counts.items(), key=lambda kv: -kv[1])[:5]
+            )
+            gained_summary = ", ".join(
+                f"{club} fikk {count}" for club, count in sorted(gained_counts.items(), key=lambda kv: -kv[1])[:5]
+            )
+            print(
+                f"[plan] Forsøk {idx}/{n_iters}:   INFO Vertsbytte pga. opptatt arena ({len(substitutions)} tilfelle(r)): "
+                f"{lost_summary} -> {gained_summary}",
+                flush=True,
+            )
         if best_rank is None or rank > best_rank:
             best_rank = rank
             best_plan = plan
