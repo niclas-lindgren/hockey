@@ -9,6 +9,15 @@ import { basename, dirname, join, resolve } from "node:path";
 
 export const STAGE_ORDER = ["config", "scraping", "planning", "export"];
 
+/** Thrown by runStage() when a stage was killed via its AbortSignal rather than failing on its own. */
+export class StageCancelledError extends Error {
+  readonly cancelled = true as const;
+  constructor(message: string) {
+    super(message);
+    this.name = "StageCancelledError";
+  }
+}
+
 export const STAGE_FILES: Array<{ label: string; filename: string }> = [
   { label: "Stage 1 (Config)",    filename: "stage1_config.json"   },
   { label: "Stage 2 (Scraping)",  filename: "stage2_scraping.json" },
@@ -16,13 +25,25 @@ export const STAGE_FILES: Array<{ label: string; filename: string }> = [
   { label: "Stage 4 (Export)",    filename: "stage4_export.json"   },
 ];
 
-/** Run a Python stage module and return stdout/stderr. */
+/**
+ * Run a Python stage module and return stdout/stderr.
+ *
+ * When `signal` fires (the user cancelled the agent turn), the child process
+ * is killed rather than left running detached — previously there was no
+ * cancellation wiring at all here, so stopping Pi mid-run never actually
+ * stopped the underlying Python subprocess, and the only way to make it
+ * stop was to kill Pi's own process (and everything under it) instead.
+ */
 export async function runStage(
   cwd: string,
   module: string,
   args: string[],
   onOutput?: (event: { stream: "stdout" | "stderr"; line: string }) => void,
+  signal?: AbortSignal,
 ): Promise<{ stdout: string; stderr: string }> {
+  if (signal?.aborted) {
+    throw new StageCancelledError(`${module} ble ikke startet — kjøringen var allerede avbrutt`);
+  }
   const python = resolve(cwd, "venv", "bin", "python3");
   const exe = existsSync(python) ? python : "python3";
   return await new Promise((resolvePromise, rejectPromise) => {
@@ -34,6 +55,7 @@ export async function runStage(
     const stdoutLines: string[] = [];
     const stderrLines: string[] = [];
     let lastActivity = Date.now();
+    let cancelled = false;
     const heartbeatMs = 15_000;
     const heartbeatTimer = setInterval(() => {
       if (Date.now() - lastActivity < heartbeatMs) return;
@@ -42,10 +64,33 @@ export async function runStage(
       lastActivity = Date.now();
     }, heartbeatMs);
 
-    const finish = (code: number | null) => {
+    // Give the Python process a chance to exit cleanly on SIGTERM (it may be
+    // mid-write to a checkpoint file); force-kill if it ignores that.
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
+    const onAbort = () => {
+      cancelled = true;
+      onOutput?.({ stream: "stdout", line: `[heartbeat] ${module}: avbryter (SIGTERM)...` });
+      child.kill("SIGTERM");
+      killTimer = setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch { /* already exited */ }
+      }, 5_000);
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    const cleanup = () => {
       clearInterval(heartbeatTimer);
+      if (killTimer) clearTimeout(killTimer);
+      signal?.removeEventListener("abort", onAbort);
       stdoutInterface.close();
       stderrInterface.close();
+    };
+
+    const finish = (code: number | null) => {
+      cleanup();
+      if (cancelled) {
+        rejectPromise(new StageCancelledError(`${module} ble avbrutt av bruker`));
+        return;
+      }
       if (code === 0) {
         resolvePromise({ stdout: stdoutLines.join("\n").trim(), stderr: stderrLines.join("\n").trim() });
         return;
@@ -69,7 +114,7 @@ export async function runStage(
     });
 
     child.on("error", (err) => {
-      clearInterval(heartbeatTimer);
+      cleanup();
       rejectPromise(err);
     });
     child.on("close", finish);

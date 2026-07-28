@@ -98,7 +98,8 @@ async function runCalendars(rawArgs: unknown, ctx: ExtensionContext): Promise<{ 
 }
 
 function notifyPipelineResult(ctx: ExtensionContext, result: PipelineRunResult): void {
-  ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
+  const level = result.status === "success" ? "info" : result.status === "cancelled" ? "warning" : "error";
+  ctx.ui.notify(result.text, level);
 }
 
 export default function rvvMiniputt(pi: ExtensionAPI): void {
@@ -108,7 +109,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
   pi.registerCommand("rvv-miniputt run", {
     description:
       "Kjør den firetrinns sesongplanleggingspipelinen for RVV-hockeyklubber. " +
-      "Støtter gjenopptak fra et bestemt trinn. Trinn 3 prøver flere tilfeldige frø internt (standard 5).\n" +
+      "Støtter gjenopptak fra et bestemt trinn. Trinn 3 prøver flere tilfeldige frø internt (standard 3, sett med --iterations).\n" +
       "Valgfrie flagg: --input <input.xlsx> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
       "--log-level <info|verbose> --force-refresh --iterations <N>\n" +
       "Trinn 2 gjenbruker kalenderdata fra cache (under 24 timer gammel) med mindre --force-refresh er satt.\n" +

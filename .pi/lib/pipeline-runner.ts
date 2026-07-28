@@ -14,12 +14,13 @@ import {
   buildStatusText,
   resolveResumeStage,
   estimateDataVolume,
+  StageCancelledError,
 } from "./pipeline-helpers";
 import { buildRunSummaryText } from "./log-inspector";
 import type { ProgressEvent } from "./types";
 
 export interface PipelineRunResult {
-  status: "success" | "failure";
+  status: "success" | "failure" | "cancelled";
   text: string;
 }
 
@@ -42,7 +43,7 @@ function writeRunLogFile(
   exportDir: string,
   runId: string,
   startedAt: Date,
-  status: "running" | "success" | "failure",
+  status: "running" | "success" | "failure" | "cancelled",
   lines: string[],
 ): string {
   const runLogPath = resolve(exportDir, `pipeline_run_${runId}.log`);
@@ -71,6 +72,12 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   const exportRoot = resolve(cwdPath, params.export_dir ?? "export");
   const resumeFrom = params.resume_from ? resolveResumeStage(params.resume_from) : 1;
   const verbose    = params.log_level === "verbose";
+  // The current agent turn's abort signal — fires when the user cancels/stops
+  // (e.g. Escape) while this pipeline is running. Threaded through to every
+  // runStage() call below so cancelling actually kills the Python subprocess
+  // instead of leaving it running detached (issue: cancellation was a no-op
+  // before this, so the only way to stop a run was to kill Pi itself).
+  const signal = ctx.signal;
 
   // Compute timestamped export subfolder
   const timestampedExportDir = params.timestamped_export === false ? exportRoot : resolve(exportRoot, computeExportTimestamp());
@@ -125,11 +132,32 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   lines.push("");
   writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "running", lines);
 
+  // Builds the terminal result for a user-cancelled run — shared by every
+  // stage below so cancelling at any point produces the same clean, logged
+  // outcome instead of looking like an unexplained crash.
+  const buildCancelledResult = (note: string): PipelineRunResult => {
+    lines.push("");
+    lines.push(`=== Kjøring avbrutt av bruker: ${note} ===`);
+    logger.finalize("cancelled");
+    lines.push("");
+    lines.push(buildRunSummaryText(workDir, logger.getRunId()));
+    try {
+      writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "cancelled", lines);
+    } catch { /* best effort */ }
+    lines.push(`Run log: ${runLogPath}`);
+    // Clear the extension's status-bar indicator directly rather than going through
+    // onProgress (which has no "cancelled" state and would print a second, wrongly
+    // "error"-styled notification alongside the one the caller shows for this result).
+    try { ctx.ui.setStatus("rvv-miniputt", undefined); } catch { /* best effort */ }
+    return { status: "cancelled", text: lines.join("\n") };
+  };
+
   const baseArgs = ["--work-dir", workDir];
 
   // -------------------------------------------------------------------
   // Stage 1 — Config
   // -------------------------------------------------------------------
+  if (signal?.aborted) return buildCancelledResult("før Trinn 1");
   if (resumeFrom <= 1) {
     lines.push("Trinn 1: Laster og validerer konfigurasjon...");
     onProgress?.({ stage: "config", status: "start", message: "Laster og validerer konfigurasjon..." });
@@ -147,6 +175,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           onProgress?.({ stage: "config", status: "start", message });
           flushLine(message);
         },
+        signal,
       );
       if (verbose) logger.logStageOutput("config", stdout, stderr);
       if (stdout) {
@@ -161,6 +190,10 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       const ckpt = readCheckpoint(workDir, "stage1_config.json");
       logger.stageEnd("config", "ok", undefined, estimateDataVolume(ckpt));
     } catch (err: unknown) {
+      if (err instanceof StageCancelledError) {
+        logger.stageEnd("config", "failed", err.message);
+        return buildCancelledResult("Trinn 1 (konfigurasjon)");
+      }
       const msg = err instanceof Error ? err.message : String(err);
       lines.push(`Trinn 1 FEILET:\n${msg}`);
       onProgress?.({ stage: "config", status: "error", message: "Konfigurasjon feilet", error: msg });
@@ -183,6 +216,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   // -------------------------------------------------------------------
   // Stage 2 — Scraping + ScraperAgent for blocked sources
   // -------------------------------------------------------------------
+  if (signal?.aborted) return buildCancelledResult("før Trinn 2");
   if (resumeFrom <= 2) {
     lines.push("Trinn 2: Skraper kalenderkilder (deterministisk)...");
     onProgress?.({ stage: "scraping", status: "start", message: "Skraper kalenderkilder (Trinn 2/4)..." });
@@ -204,6 +238,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           onProgress?.({ stage: "scraping", status: "start", message });
           flushLine(message);
         },
+        signal,
       );
       if (verbose) logger.logStageOutput("scraping", stdout, stderr);
       if (stdout) {
@@ -212,10 +247,15 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       }
       if (stderr) lines.push(`[stderr] ${stderr}`);
     } catch (err: unknown) {
+      if (err instanceof StageCancelledError) {
+        logger.stageEnd("scraping", "failed", err.message);
+        return buildCancelledResult("Trinn 2 (skraping)");
+      }
       stage2ok = false;
       stage2error = err instanceof Error ? err.message : String(err);
       lines.push(`Trinn 2 deterministisk delvis: ${stage2error}\n`);
     }
+    if (signal?.aborted) return buildCancelledResult("Trinn 2 (etter deterministisk skraping)");
 
     const ckpt = readCheckpoint(workDir, "stage2_scraping.json");
     let blocked: string[] = [];
@@ -266,6 +306,10 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
         }
 
         for (const name of blocked) {
+          if (signal?.aborted) {
+            try { await agent.close(); } catch { /* best effort */ }
+            return buildCancelledResult("Trinn 2 (utvidet skraping med Pi)");
+          }
           const strat = await fetchStrategy(name);
           if (!strat || !strat.url) {
             flushLine(`  ${name}: ingen strategi — hopper over`);
@@ -358,6 +402,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   // -------------------------------------------------------------------
   // Stage 3 — Planning
   // -------------------------------------------------------------------
+  if (signal?.aborted) return buildCancelledResult("før Trinn 3");
   if (resumeFrom <= 3) {
     lines.push("Trinn 3: Bygger sesongplan...");
     onProgress?.({ stage: "planning", status: "start", message: "Bygger sesongplan (Trinn 3/4)..." });
@@ -386,6 +431,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           onProgress?.({ stage: "planning", status: "start", message });
           flushLine(message);
         },
+        signal,
       );
       if (verbose) logger.logStageOutput("planning", stdout, stderr);
       if (stdout) {
@@ -407,6 +453,10 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       const ckpt = readCheckpoint(workDir, "stage3_planning.json");
       logger.stageEnd("planning", "ok", undefined, estimateDataVolume(ckpt));
     } catch (err: unknown) {
+      if (err instanceof StageCancelledError) {
+        logger.stageEnd("planning", "failed", err.message);
+        return buildCancelledResult("Trinn 3 (planlegging)");
+      }
       const msg = err instanceof Error ? err.message : String(err);
       lines.push(`Trinn 3 FEILET:\n${msg}`);
       onProgress?.({ stage: "planning", status: "error", message: "Planlegging feilet", error: msg });
@@ -429,6 +479,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   // -------------------------------------------------------------------
   // Stage 4 — Export
   // -------------------------------------------------------------------
+  if (signal?.aborted) return buildCancelledResult("før Trinn 4");
   if (resumeFrom <= 4) {
     lines.push("Trinn 4: Eksporterer til Excel, iCal og CSV...");
     onProgress?.({ stage: "export", status: "start", message: "Eksporterer til Excel, iCal og CSV (Trinn 4/4)..." });
@@ -452,6 +503,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           onProgress?.({ stage: "export", status: "start", message });
           flushLine(message);
         },
+        signal,
       );
       if (verbose) logger.logStageOutput("export", stdout, stderr);
       if (stdout) {
@@ -471,6 +523,10 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       const ckpt = readCheckpoint(workDir, "stage4_export.json");
       logger.stageEnd("export", "ok", undefined, estimateDataVolume(ckpt));
     } catch (err: unknown) {
+      if (err instanceof StageCancelledError) {
+        logger.stageEnd("export", "failed", err.message);
+        return buildCancelledResult("Trinn 4 (eksport)");
+      }
       const msg = err instanceof Error ? err.message : String(err);
       lines.push(`Trinn 4 FEILET:\n${msg}`);
       onProgress?.({ stage: "export", status: "error", message: "Eksport feilet", error: msg });
