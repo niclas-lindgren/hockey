@@ -53,6 +53,8 @@ class TestCalendarViewer:
         html = html_path.read_text(encoding="utf-8")
 
         assert source_name in html
+        assert 'class="source-link"' in html
+        assert 'href="https://example.com/calendar"' in html
         assert "width: 320px; min-width: 320px;" in html
         assert "align-items: flex-start;" in html
         club_label_block = html.split(".club-label {", 1)[1].split(".club-stats", 1)[0]

@@ -265,12 +265,21 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
         ts = entry.get("scrape_timestamp", "")
         age = _age_string(ts)
         freshness = _cache_status(entry)
+        source_url = str(entry.get("url", "") or "").strip()
+        source_link = (
+            f'<a class="source-link" href="{_escape_html(source_url)}" target="_blank" '
+            f'rel="noopener noreferrer" onclick="event.stopPropagation();" '
+            f'title="Åpne {_escape_html(name)} sin kalender">'
+            f'{_ICON_EXTERNAL}<span>Kilde</span></a>'
+            if source_url else ""
+        )
         club_filter_lines.append(
             f'<label class="filter-item" style="--cbg:{color["bg"]};--cborder:{color["border"]}">'
             f'<input type="checkbox" class="club-filter" data-club="{_escape_html(name)}" checked>'
             f'<span class="club-label">{_escape_html(name)}</span> '
             f'<span class="club-stats">({cnt} hendelser, {age})</span> '
             f'<span class="club-freshness">{_escape_html(freshness)}</span>'
+            f'{source_link}'
             f'</label>'
         )
     club_filter_html = "\n".join(club_filter_lines)
@@ -472,6 +481,15 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
     text-transform: uppercase; letter-spacing: .04em;
     color: #555;
   }}
+  .source-link {{
+    display: inline-flex; align-items: center; gap: 3px;
+    margin-left: auto; flex-shrink: 0; white-space: nowrap;
+    font-size: 10px; font-weight: 600; text-decoration: none;
+    color: var(--accent-dim);
+  }}
+  .source-link:hover {{ text-decoration: underline; }}
+  .source-link svg {{ display: block; width: 10px; height: 10px; }}
+  .source-link span {{ line-height: 1; }}
 
   .month-filter-item {{
     display: inline-flex; align-items: center; gap: 3px;
