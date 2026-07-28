@@ -159,7 +159,10 @@ def run(
     target_tournament_count = config.get("target_tournament_count")
     max_hosting_days_per_month = config.get("max_hosting_days_per_month")
     target_tournament_counts_by_age_group = config.get("target_tournament_counts_by_age_group")
-    planning_critic_hints, penalty_hints = _extract_planning_critic_hints(config)
+    planning_critic_hints, penalty_hints_in = _extract_planning_critic_hints(config)
+    # Mutated in place across seed attempts below (fed forward from the best
+    # candidate's weak metrics), so this must be a fresh dict, never None.
+    penalty_hints: dict[str, float] = dict(penalty_hints_in) if penalty_hints_in else {}
 
     config_fingerprint = stable_payload_sha256(config)
     source_fingerprint = stable_payload_sha256(scraping_result)
@@ -168,12 +171,34 @@ def run(
     best_planner: SeasonPlanner | None = None
     best_rank: tuple[int, int, int] | None = None
     best_attempt: int | None = None
+    best_gate: dict[str, Any] | None = None
     candidates: list[dict[str, Any]] = []
 
     n_iters = max(1, iterations)
     seeds: list[int | None] = [None] if n_iters == 1 else list(range(n_iters))
 
     for idx, seed in enumerate(seeds, start=1):
+        # Feed the best candidate found so far's weak fairness metrics forward as
+        # penalty hints for this seed, instead of every seed being an equally blind
+        # random restart — the same technique the outer Stage-3-retry loop in
+        # pipeline_orchestrator.py already uses across whole re-runs, applied here
+        # across the individual seeds within a single run. A seed that already
+        # passes breaks the loop early (below) before this ever runs again, so this
+        # only kicks in once attempts are actually stuck on the same weak metrics.
+        if idx > 1 and best_gate is not None:
+            new_hints = {
+                f"{m.get('key', '')}_score": float(m.get("score", 100))
+                for m in (best_gate.get("metrics", []) or [])
+                if isinstance(m, dict) and m.get("key") and str(m.get("status", "pass")) != "pass"
+            }
+            if new_hints and new_hints != {k: penalty_hints.get(k) for k in new_hints}:
+                penalty_hints.update(new_hints)
+                hint_str = ", ".join(f"{k}={v}" for k, v in new_hints.items())
+                print(
+                    f"[plan] Forsøk {idx}/{n_iters}: straffetips fra beste forsøk hittil "
+                    f"(forsøk {best_attempt}): {hint_str}",
+                    flush=True,
+                )
         print(f"[plan] Forsøk {idx}/{n_iters} (seed={seed if seed is not None else 'default'})", flush=True)
         candidate: dict[str, Any] = {
             "attempt": idx,
@@ -270,6 +295,7 @@ def run(
             best_plan = plan
             best_planner = planner
             best_attempt = idx
+            best_gate = gate
 
         if status == "pass" and idx < n_iters:
             print(

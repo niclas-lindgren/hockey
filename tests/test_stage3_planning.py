@@ -188,6 +188,59 @@ class TestRunStage3:
         }
         assert make_planner.call_args.kwargs["penalty_hints"] == {"hosting_deviation_score": 30.0}
 
+    def test_weak_metric_from_best_attempt_is_fed_forward_to_later_seeds(self, tmp_path):
+        """When attempts stay stuck at warn/fail, later seeds should be biased toward
+        fixing the best-so-far candidate's weak metric instead of repeating a blind
+        random restart (issue follow-up: "improve the seed algorithm")."""
+        state = PipelineState(tmp_path / "pipeline")
+        fake_planner = MagicMock()
+        fake_planner.build_plan.return_value = SeasonPlan(
+            tournaments=[
+                Tournament(
+                    date=date(2025, 10, 5),
+                    arena="Kongsberghallen",
+                    age_group="U10",
+                    teams=[
+                        Team(club="Kongsberg", label="Kongsberg U10A", age_group="U10"),
+                        Team(club="Skien", label="Skien U10A", age_group="U10"),
+                        Team(club="Jar", label="Jar U10A", age_group="U10"),
+                    ],
+                    games=[],
+                )
+            ]
+        )
+        fake_planner.rules_report.return_value = {"ok": True}
+        fake_planner.fallback_host_substitutions = []
+        stuck_gate = {
+            "status": "warn",
+            "score": 60,
+            "metrics": [{"key": "game_count_spread", "label": "Kamper per lag", "status": "warn", "score": 60, "detail": "x"}],
+        }
+
+        # penalty_hints is the same dict object mutated in place across seeds, so
+        # call_args_list would only ever show its final state — snapshot a copy at
+        # the moment each call happens instead.
+        captured_hints: list[dict[str, float]] = []
+
+        def _make_planner_spy(*args, **kwargs):
+            captured_hints.append(dict(kwargs.get("penalty_hints") or {}))
+            return fake_planner
+
+        with patch(
+            "tournament_scheduler.pipeline.stage3_planning._make_planner", side_effect=_make_planner_spy
+        ), patch(
+            "tournament_scheduler.pipeline.stage3_planning._build_fairness_gate",
+            side_effect=[dict(stuck_gate), dict(stuck_gate), dict(stuck_gate)],
+        ):
+            run(_make_config(), {}, state, datetime(2025, 9, 1), datetime(2025, 12, 15), iterations=3)
+
+        assert len(captured_hints) == 3
+        # First seed has no prior best attempt to learn from.
+        assert captured_hints[0] == {}
+        # Once an attempt is on the books, subsequent seeds inherit its weak metric.
+        assert captured_hints[1] == {"game_count_spread_score": 60.0}
+        assert captured_hints[2] == {"game_count_spread_score": 60.0}
+
     def test_workbook_level_planning_settings_are_passed_to_planner(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         fake_planner = MagicMock()

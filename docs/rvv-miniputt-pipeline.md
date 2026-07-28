@@ -173,7 +173,7 @@ Useful flags:
 
 - `--non-strict` — continue past some stage failures
 - `--allow-missing-sources` — keep partial Stage 2 results and continue
-- `--iterations N` — run the Stage 3 planner with multiple random seeds and keep the best plan for that Stage 3 attempt
+- `--iterations N` — run the Stage 3 planner with multiple random seeds and keep the best plan for that Stage 3 attempt (default: 1 via the Python CLI, 3 via the Pi harness's `/rvv-miniputt run`). Seeds after the first inherit penalty hints from the best-scoring seed found so far's weak fairness metrics, rather than each seed being an equally blind restart — a seed that already passes the fairness gate stops the search early instead of burning the remaining budget
 - `--mid-planning-critic-iterations N` — opt into a pre-export critic loop after Stage 3 and before Stage 4; the loop inspects `.pipeline/stage3_planning.json`, stores structured `planning_critic_hints`, reruns Stage 3 with numeric penalty hints from those findings, and repeats up to `N` times before export
 - `--timestamped-export` — write diffable exports into a timestamped folder only
 
