@@ -286,6 +286,40 @@ class TestPublishPagesExecutor:
         assert result.status == "failed"
         assert "eksport" in result.summary.lower()
 
+    def test_refuses_publish_when_planning_checkpoint_has_arena_conflict(self, tmp_path):
+        _write_export(tmp_path)
+        PipelineState(tmp_path).write_stage(
+            StageName.PLANNING,
+            {
+                "plan": {
+                    "arena_day_collisions": [
+                        {
+                            "date": "2026-09-05",
+                            "arena": "Jarhallen",
+                            "tournament_id": "u10",
+                            "age_group": "U10",
+                            "interval": "2026-09-05 10:00–2026-09-05 18:45",
+                            "conflicting_tournament_id": "u12",
+                            "conflicting_age_group": "U12",
+                            "conflicting_interval": "2026-09-05 16:00–2026-09-05 19:45",
+                            "message": "Arena conflict Jarhallen 2026-09-05: u10 overlaps u12",
+                        }
+                    ]
+                }
+            },
+            status=StageStatus.DONE,
+        )
+
+        action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, confirm_public=True
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "failed"
+        assert "Publisering blokkert" in result.summary
+        assert "Jarhallen" in result.summary
+        assert "arena_day_collisions=1" in result.evidence
+
     def test_routes_through_the_sanitizer_before_publishing(self, tmp_path):
         """A secret in the raw export must block before any git operation runs (issue #18)."""
         export_dir = tmp_path / "export"

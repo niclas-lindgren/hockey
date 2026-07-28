@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from ..models import Game, Roster, SeasonPlan, Team, Tournament
+from ..arena_conflicts import find_arena_interval_collisions
 from ..excel.plan_exporter import SeasonPlanExporter
 from ..ical.ical_exporter import ICalExporter
 from ..csv.csv_exporter import CsvExporter
@@ -123,6 +124,22 @@ def run(
     generated_at = datetime.now(timezone.utc).isoformat()
     input_path = str(effective_config.get("input_path") or "input.xlsx")
     round_length_for_age_group: dict[str, int] = dict(effective_config.get("round_length_minutes", {}))
+    derived_collisions = find_arena_interval_collisions(plan.tournaments, round_length_for_age_group)
+    hard_collisions = derived_collisions or list(plan.arena_day_collisions or [])
+    if hard_collisions:
+        plan.arena_day_collisions = hard_collisions
+        first = hard_collisions[0]
+        detail = first.get("message") if isinstance(first, dict) else str(first)
+        reason = f"Hard scheduling conflict blocks export: {detail}"
+        state.write_stage(
+            StageName.EXPORT,
+            {"errors": [reason], "arena_day_collisions": hard_collisions},
+            status=StageStatus.FAILED,
+        )
+        if strict:
+            raise Stage4Error(reason)
+        return {"errors": [reason], "arena_day_collisions": hard_collisions}
+
     configured_age_groups = list(dict.fromkeys(effective_config.get("age_groups", [])))
     if not configured_age_groups and not effective_config.get("age_groups_from_input", False):
         configured_age_groups = sorted({t.age_group for t in plan.tournaments})

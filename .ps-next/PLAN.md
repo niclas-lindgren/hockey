@@ -10,7 +10,7 @@
 - [x] Reserve planned tournament intervals during host slot assignment
   - Files: tournament_scheduler/host_assignment.py, tournament_scheduler/scheduler.py, tournament_scheduler/utils/slot_finder.py, tournament_scheduler/season_planner.py, tests/test_season_planner.py, tests/test_slot_finder.py
   - Approach: Extend slot lookup to merge already-planned reservation events with scraped bookings, remove the 16:00 clamp fallback, and derive `arena_day_collisions` from final planned intervals instead of clearing them.
-- [ ] Block export and public publish on hard arena conflicts
+- [x] Block export and public publish on hard arena conflicts
   - Files: tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/pipeline/operator_action.py, tests/test_stage4_export.py, tests/test_operator_action.py
   - Approach: Re-check final plan collisions before Stage 4 output and before `operator publish --confirm-public`; fail with actionable arena/date/tournament/interval evidence when any hard conflict remains.
 - [ ] Update rules/reporting docs for arena interval validation
@@ -35,6 +35,13 @@ GitHub issue 27 reports Jarhallen overlap on 2026-09-05 from run-2026-07-27T22-1
 ## Log
 
 
+
+### 2026-07-28 — Block export and public publish on hard arena conflicts
+**Done:** Stage 4 now re-derives arena interval collisions before writing exports and fails on hard conflicts; Pages publish now refuses to publish any planning checkpoint with arena-day collisions, even with --confirm-public.
+**Rationale:** Export/publish are the last safety gates before public artifacts, so they must fail closed when a hard scheduling conflict remains.
+**Findings:** Related tests passed: tests/test_stage4_export.py and tests/test_operator_action.py. The broader quick pytest gate still has the pre-existing stage2 stale-cache mock failure noted in the previous task.
+**Files:** tournament_scheduler/pipeline/stage4_export.py; tournament_scheduler/pipeline/operator_action.py; tests/test_stage4_export.py; tests/test_operator_action.py
+**Commit:** not committed
 ### 2026-07-28 — Reserve planned tournament intervals during host slot assignment
 **Done:** Slot lookup now considers already-planned tournament reservations in addition to scraped bookings; same-arena sequencing no longer clamps overflow to 16:00 and final plans preserve interval/overflow/unplaced arena conflicts.
 **Rationale:** Reservations prevent later tournaments from being placed into intervals already occupied by the in-memory plan, while hard conflict records make any remaining impossible placement fail the existing fairness gate.

@@ -531,6 +531,24 @@ def _execute_publish_pages(
     if run_id is None:
         run_id = RunManifest(work_dir).read().get("run_id") or "unknown-run"
 
+    planning_checkpoint = state.read_stage(StageName.PLANNING) or {}
+    plan_dict = planning_checkpoint.get("plan") if isinstance(planning_checkpoint, dict) else None
+    hard_collisions = []
+    if isinstance(plan_dict, dict):
+        hard_collisions = list(plan_dict.get("arena_day_collisions") or [])
+    if hard_collisions:
+        first = hard_collisions[0]
+        detail = first.get("message") if isinstance(first, dict) else str(first)
+        return CapabilityResult.failed(
+            f"Publisering blokkert: hard scheduling conflict remains ({detail})",
+            capability="pages_publish",
+            problems=["Planen har arena-overlapp og kan ikke publiseres offentlig."],
+            evidence=[
+                f"arena_day_collisions={len(hard_collisions)}",
+                f"first_conflict={detail}",
+            ],
+        )
+
     # A raw Stage 4 export may contain rosters, contact info, or internal
     # notes (Spond exports, review_packets/) that must never reach a
     # public URL — sanitize into a separate bundle first (issue #18) and

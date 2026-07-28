@@ -206,6 +206,37 @@ class TestDictToPlan:
 
 
 class TestRunStage4:
+    def test_blocks_export_when_final_plan_has_arena_interval_overlap(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(StageName.CONFIG, {"round_length_minutes": {"U10": 15}}, status=StageStatus.DONE)
+        plan_checkpoint = _make_plan_dict()
+        first = plan_checkpoint["plan"]["tournaments"][0]
+        first["id"] = "first"
+        first["start_time"] = "09:00"
+        plan_checkpoint["plan"]["tournaments"].append(
+            {
+                **first,
+                "id": "second",
+                "start_time": "09:30",
+            }
+        )
+
+        with pytest.raises(Stage4Error, match="Hard scheduling conflict blocks export") as exc_info:
+            run(
+                plan_checkpoint,
+                state,
+                export_dir=str(tmp_path / "export"),
+                timestamped_export=False,
+            )
+
+        message = str(exc_info.value)
+        assert "Kongsberghallen" in message
+        assert "U10" in message
+        assert "2025-10-05 09:00" in message
+        envelope = state.read_envelope(StageName.EXPORT)
+        assert envelope["status"] == StageStatus.FAILED.value
+        assert envelope["data"]["arena_day_collisions"][0]["arena"] == "Kongsberghallen"
+
     def test_produces_excel_file(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         state.write_stage(StageName.CONFIG, {"round_length_minutes": {"U10": 15}}, status=StageStatus.DONE)
