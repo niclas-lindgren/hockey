@@ -52,6 +52,7 @@ DEFAULT_ALLOWED_FILENAMES: frozenset[str] = frozenset(
         "season_plan.html",
         "season_plan_report.html",
         "calendars.html",
+        "input.html",
         "season_plan.ics",
         "season_plan.xlsx",
         "season_plan.csv",

@@ -52,6 +52,19 @@ class TestDefaultAllowlist:
         assert 'href="season_plan_overview.csv"' in content
         assert 'aria-disabled="true"' not in content
 
+    def test_input_html_is_included_by_default(self, tmp_path):
+        export_dir = _export_dir(tmp_path)
+        (export_dir / "season_plan.html").write_text("<h1>Plan</h1>", encoding="utf-8")
+        (export_dir / "input.html").write_text("<h1>Påmeldte lag</h1>", encoding="utf-8")
+
+        result = build_public_bundle(str(export_dir), str(tmp_path / "public"))
+
+        assert result.status == "ok"
+        assert "input.html" in DEFAULT_ALLOWED_FILENAMES
+        included = set(json.loads(Path((tmp_path / "pages_privacy_report.json")).read_text())["included_files"])
+        assert "input.html" in included
+        assert (tmp_path / "public" / "input.html").exists()
+
     def test_never_copies_the_whole_export_directory(self, tmp_path):
         """The internal export/roster/spond/review artifacts must never be included by default."""
         export_dir = _export_dir(tmp_path)

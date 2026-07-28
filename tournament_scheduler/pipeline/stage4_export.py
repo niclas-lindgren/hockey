@@ -36,6 +36,7 @@ from .stage1_config import load_effective_config
 from .state import PipelineState, StageName, StageStatus
 from .stage4_helpers import _dict_to_plan
 from .calendar_viewer import generate_html as _generate_calendars_html
+from .input_viewer import generate_html as _generate_input_html
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +241,26 @@ def run(
             meta = _scrape_cache_data.get("_meta")
         except Exception as exc:
             logger.warning("Kunne ikke lese scrape-cache for rapporten: %s", exc)
+        # --- Input viewer (input.html) — public overview of registered clubs/teams ---
+        # Generated before the calendar viewer so calendars.html's navbar can link to it.
+        # Only the whitelisted "Lag" worksheet is read (see input_workbook.PUBLIC_SHEET_WHITELIST).
+        # Only generated when Stage 1 actually recorded an input workbook path that exists on
+        # disk — deliberately not the "input.xlsx" fallback default used for cosmetic display
+        # elsewhere in this function, so callers that skip Stage 1 (e.g. most stage4 tests, or
+        # a plan built directly) never accidentally pick up an unrelated input.xlsx from cwd.
+        _configured_input_path = effective_config.get("input_path")
+        _input_html_path: str | None = None
+        if _configured_input_path and os.path.exists(_configured_input_path):
+            try:
+                _progress("Genererer oversikt over påmeldte lag")
+                _generate_input_html(
+                    input_path=_configured_input_path,
+                    export_dir=str(primary_export_path),
+                )
+                _input_html_path = str(primary_export_path / "input.html")
+                output_files["input_html"] = _input_html_path
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"Input-visning feilet: {exc}")
         # --- Calendar viewer (calendars.html) ---
         # Generate before HtmlExporter so calendars_path can be passed in and the navbar can link to it.
         # Only generate when scrape data exists — without it the file would be empty and the navbar link would be broken.
@@ -264,6 +285,7 @@ def run(
             pipeline_meta=pipeline_meta,
             age_groups=configured_age_groups,
             calendars_path=_calendars_path,
+            input_html_path=_input_html_path,
         )
         output_files["html"] = html_path
         output_files["html_report"] = str(Path(html_path).with_name(f"{Path(html_path).stem}_report{Path(html_path).suffix}"))

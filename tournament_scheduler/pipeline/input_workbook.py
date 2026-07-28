@@ -24,6 +24,47 @@ class WorkbookInputError(ValueError):
 
 REQUIRED_SHEETS = ("Innstillinger", "Lag")
 
+# Worksheets that may be surfaced in the public exported site (issue #32).
+# ``Aldersgrupper``, ``Innstillinger``, ``Kilder``, ``Datopreferanser`` and the
+# workbook file itself are internal configuration and must never be published —
+# read_public_sheet() below refuses anything not on this list.
+PUBLIC_SHEET_WHITELIST = ("Lag",)
+
+
+def assert_public_sheet(sheet_name: str) -> None:
+    """Raise :class:`WorkbookInputError` if *sheet_name* is not publicly exportable.
+
+    This is the guard that keeps a newly added or internal sheet (e.g.
+    ``Aldersgrupper``, ``Innstillinger``, ``Kilder``, ``Datopreferanser``)
+    from being surfaced on the public exported site by accident.
+    """
+    if sheet_name not in PUBLIC_SHEET_WHITELIST:
+        raise WorkbookInputError(
+            f"Arket '{sheet_name}' er ikke godkjent for offentlig eksport. "
+            f"Godkjente ark: {', '.join(PUBLIC_SHEET_WHITELIST)}."
+        )
+
+
+def read_public_teams(path: str | Path) -> list[dict[str, Any]]:
+    """Read only the whitelisted ``Lag`` worksheet for public, read-only display.
+
+    Only the ``Lag`` sheet is opened/parsed; no other sheet's contents are
+    touched, so internal configuration sheets never reach the caller.
+    """
+    assert_public_sheet("Lag")
+    workbook_path = Path(path)
+    try:
+        wb = openpyxl.load_workbook(workbook_path, data_only=True, read_only=True)
+    except Exception as exc:  # pragma: no cover - openpyxl gives varied exceptions
+        raise WorkbookInputError(f"Kunne ikke lese Excel-filen '{workbook_path}': {exc}") from exc
+    if "Lag" not in wb.sheetnames:
+        return []
+    return _read_table(
+        wb["Lag"],
+        required_columns=("club", "label", "age_group"),
+        optional_columns=("target_tournament_count",),
+    )
+
 
 def load_workbook_config(path: str | Path) -> dict[str, Any]:
     """Load the standard ``.xlsx`` pipeline input workbook as a config dict.

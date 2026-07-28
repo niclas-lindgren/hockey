@@ -807,6 +807,83 @@ class TestRunStage4:
         html = html_path.read_text(encoding="utf-8")
         assert "Skrapede kalendere" not in html
 
+    def test_input_html_generated_and_linked_when_input_workbook_configured(self, tmp_path):
+        """stage4 should write input.html from the Lag sheet and link it from season_plan.html's navbar."""
+        input_path = tmp_path / "input.xlsx"
+        _write_input_workbook(
+            input_path,
+            {
+                "start_date": "2025-09-01",
+                "end_date": "2025-12-01",
+                "teams": [
+                    {"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"},
+                    {"club": "Skien", "label": "Skien U10A", "age_group": "U10"},
+                ],
+                "sources": [],
+            },
+        )
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.CONFIG,
+            {"input_path": str(input_path), "round_length_minutes": {}},
+            status=StageStatus.DONE,
+        )
+        export_dir = tmp_path / "export"
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir), timestamped_export=False)
+        files = result.get("output_files", {})
+
+        assert "input_html" in files
+        input_html_path = Path(files["input_html"])
+        assert input_html_path.exists()
+        input_html = input_html_path.read_text(encoding="utf-8")
+        assert "Kongsberg U10A" in input_html
+        assert "Skien U10A" in input_html
+
+        html = Path(files["html"]).read_text(encoding="utf-8")
+        assert 'href="input.html"' in html, "season_plan.html navbar must link to input.html when it was generated"
+
+    def test_input_html_absent_and_nav_link_hidden_without_configured_input_workbook(self, tmp_path):
+        """Without a Stage 1 input workbook path, input.html must not be generated and its nav link must be hidden."""
+        state = PipelineState(tmp_path / "pipeline")
+        export_dir = tmp_path / "export"
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir), timestamped_export=False)
+        files = result.get("output_files", {})
+
+        assert "input_html" not in files
+        assert not (export_dir / "input.html").exists()
+        html = Path(files["html"]).read_text(encoding="utf-8")
+        assert "Påmeldte lag" not in html
+
+    def test_input_html_never_exposes_internal_workbook_sheets(self, tmp_path):
+        """Only the whitelisted Lag sheet may reach input.html — internal sheets must never leak."""
+        input_path = tmp_path / "input.xlsx"
+        _write_input_workbook(
+            input_path,
+            {
+                "start_date": "2025-09-01",
+                "end_date": "2025-12-01",
+                "age_groups": ["U10"],
+                "parallel_games": {"U10": 2},
+                "teams": [{"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"}],
+                "sources": [{"name": "Hemmelig kilde", "type": "ical", "url": "https://secret.example.com/feed.ics"}],
+            },
+        )
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.CONFIG,
+            {"input_path": str(input_path), "round_length_minutes": {}},
+            status=StageStatus.DONE,
+        )
+        export_dir = tmp_path / "export"
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir), timestamped_export=False)
+        files = result.get("output_files", {})
+
+        input_html = Path(files["input_html"]).read_text(encoding="utf-8")
+        assert "secret.example.com" not in input_html
+        assert "Hemmelig kilde" not in input_html
+        assert "parallel_games" not in input_html
+        assert "input.xlsx" not in input_html
+
     def test_conclusion_injects_blocked_count(self, tmp_path):
         """Conclusion must include blocked source count when blocked sources exist."""
         data = _make_plan_dict()

@@ -530,7 +530,9 @@ class TestUnifiedCache:
         cfg = _make_config_with_sources([
             {"name": "Kongsberg", "type": SOURCE_OUTLOOK, "url": "https://example.com"},
         ])
-        old_ts = (datetime.now() - timedelta(hours=12)).isoformat()
+        # Must exceed cache_manager.DEFAULT_TTL_HOURS (24h) — is_stale() checks the
+        # cache instance's TTL, not the per-entry ttl_hours field seeded by _seed_cache.
+        old_ts = (datetime.now() - timedelta(hours=30)).isoformat()
         self._seed_cache(
             work_dir,
             start_date=cfg["start_date"], end_date=cfg["end_date"],

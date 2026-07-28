@@ -94,6 +94,7 @@ class HtmlExporter:
         round_length_for_age_group: dict[str, int] | None = None,
         age_groups: list[str] | None = None,
         calendars_path: str | None = None,
+        input_html_path: str | None = None,
     ) -> str:
         """Write an interactive HTML overview to *path*, return the path.
 
@@ -110,6 +111,9 @@ class HtmlExporter:
             range via ``Tournament.end_time()``.
         calendars_path: Absolute path to the generated calendars.html file. When provided and
             the file exists, a navbar link to calendars.html is included.
+        input_html_path: Absolute path to the generated input.html file (public overview of
+            registered clubs/teams). When provided and the file exists, a navbar link to
+            input.html is included.
         """
         tournaments_json = self._plan_to_json(plan, round_length_for_age_group)
 
@@ -236,6 +240,7 @@ class HtmlExporter:
         # Link to calendars.html only when the file actually exists on disk.
         # calendars_path is passed by stage4_export after generating the file, before calling export().
         calendars_href = "calendars.html" if (calendars_path and os.path.exists(calendars_path)) else ""
+        input_href = "input.html" if (input_html_path and os.path.exists(input_html_path)) else ""
         season_plan_href = "season_plan.html"
         report_href = "season_plan_report.html"
 
@@ -279,6 +284,10 @@ class HtmlExporter:
                 ),
                 "$SEASON_PLAN_HREF$": season_plan_href,
                 "$REPORT_HREF$": report_href,
+                "$INPUT_NAV_ITEM$": (
+                    f'<a href="{input_href}" class="{"active" if active_page == "input" else ""}"><span class="nav-icon">{ICON_USERS}</span> Påmeldte lag</a>'
+                    if input_href else ""
+                ),
                 "$CALENDARS_ACTIVE$": "active" if active_page == "calendars" else "",
                 "$SEASON_PLAN_ACTIVE$": "active" if active_page == "season" else "",
                 "$REPORT_ACTIVE$": "active" if active_page == "report" else "",

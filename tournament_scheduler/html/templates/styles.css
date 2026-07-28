@@ -51,6 +51,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 
 /* Navbar (shared) */
 .navbar { display: flex; align-items: center; gap: 2px; background: var(--bg-raised); padding: 0 16px; border-bottom: 1px solid var(--border-dim); height: 44px; }
+/* Hidden automatically when the page is loaded inside an iframe (e.g. embedded on WordPress) — see the inline script in page_template.html. */
+.rvv-embedded .navbar { display: none; }
 .navbar .brand { font-weight: 700; font-size: 13px; margin-right: 20px; color: var(--text); letter-spacing: -.01em; }
 .nav-icon { display: inline-flex; align-items: center; opacity: .55; }
 .nav-icon svg { display: block; width: 14px; height: 14px; }

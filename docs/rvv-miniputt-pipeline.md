@@ -131,6 +131,8 @@ A normal run can produce:
 - `season_plan_overview.csv`
 - `season_plan.ics`
 - `season_plan.html`
+- `season_plan_report.html`
+- `input.html` — read-only "Påmeldte lag" overview of registered clubs/teams (Lag sheet only; generated when Stage 1 recorded an input workbook path)
 - `season_plan_spond.xlsx`
 - `calendars.html`
 

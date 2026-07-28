@@ -377,6 +377,8 @@ python3 -m tournament_scheduler.cli.checkpoint_printer stage4
 After a successful run:
 - `export/calendars.html` — interactive calendar viewer
 - `export/season_plan.html` — season plan HTML
+- `export/season_plan_report.html` — diagnostics/fairness report HTML
+- `export/input.html` — read-only "Påmeldte lag" overview of registered clubs/teams from the Lag sheet
 - `export/season_plan.xlsx` — season plan Excel
 - `.pipeline/logs/run-<date>.jsonl` — structured run log
 
