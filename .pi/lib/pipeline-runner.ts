@@ -24,6 +24,13 @@ export interface PipelineRunResult {
   text: string;
 }
 
+// Python %Y-%m-%dT%H%M format
+function computeExportTimestamp(): string {
+  const now = new Date();
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
+
 function writeRunLogFile(
   exportDir: string,
   runId: string,
@@ -58,11 +65,8 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   const resumeFrom = params.resume_from ? resolveResumeStage(params.resume_from) : 1;
   const verbose    = params.log_level === "verbose";
 
-  // Compute timestamped export subfolder (Python %Y-%m-%dT%H%M format)
-  const now = new Date();
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  const ts = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}${pad(now.getMinutes())}`;
-  const timestampedExportDir = params.timestamped_export === false ? exportRoot : resolve(exportRoot, ts);
+  // Compute timestamped export subfolder
+  const timestampedExportDir = params.timestamped_export === false ? exportRoot : resolve(exportRoot, computeExportTimestamp());
 
   mkdirSync(workDir, { recursive: true });
   mkdirSync(timestampedExportDir, { recursive: true });
@@ -643,6 +647,17 @@ export async function runPipelineConvergent(
   const maxRounds = MAX_CONVERGENCE_ROUNDS;
   const combined: string[] = [];
   let params: RunArgs = { ...initialParams };
+
+  // Pin every round of this convergence run to a single timestamped export
+  // folder — otherwise each internal retry round (resume_from adjustments
+  // between rounds) computes its own "now" timestamp and results scatter
+  // across separate export/ folders instead of accumulating in one place.
+  if (params.timestamped_export !== false && !params.export_dir) {
+    const exportRoot = resolve(ctx.cwd, "export");
+    params.export_dir = resolve(exportRoot, computeExportTimestamp());
+    params.timestamped_export = false;
+  }
+
   let previousSignature: string | null = null;
   const innerProgress = (e: ProgressEvent) => {
     if (e.stage === "done") return;
