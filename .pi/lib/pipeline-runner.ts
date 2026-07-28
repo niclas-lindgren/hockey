@@ -68,6 +68,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   mkdirSync(timestampedExportDir, { recursive: true });
 
   const logger = new PipelineLogger(workDir, timestampedExportDir, exportRoot);
+  const logStart = new Date();
   const runLogPath = resolve(timestampedExportDir, `pipeline_run_${logger.getRunId()}.log`);
 
   // Determine which stages to run
@@ -144,6 +145,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     logger.stageStart("config");
     logger.stageEnd("config", "skipped");
   }
+  writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "running", lines);
 
   // -------------------------------------------------------------------
   // Stage 2 — Scraping + ScraperAgent for blocked sources
@@ -291,7 +293,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           const execFileAsync = promisify(execFile);
           const python = resolve(cwdPath, "venv", "bin", "python3");
           const exe = existsSync(python) ? python : "python3";
-          await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir, "--export-dir", exportDir], { cwd: cwdPath });
+          await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir, "--export-dir", timestampedExportDir], { cwd: cwdPath });
         } catch {}
       } catch (agentErr: unknown) {
         const msg = agentErr instanceof Error ? agentErr.message : String(agentErr);
@@ -310,6 +312,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     logger.stageStart("scraping");
     logger.stageEnd("scraping", "skipped");
   }
+  writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "running", lines);
 
   // -------------------------------------------------------------------
   // Stage 3 — Planning
@@ -365,6 +368,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     logger.stageStart("planning");
     logger.stageEnd("planning", "skipped");
   }
+  writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "running", lines);
 
   // -------------------------------------------------------------------
   // Stage 4 — Export
@@ -416,6 +420,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     logger.stageStart("export");
     logger.stageEnd("export", "skipped");
   }
+  writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "running", lines);
 
   // Bundle: copy the input workbook into the timestamped export folder
   try {
@@ -435,9 +440,6 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
 
   // Keep exports only in the timestamped folder.
   lines.push(`Eksporter lagret i ${timestampedExportDir}\n`);
-
-  const finalExportDir = timestampedExportDir;
-  const runLogPath = resolve(finalExportDir, `pipeline_run_${logger.getRunId()}.log`);
 
   // Finalize
   logger.finalize(overallStatus);

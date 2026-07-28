@@ -339,6 +339,19 @@ if __name__ == "__main__":  # pragma: no cover
     parser = argparse.ArgumentParser(description="Stage 4: multi-format export")
     parser.add_argument("--work-dir", default=".pipeline", help="Pipeline work directory")
     parser.add_argument("--export-dir", default="export", help="Directory for output files")
+    parser.add_argument(
+        "--timestamped-export",
+        dest="timestamped_export",
+        action="store_true",
+        help="Write exports into a timestamped subfolder of --export-dir",
+    )
+    parser.add_argument(
+        "--no-timestamped-export",
+        dest="timestamped_export",
+        action="store_false",
+        help="Write exports flat into --export-dir",
+    )
+    parser.set_defaults(timestamped_export=True)
     cli_args = parser.parse_args()
 
     from .run_log_paths import append_stage_log_line  # noqa: E402
@@ -351,7 +364,12 @@ if __name__ == "__main__":  # pragma: no cover
         sys.exit(1)
 
     try:
-        _result = run(_plan_ckpt, _state, export_dir=cli_args.export_dir)
+        _result = run(
+            _plan_ckpt,
+            _state,
+            export_dir=cli_args.export_dir,
+            timestamped_export=cli_args.timestamped_export,
+        )
         files = _result.get("output_files", {})
         print(f"Stage 4 OK — {len(files)} filer eksportert: {', '.join(files.values())}")
         # Resolved after run() so it lands in the export folder run() just used,
