@@ -166,12 +166,8 @@ class HtmlExporter:
         src = int(pipeline.get("source_count", meta.get("source_count", 0)) or 0)
         source_count = src
         event_count = ev
-        scrape_updated_at = str(
-            pipeline.get("scrape_updated_at")
-            or meta.get("updated_at", "")
-            or pipeline.get("generated_at", "")
-        )
-        scrape_stamp = timestamp_string(scrape_updated_at)
+        generated_at = str(pipeline.get("generated_at", ""))
+        scrape_stamp = timestamp_string(generated_at)
         scrape_meta = f"{source_count} kilder &middot; {event_count} hendelser"
         if scrape_stamp:
             scrape_meta += f" &middot; {scrape_stamp}"
@@ -185,7 +181,6 @@ class HtmlExporter:
         date_range = pipeline.get("date_range", f"{fmt_date(plan.start_date)} – {fmt_date(plan.end_date)}" if plan.start_date else "")
         if isinstance(date_range, str):
             date_range = date_range.replace("&ndash;", "–")
-        generated_at = str(pipeline.get("generated_at", ""))
         input_path = str(pipeline.get("input_path", ""))
         scrape_age = pipeline.get("scrape_age", "")
         scrape_age_html = ""
