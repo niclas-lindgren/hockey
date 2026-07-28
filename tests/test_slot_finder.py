@@ -1,6 +1,6 @@
 """Tests for tournament_scheduler.utils.slot_finder."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from tournament_scheduler.models import CalendarEvent
 from tournament_scheduler.utils.slot_finder import (
@@ -153,3 +153,21 @@ class TestFindAvailableSlots:
             latest_start="23:30",
         )
         assert slots == []
+
+    def test_timezone_aware_event_is_compared_with_matching_day_bounds(self):
+        events = [
+            CalendarEvent(
+                date=CHECK_DATE.strftime("%d.%m.%Y"),
+                name="Aware booking",
+                datetime=datetime(CHECK_DATE.year, CHECK_DATE.month, CHECK_DATE.day, 10, 0, tzinfo=timezone.utc),
+                duration_hours=2.0,
+            )
+        ]
+        slots = find_available_slots(
+            events=events,
+            check_date=CHECK_DATE,
+            required_minutes=60,
+            earliest_start="09:00",
+            latest_start="13:00",
+        )
+        assert slots == [("09:00", "10:00"), ("12:00", "13:00")]

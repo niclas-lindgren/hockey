@@ -65,6 +65,11 @@ def _event_busy_range_on_date(event, check_date: date) -> Optional[Tuple[int, in
         event_start = datetime.combine(parsed.date(), time(event.datetime.hour, event.datetime.minute))
     event_end = event_start + timedelta(minutes=int(event.duration_hours * 60))
     day_start = datetime.combine(check_date, time.min)
+    if event_start.tzinfo is not None and event_start.utcoffset() is not None:
+        # Calendar feeds can produce timezone-aware datetimes, while the
+        # planner's candidate dates are plain local dates. Compare within the
+        # event's own timezone so Python does not mix aware and naive values.
+        day_start = day_start.replace(tzinfo=event_start.tzinfo)
     day_end = day_start + timedelta(days=1)
     if event_end <= day_start or event_start >= day_end:
         return None
