@@ -189,6 +189,7 @@ def run(
             pipeline_meta["age_groups"] = configured_age_groups
             updated = scraping_envelope.get("updated_at", "") if scraping_envelope else ""
             if updated:
+                pipeline_meta["scrape_updated_at"] = updated
                 from datetime import datetime as _dt, timezone as _tz
                 try:
                     delta = _dt.now(tz=_tz.utc) - _dt.fromisoformat(updated)

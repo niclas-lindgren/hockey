@@ -10,7 +10,7 @@ from __future__ import annotations
 import html as _html
 import json
 import os
-from datetime import datetime as _dt
+from datetime import datetime as _dt, timezone as _tz
 from pathlib import Path
 from typing import Any
 
@@ -107,6 +107,20 @@ def age_string(iso_str: str) -> str:
         return f"{delta.days}d siden"
     except (ValueError, TypeError):
         return ""
+
+
+def timestamp_string(iso_str: str) -> str:
+    """Format an ISO timestamp as an absolute date-time string."""
+    if not iso_str:
+        return ""
+    try:
+        dt = _dt.fromisoformat(iso_str)
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(_tz.utc)
+            return dt.strftime("%Y-%m-%d %H:%M UTC")
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return iso_str.replace("T", " ")
 
 
 # ---------------------------------------------------------------------------

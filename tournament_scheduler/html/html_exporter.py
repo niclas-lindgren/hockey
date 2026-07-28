@@ -36,7 +36,7 @@ from .data_computation import (
     canonical_rvv_club_name,
     season_label,
     fmt_date,
-    age_string,
+    timestamp_string,
     compute_team_game_counts,
     compute_team_travel_info,
     compute_heatmap_data,
@@ -159,22 +159,24 @@ class HtmlExporter:
             for ag in display_age_groups
         )
 
-        # Scrape metadata for navbar
-        if meta:
-            ev = meta.get("total_events", 0)
-            src = meta.get("source_count", 0)
-            ts = meta.get("updated_at", "")
-            age = age_string(ts)
-            scrape_meta = f"{src} kilder &middot; {ev} hendelser &middot; {age}" if age else f"{src} kilder &middot; {ev} hendelser"
-        else:
-            scrape_meta = ""
-            ev = 0
-            src = 0
-
         # Pipeline metrics
         pipeline = pipeline_meta or {}
-        source_count = pipeline.get("source_count", src)
-        event_count = pipeline.get("total_events", ev)
+        meta = meta or {}
+        ev = int(pipeline.get("total_events", meta.get("total_events", 0)) or 0)
+        src = int(pipeline.get("source_count", meta.get("source_count", 0)) or 0)
+        source_count = src
+        event_count = ev
+        scrape_updated_at = str(
+            pipeline.get("scrape_updated_at")
+            or meta.get("updated_at", "")
+            or pipeline.get("generated_at", "")
+        )
+        scrape_stamp = timestamp_string(scrape_updated_at)
+        scrape_meta = f"{source_count} kilder &middot; {event_count} hendelser"
+        if scrape_stamp:
+            scrape_meta += f" &middot; {scrape_stamp}"
+
+        # Pipeline metrics
         blocked = pipeline.get("blocked", [])
         blocked_count = len(blocked)
         blocked_names = ""

@@ -53,6 +53,19 @@ def _age_string(iso_str: str) -> str:
         return "ukjent"
 
 
+def _timestamp_string(iso_str: str) -> str:
+    """Return an absolute timestamp string for display."""
+    if not iso_str:
+        return "ukjent"
+    try:
+        dt = datetime.fromisoformat(iso_str)
+        if dt.tzinfo is not None:
+            return dt.astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
+        return dt.strftime("%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return iso_str.replace("T", " ")
+
+
 # Inline SVG icons (16x16 viewBox, currentColor stroke, 1.5px stroke-width)
 _ICON_CALENDAR = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="11" rx="2"/><line x1="2" y1="7" x2="14" y2="7"/><line x1="5" y1="1" x2="5" y2="5"/><line x1="11" y1="1" x2="11" y2="5"/></svg>'
 _ICON_CLIPBOARD = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 1.5h5a1 1 0 011 1v1h-7v-1a1 1 0 011-1z"/><rect x="3" y="3.5" width="10" height="11" rx="1.5"/><line x1="6" y1="7" x2="10" y2="7"/><line x1="6" y1="10" x2="10" y2="10"/></svg>'
@@ -277,7 +290,7 @@ def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> st
 
     total_events = data.get("total_events", 0)
     source_count = data.get("source_count", 0)
-    age_all = _age_string(updated_at)
+    age_all = _timestamp_string(updated_at)
 
     # Check if season plan exists alongside
     season_plan_path = Path(export_dir) / "season_plan.html"
