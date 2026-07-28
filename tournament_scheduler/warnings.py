@@ -330,10 +330,21 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
     rows: List[Dict[str, object]] = []
     max_deviation = 0.0
     max_detail = ""
+    max_deviation_capacity_explained = False
     tournaments_by_age: Dict[str, List[Tournament]] = {}
     available_calendar_clubs = set(
         getattr(planner, "available_calendar_clubs", getattr(planner, "events_by_club", {}).keys())
     )
+    # Clubs the scheduler tried to book as host but had to substitute away
+    # from because no free arena slot was found (see
+    # SeasonPlanner.fallback_host_substitutions / find_slot_for_tournament).
+    # A hosting deviation explained by this is a real-world capacity limit
+    # the planner can observe but not fix — distinct from an unexplained
+    # imbalance that might indicate an actual planning bug.
+    capacity_constrained_clubs = {
+        canonical_rvv_club_name(original_host)
+        for _date, _age_group, original_host, _final_host in getattr(planner, "fallback_host_substitutions", [])
+    }
     missing_calendar_clubs = (
         sorted({
             team.club
@@ -395,6 +406,7 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
             rows.append(row)
             if deviation >= max_deviation:
                 max_deviation = deviation
+                max_deviation_capacity_explained = club in capacity_constrained_clubs
                 max_detail = (
                     f"{age_group}: {club} har {actual} hjemmeturnering(er), "
                     f"forventet ~{expected:.1f} basert på {team_count} lag i aldersgruppen."
@@ -410,8 +422,15 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
         detail = "Ingen data om hjemmeturneringer å vurdere."
     if missing_calendar_clubs:
         detail += f" Kalenderdata mangler for: {', '.join(missing_calendar_clubs)}; disse klubbene er utelatt fra belastningsvurderingen."
+    if max_deviation_capacity_explained:
+        detail += (
+            " Avviket skyldes trolig arenakapasitet, ikke planleggingslogikken: "
+            "planleggeren forsøkte å tildele vertskap dit, men fant ingen ledig arenatid "
+            "(se vertsbytte-registeret)."
+        )
     return {
         "max_deviation": max_deviation,
+        "max_deviation_capacity_explained": max_deviation_capacity_explained,
         "detail": detail,
         "age_group_breakdown": rows,
         "missing_calendar_clubs": missing_calendar_clubs,

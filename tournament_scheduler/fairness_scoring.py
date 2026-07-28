@@ -83,6 +83,7 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
     hosting_breakdown = planner._hosting_fairness_breakdown(plan)
     hosting_deviation = float(hosting_breakdown.get("max_deviation", 0.0))
     hosting_detail = str(hosting_breakdown.get("detail", ""))
+    hosting_capacity_explained = bool(hosting_breakdown.get("max_deviation_capacity_explained", False))
     missing_calendar_clubs = list(hosting_breakdown.get("missing_calendar_clubs", []))
 
     same_weekend_load = 0
@@ -135,7 +136,12 @@ def build_fairness_gate(planner, plan: SeasonPlan) -> Dict[str, object]:
         hosting_deviation,
         thresholds.get("max_hosting_deviation", planner.max_hosting_deviation),
         direction="max",
-        severity="fail",
+        # A deviation the planner can trace to a real arena-capacity limit
+        # (fallback_host_substitutions shows it tried and found no free
+        # slot) isn't something retrying or replanning can fix — downgrade
+        # to a warning so it's visible without blocking on something only
+        # a human (freeing up ice time, adjusting the target) can resolve.
+        severity="warn" if hosting_capacity_explained else "fail",
         detail=hosting_detail or "Aldersgruppevis fordeling av hjemmeturneringer ligger innenfor terskelen.",
     )
     if metrics and metrics[-1].get("key") == "hosting_deviation":

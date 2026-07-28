@@ -1,7 +1,7 @@
 """Tests for SeasonPlanner (season planning/optimization engine)."""
 
 from collections import Counter
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from typing import Dict
 
@@ -1906,6 +1906,72 @@ class TestProportionalHosting:
         assert hosting_metric["status"] == "pass"
         assert gate["status"] == "pass"
         assert planner.hosting_warnings == []
+
+    def test_capacity_explained_hosting_deviation_is_warn_not_fail(self):
+        """A hosting deviation the planner can trace to a real arena-booking
+        conflict (fallback_host_substitutions explains it) should be a
+        warning, not a hard failure — retrying or replanning can't free up
+        ice time, only a human can, so it shouldn't block the pipeline."""
+        start = datetime(2026, 10, 1)
+        end = datetime(2026, 11, 30)
+        frisk = [Team(club="Frisk Asker", label=f"Frisk Asker {i}", age_group="U10") for i in range(3)]
+        jar = Team(club="Jar", label="Jar 1", age_group="U10")
+        kongsberg = Team(club="Kongsberg", label="Kongsberg 1", age_group="U10")
+        ringerike = Team(club="Ringerike", label="Ringerike 1", age_group="U10")
+        roster = Roster(teams=[*frisk, jar, kongsberg, ringerike])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={c: f"{c}hallen" for c in ["Frisk Asker", "Jar", "Kongsberg", "Ringerike"]},
+            parallel_games_for_age_group={"U10": 3},
+            max_hosting_deviation=0,
+            events_by_club={
+                club: [
+                    CalendarEvent(
+                        date="03.10.2026",
+                        name=f"{club} hall booking",
+                        datetime=datetime(2026, 10, 3, 10, 0),
+                        duration_hours=1.0,
+                    )
+                ]
+                for club in ["Frisk Asker", "Jar", "Kongsberg", "Ringerike"]
+            },
+        )
+        # The scheduler tried to give Frisk Asker its fair share of hosting
+        # but couldn't find a free arena slot for them (see
+        # find_slot_for_tournament) — recorded here the same way build_plan
+        # would record it, without needing a full multi-week simulation.
+        planner._fallback_host_substitutions = [
+            (date(2026, 10, d), "U10", "Frisk Asker", "Jar") for d in (3, 10, 17)
+        ]
+        hosts = ["Jar", "Jar", "Kongsberg", "Kongsberg", "Ringerike", "Ringerike"]
+        plan = SeasonPlan(
+            tournaments=[
+                Tournament(
+                    date=date(2026, 10, 3) + timedelta(weeks=i),
+                    arena=f"{host}hallen",
+                    age_group="U10",
+                    teams=[jar, kongsberg],
+                    games=[Game(home=jar, away=kongsberg, parallel_slot=0, round_number=1)],
+                    host_club=host,
+                )
+                for i, host in enumerate(hosts)
+            ],
+            start_date=start.date(),
+            end_date=end.date(),
+            diversity_score=1.0,
+            pairwise_matchup_score=1.0,
+            month_balance_score=1.0,
+            game_count_spread=0,
+        )
+
+        planner._compute_game_counts(plan.tournaments)
+        gate = planner._build_fairness_gate(plan)
+        hosting_metric = next(m for m in gate["metrics"] if m["key"] == "hosting_deviation")
+
+        assert hosting_metric["status"] == "warn"
+        assert hosting_metric["severity"] == "warn"
+        assert "arenakapasitet" in hosting_metric["detail"]
 
     def test_hosting_warnings_property_returns_list(self, free_dates, season_window):
         """hosting_warnings should always return a list."""
