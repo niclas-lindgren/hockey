@@ -96,6 +96,23 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   const lines: string[] = [];
   let overallStatus: "success" | "failure" = "success";
 
+  // Long-running stages (Stage 3 especially, which can take 20+ minutes
+  // across several seed attempts) only used to update the persisted run log
+  // once the whole stage finished — so a run in progress looked frozen even
+  // though it was actively working. Flush progress lines to disk as they
+  // arrive instead of only at stage boundaries.
+  let lastFlush = 0;
+  const FLUSH_INTERVAL_MS = 2000;
+  const flushLine = (line: string) => {
+    lines.push(line);
+    const now = Date.now();
+    if (now - lastFlush < FLUSH_INTERVAL_MS) return;
+    lastFlush = now;
+    try {
+      writeRunLogFile(timestampedExportDir, logger.getRunId(), logStart, "running", lines);
+    } catch { /* best effort — don't let logging failures abort the run */ }
+  };
+
   lines.push(`=== RVV Miniputt Pipeline ===`);
   lines.push(`Kjøring: ${logger.getRunId()}`);
   lines.push(`Logg: ${logger.getLogPath()}`);
@@ -123,11 +140,16 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           if (event.stream !== "stdout") return;
           const line = event.line.trim();
           if (!line.startsWith("[heartbeat]")) return;
-          onProgress?.({ stage: "config", status: "start", message: line.replace(/^\[heartbeat\]\s*/, "") });
+          const message = line.replace(/^\[heartbeat\]\s*/, "");
+          onProgress?.({ stage: "config", status: "start", message });
+          flushLine(message);
         },
       );
       if (verbose) logger.logStageOutput("config", stdout, stderr);
-      if (stdout) lines.push(stdout);
+      if (stdout) {
+        const remaining = stdout.split("\n").filter((l) => !l.trim().startsWith("[heartbeat]")).join("\n");
+        if (remaining.trim()) lines.push(remaining);
+      }
       if (stderr) lines.push(`[stderr] ${stderr}`);
       lines.push("Trinn 1: OK\n");
       onProgress?.({ stage: "config", status: "ok", message: "Konfigurasjon validert (OK)" });
@@ -175,11 +197,16 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           if (event.stream !== "stdout") return;
           const line = event.line.trim();
           if (!line.startsWith("[heartbeat]")) return;
-          onProgress?.({ stage: "scraping", status: "start", message: line.replace(/^\[heartbeat\]\s*/, "") });
+          const message = line.replace(/^\[heartbeat\]\s*/, "");
+          onProgress?.({ stage: "scraping", status: "start", message });
+          flushLine(message);
         },
       );
       if (verbose) logger.logStageOutput("scraping", stdout, stderr);
-      if (stdout) lines.push(stdout);
+      if (stdout) {
+        const remaining = stdout.split("\n").filter((l) => !l.trim().startsWith("[heartbeat]")).join("\n");
+        if (remaining.trim()) lines.push(remaining);
+      }
       if (stderr) lines.push(`[stderr] ${stderr}`);
     } catch (err: unknown) {
       stage2ok = false;
@@ -203,14 +230,17 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     }
 
     if (blocked.length > 0) {
-      lines.push(`\nTrinn 2 utvidet: Skraper ${blocked.length} blokkerte kilder med Pi...`);
+      flushLine(`\nTrinn 2 utvidet: Skraper ${blocked.length} blokkerte kilder med Pi...`);
       onProgress?.({ stage: "scraping-extended", status: "start", message: `Utvidet skraping: ${blocked.length} blokkerte kilder` });
       try {
         const { ScraperAgent } = await import("./scraper-agent");
         const agent = new ScraperAgent(
           ctx,
           (details) => logger.logLLMInteraction("scraping-extended", details),
-          (message) => onProgress?.({ stage: "scraping-extended", status: "start", message }),
+          (message) => {
+            onProgress?.({ stage: "scraping-extended", status: "start", message });
+            flushLine(`  ${message}`);
+          },
         );
         await agent.start();
 
@@ -235,7 +265,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
         for (const name of blocked) {
           const strat = await fetchStrategy(name);
           if (!strat || !strat.url) {
-            lines.push(`  ${name}: ingen strategi — hopper over`);
+            flushLine(`  ${name}: ingen strategi — hopper over`);
             continue;
           }
 
@@ -249,14 +279,14 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
               );
               if (value) {
                 process.env[envVar] = value;
-                lines.push(`  ${name}: ${envVar} satt (${value.length} tegn)`);
+                flushLine(`  ${name}: ${envVar} satt (${value.length} tegn)`);
               } else {
-                lines.push(`  ${name}: ${envVar} ikke angitt — scraping kan feile`);
+                flushLine(`  ${name}: ${envVar} ikke angitt — scraping kan feile`);
               }
             }
           }
 
-          lines.push(`  ${name}: skraper med ScraperAgent...`);
+          flushLine(`  ${name}: skraper med ScraperAgent...`);
           onProgress?.({ stage: "scraping-extended", status: "start", message: `Skraper ${name} med LLM-agent...`, blockedName: name });
           const initialNav = (strat.initial_navigation as Array<Record<string, unknown>>) ?? [];
           const events = await agent.scrape(strat.url as string, {
@@ -265,7 +295,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
             maxIterations: 25,
             initialNavigation: initialNav.length > 0 ? initialNav as any : undefined,
           });
-          lines.push(`  ${name}: ${events.length} events funnet\n`);
+          flushLine(`  ${name}: ${events.length} events funnet\n`);
           onProgress?.({ stage: "scraping-extended", status: "ok", message: `${name}: ${events.length} events funnet`, blockedName: name, eventCount: events.length });
 
           // Update checkpoint data by writing to cache
@@ -343,16 +373,30 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           if (event.stream !== "stdout") return;
           const line = event.line.trim();
           if (line.startsWith("[heartbeat]")) {
-            onProgress?.({ stage: "planning", status: "start", message: line.replace(/^\[heartbeat\]\s*/, "") });
+            const message = line.replace(/^\[heartbeat\]\s*/, "");
+            onProgress?.({ stage: "planning", status: "start", message });
+            flushLine(message);
             return;
           }
           if (!line.startsWith("[plan]")) return;
           const message = line.replace(/^\[plan\]\s*/, "");
           onProgress?.({ stage: "planning", status: "start", message });
+          flushLine(message);
         },
       );
       if (verbose) logger.logStageOutput("planning", stdout, stderr);
-      if (stdout) lines.push(stdout);
+      if (stdout) {
+        // [heartbeat]/[plan] lines already streamed to the log live above —
+        // only append what wasn't already flushed, to avoid duplicating it.
+        const remaining = stdout
+          .split("\n")
+          .filter((l) => {
+            const trimmed = l.trim();
+            return !trimmed.startsWith("[heartbeat]") && !trimmed.startsWith("[plan]");
+          })
+          .join("\n");
+        if (remaining.trim()) lines.push(remaining);
+      }
       if (stderr) lines.push(`[stderr] ${stderr}`);
       lines.push("Trinn 3: OK\n");
       onProgress?.({ stage: "planning", status: "ok", message: "Sesongplan bygget (OK)" });
@@ -395,16 +439,28 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
           if (event.stream !== "stdout") return;
           const line = event.line.trim();
           if (line.startsWith("[heartbeat]")) {
-            onProgress?.({ stage: "export", status: "start", message: line.replace(/^\[heartbeat\]\s*/, "") });
+            const message = line.replace(/^\[heartbeat\]\s*/, "");
+            onProgress?.({ stage: "export", status: "start", message });
+            flushLine(message);
             return;
           }
           if (!line.startsWith("[progress]")) return;
           const message = line.replace(/^\[progress\]\s*/, "");
           onProgress?.({ stage: "export", status: "start", message });
+          flushLine(message);
         },
       );
       if (verbose) logger.logStageOutput("export", stdout, stderr);
-      if (stdout) lines.push(stdout);
+      if (stdout) {
+        const remaining = stdout
+          .split("\n")
+          .filter((l) => {
+            const trimmed = l.trim();
+            return !trimmed.startsWith("[heartbeat]") && !trimmed.startsWith("[progress]");
+          })
+          .join("\n");
+        if (remaining.trim()) lines.push(remaining);
+      }
       if (stderr) lines.push(`[stderr] ${stderr}`);
       lines.push(`Trinn 4: OK → ${timestampedExportDir}\n`);
       onProgress?.({ stage: "export", status: "ok", message: "Eksport fullført (OK)" });

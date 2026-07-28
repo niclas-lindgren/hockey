@@ -329,6 +329,19 @@ class TestIterationsFlag:
         assert "plan" in result
         assert len(result["plan"]["tournaments"]) > 0
 
+    def test_stops_early_once_an_attempt_passes(self, tmp_path):
+        """Once an attempt clears the fairness gate, remaining iterations are skipped."""
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_duplicate_label_config(), {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 1),
+            iterations=3,
+        )
+        assert result["plan"]["fairness_gate"]["status"] == "pass"
+        assert len(result["candidates"]) == 1
+        assert result["candidates"][0]["status"] == "pass"
+
     def test_multi_iteration_score_at_least_single_iteration(self, tmp_path):
         """The best plan from 3 iterations has a composite score >= the single-iteration plan."""
         cfg = _make_config()

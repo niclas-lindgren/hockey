@@ -240,6 +240,14 @@ def run(
             best_planner = planner
             best_attempt = idx
 
+        if status == "pass" and idx < n_iters:
+            print(
+                f"[plan] Forsøk {idx}/{n_iters} bestod fairness-gaten — hopper over "
+                f"resten av forsøkene ({n_iters - idx} sparte).",
+                flush=True,
+            )
+            break
+
     if best_plan is None or best_planner is None:
         reason = "Klarte ikke å generere noen plan."
         state.write_stage(StageName.PLANNING, {"candidates": candidates}, status=StageStatus.FAILED)
