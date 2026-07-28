@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Sequence, Set
 
 import holidays
 
+from tournament_scheduler.html.data_computation import canonical_rvv_club_name
 from tournament_scheduler.models import SeasonPlan, Team, Tournament
 
 
@@ -313,6 +314,17 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
         if available_calendar_clubs
         else []
     )
+    # A club excluded from the "expected" side (missing calendar data) must
+    # also be excluded from "actual" hosting, or its tournaments get counted
+    # as pure deviation against an expectation of zero. Joint teams like
+    # "Jar/Jutul" are split into their constituent arenas by host-assignment,
+    # so exclude those constituents too, not just the joint label.
+    excluded_host_names: Set[str] = set()
+    for club in missing_calendar_clubs:
+        excluded_host_names.add(canonical_rvv_club_name(club))
+        excluded_host_names.update(
+            canonical_rvv_club_name(part.strip()) for part in club.split("/") if part.strip()
+        )
     for tournament in plan.tournaments:
         tournaments_by_age.setdefault(tournament.age_group, []).append(tournament)
 
@@ -321,12 +333,13 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
         age_teams = [team for team in planner.roster.by_age_group(age_group) if team.club in available_calendar_clubs]
         club_team_counts: Dict[str, int] = {}
         for team in age_teams:
-            club_team_counts[team.club] = club_team_counts.get(team.club, 0) + 1
+            club = canonical_rvv_club_name(team.club)
+            club_team_counts[club] = club_team_counts.get(club, 0) + 1
         total_age_teams = sum(club_team_counts.values()) or 1
         actual_hosting: Dict[str, int] = {}
         for tournament in tournaments:
-            host = tournament.host_club
-            if host:
+            host = canonical_rvv_club_name(tournament.host_club) if tournament.host_club else ""
+            if host and host not in excluded_host_names:
                 actual_hosting[host] = actual_hosting.get(host, 0) + 1
 
         for club in sorted(set(club_team_counts) | set(actual_hosting)):
