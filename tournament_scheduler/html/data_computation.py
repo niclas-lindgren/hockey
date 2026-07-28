@@ -10,7 +10,8 @@ from __future__ import annotations
 import html as _html
 import json
 import os
-from datetime import datetime as _dt, timezone as _tz
+from datetime import datetime as _dt
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,8 @@ ICON_DOWNLOAD = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" str
 ICON_FILE_SPREADSHEET = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2h6l4 4v8a1 1 0 01-1 1H3a1 1 0 01-1-1V3a1 1 0 011-1z"/><polyline points="9 2 9 6 13 6"/><line x1="5" y1="9" x2="11" y2="9"/><line x1="5" y1="12" x2="11" y2="12"/></svg>'
 ICON_CLOCK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="8 4 8 8 11 10"/></svg>'
 ICON_BAR_CHART = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="14" x2="2" y2="6"/><line x1="6" y1="14" x2="6" y2="10"/><line x1="10" y1="14" x2="10" y2="4"/><line x1="14" y1="14" x2="14" y2="8"/></svg>'
+
+_OSLO_TZ = ZoneInfo("Europe/Oslo")
 
 # ---------------------------------------------------------------------------
 # RVV club helpers
@@ -96,8 +99,9 @@ def age_string(iso_str: str) -> str:
     if not iso_str:
         return ""
     try:
-        dt = _dt.fromisoformat(iso_str)
-        delta = _dt.now() - dt
+        dt = _dt.fromisoformat(iso_str.replace("Z", "+00:00"))
+        now = _dt.now(dt.tzinfo) if dt.tzinfo is not None else _dt.now()
+        delta = now - dt
         if delta.total_seconds() < 60:
             return f"{int(delta.total_seconds())}s siden"
         if delta.total_seconds() < 3600:
@@ -114,11 +118,12 @@ def timestamp_string(iso_str: str) -> str:
     if not iso_str:
         return ""
     try:
-        dt = _dt.fromisoformat(iso_str)
+        dt = _dt.fromisoformat(iso_str.replace("Z", "+00:00"))
         if dt.tzinfo is not None:
-            dt = dt.astimezone(_tz.utc)
-            return dt.strftime("%Y-%m-%d %H:%M UTC")
-        return dt.strftime("%Y-%m-%d %H:%M")
+            dt = dt.astimezone(_OSLO_TZ)
+        else:
+            dt = dt.replace(tzinfo=_OSLO_TZ)
+        return dt.strftime("%Y-%m-%d %H:%M %Z")
     except (ValueError, TypeError):
         return iso_str.replace("T", " ")
 

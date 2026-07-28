@@ -617,6 +617,26 @@ class TestRunStage4:
         assert input_path.name in report_html
         assert str(input_path) in report_html
 
+    def test_report_renders_generated_at_in_europe_oslo_time(self, tmp_path):
+        plan = _dict_to_plan(_make_plan_dict()["plan"])
+        export_path = tmp_path / "export" / "season_plan.html"
+
+        HtmlExporter().export(
+            plan,
+            export_path,
+            meta={
+                "updated_at": "2025-01-01T12:00:00+00:00",
+                "source_count": 1,
+                "total_events": 1,
+            },
+            pipeline_meta={
+                "generated_at": "2025-01-01T12:00:00+00:00",
+            },
+        )
+
+        report_html = export_path.with_name("season_plan_report.html").read_text(encoding="utf-8")
+        assert "2025-01-01 13:00 CET" in report_html
+
     def test_marks_checkpoint_done(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         run(

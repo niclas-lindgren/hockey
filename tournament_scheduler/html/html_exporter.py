@@ -474,7 +474,7 @@ class HtmlExporter:
         def _format_generated_at(value: str) -> str:
             if not value:
                 return ""
-            return value.replace("T", " ").replace("+00:00", " UTC").replace("Z", " UTC")
+            return timestamp_string(value)
 
         hidden_notes: list[str] = [f"Periode: {month_span}"]
         if generated_at:

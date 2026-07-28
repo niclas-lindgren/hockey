@@ -18,6 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from tournament_scheduler.html.data_computation import timestamp_string
+
 from .cache_manager import ScrapedDataCache
 
 
@@ -40,8 +42,9 @@ def _age_string(iso_str: str) -> str:
     if not iso_str:
         return "aldri"
     try:
-        dt = datetime.fromisoformat(iso_str)
-        delta = datetime.now() - dt
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        now = datetime.now(dt.tzinfo) if dt.tzinfo is not None else datetime.now()
+        delta = now - dt
         if delta.total_seconds() < 60:
             return f"{int(delta.total_seconds())}s siden"
         if delta.total_seconds() < 3600:
@@ -57,13 +60,7 @@ def _timestamp_string(iso_str: str) -> str:
     """Return an absolute timestamp string for display."""
     if not iso_str:
         return "ukjent"
-    try:
-        dt = datetime.fromisoformat(iso_str)
-        if dt.tzinfo is not None:
-            return dt.astimezone().strftime("%Y-%m-%d %H:%M %Z").strip()
-        return dt.strftime("%Y-%m-%d %H:%M")
-    except (ValueError, TypeError):
-        return iso_str.replace("T", " ")
+    return timestamp_string(iso_str)
 
 
 # Inline SVG icons (16x16 viewBox, currentColor stroke, 1.5px stroke-width)
@@ -97,8 +94,9 @@ def _cache_status(entry: dict[str, Any], ttl_hours: float = 6.0) -> str:
         return "Ukjent"
 
     try:
-        scraped_at = datetime.fromisoformat(ts)
-        age = datetime.now() - scraped_at
+        scraped_at = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        now = datetime.now(scraped_at.tzinfo) if scraped_at.tzinfo is not None else datetime.now()
+        age = now - scraped_at
         if age.total_seconds() <= ttl_hours * 3600:
             return "Fersk"
         return "Utdatert"

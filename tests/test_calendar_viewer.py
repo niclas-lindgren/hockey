@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from tournament_scheduler.pipeline.calendar_viewer import generate_html
@@ -12,7 +12,7 @@ from tournament_scheduler.pipeline.calendar_viewer import generate_html
 def _write_cache(tmp_path: Path, source_name: str) -> None:
     cache_dir = tmp_path / ".pipeline" / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    now = datetime.now().isoformat()
+    now = datetime(2025, 1, 1, 12, 0, tzinfo=timezone.utc).isoformat()
     cache = {
         "_meta": {
             "updated_at": now,
@@ -62,3 +62,4 @@ class TestCalendarViewer:
         assert "overflow-wrap: anywhere;" in club_label_block
         assert "text-overflow: ellipsis" not in club_label_block
         assert "white-space: nowrap" not in club_label_block
+        assert "Oppdatert: 2025-01-01 13:00 CET" in html
