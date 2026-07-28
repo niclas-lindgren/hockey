@@ -784,6 +784,17 @@ class SeasonPlanner:
                     candidate_schedule = list(best_schedule)
                     candidate_schedule[index] = (candidate_date, age_group)
                     candidate_schedule.sort(key=lambda item: (item[0], item[1]))
+
+                    # month_penalty + overlap_penalty*100 is an exact lower bound on the
+                    # full score (repeat_penalty >= 0), computable without replaying
+                    # participant selection. Skip the expensive full replay whenever the
+                    # bound alone already rules out both acceptance branches below.
+                    lower_bound = self._position_penalty_lower_bound(
+                        candidate_schedule, window_start, window_end
+                    )
+                    if lower_bound > best_score + 1e-9:
+                        continue
+
                     candidate_score = self._score_date_schedule(
                         candidate_schedule,
                         window_start,
@@ -805,6 +816,50 @@ class SeasonPlanner:
             print(f"[plan] Optimalisering: forbedringsrunde {pass_index}/{total_passes} ga forbedring", flush=True)
 
         return best_schedule, best_score
+
+    def _position_penalty_lower_bound(
+        self,
+        scheduled: Sequence[Tuple[date, str]],
+        window_start: date,
+        window_end: date,
+    ) -> float:
+        """Cheap lower bound on `_score_date_schedule`, from positions alone.
+
+        `month_penalty` and `overlap_penalty` depend only on which dates and
+        age groups are scheduled, not on which teams get picked to play, so
+        they can be computed directly without replaying participant
+        selection. Since `repeat_penalty` is always >= 0, this sum is a exact
+        lower bound on the full score — used to skip a full
+        `_score_date_schedule` replay for candidates that cannot possibly
+        beat the current best.
+        """
+        if not scheduled:
+            return 0.0
+
+        month_counts: Dict[Tuple[int, int], int] = {}
+        by_date: Dict[date, List[str]] = {}
+        for tournament_date, age_group in scheduled:
+            month_key = (tournament_date.year, tournament_date.month)
+            month_counts[month_key] = month_counts.get(month_key, 0) + 1
+            by_date.setdefault(tournament_date, []).append(age_group)
+
+        expected_per_month = self._expected_monthly_load(window_start, window_end, len(scheduled))
+        month_penalty = 0.0
+        if month_counts:
+            month_penalty = sum(abs(count - expected_per_month) for count in month_counts.values())
+            month_penalty /= max(1, len(month_counts))
+
+        overlap_penalty = 0.0
+        for groups in by_date.values():
+            for i, age_group in enumerate(groups):
+                for other in groups[i + 1 :]:
+                    if (
+                        age_group in overlapping_age_groups(other)
+                        or other in overlapping_age_groups(age_group)
+                    ):
+                        overlap_penalty += 1.0
+
+        return month_penalty + overlap_penalty * 100.0
 
     def _score_date_schedule(
         self,

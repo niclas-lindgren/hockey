@@ -72,6 +72,7 @@ The following remain Pi-specific adapters on top of the repo workflow:
 | `/rvv-miniputt run` | Run the full pipeline (config → scraping → planning → export) |
 | `/rvv-miniputt run --resume-from 3` | Resume from stage 3 (planning) |
 | `/rvv-miniputt run --log-level verbose` | Run with verbose logging |
+| `/rvv-miniputt publish` | Run the full pipeline and publish to GitHub Pages in one step, auto-confirmed — skips the manual approval pause that `operator run --publish` alone leaves in place. Hard validation failures (e.g. arena conflicts) still block it. |
 | `/rvv-miniputt status` | Show status of all four stages |
 | `/rvv-miniputt logs list` | Show last 10 runs |
 | `/rvv-miniputt logs show latest` | Show details for the latest run |

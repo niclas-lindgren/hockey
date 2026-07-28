@@ -5,6 +5,7 @@ When working with scraping, calendar generation, season planning, or pipeline de
 Claude does not load Pi extensions directly. In this repo, use the Claude project commands under `.claude/commands/rvv-miniputt/`:
 
 - `/rvv-miniputt:run`
+- `/rvv-miniputt:publish` — run the full pipeline and publish to GitHub Pages in one step, auto-confirmed (no approval pause)
 - `/rvv-miniputt:status`
 - `/rvv-miniputt:logs`
 - `/rvv-miniputt:calendars`
