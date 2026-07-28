@@ -432,6 +432,7 @@ class SeasonPlanner:
         plan.pairwise_matchup_score = self._pairwise_matchup_score(plan.tournaments)
         plan.month_balance_score = self._month_balance_score(expected_per_month)
         plan.arena_day_collisions = interval_collisions + sequence_failures + slot_failures
+        self._arena_day_collisions = list(plan.arena_day_collisions)
         if plan.arena_day_collisions:
             plan.arena_counts["_arena_day_collisions"] = len(plan.arena_day_collisions)
         else:

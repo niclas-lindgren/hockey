@@ -13,7 +13,7 @@
 - [x] Block export and public publish on hard arena conflicts
   - Files: tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/pipeline/operator_action.py, tests/test_stage4_export.py, tests/test_operator_action.py
   - Approach: Re-check final plan collisions before Stage 4 output and before `operator publish --confirm-public`; fail with actionable arena/date/tournament/interval evidence when any hard conflict remains.
-- [ ] Update rules/reporting docs for arena interval validation
+- [x] Update rules/reporting docs for arena interval validation
   - Files: docs/rvv-miniputt-rules-report.md, tournament_scheduler/rules_report.py
   - Approach: Document that arena conflicts are full interval overlaps, not just same-day counts, and ensure rules report wording matches the new hard validation behavior.
 
@@ -36,6 +36,13 @@ GitHub issue 27 reports Jarhallen overlap on 2026-09-05 from run-2026-07-27T22-1
 
 
 
+
+### 2026-07-28 — Update rules/reporting docs for arena interval validation
+**Done:** Updated the rules report and committed documentation to describe full arena interval validation, planned reservation checks, and export/publish blocking for hard arena conflicts.
+**Rationale:** Scheduling logic changed from same-day warnings to interval-level hard validation, so operator-facing rules text must match actual behavior.
+**Findings:** Plan drift warning: tournament_scheduler/season_planner.py also changed to persist final arena collisions on the planner so rules_report can report the actual count. Test passed: tests/test_season_planner.py::TestRulesReport.
+**Files:** docs/rvv-miniputt-rules-report.md; tournament_scheduler/rules_report.py; tournament_scheduler/season_planner.py
+**Commit:** not committed
 ### 2026-07-28 — Block export and public publish on hard arena conflicts
 **Done:** Stage 4 now re-derives arena interval collisions before writing exports and fails on hard conflicts; Pages publish now refuses to publish any planning checkpoint with arena-day collisions, even with --confirm-public.
 **Rationale:** Export/publish are the last safety gates before public artifacts, so they must fail closed when a hard scheduling conflict remains.

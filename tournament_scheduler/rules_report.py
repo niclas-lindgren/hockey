@@ -70,7 +70,7 @@ def rules_report(planner) -> List[Dict[str, str]]:
             "regel": f"Buffer mellom turneringer i samme hall-dag: {planner.ARENA_DAY_SEQUENCE_BUFFER_MINUTES} min",
             "forklaring": (
                 f"Når flere turneringer havner i samme arena samme dag, legges det inn {planner.ARENA_DAY_SEQUENCE_BUFFER_MINUTES} minutter buffer mellom starttidene. "
-                "Det hindrer at arrangementene overlapper tidsmessig."
+                "Dersom sekvensen ikke får plass innen siste gyldige starttid, registreres dette som en hard arenakollisjon i stedet for å klemme starttiden tilbake."
             ),
             "kategori": "Konfigurasjonsstandard",
         },
@@ -160,6 +160,15 @@ def rules_report(planner) -> List[Dict[str, str]]:
             "kategori": "Automatisk avgjørelse",
         },
         {
+            "regel": "Ingen overlappende arenaintervaller",
+            "forklaring": (
+                "Hver turnering reserverer et fullt dato-/tidsintervall i arenaen, inkludert setup-/byttebuffer per runde og intervaller som går over midnatt. "
+                "Senere plasseringer sjekkes mot både skrapede hallbookinger og turneringer som allerede er lagt inn i planen. "
+                "Enhver overlappende intervallkollisjon i samme arena er en hard feil i fairness-gaten og blokkerer eksport/publisering."
+            ),
+            "kategori": "Hard krav",
+        },
+        {
             "regel": "Round-robin: alle mot alle innen turneringen",
             "forklaring": (
                 "Innenfor hver turnering spiller alle inviterte lag mot hverandre nøyaktig én gang (round-robin). "
@@ -220,12 +229,12 @@ def rules_report(planner) -> List[Dict[str, str]]:
             "kategori": "Advarsel",
         },
         {
-            "regel": "Samme arena / samme dag",
+            "regel": "Arena-intervallkollisjoner",
             "forklaring": (
-                f"Kjører en advarsel når to turneringer kolliderer i samme hall samme dag; "
-                f"{len(getattr(planner, '_collisions', []))} tilfelle(r) er registrert i denne planen."
+                "Kjører en hard validering av fullstendige start-/sluttintervaller i samme arena, ikke bare datoantall; "
+                f"{len(getattr(planner, '_arena_day_collisions', []))} tilfelle(r) er registrert i denne planen."
             ),
-            "kategori": "Advarsel",
+            "kategori": "Hard krav",
         },
         {
             "regel": "Fallback vertsklubb",
@@ -276,10 +285,10 @@ def rules_report(planner) -> List[Dict[str, str]]:
         report.append({
             "regel": "Tidspunkt på dagen velges ut fra vertsklubbens egen hallkalender",
             "forklaring": (
-                "For hver turnering beregnes hvor lang tid hele turneringen tar (rundelengde × antall runder), og planleggeren "
-                "ser etter en sammenhengende ledig luke av denne lengden i vertsklubbens egen hallkalender. Tidspunkt nærmest 11:00 "
+                "For hver turnering beregnes hvor lang tid hele turneringen tar (rundelengde × antall runder pluss buffer), og planleggeren "
+                "ser etter en sammenhengende ledig luke av denne lengden i vertsklubbens egen hallkalender og i planens egne reservasjoner. Tidspunkt nærmest 11:00 "
                 "foretrekkes, for å unngå svært tidlige eller sene starttider. Hvis den opprinnelige vertsklubben ikke har en passende "
-                "ledig luke, prøver planleggeren andre klubber med ledig kapasitet på samme dato før den faller tilbake til standard starttid."
+                "ledig luke, prøver planleggeren andre klubber med ledig kapasitet på samme dato; hvis ingen kandidat passer, registreres en hard konflikt."
             ),
             "kategori": "Automatisk avgjørelse",
         })
