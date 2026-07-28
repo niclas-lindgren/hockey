@@ -9,7 +9,6 @@ import { parseRunArgs } from "./parsers";
 import { PipelineLogger } from "./pipeline-logger";
 import {
   STAGE_ORDER,
-  STAGE_FILES,
   runStage,
   readCheckpoint,
   buildStatusText,
@@ -17,12 +16,17 @@ import {
   estimateDataVolume,
 } from "./pipeline-helpers";
 import { buildRunSummaryText } from "./log-inspector";
-import type { ProgressEvent, RunArgs } from "./types";
+import type { ProgressEvent } from "./types";
 
 export interface PipelineRunResult {
   status: "success" | "failure";
   text: string;
 }
+
+// Stage 3 already searches multiple random seeds within a single invocation
+// (see "Forsøk N/M" in its output) — defaulting to more than one seed here
+// gives that search room to work without needing an outer retry wrapper.
+const DEFAULT_PLANNER_ITERATIONS = 5;
 
 // Python %Y-%m-%dT%H%M format
 function computeExportTimestamp(): string {
@@ -327,9 +331,10 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     logger.stageStart("planning");
     try {
       const stage3Args = [...baseArgs];
-      if (typeof params.iterations === "number" && Number.isFinite(params.iterations)) {
-        stage3Args.push("--iterations", String(params.iterations));
-      }
+      const iterations = typeof params.iterations === "number" && Number.isFinite(params.iterations)
+        ? params.iterations
+        : DEFAULT_PLANNER_ITERATIONS;
+      stage3Args.push("--iterations", String(iterations));
       const { stdout, stderr } = await runStage(
         cwdPath,
         "tournament_scheduler.pipeline.stage3_planning",
@@ -483,240 +488,3 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
   return { status: overallStatus, text: lines.join("\n") };
 }
 
-const MAX_CONVERGENCE_ROUNDS = 3;
-const MAX_PLANNER_ITERATIONS = 5;
-
-interface ConvergenceAssessment {
-  converged: boolean;
-  reason: string;
-  nextResumeFrom: number;
-  nextIterations: number;
-  signature: string;
-  summary: string;
-}
-
-function serializeRunArgs(args: RunArgs): string[] {
-  const parts: string[] = [];
-  if (args.input) parts.push("--input", args.input);
-  if (args.work_dir) parts.push("--work-dir", args.work_dir);
-  if (args.export_dir) parts.push("--export-dir", args.export_dir);
-  if (args.resume_from) parts.push("--resume-from", args.resume_from);
-  if (args.log_level) parts.push("--log-level", args.log_level);
-  if (args.force_refresh) parts.push("--force-refresh");
-  if (args.non_strict) parts.push("--non-strict");
-  if (args.allow_missing_sources) parts.push("--allow-missing-sources");
-  if (args.timestamped_export === false) parts.push("--no-timestamped-export");
-  if (typeof args.iterations === "number" && Number.isFinite(args.iterations)) {
-    parts.push("--iterations", String(args.iterations));
-  }
-  return parts;
-}
-
-function extractCheckpointData(workDir: string, filename: string): Record<string, unknown> | null {
-  const ckpt = readCheckpoint(workDir, filename);
-  if (!ckpt) return null;
-  const data = ckpt.data;
-  return data && typeof data === "object" ? (data as Record<string, unknown>) : null;
-}
-
-function computePlanTone(planData: Record<string, unknown> | null | undefined): "rough" | "mixed" | "strong" {
-  if (!planData) return "rough";
-
-  const fairnessGate = (planData.fairness_gate as Record<string, unknown> | undefined) ?? {};
-  const gateStatus = String(fairnessGate.status ?? "pass").toLowerCase();
-  const gateScore = Number(fairnessGate.score ?? 0) || 0;
-  const pairwise = Number(planData.pairwise_matchup_score ?? 0) || 0;
-  const diversity = Number(planData.diversity_score ?? 0) || 0;
-  const monthBalance = Number(planData.month_balance_score ?? 0) || 0;
-
-  if (gateStatus === "fail" || gateScore < 70 || pairwise < 0.75) return "rough";
-  if (gateStatus === "warn" || pairwise < 0.9 || diversity < 0.9 || monthBalance < 0.9) return "mixed";
-  return "strong";
-}
-
-function readTextIfExists(path: string): string {
-  try {
-    return existsSync(path) ? readFileSync(path, "utf-8") : "";
-  } catch {
-    return "";
-  }
-}
-
-function assessConvergence(workDir: string): ConvergenceAssessment {
-  const stage2 = extractCheckpointData(workDir, "stage2_scraping.json");
-  const stage3 = extractCheckpointData(workDir, "stage3_planning.json");
-  const stage4 = extractCheckpointData(workDir, "stage4_export.json");
-
-  const sources = Array.isArray(stage2?.sources) ? (stage2?.sources as Array<Record<string, unknown>>) : [];
-  const blockedList = Array.isArray(stage2?.blocked) ? (stage2?.blocked as unknown[]) : [];
-  const blockedNames = new Set(blockedList.map((item) => String(item)));
-  const warning = typeof stage2?.warning === "string" ? String(stage2.warning).trim() : "";
-  const unresolvedSources = sources.filter((source) => {
-    if (Boolean(source.skipped)) return false;
-    const name = String(source.name ?? "");
-    const eventCount = Number(source.event_count ?? 0) || 0;
-    const blocked = Boolean(source.blocked) || blockedNames.has(name);
-    return blocked || eventCount === 0;
-  });
-  const stage2Summary = `Stage 2: ${sources.length} kilder, ${blockedNames.size} blokkert, ${unresolvedSources.length} uløst${warning ? ", warning" : ""}`;
-
-  if (!stage2 || warning || sources.length === 0 || unresolvedSources.length > 0) {
-    const detail = !stage2
-      ? "Stage 2 checkpoint mangler"
-      : warning
-        ? warning
-        : sources.length === 0
-          ? "ingen kilder ble behandlet"
-          : `${unresolvedSources.length} kilde(r) gjenstår å løse`;
-    return {
-      converged: false,
-      reason: `Stage 2 er ikke konvergert: ${detail}`,
-      nextResumeFrom: 2,
-      nextIterations: 1,
-      signature: JSON.stringify({ stage: 2, sources: sources.length, blocked: blockedNames.size, unresolved: unresolvedSources.length, warning }),
-      summary: stage2Summary,
-    };
-  }
-
-  const stage3Plan = stage3?.plan as Record<string, unknown> | undefined;
-  const fairnessGate = (stage3Plan?.fairness_gate as Record<string, unknown> | undefined) ?? {};
-  const gateStatus = String(fairnessGate.status ?? "pass").toLowerCase();
-  const gateScore = Number(fairnessGate.score ?? 0) || 0;
-  const tournamentCount = Array.isArray(stage3Plan?.tournaments) ? (stage3Plan?.tournaments as unknown[]).length : 0;
-  const selectedAttempt = Number(stage3?.selected_candidate_attempt ?? 0) || 0;
-  const tone = computePlanTone(stage3Plan);
-  const stage3Summary = `Stage 3: status=${gateStatus} score=${gateScore} turneringer=${tournamentCount} valg=${selectedAttempt}`;
-
-  if (tone === "rough") {
-    return {
-      converged: false,
-      reason: "Stage 3 er fortsatt rough",
-      nextResumeFrom: 3,
-      nextIterations: MAX_PLANNER_ITERATIONS,
-      signature: JSON.stringify({ stage: 3, status: gateStatus, score: gateScore, tournaments: tournamentCount }),
-      summary: stage3Summary,
-    };
-  }
-
-  const outputFiles = stage4?.output_files as Record<string, unknown> | undefined;
-  const outputFileCount = outputFiles ? Object.keys(outputFiles).length : 0;
-  if (!outputFiles || outputFileCount === 0) {
-    return {
-      converged: false,
-      reason: "Stage 4 mangler eksportfiler",
-      nextResumeFrom: 4,
-      nextIterations: 1,
-      signature: JSON.stringify({ stage: 4, outputFileCount }),
-      summary: `Stage 4: ${outputFileCount} eksportfiler`,
-    };
-  }
-
-  const reportPath = typeof outputFiles.html_report === "string"
-    ? String(outputFiles.html_report)
-    : typeof outputFiles.html === "string"
-      ? String(outputFiles.html)
-      : "";
-  const reportText = reportPath ? readTextIfExists(reportPath) : "";
-  if (reportText.includes("IKKE KLAR")) {
-    return {
-      converged: false,
-      reason: "Stage 4-rapporten er fortsatt IKKE KLAR",
-      nextResumeFrom: 3,
-      nextIterations: MAX_PLANNER_ITERATIONS,
-      signature: JSON.stringify({ stage: 4, status: "ikke_klar", outputFileCount, reportPath }),
-      summary: `Stage 4: ${outputFileCount} filer, rapport ikke klar`,
-    };
-  }
-
-  return {
-    converged: true,
-    reason: `Konvergert (${tone})`,
-    nextResumeFrom: 4,
-    nextIterations: 1,
-    signature: JSON.stringify({ stage: 4, status: "ok", tone, outputFileCount, gateStatus, gateScore }),
-    summary: `Stage 4: ${outputFileCount} filer, tone=${tone}`,
-  };
-}
-
-export async function runPipelineConvergent(
-  rawArgs: unknown,
-  ctx: ExtensionContext,
-  onProgress?: (e: ProgressEvent) => void,
-): Promise<PipelineRunResult> {
-  const initialParams = parseRunArgs(rawArgs);
-  const maxRounds = MAX_CONVERGENCE_ROUNDS;
-  const combined: string[] = [];
-  let params: RunArgs = { ...initialParams };
-
-  // Pin every round of this convergence run to a single timestamped export
-  // folder — otherwise each internal retry round (resume_from adjustments
-  // between rounds) computes its own "now" timestamp and results scatter
-  // across separate export/ folders instead of accumulating in one place.
-  if (params.timestamped_export !== false && !params.export_dir) {
-    const exportRoot = resolve(ctx.cwd, "export");
-    params.export_dir = resolve(exportRoot, computeExportTimestamp());
-    params.timestamped_export = false;
-  }
-
-  let previousSignature: string | null = null;
-  const innerProgress = (e: ProgressEvent) => {
-    if (e.stage === "done") return;
-    onProgress?.(e);
-  };
-
-  for (let round = 1; round <= maxRounds; round++) {
-    combined.push(`=== RVV Miniputt Pipeline — round ${round}/${maxRounds} ===`);
-    if (round > 1) {
-      combined.push(`  Re-running with --resume-from ${params.resume_from ?? "1"}`);
-      if (typeof params.iterations === "number") {
-        combined.push(`  Stage 3 iterations: ${params.iterations}`);
-      }
-    }
-
-    const result = await runPipeline(serializeRunArgs(params).join(" "), ctx, innerProgress);
-    combined.push(result.text);
-
-    if (result.status === "failure") {
-      onProgress?.({ stage: "done", status: "error", message: "Pipeline feilet" });
-      return { status: "failure", text: combined.join("\n") };
-    }
-
-    const workDir = params.work_dir ?? ".pipeline";
-    const assessment = assessConvergence(workDir);
-    combined.push(`Assessment: ${assessment.reason}`);
-    combined.push(`  ${assessment.summary}`);
-
-    if (assessment.converged) {
-      combined.push("Harness convergence: achieved");
-      onProgress?.({ stage: "done", status: "ok", message: "Pipeline fullført" });
-      return { status: "success", text: combined.join("\n") };
-    }
-
-    if (previousSignature && assessment.signature === previousSignature) {
-      combined.push("Harness convergence: no progress detected — stopping to avoid a retry loop");
-      break;
-    }
-    previousSignature = assessment.signature;
-
-    if (round >= maxRounds) {
-      combined.push("Harness convergence: max rounds reached without a good result");
-      break;
-    }
-
-    combined.push(`  Next: resume_from=${assessment.nextResumeFrom}, iterations=${assessment.nextIterations}`);
-    params = {
-      ...params,
-      resume_from: String(assessment.nextResumeFrom),
-      force_refresh: assessment.nextResumeFrom === 2 ? false : params.force_refresh,
-      iterations: assessment.nextResumeFrom === 3
-        ? assessment.nextIterations
-        : params.iterations,
-    };
-  }
-
-  onProgress?.({ stage: "done", status: "error", message: "Pipeline feilet" });
-  return {
-    status: "failure",
-    text: combined.join("\n"),
-  };
-}

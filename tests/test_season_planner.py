@@ -1841,6 +1841,72 @@ class TestProportionalHosting:
         assert "Sandefjord" in missing_note["detail"]
         assert planner.hosting_warnings == []
 
+    def test_joint_club_team_uses_constituent_calendar_for_hosting(self):
+        """A joint team like "Jar/Jutul" has no calendar of its own — it should
+        fall back to whichever constituent club has scraped data, not be
+        treated as a missing-calendar club."""
+        start = datetime(2026, 10, 1)
+        end = datetime(2026, 10, 31)
+        joint = Team(club="Jar/Jutul", label="Jar/Jutul 1", age_group="U10")
+        opponent = Team(club="Kongsberg", label="Kongsberg 1", age_group="U10")
+        roster = Roster(teams=[joint, opponent])
+        planner = SeasonPlanner(
+            scheduler=FakeScheduler([]),
+            roster=roster,
+            club_arenas={"Jar": "Jarhallen", "Kongsberg": "Kongsberghallen"},
+            parallel_games_for_age_group={"U10": 3},
+            max_hosting_deviation=1,
+            events_by_club={
+                "Jar": [
+                    CalendarEvent(
+                        date="03.10.2026",
+                        name="Jar hall booking",
+                        datetime=datetime(2026, 10, 3, 10, 0),
+                        duration_hours=1.0,
+                    )
+                ],
+                "Kongsberg": [
+                    CalendarEvent(
+                        date="03.10.2026",
+                        name="Kongsberg hall booking",
+                        datetime=datetime(2026, 10, 3, 10, 0),
+                        duration_hours=1.0,
+                    )
+                ],
+            },
+        )
+        plan = SeasonPlan(
+            tournaments=[
+                Tournament(
+                    date=date(2026, 10, 3),
+                    arena="Jarhallen",
+                    age_group="U10",
+                    teams=[joint, opponent],
+                    games=[Game(home=joint, away=opponent, parallel_slot=0, round_number=1)],
+                    # host_assignment resolves "Jar/Jutul" down to the
+                    # constituent that actually had a free slot.
+                    host_club="Jar",
+                )
+            ],
+            start_date=start.date(),
+            end_date=end.date(),
+            diversity_score=1.0,
+            pairwise_matchup_score=1.0,
+            month_balance_score=1.0,
+            game_count_spread=0,
+        )
+
+        planner._compute_game_counts(plan.tournaments)
+        planner._scan_hosting_warnings(plan)
+        gate = planner._build_fairness_gate(plan)
+        hosting_metric = next(metric for metric in gate["metrics"] if metric["key"] == "hosting_deviation")
+        missing_note = next((note for note in gate.get("notes", []) if note["key"] == "missing_calendar_clubs"), None)
+
+        assert missing_note is None
+        assert hosting_metric["status"] == "pass"
+        assert gate["status"] == "pass"
+        assert planner.hosting_warnings == []
+
     def test_hosting_warnings_property_returns_list(self, free_dates, season_window):
         """hosting_warnings should always return a list."""
         start, end = season_window

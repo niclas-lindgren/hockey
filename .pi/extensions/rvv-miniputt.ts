@@ -3,7 +3,7 @@ import { Type } from "typebox";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseStatusArgs, parseLogsArgs, parseCalendarsArgs, parseScrapeArgs, parseScrapeLlmArgs } from "../lib/parsers";
-import { runPipelineConvergent, type PipelineRunResult } from "../lib/pipeline-runner";
+import { runPipeline, type PipelineRunResult } from "../lib/pipeline-runner";
 import { interactiveGuide } from "../lib/interactive-guide";
 import { LOG_LEVELS } from "../lib/types";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
@@ -108,7 +108,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
   pi.registerCommand("rvv-miniputt run", {
     description:
       "Kjør den firetrinns sesongplanleggingspipelinen for RVV-hockeyklubber. " +
-      "Støtter gjenopptak fra et bestemt trinn og kjører harness-iterasjoner til resultatet konvergerer.\n" +
+      "Støtter gjenopptak fra et bestemt trinn. Trinn 3 prøver flere tilfeldige frø internt (standard 5).\n" +
       "Valgfrie flagg: --input <input.xlsx> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
       "--log-level <info|verbose> --force-refresh --iterations <N>\n" +
       "Trinn 2 gjenbruker kalenderdata fra cache (under 24 timer gammel) med mindre --force-refresh er satt.\n" +
@@ -122,7 +122,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       return filtered.length ? filtered.map((value) => ({ value, label: value })) : null;
     },
     handler: async (args, ctx) => {
-      const result = await runPipelineConvergent(args, ctx, (e) => {
+      const result = await runPipeline(args, ctx, (e) => {
         if (e.status === "error") {
           ctx.ui.notify(`❌ ${e.message}`, "error");
         } else if (e.stage === "done") {
@@ -263,7 +263,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
     label: "RVV Miniputt: Run Pipeline",
     description:
       "Run the RVV Miniputt season-planning pipeline (config → scraping → planning → export). " +
-      "The Pi harness will retry bounded convergence rounds when the output is not yet good. " +
+      "Stage 3 searches multiple random seeds internally (default 5, override with --iterations). " +
       "This is the agent-callable equivalent of the '/rvv-miniputt run' slash command — that " +
       "command is not a shell binary and cannot be invoked via Bash.",
     promptSnippet: "Run the RVV Miniputt season-planning pipeline",
@@ -277,7 +277,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       })),
     }),
     async execute(_toolCallId, params, _signal, onUpdate, ctx) {
-      const result = await runPipelineConvergent(params.args ?? "", ctx, (e) => {
+      const result = await runPipeline(params.args ?? "", ctx, (e) => {
         onUpdate?.({
           content: [{ type: "text", text: `[${e.stage}] ${e.status === "start" ? "▶" : e.status === "ok" ? "✅" : e.status === "skip" ? "⏭️" : "❌"} ${e.message}` }],
         });

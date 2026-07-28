@@ -300,6 +300,31 @@ def scan_club_load_warnings(planner, tournaments: Sequence[Tournament]) -> None:
                 )
 
 
+def _resolvable_club_keys(club: str, available_calendar_clubs: Set[str]) -> List[str]:
+    """Constituent clubs to attribute this team's hosting load to.
+
+    A joint club like "Jar/Jutul" has no arena or calendar source of its own —
+    host_assignment.find_slot_for_tournament already resolves it to whichever
+    constituent club's arena has a free slot, so the resulting tournament's
+    host_club always ends up being "Jar" or "Jutul", never "Jar/Jutul". To
+    keep expected-vs-actual hosting counts on the same keys, split the joint
+    team's load across whichever constituents actually have calendar data.
+    """
+    if club in available_calendar_clubs:
+        return [club]
+    parts = [part.strip() for part in club.split("/") if part.strip()]
+    resolvable = [part for part in parts if part in available_calendar_clubs]
+    return resolvable or [club]
+
+
+def _club_calendar_available(club: str, available_calendar_clubs: Set[str]) -> bool:
+    """Whether a club has scraped calendar data to judge hosting load against."""
+    if club in available_calendar_clubs:
+        return True
+    parts = [part.strip() for part in club.split("/") if part.strip()]
+    return any(part in available_calendar_clubs for part in parts)
+
+
 def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
     """Return age-group-aware expected vs actual hosting diagnostics."""
     rows: List[Dict[str, object]] = []
@@ -310,7 +335,11 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
         getattr(planner, "available_calendar_clubs", getattr(planner, "events_by_club", {}).keys())
     )
     missing_calendar_clubs = (
-        sorted({team.club for team in planner.roster.teams if team.club not in available_calendar_clubs})
+        sorted({
+            team.club
+            for team in planner.roster.teams
+            if not _club_calendar_available(team.club, available_calendar_clubs)
+        })
         if available_calendar_clubs
         else []
     )
@@ -330,11 +359,18 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
 
     for age_group in sorted(tournaments_by_age):
         tournaments = tournaments_by_age[age_group]
-        age_teams = [team for team in planner.roster.by_age_group(age_group) if team.club in available_calendar_clubs]
-        club_team_counts: Dict[str, int] = {}
+        age_teams = [
+            team
+            for team in planner.roster.by_age_group(age_group)
+            if _club_calendar_available(team.club, available_calendar_clubs)
+        ]
+        club_team_counts: Dict[str, float] = {}
         for team in age_teams:
-            club = canonical_rvv_club_name(team.club)
-            club_team_counts[club] = club_team_counts.get(club, 0) + 1
+            keys = _resolvable_club_keys(team.club, available_calendar_clubs)
+            weight = 1.0 / len(keys)
+            for key in keys:
+                club = canonical_rvv_club_name(key)
+                club_team_counts[club] = club_team_counts.get(club, 0.0) + weight
         total_age_teams = sum(club_team_counts.values()) or 1
         actual_hosting: Dict[str, int] = {}
         for tournament in tournaments:
@@ -350,7 +386,7 @@ def hosting_fairness_breakdown(planner, plan: SeasonPlan) -> Dict[str, object]:
             row = {
                 "age_group": age_group,
                 "club": club,
-                "teams": team_count,
+                "teams": round(team_count, 2),
                 "actual": actual,
                 "expected": round(expected, 2),
                 "deviation": round(deviation, 2),
