@@ -412,21 +412,19 @@ updates, `/runs/<run-id>/` retention, no-op republish, and push failure) and
 adds `build_public_bundle()`, a fail-closed gate in front of #17: only an
 explicit filename allowlist (`DEFAULT_ALLOWED_FILENAMES` —
 `season_plan.html`, `season_plan_report.html`, `calendars.html`,
-`season_plan.ics`) is ever copied from the raw Stage 4 export into a
-separate bundle directory, so Excel/CSV/Spond exports and
-`review_packets/` (which carry roster, contact, and organizer data) are
-excluded by default rather than merely unscanned — a directory or an
-unapproved extension is excluded even if a caller allowlists its filename.
-Included text files are pattern-scanned for probable secrets (AWS/GitHub/
-Slack tokens, private key blocks, generic `key=`/`token=`/`password=`
-assignments, `Bearer` headers, and bearer-style URL query params): any
-match blocks the whole bundle (`CapabilityResult.blocked`,
-`requires_human=True`, nothing written to the output directory) unless the
-matched text is explicitly acknowledged via `allow_findings`. Local
-filesystem paths, email addresses, and labeled phone numbers
-(`tel:`/`Tlf`/`Phone` context — unlabeled digit runs are left alone so
-dates and scores survive untouched) are redacted rather than blocking.
-Root-absolute `href="/..."`/`src="/..."` links are rewritten relative so
+`season_plan.ics`, `season_plan.xlsx`, `season_plan.csv`,
+`season_plan_overview.csv`) is ever copied from the raw Stage 4 export into a
+separate bundle directory, so `review_packets/` and the Spond exports stay
+out by default unless explicitly added. Included text files are
+pattern-scanned for probable secrets (AWS/GitHub/Slack tokens, private key
+blocks, generic `key=`/`token=`/`password=` assignments, `Bearer`
+headers, and bearer-style URL query params): any match blocks the whole
+bundle (`CapabilityResult.blocked`, `requires_human=True`, nothing written
+to the output directory) unless the matched text is explicitly acknowledged
+via `allow_findings`. Local filesystem paths, email addresses, and labeled
+phone numbers (`tel:`/`Tlf`/`Phone` context — unlabeled digit runs are left
+alone so dates and scores survive untouched) are redacted rather than
+blocking. Root-absolute `href="/..."`/`src="/..."` links are rewritten relative so
 the bundle still resolves under the GitHub Pages project subpath
 (`/<repo>/latest/`, `/<repo>/runs/<run-id>/`). Links inside included HTML
 that still point at files excluded from the public bundle are disabled or

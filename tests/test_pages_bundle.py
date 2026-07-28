@@ -18,27 +18,48 @@ def _export_dir(tmp_path: Path) -> Path:
 
 
 class TestDefaultAllowlist:
-    def test_html_and_ics_are_included_by_default(self, tmp_path):
+    def test_public_download_exports_are_included_by_default(self, tmp_path):
         export_dir = _export_dir(tmp_path)
-        (export_dir / "season_plan.html").write_text("<h1>Plan</h1>", encoding="utf-8")
+        (export_dir / "season_plan.html").write_text(
+            '<a href="season_plan.xlsx" class="export-link-btn">Excel</a>'
+            '<a href="season_plan.csv" class="export-link-btn">CSV</a>'
+            '<a href="season_plan_overview.csv" class="export-link-btn">CSV overview</a>'
+            '<a href="season_plan.ics" class="export-link-btn">iCal</a>',
+            encoding="utf-8",
+        )
         (export_dir / "season_plan.ics").write_text("BEGIN:VCALENDAR\nEND:VCALENDAR\n", encoding="utf-8")
+        (export_dir / "season_plan.xlsx").write_bytes(b"not a real workbook")
+        (export_dir / "season_plan.csv").write_text("date,arena\n", encoding="utf-8")
+        (export_dir / "season_plan_overview.csv").write_text("date,arena\n", encoding="utf-8")
 
         result = build_public_bundle(str(export_dir), str(tmp_path / "public"))
 
         assert result.status == "ok"
-        assert set(json.loads(Path((tmp_path / "pages_privacy_report.json")).read_text())["included_files"]) == {
+        included = set(json.loads(Path((tmp_path / "pages_privacy_report.json")).read_text())["included_files"])
+        assert included == {
             "season_plan.html",
             "season_plan.ics",
+            "season_plan.xlsx",
+            "season_plan.csv",
+            "season_plan_overview.csv",
         }
-        assert (tmp_path / "public" / "season_plan.html").exists()
+        assert (tmp_path / "public" / "season_plan.xlsx").exists()
+        assert (tmp_path / "public" / "season_plan.csv").exists()
+        assert (tmp_path / "public" / "season_plan_overview.csv").exists()
+        content = (tmp_path / "public" / "season_plan.html").read_text(encoding="utf-8")
+        assert 'href="season_plan.xlsx"' in content
+        assert 'href="season_plan.csv"' in content
+        assert 'href="season_plan_overview.csv"' in content
+        assert 'aria-disabled="true"' not in content
 
     def test_never_copies_the_whole_export_directory(self, tmp_path):
         """The internal export/roster/spond/review artifacts must never be included by default."""
         export_dir = _export_dir(tmp_path)
         (export_dir / "season_plan.html").write_text("<h1>Plan</h1>", encoding="utf-8")
         (export_dir / "season_plan.xlsx").write_bytes(b"not a real workbook")
-        (export_dir / "season_plan_spond_games.xlsx").write_bytes(b"not a real workbook")
         (export_dir / "season_plan.csv").write_text("club,date\n", encoding="utf-8")
+        (export_dir / "season_plan_overview.csv").write_text("club,date\n", encoding="utf-8")
+        (export_dir / "season_plan_spond_games.xlsx").write_bytes(b"not a real workbook")
         review_dir = export_dir / "review_packets"
         review_dir.mkdir()
         (review_dir / "club_a.xlsx").write_bytes(b"secret roster data")
@@ -47,8 +68,14 @@ class TestDefaultAllowlist:
 
         assert result.status == "ok"
         public_files = {p.name for p in (tmp_path / "public").iterdir()}
-        assert public_files == {"season_plan.html"}
+        assert public_files == {
+            "season_plan.html",
+            "season_plan.xlsx",
+            "season_plan.csv",
+            "season_plan_overview.csv",
+        }
         assert not (tmp_path / "public" / "review_packets").exists()
+        assert not (tmp_path / "public" / "season_plan_spond_games.xlsx").exists()
 
     def test_unknown_extension_is_excluded_even_if_allowlisted_by_name(self, tmp_path):
         export_dir = _export_dir(tmp_path)
@@ -181,20 +208,25 @@ class TestAssetRewriting:
 
 
 class TestExcludedFileLinkRewriting:
-    def test_excluded_file_links_are_disabled_and_reported(self, tmp_path):
+    def test_excluded_file_links_are_removed_and_reported(self, tmp_path):
         export_dir = _export_dir(tmp_path)
         review_packets = export_dir / "review_packets"
         review_packets.mkdir()
         (review_packets / "club_a.xlsx").write_bytes(b"review data")
         (export_dir / "season_plan.xlsx").write_bytes(b"not a real workbook")
         (export_dir / "season_plan.csv").write_text("club,date\n", encoding="utf-8")
+        (export_dir / "season_plan_overview.csv").write_text("club,date\n", encoding="utf-8")
+        (export_dir / "season_plan_spond_games.xlsx").write_bytes(b"not a real workbook")
         (export_dir / "season_plan.html").write_text(
             (
                 '<a href="season_plan.xlsx" class="export-link-btn">Excel</a>'
+                '<a href="season_plan.csv" class="export-link-btn">CSV</a>'
+                '<a href="season_plan_overview.csv" class="export-link-btn">CSV overview</a>'
                 '<a href="review_packets/club_a.xlsx">Review packet</a>'
                 '<a href="calendars.html">Calendar</a>'
                 '<a href="https://example.com/page">External</a>'
-                '<img src="season_plan.csv">'
+                '<img src="review_packets/club_a.xlsx">'
+                '<img src="season_plan_spond_games.xlsx">'
             ),
             encoding="utf-8",
         )
@@ -203,17 +235,20 @@ class TestExcludedFileLinkRewriting:
 
         assert result.status == "ok"
         content = (tmp_path / "public" / "season_plan.html").read_text(encoding="utf-8")
-        assert '<a href="season_plan.xlsx"' not in content
-        assert '<a href="review_packets/club_a.xlsx"' not in content
-        assert '<img src="season_plan.csv"' not in content
-        assert 'data-excluded-href="season_plan.xlsx"' in content
+        assert '<a href="season_plan.xlsx" class="export-link-btn">Excel</a>' in content
+        assert '<a href="season_plan.csv" class="export-link-btn">CSV</a>' in content
+        assert '<a href="season_plan_overview.csv" class="export-link-btn">CSV overview</a>' in content
+        assert 'aria-disabled="true"' in content
+        assert 'data-excluded-href="review_packets/club_a.xlsx"' in content
+        assert 'data-excluded-src="review_packets/club_a.xlsx"' in content
+        assert 'data-excluded-src="season_plan_spond_games.xlsx"' in content
         assert 'href="calendars.html"' in content
         assert 'href="https://example.com/page"' in content
 
         report = json.loads((tmp_path / "pages_privacy_report.json").read_text())
         rewrites = report["rewritten_links"]
         assert any(
-            entry["target"] == "season_plan.xlsx"
+            entry["target"] == "review_packets/club_a.xlsx"
             and entry["attribute"] == "href"
             and entry["action"] == "disabled"
             for entry in rewrites
@@ -224,7 +259,7 @@ class TestExcludedFileLinkRewriting:
             for entry in rewrites
         )
         assert any(
-            entry["target"] == "season_plan.csv"
+            entry["target"] == "season_plan_spond_games.xlsx"
             and entry["attribute"] == "src"
             and entry["action"] == "removed"
             for entry in rewrites
@@ -238,7 +273,8 @@ class TestMissingExportDir:
 
 
 class TestDefaultAllowlistConstant:
-    def test_default_allowlist_excludes_operational_formats(self):
-        assert "season_plan.xlsx" not in DEFAULT_ALLOWED_FILENAMES
-        assert "season_plan.csv" not in DEFAULT_ALLOWED_FILENAMES
+    def test_default_allowlist_includes_public_download_formats(self):
+        assert "season_plan.xlsx" in DEFAULT_ALLOWED_FILENAMES
+        assert "season_plan.csv" in DEFAULT_ALLOWED_FILENAMES
+        assert "season_plan_overview.csv" in DEFAULT_ALLOWED_FILENAMES
         assert "season_plan_spond_games.xlsx" not in DEFAULT_ALLOWED_FILENAMES

@@ -200,7 +200,7 @@ Outside Pi, use the portable equivalents:
 - `scripts/rvv-miniputt status`
 - `scripts/rvv-miniputt logs list`
 
-The pipeline stores per-run logs in the export folder next to the exported artifacts, and the `logs` command searches the export tree first (with `.pipeline/logs/` kept only as a legacy fallback).
+The repo-local `scripts/rvv-miniputt` wrapper archives the latest `run-*.jsonl` into the export folder next to the exported artifacts, and the `logs` command searches the export tree first (with `.pipeline/logs/` kept only as a legacy fallback).
 
 ### Recover from blocked sources
 

@@ -5,7 +5,18 @@ ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 PYTHON_BIN="$ROOT_DIR/venv/bin/python3"
 
 if [[ -x "$PYTHON_BIN" ]]; then
-  exec "$PYTHON_BIN" -m tournament_scheduler.cli.rvv_cli "$@"
+  PYTHON_CMD="$PYTHON_BIN"
+else
+  PYTHON_CMD=python3
 fi
 
-exec python3 -m tournament_scheduler.cli.rvv_cli "$@"
+set +e
+"$PYTHON_CMD" -m tournament_scheduler.cli.rvv_cli "$@"
+status=$?
+set -e
+
+if [[ "${1:-}" == "run" || ( "${1:-}" == "operator" && "${2:-}" == "run" ) ]]; then
+  "$PYTHON_CMD" -m tournament_scheduler.cli.run_log_archive "$@" >/dev/null 2>&1 || true
+fi
+
+exit $status

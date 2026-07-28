@@ -3,17 +3,16 @@
 ``pages_publish.publish()`` (issue #17) commits whatever directory it is
 given to the ``gh-pages`` branch verbatim — it doesn't know or care what's
 in it. This module is the gate in front of that: it turns a raw Stage 4
-export directory (which may contain Excel workbooks, Spond exports, and
-per-club review packets full of contact info and internal notes) into a
-separate, minimal bundle containing only files that are meant to be public,
-with any probable secrets, local filesystem paths, or contact info stripped
-or blocking publication outright.
+export directory into a separate public bundle, keeping the published plan
+and its downloads while stripping/redacting anything that looks internal or
+sensitive.
 
 Fail-closed defaults:
 
-- Only an explicit allowlist of filenames is ever copied — everything else
-  (subdirectories like ``review_packets``, Excel/CSV/Spond exports, unknown
-  file types) is excluded by default, not merely "not scanned".
+- Only an explicit allowlist of filenames is ever copied — by default that
+  includes the public HTML/ICS views plus the plan workbook/CSV downloads;
+  per-club review packets, Spond exports, and unknown file types stay out
+  unless explicitly added.
 - A probable credential, private key, or bearer-URL/token anywhere in an
   included file blocks the whole bundle (``CapabilityResult.blocked``) —
   the operator must review and either fix the source or explicitly
@@ -27,7 +26,6 @@ Fail-closed defaults:
 See ``pipeline/pages_publish.py`` for what happens to the bundle this
 produces, and ``docs/ai-operator-roadmap.md`` for the product rationale.
 """
-
 from __future__ import annotations
 
 import html as _html
@@ -46,14 +44,18 @@ from .capability_result import CapabilityResult
 # ---------------------------------------------------------------------------
 
 # The only files copied into the public bundle unless the caller extends
-# this via `allowed_filenames`. Deliberately excludes anything with roster,
-# contact, or organizer data (Excel/CSV/Spond exports, review_packets/).
+# this via `allowed_filenames`. The default bundle includes the public
+# season-plan views plus the downloadable workbook/CSV exports, while
+# review_packets/ and Spond exports remain excluded.
 DEFAULT_ALLOWED_FILENAMES: frozenset[str] = frozenset(
     {
         "season_plan.html",
         "season_plan_report.html",
         "calendars.html",
         "season_plan.ics",
+        "season_plan.xlsx",
+        "season_plan.csv",
+        "season_plan_overview.csv",
         "index.html",
     }
 )
@@ -62,10 +64,10 @@ DEFAULT_ALLOWED_FILENAMES: frozenset[str] = frozenset(
 # allowlisted — an unknown extension fails closed rather than being copied
 # on trust.
 _ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
-    {".html", ".htm", ".css", ".js", ".ics", ".png", ".jpg", ".jpeg", ".svg", ".ico"}
+    {".html", ".htm", ".css", ".js", ".ics", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".svg", ".ico"}
 )
 
-_TEXT_EXTENSIONS: frozenset[str] = frozenset({".html", ".htm", ".css", ".js", ".ics"})
+_TEXT_EXTENSIONS: frozenset[str] = frozenset({".html", ".htm", ".css", ".js", ".ics", ".csv"})
 
 _PRIVACY_REPORT_FILENAME = "pages_privacy_report.json"
 

@@ -532,7 +532,7 @@ def _execute_publish_pages(
         run_id = RunManifest(work_dir).read().get("run_id") or "unknown-run"
 
     # A raw Stage 4 export may contain rosters, contact info, or internal
-    # notes (Excel/Spond exports, review_packets/) that must never reach a
+    # notes (Spond exports, review_packets/) that must never reach a
     # public URL — sanitize into a separate bundle first (issue #18) and
     # publish that instead of the raw export directory. A blocked/failed
     # sanitization result is returned as-is; the git publish step never
