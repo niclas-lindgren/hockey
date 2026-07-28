@@ -3,9 +3,9 @@
 // ---------------------------------------------------------------------------
 
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { createInterface } from "node:readline";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 export const STAGE_ORDER = ["config", "scraping", "planning", "export"];
 
@@ -76,6 +76,57 @@ export async function runStage(
   });
 }
 
+function collectRunLogCandidates(root: string): string[] {
+  if (!existsSync(root)) return [];
+  const files: string[] = [];
+  const stack: string[] = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const fullPath = join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+      } else if (entry.isFile() && entry.name.startsWith("run-") && entry.name.endsWith(".jsonl")) {
+        files.push(fullPath);
+      }
+    }
+  }
+  return files;
+}
+
+function historicalRunLogPaths(workDir: string): string[] {
+  const candidates = [
+    ...collectRunLogCandidates(resolve(workDir, "..", "export")),
+    ...collectRunLogCandidates(join(workDir, "export")),
+  ];
+
+  const deduped = new Map<string, string>();
+  for (const path of candidates) {
+    const key = basename(path);
+    const existing = deduped.get(key);
+    if (!existing) {
+      deduped.set(key, path);
+      continue;
+    }
+    try {
+      if (statSync(path).mtimeMs > statSync(existing).mtimeMs) {
+        deduped.set(key, path);
+      }
+    } catch {
+      // ignore stat failures
+    }
+  }
+
+  return [...deduped.values()].sort((a, b) => {
+    try {
+      return statSync(b).mtimeMs - statSync(a).mtimeMs;
+    } catch {
+      return 0;
+    }
+  });
+}
+
 /** Read a JSON checkpoint file; return null if it doesn't exist. */
 export function readCheckpoint(workDir: string, filename: string): Record<string, unknown> | null {
   const candidates = filename === "stage3_planning.json"
@@ -123,17 +174,13 @@ export function buildStatusText(workDir: string): string {
     }
   }
 
-  // Append log directory info
-  const logDir = join(workDir, "logs");
-  if (existsSync(logDir)) {
-    const logFiles = readdirSync(logDir).filter((f) => f.endsWith(".jsonl")).sort().reverse();
-    if (logFiles.length > 0) {
-      lines.push("");
-      lines.push(`Logs: ${logDir}`);
-      lines.push(`  Siste ${Math.min(3, logFiles.length)} kjøringer:`);
-      for (const lf of logFiles.slice(0, 3)) {
-        lines.push(`    • ${lf}`);
-      }
+  const logFiles = historicalRunLogPaths(workDir);
+  if (logFiles.length > 0) {
+    lines.push("");
+    lines.push(`Logs: ${dirname(logFiles[0])}`);
+    lines.push(`  Siste ${Math.min(3, logFiles.length)} kjøringer:`);
+    for (const lf of logFiles.slice(0, 3)) {
+      lines.push(`    • ${basename(lf)}`);
     }
   }
 

@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------------------
 
 import type { RunMeta, StageMeta, LogEntry } from "./types";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join, basename } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { basename, dirname, join, resolve, sep } from "node:path";
 
 const STAGE_LABELS: Record<string, string> = {
   config: "Konfigurasjon",
@@ -21,14 +21,68 @@ export function formatDuration(ms: number): string {
   return `${m}m ${s}s`;
 }
 
-export function loadRunHistory(workDir: string): Array<{ runId: string; logPath: string; meta: RunMeta | null }> {
-  const logDir = join(workDir, "logs");
-  if (!existsSync(logDir)) return [];
+function collectRunLogCandidates(root: string): string[] {
+  if (!existsSync(root)) return [];
+  const files: string[] = [];
+  const stack: string[] = [root];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) continue;
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const fullPath = join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+      } else if (entry.isFile() && entry.name.startsWith("run-") && entry.name.endsWith(".jsonl")) {
+        files.push(fullPath);
+      }
+    }
+  }
+  return files;
+}
 
+function historicalRunLogPaths(workDir: string): string[] {
+  const exportRoot = resolve(workDir, "..", "export");
+  const candidates = [
+    ...collectRunLogCandidates(exportRoot),
+    ...collectRunLogCandidates(join(workDir, "export")),
+  ];
+
+  const deduped = new Map<string, string>();
+  for (const path of candidates) {
+    const key = basename(path);
+    const existing = deduped.get(key);
+    if (!existing) {
+      deduped.set(key, path);
+      continue;
+    }
+    const inExport = path.startsWith(`${exportRoot}${sep}`);
+    const existingInExport = existing.startsWith(`${exportRoot}${sep}`);
+    if (inExport && !existingInExport) {
+      deduped.set(key, path);
+      continue;
+    }
+    try {
+      if (statSync(path).mtimeMs > statSync(existing).mtimeMs) {
+        deduped.set(key, path);
+      }
+    } catch {
+      // ignore stat failures
+    }
+  }
+
+  return [...deduped.values()].sort((a, b) => {
+    try {
+      return statSync(b).mtimeMs - statSync(a).mtimeMs;
+    } catch {
+      return 0;
+    }
+  });
+}
+
+export function loadRunHistory(workDir: string): Array<{ runId: string; logPath: string; meta: RunMeta | null }> {
   const runs: Array<{ runId: string; logPath: string; meta: RunMeta | null }> = [];
-  for (const file of readdirSync(logDir).filter((f) => f.startsWith("run-") && f.endsWith(".jsonl")).sort().reverse()) {
-    const logPath = join(logDir, file);
-    const runId = file.replace(/\.jsonl$/, "");
+  for (const logPath of historicalRunLogPaths(workDir)) {
+    const runId = basename(logPath).replace(/\.jsonl$/, "");
     try {
       const content = readFileSync(logPath, "utf-8");
       let latestMeta: RunMeta | null = null;
@@ -49,9 +103,15 @@ export function loadRunHistory(workDir: string): Array<{ runId: string; logPath:
   return runs;
 }
 
+function resolveRunLogPath(workDir: string, runId: string): string | null {
+  const paths = historicalRunLogPaths(workDir);
+  if (runId === "latest") return paths[0] ?? null;
+  return paths.find((path) => basename(path) === `${runId}.jsonl`) ?? null;
+}
+
 export function loadStageEntries(workDir: string, runId: string): StageMeta[] {
-  const logPath = join(workDir, "logs", `${runId}.jsonl`);
-  if (!existsSync(logPath)) return [];
+  const logPath = resolveRunLogPath(workDir, runId);
+  if (!logPath || !existsSync(logPath)) return [];
   const entries: StageMeta[] = [];
   for (const line of readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean)) {
     try {
@@ -63,8 +123,8 @@ export function loadStageEntries(workDir: string, runId: string): StageMeta[] {
 }
 
 export function loadTournamentUpdates(workDir: string, runId: string): LogEntry[] {
-  const logPath = join(workDir, "logs", `${runId}.jsonl`);
-  if (!existsSync(logPath)) return [];
+  const logPath = resolveRunLogPath(workDir, runId);
+  if (!logPath || !existsSync(logPath)) return [];
   const entries: LogEntry[] = [];
   for (const line of readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean)) {
     try {
@@ -76,8 +136,8 @@ export function loadTournamentUpdates(workDir: string, runId: string): LogEntry[
 }
 
 export function loadLLMInteractions(workDir: string, runId: string): LogEntry[] {
-  const logPath = join(workDir, "logs", `${runId}.jsonl`);
-  if (!existsSync(logPath)) return [];
+  const logPath = resolveRunLogPath(workDir, runId);
+  if (!logPath || !existsSync(logPath)) return [];
   const entries: LogEntry[] = [];
   for (const line of readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean)) {
     try {
@@ -146,12 +206,12 @@ export function buildRunSummaryText(workDir: string, runId: string): string {
 export function buildLogsListText(workDir: string, count: number): string {
   const runs = loadRunHistory(workDir).slice(0, count);
   if (runs.length === 0) {
-    return `Ingen loggførte kjøringer funnet i ${join(workDir, "logs")}/`;
+    return `Ingen loggførte kjøringer funnet i eksporttreet.`;
   }
 
   const lines: string[] = [
     `=== Pipeline kjøringshistorie ===`,
-    `Logg-katalog: ${join(workDir, "logs")}/`,
+    `Logg-katalog: ${dirname(runs[0].logPath)}/`,
     `Viser ${runs.length} siste kjøringer`,
     "",
     `${"Kjøring".padEnd(30)} ${"Status".padEnd(12)} ${"Varighet".padEnd(12)} ${"Starter".padEnd(22)}`,
@@ -171,8 +231,8 @@ export function buildLogsListText(workDir: string, count: number): string {
 }
 
 export function buildLogsShowText(workDir: string, runId: string): string {
-  const logPath = join(workDir, "logs", `${runId}.jsonl`);
-  if (!existsSync(logPath)) return `Kjøring ${runId} ikke funnet i ${join(workDir, "logs")}/`;
+  const logPath = resolveRunLogPath(workDir, runId);
+  if (!logPath || !existsSync(logPath)) return `Kjøring ${runId} ikke funnet i eksporttreet.`;
 
   const meta = loadRunHistory(workDir).find((r) => r.runId === runId)?.meta;
   const stages = loadStageEntries(workDir, runId);
@@ -260,7 +320,7 @@ export function buildLogsShowText(workDir: string, runId: string): string {
 export function buildLogsStatsText(workDir: string): string {
   const runs = loadRunHistory(workDir);
   if (runs.length === 0) {
-    return `Ingen loggførte kjøringer funnet i ${join(workDir, "logs")}/`;
+    return `Ingen loggførte kjøringer funnet i eksporttreet.`;
   }
 
   const successRuns = runs.filter((r) => r.meta?.exit_status === "success");

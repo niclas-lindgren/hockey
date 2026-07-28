@@ -65,10 +65,6 @@ def _load_jsonl_entries(log_path: Path) -> list[dict[str, Any]]:
 
 def _candidate_log_paths(work_dir: Path) -> list[Path]:
     paths: list[Path] = []
-    legacy_dir = work_dir / "logs"
-    if legacy_dir.exists():
-        paths.extend(sorted(legacy_dir.glob("run-*.jsonl"), reverse=True))
-
     for export_root in (work_dir / "export", work_dir.parent / "export"):
         if export_root.exists():
             paths.extend(sorted(export_root.rglob("run-*.jsonl"), reverse=True))
@@ -225,7 +221,7 @@ def _build_logs_list_text(work_dir: Path, count: int) -> str:
 def _build_logs_show_text(work_dir: Path, run_id: str) -> str:
     log_path = _find_log_path(work_dir, run_id)
     if not log_path:
-        return f"Kjøring {run_id} ikke funnet i {work_dir.parent / 'export'}/ eller {work_dir / 'logs'}/"
+        return f"Kjøring {run_id} ikke funnet i eksporttreet."
 
     entries = _load_jsonl_entries(log_path)
     run_meta = next((entry for entry in reversed(entries) if entry.get("type") == "run_meta" and entry.get("run_id") == run_id and entry.get("end_time")), None)
@@ -311,7 +307,7 @@ def _build_logs_show_text(work_dir: Path, run_id: str) -> str:
 def _build_logs_stats_text(work_dir: Path) -> str:
     runs = _load_run_history(work_dir)
     if not runs:
-        return f"Ingen loggførte kjøringer funnet i {work_dir.parent / 'export'}/ eller {work_dir / 'logs'}/"
+        return f"Ingen loggførte kjøringer funnet i eksporttreet."
 
     success_runs = [run for run in runs if (run["meta"] or {}).get("exit_status") == "success"]
     failed_runs = [run for run in runs if (run["meta"] or {}).get("exit_status") == "failure"]
@@ -453,7 +449,7 @@ def _cmd_logs(args: argparse.Namespace) -> int:
     if subcommand == "show":
         run_id = _resolve_run_id(work_dir, getattr(args, "run_id", None))
         if not run_id:
-            _console.print(f"Ingen loggførte kjøringer funnet i {work_dir.parent / 'export'}/ eller {work_dir / 'logs'}/")
+            _console.print("Ingen loggførte kjøringer funnet i eksporttreet.")
             return 0
         _console.print(_build_logs_show_text(work_dir, run_id))
         return 0

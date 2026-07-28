@@ -15,8 +15,5 @@ set +e
 status=$?
 set -e
 
-if [[ "${1:-}" == "run" || ( "${1:-}" == "operator" && "${2:-}" == "run" ) ]]; then
-  "$PYTHON_CMD" -m tournament_scheduler.cli.run_log_archive "$@" >/dev/null 2>&1 || true
-fi
 
 exit $status

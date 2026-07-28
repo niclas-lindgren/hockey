@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, resolve } from "node:path";
 import { parseRunArgs } from "./parsers";
 import { PipelineLogger } from "./pipeline-logger";
@@ -377,7 +377,7 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
       const { stdout, stderr } = await runStage(
         cwdPath,
         "tournament_scheduler.pipeline.stage4_export",
-        [...baseArgs, "--export-dir", timestampedExportDir],
+        [...baseArgs, "--export-dir", timestampedExportDir, "--no-timestamped-export"],
         (event) => {
           if (event.stream !== "stdout") return;
           const line = event.line.trim();
@@ -419,7 +419,6 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
 
   // Bundle: copy the input workbook into the timestamped export folder
   try {
-    const { copyFileSync } = await import("node:fs");
     copyFileSync(inputPath, resolve(timestampedExportDir, basename(inputPath)));
     lines.push(`Input kopiert til ${timestampedExportDir}\n`);
   } catch {}

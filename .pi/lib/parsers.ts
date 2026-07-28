@@ -3,9 +3,6 @@
 // ---------------------------------------------------------------------------
 
 import type { RunArgs, StatusArgs, LogsArgs, CalendarsArgs, ScrapeArgs, ScrapeLlmArgs } from "./types";
-import { join } from "node:path";
-import { existsSync, readdirSync } from "node:fs";
-import { cwd } from "node:process";
 import { normalizeArgs } from "./arg-utils";
 
 export function parseRunArgs(args: unknown): RunArgs {
@@ -45,19 +42,6 @@ export function parseLogsArgs(args: unknown): LogsArgs {
     else if (t === "show" && i + 1 < tokens.length) {
       result.subcommand = "show";
       result.run_id = tokens[++i];
-      if (result.run_id === "latest") {
-        // Resolve to the most recent run log file
-        const logDir = join(cwd(), ".pipeline", "logs");
-        if (existsSync(logDir)) {
-          const files = readdirSync(logDir)
-            .filter((f) => f.startsWith("run-") && f.endsWith(".jsonl"))
-            .sort()
-            .reverse();
-          if (files.length > 0) {
-            result.run_id = files[0].replace(/\.jsonl$/, "");
-          }
-        }
-      }
     } else if (t === "stats") result.subcommand = "stats";
     else if (t === "--count" && i + 1 < tokens.length) result.count = parseInt(tokens[++i], 10);
     else if (t === "--work-dir" && i + 1 < tokens.length) result.work_dir = tokens[++i];

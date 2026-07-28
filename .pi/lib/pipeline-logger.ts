@@ -50,8 +50,8 @@ export class PipelineLogger {
 
   constructor(workDir: string, logDir?: string, historyRoot?: string) {
     this.workDir = workDir;
-    this.logDir = logDir ?? join(workDir, "logs");
     this.historyRoot = historyRoot ?? workDir;
+    this.logDir = logDir ?? this.historyRoot;
     mkdirSync(this.logDir, { recursive: true });
     this.runId = runId();
     this.logPath = join(this.logDir, `${this.runId}.jsonl`);
@@ -85,10 +85,7 @@ export class PipelineLogger {
   }
 
   private historicalRunLogPaths(): string[] {
-    const candidates = [
-      ...this.collectRunLogCandidates(this.historyRoot),
-      ...this.collectRunLogCandidates(join(this.workDir, "logs")),
-    ];
+    const candidates = this.collectRunLogCandidates(this.historyRoot);
 
     const deduped = new Map<string, string>();
     for (const path of candidates) {
