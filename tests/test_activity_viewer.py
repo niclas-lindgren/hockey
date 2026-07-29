@@ -194,6 +194,12 @@ class TestActivityViewer:
         assert "markør" in docs.lower()
         assert "rvv-activities-frame" in docs
         assert "rvv-activities-height" in docs
-        assert "event.origin !== 'https://niclas-lindgren.github.io'" in docs
+        assert "namespace: 'rvv.activities'" in docs
+        assert "schema_version: 1" in docs
+        assert "data.iframe_id" in docs
+        assert "frame.contentWindow !== event.source" in docs
+        assert "MAX_HEIGHT = 6000" in docs
+        assert "event.origin !== EXPECTED_ORIGIN" in docs
+        assert "Årshjul` view is removed" in docs
         assert "full-width" in docs
         assert "manual WordPress follow-ups" in docs

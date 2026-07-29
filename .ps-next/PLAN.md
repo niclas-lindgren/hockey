@@ -7,7 +7,7 @@
 - [x] Harden child iframe height messaging
   - Files: tournament_scheduler/pipeline/activity_viewer.py, tests/test_activity_viewer.py
   - Approach: Replace simple wildcard height postMessage with a namespaced/versioned message, known-origin target selection when embedded under GitHub Pages, clamped measured height, requestAnimationFrame debounce, ResizeObserver support with resize/orientation fallback, and calls after load/filter/view/details changes while preserving standalone behavior.
-- [ ] Document secure parent integration and wheel decision
+- [x] Document secure parent integration and wheel decision
   - Files: docs/rvv-miniputt-pipeline.md, tests/test_activity_viewer.py
   - Approach: Update the WordPress embed section with the schema-versioned child message contract, secure origin/namespace validation, per-iframe id matching, bounded height updates, no large permanent blank area, and explicitly state that Årshjul is removed rather than retained as a secondary view.
 - [ ] Verify issue 41 acceptance coverage
@@ -32,6 +32,13 @@
 
 ## Log
 
+
+### 2026-07-29 — Document secure parent integration and wheel decision
+**Done:** Updated the WordPress embed docs with the removed-Årshjul decision, schema-versioned child height message shape, lower initial iframe height, secure parent listener validating origin/namespace/schema/iframe id/event source/height bounds, and multi-iframe-safe behavior.
+**Rationale:** Issue #41 allows removing the decorative wheel and requires robust automatic iframe sizing with a secure copy/paste parent integration.
+**Findings:** `pytest tests/test_activity_viewer.py` passes (12 tests).
+**Files:** docs/rvv-miniputt-pipeline.md, tests/test_activity_viewer.py
+**Commit:** not committed
 ### 2026-07-29 — Harden child iframe height messaging
 **Done:** Replaced the simple wildcard height postMessage with schema-versioned `rvv.activities` messages carrying iframe id, reason, source path, and clamped height. Added parent-origin targeting, RAF debounce with timeout fallback, duplicate-height suppression, ResizeObserver/font-ready observation, orientation handling, and updated viewer tests.
 **Rationale:** The WordPress iframe needs content-driven sizing without nested scrollbars, resize feedback loops, or insecure wildcard messaging when a known parent origin is available.

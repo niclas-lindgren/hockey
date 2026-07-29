@@ -221,7 +221,7 @@ When the input workbook contains a supported public activity table, Stage 4 writ
 - `https://niclas-lindgren.github.io/hockey/latest/activities.json`
 - `https://niclas-lindgren.github.io/hockey/latest/activities/`
 
-Use the standalone page as a responsive WordPress iframe; it loads only the small JSON export and does not parse the workbook in the browser. On desktop/tablet the default view is `Sesongsløp` (age-group swimlanes) where each activity is a compact point-in-time markør. Rows answer which age group, horizontal position answers when, and marker code/shape/color answers category. Full names, location, description, and links open in an overlay dialog and are always available in the chronological list. On mobile it opens in the month-grouped `Liste` view to avoid squeezing twelve-month swimlanes into a narrow iframe.
+Use the standalone page as a responsive WordPress iframe; it loads only the small JSON export and does not parse the workbook in the browser. On desktop/tablet the default view is `Sesongsløp` (age-group swimlanes) where each activity is a compact point-in-time markør. Rows answer which age group, horizontal position answers when, and marker code/shape/color answers category. Full names, location, description, and links open in an overlay dialog and are always available in the chronological list. On mobile it opens in the month-grouped `Liste` view to avoid squeezing twelve-month swimlanes into a narrow iframe. The old decorative `Årshjul` view is removed rather than retained as a secondary view, because it did not encode a meaningful age-group comparison grammar; do not re-add it unless it gets labelled age-group rings, date-angle geometry, category cues, and accessibility coverage.
 
 The category vocabulary is canonicalized during export rather than inferred by browser JavaScript:
 
@@ -239,28 +239,60 @@ Known legacy values such as `IA`, `RS`, `regionsturnering`, and `regionsturnerin
 ```html
 <iframe
   id="rvv-activities-frame"
-  src="https://niclas-lindgren.github.io/hockey/latest/activities/"
+  src="https://niclas-lindgren.github.io/hockey/latest/activities/?frame=rvv-activities-frame"
   title="Aktivitetskalender for Region Viken Vest"
   loading="lazy"
-  style="width:100%;min-height:800px;border:0;display:block"
+  style="width:100%;min-height:320px;height:420px;border:0;display:block;overflow:hidden"
 ></iframe>
 ```
 
-The generated page sends `{ type: "rvv-activities-height", height: ... }` to the parent window with `postMessage` after rendering, filtering, view switching, detail expansion, and resizing. Add this parent-side listener in WordPress (for example in a Custom HTML block near the iframe, or in the theme's allowed custom script area) when dynamic iframe height is available:
+The generated page measures its rendered height after initial load, filter/view changes, breakpoint changes, details open/close, and font/layout changes. It uses `ResizeObserver` where supported, coalesces updates with `requestAnimationFrame`, clamps heights to a safe range, and sends schema-versioned messages like:
+
+```js
+{
+  type: 'rvv-activities-height',
+  namespace: 'rvv.activities',
+  schema_version: 1,
+  iframe_id: 'rvv-activities-frame',
+  height: 742,
+  reason: 'resize-observer',
+  source_path: '/hockey/latest/activities/'
+}
+```
+
+Add this parent-side listener in WordPress (for example in a Custom HTML block near the iframe, or in the theme's allowed custom script area) when dynamic iframe height is available. It validates the GitHub Pages origin, namespace/schema, intended iframe id, and numeric bounds before changing height, so multiple exported iframes can coexist without cross-updating:
 
 ```html
 <script>
-window.addEventListener('message', function (event) {
-  if (event.origin !== 'https://niclas-lindgren.github.io') return;
-  if (!event.data || event.data.type !== 'rvv-activities-height') return;
-  var frame = document.getElementById('rvv-activities-frame');
-  if (!frame) return;
-  frame.style.height = Math.max(800, Number(event.data.height) || 0) + 'px';
-});
+(function () {
+  var EXPECTED_ORIGIN = 'https://niclas-lindgren.github.io';
+  var NAMESPACE = 'rvv.activities';
+  var MESSAGE_TYPE = 'rvv-activities-height';
+  var SCHEMA_VERSION = 1;
+  var MIN_HEIGHT = 320;
+  var MAX_HEIGHT = 6000;
+
+  window.addEventListener('message', function (event) {
+    var data = event.data || {};
+    if (event.origin !== EXPECTED_ORIGIN) return;
+    if (data.type !== MESSAGE_TYPE) return;
+    if (data.namespace !== NAMESPACE || data.schema_version !== SCHEMA_VERSION) return;
+    if (typeof data.iframe_id !== 'string' || !data.iframe_id) return;
+
+    var frame = document.getElementById(data.iframe_id);
+    if (!frame || frame.contentWindow !== event.source) return;
+
+    var height = Number(data.height);
+    if (!Number.isFinite(height)) return;
+    height = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.ceil(height)));
+    frame.style.height = height + 'px';
+    frame.style.minHeight = MIN_HEIGHT + 'px';
+  });
+})();
 </script>
 ```
 
-If the WordPress theme does not allow the listener, keep `min-height:800px` (or a larger fixed height for dense seasons). Theme/template changes such as switching the page to a full-width template or removing an archive/sidebar column are manual WordPress follow-ups and are intentionally not coupled to the repository export.
+If the WordPress theme does not allow the listener, keep a conservative fixed `height`/`min-height`. With the listener installed, avoid a large permanent blank area: start around `height:420px` and let the child document resize the iframe as soon as it renders. Theme/template changes such as switching the page to a full-width template or removing an archive/sidebar column are manual WordPress follow-ups and are intentionally not coupled to the repository export.
 
 ### Rebuild calendar HTML
 
