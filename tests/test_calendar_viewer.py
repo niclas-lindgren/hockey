@@ -49,7 +49,7 @@ class TestCalendarViewer:
         work_dir = tmp_path / ".pipeline"
         work_dir.mkdir()
         (work_dir / "stage4_export.json").write_text(
-            json.dumps({"data": {"not_started": True, "message": "Ikke begynt: ingen lag er registrert i input.xlsx."}}),
+            json.dumps({"data": {"not_started": True}}),
             encoding="utf-8",
         )
 
@@ -58,7 +58,8 @@ class TestCalendarViewer:
 
         assert "<meta name=\"viewport\"" in html
         assert "<div class=\"icon\">🏒</div>" in html
-        assert "Legg inn lag i <code>input.xlsx</code>" in html
+        assert "input.xlsx" not in html
+        assert "Når lagene er registrert" in html
 
     def test_generate_html_keeps_long_club_names_visible(self, tmp_path):
         source_name = "Sandefjord Penguins and Development Academy for Long Calendar Names"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from html import escape
 
-NOT_STARTED_MESSAGE = "Ikke begynt: ingen lag er registrert i input.xlsx."
+NOT_STARTED_MESSAGE = "Ikke begynt: ingen lag er registrert ennå."
 
 
 def render_not_started_html(message: str = NOT_STARTED_MESSAGE) -> str:
@@ -37,7 +37,7 @@ def render_not_started_html(message: str = NOT_STARTED_MESSAGE) -> str:
         "<main>"
         "<div class=\"icon\">🏒</div>"
         f"<h1>{escape(message)}</h1>"
-        "<p>Legg inn lag i <code>input.xlsx</code> for å starte planleggingen.</p>"
+        "<p>Når lagene er registrert, vises sesongplanen her.</p>"
         "</main>"
         "</body>"
         "</html>\n"
