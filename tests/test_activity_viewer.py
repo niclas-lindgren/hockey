@@ -139,3 +139,13 @@ class TestActivityViewer:
         assert "../activities.json" in first
         assert "SheetJS" not in first
         assert "xlsx" not in first.lower()
+
+    def test_wordpress_embed_docs_include_iframe_resize_contract(self):
+        docs = (Path(__file__).parents[1] / "docs" / "rvv-miniputt-pipeline.md").read_text(encoding="utf-8")
+
+        assert "Sesongsløp" in docs
+        assert "rvv-activities-frame" in docs
+        assert "rvv-activities-height" in docs
+        assert "event.origin !== 'https://niclas-lindgren.github.io'" in docs
+        assert "full-width" in docs
+        assert "manual WordPress follow-ups" in docs

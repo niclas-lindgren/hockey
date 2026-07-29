@@ -7,7 +7,7 @@
 - [x] Implement data-driven Sesongsløp UI and regression tests
   - Files: tournament_scheduler/pipeline/activity_viewer.py, tests/test_activity_viewer.py
   - Approach: Refactor the generated standalone HTML/JS so `Sesongsløp` is the default non-mobile view, derive swimlanes from unique `activities.json` age groups, position activities by real date across the activity year, render readable labels with same/near-date offsets, add activity-type filtering and legend cues beyond color, keep `Årshjul` secondary, default mobile to a month-grouped list, preserve accessible details/keyboard interactions, and cover issue #38 edge cases with deterministic tests.
-- [ ] Document WordPress embedding expectations for the responsive activity page
+- [x] Document WordPress embedding expectations for the responsive activity page
   - Files: docs/rvv-miniputt-pipeline.md, tests/test_activity_viewer.py
   - Approach: Update the WordPress embed section with the `Sesongsløp` default behavior, parent-side `postMessage` listener snippet, and manual theme/layout follow-up caveat for sidebar-constrained pages; assert the documented listener contract remains present in generated HTML/tests.
 
@@ -32,6 +32,13 @@
 
 ## Log
 
+
+### 2026-07-29 — Document WordPress embedding expectations for the responsive activity page
+**Done:** Updated the RVV pipeline guide to describe the new Sesongsløp desktop/tablet default, mobile Liste default, iframe embed markup, parent-side rvv-activities-height postMessage listener, and manual WordPress theme/sidebar follow-up boundary. Added a regression assertion that the documented resize contract remains present.
+**Rationale:** The generated component can stay repository-owned and plugin-free while WordPress handles only iframe sizing and optional page-template layout choices.
+**Findings:** Targeted pytest tests/test_activity_viewer.py tests/test_activity_export.py passed: 20 passed. Quick pi-next quality gate passed: 1155 passed, 1 skipped, 26 deselected.
+**Files:** docs/rvv-miniputt-pipeline.md (+21/-3), tests/test_activity_viewer.py (+10)
+**Commit:** not committed
 ### 2026-07-29 — Implement data-driven Sesongsløp UI and regression tests
 **Done:** Reworked the standalone activity export page so desktop/tablet defaults to Sesongsløp swimlanes, with derived age-group lanes, date-positioned activities, labels, same/near-date stacking, type legend/shape cues, type+age filters, shared details, retained Årshjul, and mobile month-grouped list default. Added deterministic regression assertions for the issue #38 rendering contract.
 **Rationale:** Keeping the existing static vanilla HTML generator preserves GitHub Pages/WordPress portability and avoids new browser/runtime dependencies while making the primary view informative without interaction.
