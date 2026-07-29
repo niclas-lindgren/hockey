@@ -133,6 +133,8 @@ A normal run can produce:
 - `season_plan.html`
 - `season_plan_report.html`
 - `input.html` — read-only "Påmeldte lag" overview of registered clubs/teams (Lag sheet only; generated when Stage 1 recorded an input workbook path)
+- `activities.json` — normalized public Aktivitetskalender data from a supported activity sheet (`Aktiviteter`, `Aktivitetsplan`, `Årshjul`, etc.) when present
+- `activities/index.html` — standalone interactive Aktivitetskalender with Årshjul/Liste views for GitHub Pages and WordPress iframe embedding
 - `season_plan_spond.xlsx`
 - `calendars.html`
 
@@ -183,6 +185,26 @@ Useful flags:
 `--mid-planning-critic-iterations N` runs before any Stage 4 artifacts exist. It is checkpoint-driven: the pipeline reads the Stage 3 plan, asks the deterministic plan critic/fairness metrics for issues, persists the structured hint payload in the next Stage 3 checkpoint as `planning_critic_hints`, and reruns Stage 3 with the extracted numeric `penalty_hints` baked into the config. Default is `0`, so existing runs are unchanged.
 
 This is separate from the post-Stage-4 refinement loop. Post-export refinement starts only after export, applies targeted manual-adjustment moves to an already materialized plan, and may re-export improved artifacts. The mid-planning loop instead tries to improve the planner search before export and does not create or patch export files by itself.
+
+### Embed the Aktivitetskalender in WordPress
+
+When the input workbook contains a supported public activity table, Stage 4 writes both timestamped exports and the published `latest/` bundle with:
+
+- `https://niclas-lindgren.github.io/hockey/latest/activities.json`
+- `https://niclas-lindgren.github.io/hockey/latest/activities/`
+
+Use the standalone page as a responsive WordPress iframe; it loads only the small JSON export and does not parse the XLSX workbook in the browser:
+
+```html
+<iframe
+  src="https://niclas-lindgren.github.io/hockey/latest/activities/"
+  title="Aktivitetskalender for Region Viken Vest"
+  loading="lazy"
+  style="width:100%;min-height:800px;border:0"
+></iframe>
+```
+
+The generated page sends `{ type: "rvv-activities-height", height: ... }` to the parent window with `postMessage` after rendering and resizing. If the WordPress theme does not listen for that message, use `min-height:800px` (or a larger fixed height for dense seasons).
 
 ### Rebuild calendar HTML
 

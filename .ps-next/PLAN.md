@@ -13,7 +13,7 @@
 - [x] Integrate activity artifacts with Stage 4 export and Pages publishing
   - Files: tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/pipeline/pages_bundle.py, tournament_scheduler/pipeline/pages_publish.py, tests/test_stage4_export.py, tests/test_pages_bundle.py, tests/test_operator_action.py
   - Approach: Generate activity artifacts when the configured input workbook contains an activity table, record them in the Stage 4 checkpoint, keep existing exports unchanged when no activity sheet exists, allow activities.json and activities/ through the sanitized public bundle, and make Pages fingerprint/diff/publish logic recurse into public subdirectories.
-- [ ] Document the WordPress embed flow and verify issue coverage
+- [x] Document the WordPress embed flow and verify issue coverage
   - Files: docs/rvv-miniputt-pipeline.md, .ps-next/PLAN.md
   - Approach: Add a concise documentation section with published URLs and iframe snippet, then run targeted pytest coverage plus quick quality/safety/diff checks before marking complete.
 
@@ -33,6 +33,13 @@ The current input.xlsx does not contain an activity sheet, so Stage 4 must remai
 
 
 
+
+### 2026-07-29 — Document the WordPress embed flow and verify issue coverage
+**Done:** Documented the new activity artifacts, published GitHub Pages URLs, WordPress iframe snippet, and optional postMessage height behavior in the RVV pipeline guide.
+**Rationale:** The docs now tell operators how to embed the generated static activity page without exposing the workbook or requiring a WordPress plugin.
+**Findings:** Targeted issue coverage passed and docs contain the required Aktivitetskalender section. Current quick gate also passes.
+**Files:** docs/rvv-miniputt-pipeline.md (+22), .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-29 — Integrate activity artifacts with Stage 4 export and Pages publishing
 **Done:** Integrated activity artifact generation into Stage 4 for configured input workbooks with supported activity sheets, added output_files checkpoint entries, and extended the sanitized Pages bundle/publish preview path to include activities.json plus activities/index.html recursively.
 **Rationale:** Stage 4 is the single export integration point, while the public bundle remains the privacy gate before anything reaches GitHub Pages latest/runs paths.
