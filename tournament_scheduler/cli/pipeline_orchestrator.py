@@ -1856,7 +1856,13 @@ def _execute_operator_publish(args: argparse.Namespace) -> "Any | None":
         "dry_run": getattr(args, "dry_run", False),
         "verify": getattr(args, "verify", True),
     }
-    if getattr(args, "export_dir", None):
+    # For `operator run --publish`, Stage 4 may write into a timestamped child of
+    # args.export_dir (for example export/2026-07-29T1712).  Do not pass the
+    # parent export root to the publish action; letting it resolve from the
+    # Stage 4 checkpoint publishes the actual freshly exported bundle.  The
+    # standalone `operator publish --export-dir ...` command still supports an
+    # explicit override.
+    if getattr(args, "operator_command", None) == "publish" and getattr(args, "export_dir", None):
         action_kwargs["export_dir"] = args.export_dir
     if getattr(args, "run_id", None):
         action_kwargs["run_id"] = args.run_id

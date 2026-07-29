@@ -216,6 +216,74 @@ def test_publish_rc_propagates_when_publish_action_registry_raises(tmp_path):
     assert rc == 1
 
 
+def test_operator_run_publish_uses_stage4_checkpoint_export_dir_not_parent_root(tmp_path):
+    """run --publish must not publish the parent export root when Stage 4 used a timestamped child."""
+    from tournament_scheduler.cli.pipeline_orchestrator import _execute_operator_publish
+    from tournament_scheduler.pipeline.capability_result import CapabilityResult
+
+    args = _operator_args(
+        tmp_path,
+        publish=True,
+        confirm_public=True,
+        export_dir=str(tmp_path / "export"),
+        operator_command="run",
+        push=False,
+        dry_run=False,
+        verify=False,
+        branch="gh-pages",
+        remote="origin",
+        repo_dir=".",
+        extra_public_files=[],
+        allow_findings=[],
+        verify_max_attempts=None,
+        verify_retry_delay_seconds=None,
+    )
+    fake_result = CapabilityResult.ok("Published", capability="pages_publish")
+
+    with patch("tournament_scheduler.pipeline.operator_action.DEFAULT_REGISTRY.build", return_value="ACTION") as mock_build, patch(
+        "tournament_scheduler.pipeline.operator_action.DEFAULT_REGISTRY.execute", return_value=fake_result
+    ):
+        result = _execute_operator_publish(args)
+
+    assert result is fake_result
+    _, kwargs = mock_build.call_args
+    assert kwargs["work_dir"] == str(tmp_path)
+    assert "export_dir" not in kwargs
+
+
+def test_standalone_operator_publish_keeps_explicit_export_dir_override(tmp_path):
+    from tournament_scheduler.cli.pipeline_orchestrator import _execute_operator_publish
+    from tournament_scheduler.pipeline.capability_result import CapabilityResult
+
+    export_dir = tmp_path / "specific-export"
+    args = _operator_args(
+        tmp_path,
+        confirm_public=True,
+        export_dir=str(export_dir),
+        operator_command="publish",
+        push=False,
+        dry_run=False,
+        verify=False,
+        branch="gh-pages",
+        remote="origin",
+        repo_dir=".",
+        extra_public_files=[],
+        allow_findings=[],
+        verify_max_attempts=None,
+        verify_retry_delay_seconds=None,
+    )
+    fake_result = CapabilityResult.ok("Published", capability="pages_publish")
+
+    with patch("tournament_scheduler.pipeline.operator_action.DEFAULT_REGISTRY.build", return_value="ACTION") as mock_build, patch(
+        "tournament_scheduler.pipeline.operator_action.DEFAULT_REGISTRY.execute", return_value=fake_result
+    ):
+        result = _execute_operator_publish(args)
+
+    assert result is fake_result
+    _, kwargs = mock_build.call_args
+    assert kwargs["export_dir"] == str(export_dir)
+
+
 def test_append_publish_outcome_to_run_log_appends_to_latest_run_log(tmp_path):
     from tournament_scheduler.cli.pipeline_orchestrator import _append_publish_outcome_to_run_log
     from tournament_scheduler.pipeline.capability_result import CapabilityResult
