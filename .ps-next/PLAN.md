@@ -7,7 +7,7 @@
 - [x] Add canonical check/release adapters and expand the Makefile menu
   - Files: Makefile, scripts/check, scripts/release, tests/test_makefile_operator_interface.py
   - Approach: Replace raw tag publishing with guarded `scripts/release`, add `scripts/check` as the canonical verification entrypoint, set `.DEFAULT_GOAL := help`, add grouped phony targets for setup/checking, planning, human decisions, publishing/recovery, desktop/build/cleanup/release, validate required variables/confirmations in recipes, preserve `ARGS` forwarding, and add faked-command tests for help, delegation, safeguards, quoting, and exit-code preservation.
-- [ ] Document Make targets alongside direct CLI equivalents
+- [x] Document Make targets alongside direct CLI equivalents
   - Files: README.md, docs/rvv-miniputt-pipeline.md, tests/test_makefile_operator_interface.py
   - Approach: Update operator docs to present `make` as the concise human menu while keeping direct `scripts/rvv-miniputt` equivalents; document intentionally excluded LLM-only commands and mutation warnings; add drift tests that documented targets exist in the Makefile/help output.
 - [ ] Wire CI docs/workflow to the canonical check command where practical
@@ -32,6 +32,13 @@
 
 ## Log
 
+
+### 2026-07-29 — Document Make targets alongside direct CLI equivalents
+**Done:** Updated README and pipeline guide to introduce `make help` as the non-LLM human operator menu, map Make targets to direct scripts/rvv-miniputt or scripts/release equivalents, document mutation warnings, and note that harness-only features stay intentionally excluded from Make. Added a doc drift regression test.
+**Rationale:** Operators can now use Make for discoverability while documentation preserves the canonical direct CLI path for scripts and harnesses.
+**Findings:** Targeted pytest tests/test_makefile_operator_interface.py passed: 12 passed. Quick pi-next quality gate passed: 1167 passed, 1 skipped, 26 deselected.
+**Files:** README.md (+28), docs/rvv-miniputt-pipeline.md (+32/-2), tests/test_makefile_operator_interface.py (+36)
+**Commit:** not committed
 ### 2026-07-29 — Add canonical check/release adapters and expand the Makefile menu
 **Done:** Expanded Makefile into grouped help/default operator menu with deterministic targets for setup/checks, planning, questions, Pages preview/publish/recovery, desktop packaging/cleanup, and guarded release. Added scripts/check and scripts/release as canonical adapters for related open issues #36/#37, and regression tests that fake CLI calls to verify delegation, safeguards, argument handling, and failure masking.
 **Rationale:** Make remains a thin adapter over scripts/rvv-miniputt, repository scripts, npm, and the guarded release/check scripts while exposing a discoverable non-LLM workflow to humans.

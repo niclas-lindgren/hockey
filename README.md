@@ -21,9 +21,37 @@ The current AI-operator direction and ordered implementation backlog are documen
 
 ## Current operator workflow
 
+For humans working outside an LLM harness, the root `Makefile` is the concise operator menu. Run `make help` to discover every deterministic or explicitly human-controlled operation. Each Make target is a thin wrapper over the canonical scripts/CLI commands; it does not reimplement planning, publishing, release, or safety logic.
+
+Common Make targets and their direct equivalents:
+
+| Workflow | Make target | Direct command |
+|---|---|---|
+| Full operator run | `make operator-run` | `scripts/rvv-miniputt operator run` |
+| Forced operator rerun | `make operator-run-force` | `scripts/rvv-miniputt operator run --force` |
+| Raw four-stage pipeline | `make run ARGS='--input input.xlsx'` | `scripts/rvv-miniputt run --input input.xlsx` |
+| Status/log inspection | `make status`, `make logs` | `scripts/rvv-miniputt status`, `scripts/rvv-miniputt logs list` |
+| Calendar report | `make calendars`, `make calendars-refresh` | `scripts/rvv-miniputt calendars`, `scripts/rvv-miniputt calendars --refresh` |
+| Source health | `make sources-status` | `scripts/rvv-miniputt sources status` |
+| Pending questions | `make questions`, `make questions-all` | `scripts/rvv-miniputt operator questions [--all]` |
+| Record a decision | `make answer ID=<id> ANSWER='<answer>'` | `scripts/rvv-miniputt operator answer <id> '<answer>'` |
+| Promote a decision | `make promote ID=<id> SCOPE=workspace` | `scripts/rvv-miniputt operator promote <id> workspace` |
+| Publication preview | `make publish-preview` | `scripts/rvv-miniputt operator publish --dry-run` |
+| Public publish | `make publish CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt operator publish --confirm-public` |
+| Publish verification/history | `make verify-publish`, `make publish-history` | `scripts/rvv-miniputt operator verify`, `scripts/rvv-miniputt operator publish-history` |
+| Roll back latest | `make rollback RUN_ID=<id> CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt operator rollback <id> --confirm-public` |
+| Local verification | `make check` | `scripts/check` |
+| Guarded release | `make release-dry-run TAG=vX.Y.Z`, `make release TAG=vX.Y.Z` | `scripts/release --dry-run vX.Y.Z`, `scripts/release vX.Y.Z` |
+
+`ARGS='...'` is appended to the relevant underlying CLI command for normal option forwarding. Mutating targets retain explicit gates: `make publish` and `make rollback` require `CONFIRM_PUBLIC=1`, and release creation goes through `scripts/release` rather than raw `git tag`/`git push`. `make`, `make help`, `make run`, and `make operator-run` never publish publicly.
+
+LLM-harness-only conveniences such as `/rvv-miniputt guide`, extension-managed browser recovery, and agent-callable Pi tools are intentionally excluded from Make. Use the Pi/Claude/OpenCode/Codex adapters when that harness capability is required.
+
 The goal-oriented entry point is `operator run`. It inspects workspace state, resumes from the earliest stage that is missing, incomplete, or stale, and reports a structured summary — no manual stage coordination required:
 
 ```bash
+make operator-run
+# direct equivalent:
 scripts/rvv-miniputt operator run
 # or
 python3 -m tournament_scheduler.cli.rvv_cli operator run --objective "Produce the best trustworthy season plan"

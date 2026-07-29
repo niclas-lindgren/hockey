@@ -144,9 +144,15 @@ With `--timestamped-export`, the same files are written into a timestamped subdi
 
 ### Cross-harness entrypoints
 
-Use whichever entrypoint your harness supports:
+Use whichever entrypoint your environment supports. For non-LLM human operation, prefer `make help` as the discoverable menu; the targets delegate to the same portable commands shown below.
 
 ```bash
+# Human Make menu / thin adapters
+make help
+make operator-run ARGS='--log-level verbose'
+make status
+make publish-preview
+
 # Portable, repo-local launcher
 scripts/rvv-miniputt status
 scripts/rvv-miniputt run --resume-from 2 --log-level verbose
@@ -163,7 +169,29 @@ In Pi, the slash commands remain available and map onto the same repo workflow s
 /rvv-miniputt run --resume-from 2 --log-level verbose
 ```
 
-Pi-only features remain the interactive guide and extension-managed tool wrappers (`rvv_miniputt_run`, `rvv_miniputt_publish`, `rvv_miniputt_status`, etc.).
+Pi-only features remain the interactive guide and extension-managed tool wrappers (`rvv_miniputt_run`, `rvv_miniputt_publish`, `rvv_miniputt_status`, etc.). Those harness-only capabilities are intentionally not exposed as Make targets.
+
+### Make target equivalents for human operators
+
+| Operation | Make target | Direct command |
+|---|---|---|
+| Canonical verification | `make check` | `scripts/check` |
+| Raw pipeline run | `make run ARGS='--input input.xlsx'` | `scripts/rvv-miniputt run --input input.xlsx` |
+| Goal-oriented run | `make operator-run` | `scripts/rvv-miniputt operator run` |
+| Forced goal-oriented run | `make operator-run-force` | `scripts/rvv-miniputt operator run --force` |
+| Status and logs | `make status`, `make logs` | `scripts/rvv-miniputt status`, `scripts/rvv-miniputt logs list` |
+| Calendar reports | `make calendars`, `make calendars-refresh` | `scripts/rvv-miniputt calendars`, `scripts/rvv-miniputt calendars --refresh` |
+| Source health | `make sources-status` | `scripts/rvv-miniputt sources status` |
+| Human questions | `make questions`, `make questions-all` | `scripts/rvv-miniputt operator questions [--all]` |
+| Human answer | `make answer ID=<id> ANSWER='<answer>'` | `scripts/rvv-miniputt operator answer <id> '<answer>'` |
+| Promote answer | `make promote ID=<id> SCOPE=workspace` | `scripts/rvv-miniputt operator promote <id> workspace` |
+| Publish preview | `make publish-preview` | `scripts/rvv-miniputt operator publish --dry-run` |
+| Publish latest | `make publish CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt operator publish --confirm-public` |
+| Verify/history/rollback | `make verify-publish`, `make publish-history`, `make rollback RUN_ID=<id> CONFIRM_PUBLIC=1` | `operator verify`, `operator publish-history`, `operator rollback <id> --confirm-public` |
+| Desktop app | `make desktop-start`, `make desktop-clean`, `make build-mac`, `make build-windows`, `make build-linux` | desktop npm/package scripts |
+| Release | `make release-dry-run TAG=vX.Y.Z`, `make release TAG=vX.Y.Z` | `scripts/release --dry-run vX.Y.Z`, `scripts/release vX.Y.Z` |
+
+Publication and rollback default to non-mutating preview paths unless `CONFIRM_PUBLIC=1` is supplied to the mutating target. Release tagging is handled by `scripts/release`; the Makefile does not call raw `git tag` or `git push`.
 
 ### Full run
 
