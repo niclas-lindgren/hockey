@@ -876,6 +876,72 @@ class TestRunStage4:
         html = Path(files["html"]).read_text(encoding="utf-8")
         assert 'href="input.html"' in html, "season_plan.html navbar must link to input.html when it was generated"
 
+    def test_activity_artifacts_generated_when_input_workbook_has_activity_sheet(self, tmp_path):
+        """stage4 should write activities.json and activities/index.html from the public activity sheet."""
+        input_path = tmp_path / "input.xlsx"
+        _write_input_workbook(
+            input_path,
+            {
+                "start_date": "2026-01-01",
+                "end_date": "2026-12-31",
+                "teams": [{"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"}],
+                "sources": [{"name": "Hemmelig kilde", "type": "ical", "url": "https://secret.example.com/feed.ics"}],
+            },
+        )
+        wb = openpyxl.load_workbook(input_path)
+        activities = wb.create_sheet("Aktiviteter")
+        activities.append(["Måned", "Dato", "Aktivitet", "Sted"])
+        activities.append(["Januar", 17, "Spillerutvikling JU14", "Sandefjord"])
+        wb.save(input_path)
+
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.CONFIG,
+            {"input_path": str(input_path), "round_length_minutes": {}, "start_date": "2026-01-01"},
+            status=StageStatus.DONE,
+        )
+        export_dir = tmp_path / "export"
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir), timestamped_export=False)
+        files = result.get("output_files", {})
+
+        assert "activities_json" in files
+        assert "activities_html" in files
+        activities_json = Path(files["activities_json"])
+        activities_html = Path(files["activities_html"])
+        assert activities_json.exists()
+        assert activities_html.exists()
+        data = json.loads(activities_json.read_text(encoding="utf-8"))
+        assert data["activities"][0]["date"] == "2026-01-17"
+        assert data["activities"][0]["title"] == "Spillerutvikling JU14"
+        assert "secret.example.com" not in activities_json.read_text(encoding="utf-8")
+        assert "../activities.json" in activities_html.read_text(encoding="utf-8")
+
+    def test_activity_artifacts_absent_without_activity_sheet(self, tmp_path):
+        input_path = tmp_path / "input.xlsx"
+        _write_input_workbook(
+            input_path,
+            {
+                "start_date": "2025-09-01",
+                "end_date": "2025-12-01",
+                "teams": [{"club": "Kongsberg", "label": "Kongsberg U10A", "age_group": "U10"}],
+                "sources": [],
+            },
+        )
+        state = PipelineState(tmp_path / "pipeline")
+        state.write_stage(
+            StageName.CONFIG,
+            {"input_path": str(input_path), "round_length_minutes": {}, "start_date": "2025-09-01"},
+            status=StageStatus.DONE,
+        )
+        export_dir = tmp_path / "export"
+        result = run(_make_plan_dict(), state, export_dir=str(export_dir), timestamped_export=False)
+        files = result.get("output_files", {})
+
+        assert "activities_json" not in files
+        assert "activities_html" not in files
+        assert not (export_dir / "activities.json").exists()
+        assert not (export_dir / "activities" / "index.html").exists()
+
     def test_input_html_absent_and_nav_link_hidden_without_configured_input_workbook(self, tmp_path):
         """Without a Stage 1 input workbook path, input.html must not be generated and its nav link must be hidden."""
         state = PipelineState(tmp_path / "pipeline")

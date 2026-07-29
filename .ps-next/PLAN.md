@@ -10,7 +10,7 @@
 - [x] Generate the standalone activity page
   - Files: tournament_scheduler/pipeline/activity_viewer.py, tests/test_activity_viewer.py
   - Approach: Write activities.json plus activities/index.html from normalized records. Keep assets local/inline, load ../activities.json relatively, provide Norwegian labels, age-group filters, accessible activity buttons/details, chronological month-grouped list, mobile list default, year-wheel date positioning, today/next markers, and iframe height postMessage.
-- [ ] Integrate activity artifacts with Stage 4 export and Pages publishing
+- [x] Integrate activity artifacts with Stage 4 export and Pages publishing
   - Files: tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/pipeline/pages_bundle.py, tournament_scheduler/pipeline/pages_publish.py, tests/test_stage4_export.py, tests/test_pages_bundle.py, tests/test_operator_action.py
   - Approach: Generate activity artifacts when the configured input workbook contains an activity table, record them in the Stage 4 checkpoint, keep existing exports unchanged when no activity sheet exists, allow activities.json and activities/ through the sanitized public bundle, and make Pages fingerprint/diff/publish logic recurse into public subdirectories.
 - [ ] Document the WordPress embed flow and verify issue coverage
@@ -32,6 +32,13 @@ The current input.xlsx does not contain an activity sheet, so Stage 4 must remai
 ## Log
 
 
+
+### 2026-07-29 — Integrate activity artifacts with Stage 4 export and Pages publishing
+**Done:** Integrated activity artifact generation into Stage 4 for configured input workbooks with supported activity sheets, added output_files checkpoint entries, and extended the sanitized Pages bundle/publish preview path to include activities.json plus activities/index.html recursively.
+**Rationale:** Stage 4 is the single export integration point, while the public bundle remains the privacy gate before anything reaches GitHub Pages latest/runs paths.
+**Findings:** Existing input workbooks without an activity sheet remain unchanged. pi_next_diff_review warned on the word 'placeholder' from existing pages_publish docstring context in a modified function, not a new TODO/FIXME placeholder implementation.
+**Files:** tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/pipeline/pages_bundle.py, tournament_scheduler/pipeline/pages_publish.py, tests/test_stage4_export.py, tests/test_pages_bundle.py, tests/test_operator_action.py, .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-29 — Generate the standalone activity page
 **Done:** Added activity_viewer artifact generation for activities.json plus activities/index.html with a vanilla SVG year wheel, chronological list, age-group filter, accessible detail interactions, mobile list default, and iframe height messaging.
 **Rationale:** A standalone static page keeps WordPress embedding lightweight and avoids browser-side workbook parsing while still providing both visual and text-first presentations.

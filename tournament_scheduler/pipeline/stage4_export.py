@@ -37,6 +37,7 @@ from .state import PipelineState, StageName, StageStatus
 from .stage4_helpers import _dict_to_plan
 from .calendar_viewer import generate_html as _generate_calendars_html
 from .input_viewer import generate_html as _generate_input_html
+from .activity_viewer import generate_activity_artifacts as _generate_activity_artifacts
 from .not_started import NOT_STARTED_MESSAGE, render_not_started_html
 
 logger = logging.getLogger(__name__)
@@ -341,6 +342,23 @@ def run(
                 output_files["input_html"] = _input_html_path
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"Input-visning feilet: {exc}")
+
+            try:
+                start_year = None
+                start_date_value = effective_config.get("start_date")
+                if isinstance(start_date_value, str) and len(start_date_value) >= 4:
+                    start_year = int(start_date_value[:4])
+                _progress("Genererer aktivitetskalender")
+                activity_files = _generate_activity_artifacts(
+                    input_path=_configured_input_path,
+                    export_dir=str(primary_export_path),
+                    default_year=start_year,
+                    generated_at=generated_at,
+                )
+                if activity_files:
+                    output_files.update(activity_files)
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"Aktivitetskalender feilet: {exc}")
         # --- Calendar viewer (calendars.html) ---
         # Generate before HtmlExporter so calendars_path can be passed in and the navbar can link to it.
         # Only generate when scrape data exists — without it the file would be empty and the navbar link would be broken.

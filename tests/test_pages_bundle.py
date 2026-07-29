@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from tournament_scheduler.pipeline.pages_bundle import (
+    DEFAULT_ALLOWED_DIRECTORIES,
     DEFAULT_ALLOWED_FILENAMES,
     build_public_bundle,
 )
@@ -64,6 +65,40 @@ class TestDefaultAllowlist:
         included = set(json.loads(Path((tmp_path / "pages_privacy_report.json")).read_text())["included_files"])
         assert "input.html" in included
         assert (tmp_path / "public" / "input.html").exists()
+
+    def test_activity_artifacts_are_included_by_default(self, tmp_path):
+        export_dir = _export_dir(tmp_path)
+        (export_dir / "season_plan.html").write_text('<a href="activities/">Aktiviteter</a>', encoding="utf-8")
+        (export_dir / "activities.json").write_text('{"activities": []}', encoding="utf-8")
+        activities_dir = export_dir / "activities"
+        activities_dir.mkdir()
+        (activities_dir / "index.html").write_text('<script src="../activities.json"></script>', encoding="utf-8")
+
+        result = build_public_bundle(str(export_dir), str(tmp_path / "public"))
+
+        assert result.status == "ok"
+        assert "activities.json" in DEFAULT_ALLOWED_FILENAMES
+        assert "activities" in DEFAULT_ALLOWED_DIRECTORIES
+        assert (tmp_path / "public" / "activities.json").exists()
+        assert (tmp_path / "public" / "activities" / "index.html").exists()
+        included = set(json.loads(Path((tmp_path / "pages_privacy_report.json")).read_text())["included_files"])
+        assert "activities.json" in included
+        assert "activities/index.html" in included
+
+    def test_unknown_file_inside_activity_directory_is_excluded(self, tmp_path):
+        export_dir = _export_dir(tmp_path)
+        activities_dir = export_dir / "activities"
+        activities_dir.mkdir()
+        (activities_dir / "index.html").write_text("<h1>ok</h1>", encoding="utf-8")
+        (activities_dir / "debug.exe").write_bytes(b"MZ")
+
+        result = build_public_bundle(str(export_dir), str(tmp_path / "public"))
+
+        assert result.status == "ok"
+        assert (tmp_path / "public" / "activities" / "index.html").exists()
+        assert not (tmp_path / "public" / "activities" / "debug.exe").exists()
+        report = json.loads((tmp_path / "pages_privacy_report.json").read_text())
+        assert any(e["file"] == "activities/debug.exe" and "unknown" in e["reason"] for e in report["excluded_files"])
 
     def test_never_copies_the_whole_export_directory(self, tmp_path):
         """The internal export/roster/spond/review artifacts must never be included by default."""

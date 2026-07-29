@@ -196,13 +196,16 @@ def resolve_urls(*, repo_dir: str, remote: str, run_id: str) -> tuple[str, str] 
 
 
 def _planned_bundle_contents(export_dir: Path) -> dict[str, bytes]:
-    """Filename -> bytes as :func:`_copy_bundle` would actually write them.
+    """Relative path -> bytes as :func:`_copy_bundle` would actually write them.
 
     Mirrors its ``index.html`` fallback (copy of ``season_plan.html``, or a
     placeholder if neither exists) so a preview never reports a false
     "removal" of an ``index.html`` that publishing would simply regenerate.
     """
-    contents = {path.name: path.read_bytes() for path in export_dir.iterdir() if path.is_file()}
+    contents = {
+        path.relative_to(export_dir).as_posix(): path.read_bytes()
+        for path in sorted(p for p in export_dir.rglob("*") if p.is_file())
+    }
     if "index.html" not in contents:
         if "season_plan.html" in contents:
             contents["index.html"] = contents["season_plan.html"]

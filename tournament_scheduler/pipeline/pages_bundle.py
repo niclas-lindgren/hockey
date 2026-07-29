@@ -57,6 +57,7 @@ DEFAULT_ALLOWED_FILENAMES: frozenset[str] = frozenset(
         "season_plan.xlsx",
         "season_plan.csv",
         "season_plan_overview.csv",
+        "activities.json",
         "index.html",
     }
 )
@@ -64,11 +65,13 @@ DEFAULT_ALLOWED_FILENAMES: frozenset[str] = frozenset(
 # File types eligible for inclusion at all, even if the filename is
 # allowlisted — an unknown extension fails closed rather than being copied
 # on trust.
+DEFAULT_ALLOWED_DIRECTORIES: frozenset[str] = frozenset({"activities"})
+
 _ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
-    {".html", ".htm", ".css", ".js", ".ics", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".svg", ".ico"}
+    {".html", ".htm", ".css", ".js", ".json", ".ics", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".svg", ".ico"}
 )
 
-_TEXT_EXTENSIONS: frozenset[str] = frozenset({".html", ".htm", ".css", ".js", ".ics", ".csv"})
+_TEXT_EXTENSIONS: frozenset[str] = frozenset({".html", ".htm", ".css", ".js", ".json", ".ics", ".csv"})
 
 _PRIVACY_REPORT_FILENAME = "pages_privacy_report.json"
 
@@ -287,15 +290,52 @@ def build_public_bundle(
     report = PrivacyReport()
     excluded_file_names: set[str] = set()
     excluded_directory_names: set[str] = set()
-    binary_assets: list[Path] = []
-    text_assets: list[tuple[Path, str]] = []
+    binary_assets: list[tuple[Path, str]] = []
+    text_assets: list[tuple[Path, str, str]] = []
+
+    def _consider_file(entry: Path, rel: str) -> None:
+        if entry.suffix.lower() not in _ALLOWED_EXTENSIONS:
+            report.excluded_files.append(
+                {"file": rel, "reason": f"unknown/unapproved file type '{entry.suffix}'"}
+            )
+            excluded_file_names.add(Path(rel).name)
+            return
+
+        if entry.suffix.lower() not in _TEXT_EXTENSIONS:
+            binary_assets.append((entry, rel))
+            return
+
+        try:
+            text = entry.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            report.excluded_files.append(
+                {"file": rel, "reason": "could not be read as UTF-8 text"}
+            )
+            excluded_file_names.add(Path(rel).name)
+            return
+
+        secrets = _find_secrets(text, overrides)
+        if secrets:
+            for category, matched_text in secrets:
+                report.blocking_findings.append(
+                    {"file": rel, "category": category, "detail": matched_text}
+                )
+            excluded_file_names.add(Path(rel).name)
+            return
+
+        text_assets.append((entry, rel, text))
 
     for entry in sorted(export_path.iterdir()):
         if entry.is_dir():
-            report.excluded_files.append(
-                {"file": entry.name, "reason": "directories are not published by default"}
-            )
-            excluded_directory_names.add(entry.name)
+            if entry.name not in DEFAULT_ALLOWED_DIRECTORIES:
+                report.excluded_files.append(
+                    {"file": entry.name, "reason": "directory is not in the public directory allowlist"}
+                )
+                excluded_directory_names.add(entry.name)
+                continue
+            for child in sorted(path for path in entry.rglob("*") if path.is_file()):
+                rel = child.relative_to(export_path).as_posix()
+                _consider_file(child, rel)
             continue
 
         if entry.name not in names:
@@ -305,36 +345,7 @@ def build_public_bundle(
             excluded_file_names.add(entry.name)
             continue
 
-        if entry.suffix.lower() not in _ALLOWED_EXTENSIONS:
-            report.excluded_files.append(
-                {"file": entry.name, "reason": f"unknown/unapproved file type '{entry.suffix}'"}
-            )
-            excluded_file_names.add(entry.name)
-            continue
-
-        if entry.suffix.lower() not in _TEXT_EXTENSIONS:
-            binary_assets.append(entry)
-            continue
-
-        try:
-            text = entry.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            report.excluded_files.append(
-                {"file": entry.name, "reason": "could not be read as UTF-8 text"}
-            )
-            excluded_file_names.add(entry.name)
-            continue
-
-        secrets = _find_secrets(text, overrides)
-        if secrets:
-            for category, matched_text in secrets:
-                report.blocking_findings.append(
-                    {"file": entry.name, "category": category, "detail": matched_text}
-                )
-            excluded_file_names.add(entry.name)
-            continue
-
-        text_assets.append((entry, text))
+        _consider_file(entry, entry.name)
 
     if report.blocking_findings:
         report_path = output_path.parent / _PRIVACY_REPORT_FILENAME
@@ -350,25 +361,29 @@ def build_public_bundle(
             artifacts=[str(report_path)],
         )
 
-    for entry in binary_assets:
-        shutil.copyfile(entry, output_path / entry.name)
-        report.included_files.append(entry.name)
+    for entry, rel in binary_assets:
+        destination = output_path / rel
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(entry, destination)
+        report.included_files.append(rel)
 
-    for entry, text in text_assets:
+    for entry, rel, text in text_assets:
         text, redaction_counts = _redact_contact_and_paths(text)
         text = _rewrite_root_absolute_links(text)
         text, link_rewrites = _rewrite_excluded_file_links(
             text,
             excluded_file_names,
             excluded_directory_names,
-            source_file=entry.name,
+            source_file=rel,
         )
         for category, count in redaction_counts:
-            report.redactions.append({"file": entry.name, "category": category, "count": count})
+            report.redactions.append({"file": rel, "category": category, "count": count})
         report.rewritten_links.extend(link_rewrites)
 
-        (output_path / entry.name).write_text(text, encoding="utf-8")
-        report.included_files.append(entry.name)
+        destination = output_path / rel
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(text, encoding="utf-8")
+        report.included_files.append(rel)
 
     report_path = output_path.parent / _PRIVACY_REPORT_FILENAME
     report.write(report_path)

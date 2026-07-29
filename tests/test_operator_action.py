@@ -364,6 +364,14 @@ def _write_export(work_dir, *, content: str = "<h1>plan</h1>") -> None:
     )
 
 
+def _write_activity_export_files(work_dir) -> None:
+    export_dir = work_dir / "export"
+    (export_dir / "activities.json").write_text('{"activities": []}', encoding="utf-8")
+    activities_dir = export_dir / "activities"
+    activities_dir.mkdir(exist_ok=True)
+    (activities_dir / "index.html").write_text("<h1>Aktivitetskalender</h1>", encoding="utf-8")
+
+
 class TestPublishPagesApprovalGate:
     """Issue #19: publication requires explicit, per-bundle/target approval."""
 
@@ -393,6 +401,41 @@ class TestPublishPagesApprovalGate:
 
         assert result.status == "ok"
         assert any(e.startswith("commit_sha=") for e in result.evidence)
+
+    def test_confirm_public_publishes_activity_subdirectory(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path, content='<a href="activities/">Aktiviteter</a>')
+        _write_activity_export_files(tmp_path)
+
+        action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, confirm_public=True
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "ok"
+        assert subprocess.run(
+            ["git", "-C", str(tmp_path), "show", "gh-pages:latest/activities.json"],
+            capture_output=True,
+            text=True,
+        ).stdout == '{"activities": []}'
+        assert "Aktivitetskalender" in subprocess.run(
+            ["git", "-C", str(tmp_path), "show", "gh-pages:latest/activities/index.html"],
+            capture_output=True,
+            text=True,
+        ).stdout
+
+    def test_publish_preview_counts_activity_subdirectory_files(self, tmp_path):
+        _init_repo(tmp_path)
+        _write_export(tmp_path, content='<a href="activities/">Aktiviteter</a>')
+        _write_activity_export_files(tmp_path)
+
+        action = DEFAULT_REGISTRY.build(
+            "publish_pages", work_dir=str(tmp_path), repo_dir=str(tmp_path), push=False, dry_run=True
+        )
+        result = DEFAULT_REGISTRY.execute(action, approved=True)
+
+        assert result.status == "ok"
+        assert "(+4 " in result.summary
 
     def test_reusable_exact_approval_via_durable_answer(self, tmp_path):
         _init_repo(tmp_path)
