@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$ROOT_DIR"
+
+if [[ -x "$ROOT_DIR/venv/bin/python3" ]]; then
+  PYTHON_CMD="$ROOT_DIR/venv/bin/python3"
+else
+  PYTHON_CMD=${PYTHON:-python3}
+fi
+
+phase() {
+  echo ""
+  echo "==> $*"
+}
+
+run_phase() {
+  local name=$1
+  shift
+  phase "$name"
+  "$@"
+}
+
+run_phase "Python quick test suite" "$PYTHON_CMD" -m pytest
+run_phase "Operator manifest and escalation tests" "$PYTHON_CMD" -m pytest --no-cov -v \
+  tests/test_run_manifest.py \
+  tests/test_capability_result.py \
+  tests/test_escalation.py \
+  tests/test_operator_run.py
+run_phase "Deterministic planner reproducibility" "$PYTHON_CMD" -m pytest --no-cov -v tests/test_reproducibility.py --basetemp=repro-tmp
+run_phase "CLI integration smoke test" "$PYTHON_CMD" -m pytest --no-cov -v -m integration tests/test_cli_smoke.py --basetemp=cli-smoke-tmp
+run_phase "Desktop backend API smoke test" "$PYTHON_CMD" -m pytest --no-cov -v tests/test_desktop_server_escalation.py
+run_phase "Desktop packaging config validation" "$PYTHON_CMD" -m pytest --no-cov -v tests/test_desktop_packaging.py
+run_phase "Rules report sync" sh scripts/rules-report.sh
+
+if [[ "${SKIP_SECRET_SCAN:-0}" == "1" ]]; then
+  phase "Secret scan skipped (SKIP_SECRET_SCAN=1)"
+else
+  run_phase "Secret scan" sh scripts/secret-scan.sh
+fi
+
+echo ""
+echo "✅ All canonical checks passed"

@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: scripts/release [--dry-run] vX.Y.Z
+
+Guarded release flow:
+  - rejects dirty worktrees, invalid/existing tags, wrong branch, and version mismatches
+  - fetches tags before validation
+  - runs scripts/check before mutation (set SKIP_SECRET_SCAN=1 only when intentionally matching CI environment limits)
+  - --dry-run validates without creating or pushing a tag
+  - non-dry runs require typing the exact tag before creating/pushing one annotated tag
+EOF
+}
+
+DRY_RUN=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "ERROR: unknown option: $1" >&2
+      usage
+      exit 2
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [[ $# -ne 1 ]]; then
+  echo "ERROR: scripts/release requires exactly one TAG argument" >&2
+  usage
+  exit 2
+fi
+
+TAG=$1
+if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ERROR: invalid release tag '$TAG' (expected vX.Y.Z)" >&2
+  exit 2
+fi
+VERSION=${TAG#v}
+
+ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+cd "$ROOT_DIR"
+
+if [[ ! -d .git ]]; then
+  echo "ERROR: scripts/release must run inside the git repository" >&2
+  exit 2
+fi
+
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$current_branch" != "main" ]]; then
+  echo "ERROR: releases must be created from main (current: $current_branch)" >&2
+  exit 2
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "ERROR: working tree is dirty; commit or stash changes before releasing" >&2
+  git status --short >&2
+  exit 2
+fi
+
+remote=${RELEASE_REMOTE:-origin}
+git fetch --tags "$remote" >/dev/null 2>&1 || {
+  echo "ERROR: failed to fetch tags from $remote" >&2
+  exit 2
+}
+
+if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+  echo "ERROR: local tag already exists: $TAG" >&2
+  exit 2
+fi
+if git ls-remote --exit-code --tags "$remote" "refs/tags/$TAG" >/dev/null 2>&1; then
+  echo "ERROR: remote tag already exists on $remote: $TAG" >&2
+  exit 2
+fi
+
+read_version() {
+  local file=$1
+  local expr=$2
+  python3 - "$file" "$expr" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+path = Path(sys.argv[1])
+expr = sys.argv[2]
+if path.suffix == ".json":
+    print(json.loads(path.read_text(encoding="utf-8"))[expr])
+else:
+    text = path.read_text(encoding="utf-8")
+    match = re.search(expr, text, re.MULTILINE)
+    if not match:
+        raise SystemExit(f"could not find version in {path}")
+    print(match.group(1))
+PY
+}
+
+py_version=$(read_version pyproject.toml '^version = "([^"]+)"')
+desktop_version=$(read_version apps/desktop/package.json version)
+
+if [[ "$py_version" != "$VERSION" ]]; then
+  echo "ERROR: pyproject.toml version $py_version does not match $TAG" >&2
+  exit 2
+fi
+if [[ "$desktop_version" != "$VERSION" ]]; then
+  echo "ERROR: apps/desktop/package.json version $desktop_version does not match $TAG" >&2
+  exit 2
+fi
+
+commit=$(git rev-parse HEAD)
+summary=$(git log -1 --pretty=%s)
+
+cat <<EOF
+Release validation summary
+  tag:        $TAG
+  version:    $VERSION
+  branch:     $current_branch
+  commit:     $commit
+  subject:    $summary
+  remote:     $remote
+  dry-run:    $DRY_RUN
+EOF
+
+"$ROOT_DIR/scripts/check"
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  echo "✅ Release dry run passed for $TAG; no tag was created or pushed."
+  exit 0
+fi
+
+printf "Type %s to create and push this annotated release tag: " "$TAG" >&2
+IFS= read -r confirmation
+if [[ "$confirmation" != "$TAG" ]]; then
+  echo "ERROR: release confirmation did not match $TAG; aborting" >&2
+  exit 2
+fi
+
+git tag -a "$TAG" -m "RVV Miniputt $TAG" -m "Commit: $commit"
+git push "$remote" "refs/tags/$TAG"
+
+echo "✅ Pushed annotated tag $TAG at $commit"
