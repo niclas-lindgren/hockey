@@ -133,11 +133,11 @@ class TestValidateConfig:
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
         assert any("teams" in e for e in errors)
 
-    def test_empty_teams_list(self):
+    def test_empty_teams_list_is_allowed_for_not_started_exports(self):
         raw = _make_valid_raw()
         raw["teams"] = []
         errors = validate_config(raw, _DUMMY_INPUT_PATH)
-        assert errors
+        assert errors == []
 
     def test_team_age_group_must_exist_in_age_groups_sheet(self):
         raw = _make_valid_raw()

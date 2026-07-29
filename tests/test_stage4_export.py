@@ -254,6 +254,36 @@ class TestRunStage4:
         assert rows[1][7] == "09:00"
         assert rows[1][8] == "09:45"
 
+    def test_not_started_plan_writes_placeholder_outputs(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        input_file = tmp_path / "input.xlsx"
+        _write_input_workbook(input_file, {
+            "start_date": "2025-09-01",
+            "end_date": "2025-12-01",
+            "teams": [],
+        })
+        state.write_stage(StageName.CONFIG, {"input_path": str(input_file), "teams": []}, status=StageStatus.DONE)
+        checkpoint = {
+            "not_started": True,
+            "plan": {
+                "start_date": "2025-09-01",
+                "end_date": "2025-12-01",
+                "tournaments": [],
+                "placeholder": "not_started",
+                "message": "Ikke begynt: ingen lag er registrert i input.xlsx.",
+            },
+        }
+
+        result = run(checkpoint, state, export_dir=str(tmp_path / "export"), timestamped_export=False)
+
+        files = result["output_files"]
+        assert result["not_started"] is True
+        assert set(["excel", "ical", "csv_games", "csv_overview", "input_html", "calendars_html", "html", "html_report", "spond", "spond_games", "review_packets"]) <= set(files)
+        assert "Ikke begynt" in Path(files["html"]).read_text(encoding="utf-8")
+        assert "Ikke begynt" in Path(files["csv_games"]).read_text(encoding="utf-8")
+        workbook = openpyxl.load_workbook(files["excel"])
+        assert workbook.active["A1"].value.startswith("Ikke begynt")
+
     def test_includes_fairness_gate_sheet(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         result = run(

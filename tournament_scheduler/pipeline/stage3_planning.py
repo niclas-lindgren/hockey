@@ -39,6 +39,7 @@ from .stage3_helpers import (_build_club_arenas, _build_events_by_club, _build_p
 # Bump only when the planner's search algorithm changes in a way that could
 # produce a different plan from the same seed/config/source fingerprint.
 PLANNER_VERSION = "1"
+NOT_STARTED_MESSAGE = "Ikke begynt: ingen lag er registrert i input.xlsx."
 
 # Deterministic candidate ranking: a hard-constraint ("fail") status always
 # loses to "warn"/"pass" regardless of aggregate score, so a good average
@@ -150,6 +151,48 @@ def run(
     state.write_stage(StageName.PLANNING, {}, status=StageStatus.RUNNING)
 
     roster = _build_roster(config)
+    if not roster.teams:
+        print(f"[plan] {NOT_STARTED_MESSAGE}", flush=True)
+        plan = SeasonPlan(
+            tournaments=[],
+            start_date=start_date.date(),
+            end_date=end_date.date(),
+            fairness_gate={
+                "status": "not_started",
+                "score": 0,
+                "metrics": [],
+                "message": NOT_STARTED_MESSAGE,
+            },
+        )
+        plan_dict = _plan_to_dict(plan)
+        plan_dict["placeholder"] = "not_started"
+        plan_dict["message"] = NOT_STARTED_MESSAGE
+        checkpoint: dict[str, Any] = {
+            "plan": plan_dict,
+            "rules_report": {
+                "status": "not_started",
+                "message": NOT_STARTED_MESSAGE,
+                "critical": [],
+                "warnings": [],
+                "info": [NOT_STARTED_MESSAGE],
+            },
+            "candidates": [
+                {
+                    "attempt": 1,
+                    "seed": None,
+                    "planner_version": PLANNER_VERSION,
+                    "status": "not_started",
+                    "score": 0,
+                    "tournament_count": 0,
+                    "rank": None,
+                }
+            ],
+            "selected_candidate_attempt": 1,
+            "not_started": True,
+        }
+        state.write_stage(StageName.PLANNING, checkpoint, status=StageStatus.DONE)
+        return checkpoint
+
     pg_config = _build_parallel_games(config)
     round_length_config = _build_round_length(config)
     club_arenas = _build_club_arenas(config)

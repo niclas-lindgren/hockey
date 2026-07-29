@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_EXPORT_DIR = "export"
 DEFAULT_BASENAME = "season_plan"
+NOT_STARTED_MESSAGE = "Ikke begynt: ingen lag er registrert i input.xlsx."
 
 # Matches the "%Y-%m-%dT%H%M" directory name this module generates below.
 # Callers (e.g. a stage-by-stage orchestrator that picks one export dir up
@@ -62,6 +63,75 @@ _TIMESTAMP_DIR_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{4}$")
 
 class Stage4Error(RuntimeError):
     """Raised when Stage 4 export fails."""
+
+
+def _write_not_started_exports(primary_export_path: Path, basename: str, message: str) -> dict[str, str]:
+    """Write the normal export surface as small placeholder files."""
+    from html import escape
+
+    import openpyxl
+
+    primary_export_path.mkdir(parents=True, exist_ok=True)
+    output_files: dict[str, str] = {}
+
+    def _write_workbook(path: Path, title: str) -> None:
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = title[:31]
+        ws.append([message])
+        wb.save(path)
+
+    html = (
+        "<!doctype html><html lang=\"nb\"><head><meta charset=\"utf-8\">"
+        f"<title>{escape(message)}</title></head><body>"
+        f"<main><h1>{escape(message)}</h1><p>Legg inn lag i input.xlsx for å starte planleggingen.</p></main>"
+        "</body></html>\n"
+    )
+
+    excel_path = primary_export_path / f"{basename}.xlsx"
+    _write_workbook(excel_path, "Ikke begynt")
+    output_files["excel"] = str(excel_path)
+
+    ical_path = primary_export_path / f"{basename}.ics"
+    ical_path.write_text(
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//RVV Miniputt//Not Started//NO\r\n"
+        "X-WR-CALNAME:Ikke begynt\r\nEND:VCALENDAR\r\n",
+        encoding="utf-8",
+    )
+    output_files["ical"] = str(ical_path)
+
+    csv_path = primary_export_path / f"{basename}.csv"
+    csv_path.write_text(f"status\n{message}\n", encoding="utf-8")
+    output_files["csv_games"] = str(csv_path)
+
+    overview_path = primary_export_path / f"{basename}_overview.csv"
+    overview_path.write_text(f"status\n{message}\n", encoding="utf-8")
+    output_files["csv_overview"] = str(overview_path)
+
+    for key, filename in (
+        ("input_html", "input.html"),
+        ("calendars_html", "calendars.html"),
+        ("html", f"{basename}.html"),
+        ("html_report", f"{basename}_report.html"),
+    ):
+        path = primary_export_path / filename
+        path.write_text(html, encoding="utf-8")
+        output_files[key] = str(path)
+
+    spond_path = primary_export_path / f"{basename}_spond.xlsx"
+    _write_workbook(spond_path, "Ikke begynt")
+    output_files["spond"] = str(spond_path)
+
+    spond_games_path = primary_export_path / f"{basename}_spond_games.xlsx"
+    _write_workbook(spond_games_path, "Ikke begynt")
+    output_files["spond_games"] = str(spond_games_path)
+
+    review_dir = primary_export_path / "review_packets"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    (review_dir / "README.txt").write_text(message + "\n", encoding="utf-8")
+    output_files["review_packets"] = str(review_dir)
+
+    return output_files
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +203,23 @@ def run(
         effective_config = {}
     generated_at = datetime.now(timezone.utc).isoformat()
     input_path = str(effective_config.get("input_path") or "input.xlsx")
+
+    if plan_dict.get("placeholder") == "not_started" or (plan_checkpoint.get("not_started") and not plan.tournaments):
+        message = str(plan_dict.get("message") or NOT_STARTED_MESSAGE)
+        _progress("Genererer tomme ikke-begynt-filer")
+        output_files = _write_not_started_exports(primary_export_path, basename, message)
+        checkpoint = {
+            "generated_at": generated_at,
+            "input_path": input_path,
+            "output_files": output_files,
+            "errors": [],
+            "not_started": True,
+            "message": message,
+        }
+        state.write_stage(StageName.EXPORT, checkpoint, status=StageStatus.DONE)
+        _progress("Eksport ferdig")
+        return checkpoint
+
     round_length_for_age_group: dict[str, int] = dict(effective_config.get("round_length_minutes", {}))
     derived_collisions = find_arena_interval_collisions(plan.tournaments, round_length_for_age_group)
     hard_collisions = derived_collisions or list(plan.arena_day_collisions or [])

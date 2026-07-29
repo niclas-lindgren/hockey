@@ -105,6 +105,21 @@ class TestRunStage3:
         assert "plan" in result
         assert len(result["plan"]["tournaments"]) > 0
 
+    def test_empty_roster_produces_not_started_placeholder_plan(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = {**_make_config(), "teams": []}
+        result = run(
+            cfg, {},
+            state,
+            datetime(2025, 9, 1), datetime(2025, 12, 15),
+        )
+
+        assert state.is_done(StageName.PLANNING)
+        assert result["not_started"] is True
+        assert result["plan"]["tournaments"] == []
+        assert result["plan"]["placeholder"] == "not_started"
+        assert "Ikke begynt" in result["plan"]["message"]
+
     def test_plan_contains_expected_fields(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
         result = run(

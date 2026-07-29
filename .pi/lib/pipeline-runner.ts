@@ -552,14 +552,20 @@ export async function runPipeline(rawArgs: unknown, ctx: ExtensionContext, onPro
     lines.push(`Input kopiert til ${timestampedExportDir}\n`);
   } catch {}
 
-  // Regenerate viewer into timestamped export folder
+  // Regenerate viewer into timestamped export folder, except for the "not started"
+  // placeholder export where calendars.html should remain the dummy page written by
+  // Stage 4 instead of being overwritten from stale scrape cache.
   try {
-    const { execFile } = await import("node:child_process");
-    const { promisify } = await import("node:util");
-    const execFileAsync = promisify(execFile);
-    const python = resolve(cwdPath, "venv", "bin", "python3");
-    const exe = existsSync(python) ? python : "python3";
-    await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir, "--export-dir", timestampedExportDir], { cwd: cwdPath });
+    const exportCkpt = readCheckpoint(workDir, "stage4_export.json");
+    const exportData = (exportCkpt?.data ?? {}) as Record<string, unknown>;
+    if (!exportData.not_started) {
+      const { execFile } = await import("node:child_process");
+      const { promisify } = await import("node:util");
+      const execFileAsync = promisify(execFile);
+      const python = resolve(cwdPath, "venv", "bin", "python3");
+      const exe = existsSync(python) ? python : "python3";
+      await execFileAsync(exe, ["-m", "tournament_scheduler.pipeline.calendar_viewer", "--work-dir", workDir, "--export-dir", timestampedExportDir], { cwd: cwdPath });
+    }
   } catch {}
 
   // Keep exports only in the timestamped folder.

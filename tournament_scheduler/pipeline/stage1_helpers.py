@@ -169,9 +169,10 @@ def validate_config(raw: dict[str, Any], input_path: Path) -> list[str]:
                     "Sjekk at stien er riktig."
                 )
         elif isinstance(teams_val, list):
-            if not teams_val:
-                errors.append("'teams' er en tom liste — legg til minst ett lag.")
-            else:
+            # An empty roster means registration has not started yet.  Treat it
+            # as a valid no-op input so the pipeline can still publish the
+            # standard placeholder export files instead of failing in Stage 1.
+            if teams_val:
                 errors.extend(_validate_team_list(teams_val, allowed_age_groups=defined_age_groups or None))
         else:
             errors.append(

@@ -114,11 +114,40 @@ def _month_name(m: int, locale: str = "nb") -> str:
     return nb[m] if 1 <= m <= 12 else f"Måned {m}"
 
 
+def _write_not_started_html(output_path: Path, message: str) -> str:
+    html = (
+        "<!doctype html><html lang=\"nb\"><head><meta charset=\"utf-8\">"
+        f"<title>{_escape_html(message)}</title></head><body>"
+        f"<main><h1>{_escape_html(message)}</h1>"
+        "<p>Planleggingen har ikke startet ennå.</p></main>"
+        "</body></html>\n"
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(html, encoding="utf-8")
+    return str(output_path)
+
+
+def _stage4_not_started_message(work_dir: str) -> str | None:
+    try:
+        stage4 = json.loads((Path(work_dir) / "stage4_export.json").read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    data = stage4.get("data", {}) if isinstance(stage4, dict) else {}
+    if isinstance(data, dict) and data.get("not_started"):
+        return str(data.get("message") or "Ikke begynt: ingen lag er registrert i input.xlsx.")
+    return None
+
+
 def generate_html(work_dir: str = ".pipeline", export_dir: str = "export") -> str:
     """Generate the calendar viewer HTML and return its file path.
 
     Writes to ``<export_dir>/calendars.html`` by default.
     """
+    out_path = Path(export_dir) / "calendars.html"
+    not_started_message = _stage4_not_started_message(work_dir)
+    if not_started_message:
+        return _write_not_started_html(out_path, not_started_message)
+
     cache = ScrapedDataCache(work_dir)
     data = cache.read()
     sources: dict[str, Any] = data.get("sources", {})
