@@ -81,6 +81,7 @@ run_named_phase() {
       ;;
     -h|--help|help)
       usage
+      exit 0
       ;;
     *)
       echo "ERROR: unknown check phase '$1'" >&2
