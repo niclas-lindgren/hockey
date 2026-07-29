@@ -52,30 +52,38 @@ class TestActivityExport:
 
         payload = build_activities_payload(path, default_year=2026, generated_at="2026-07-29T12:00:00Z")
 
-        assert payload == {
-            "generated_at": "2026-07-29T12:00:00Z",
-            "year": 2026,
-            "activities": [
-                {
-                    "date": "2026-01-17",
-                    "type": "spillerutvikling",
-                    "age_groups": ["JU14"],
-                    "title": "Spillerutvikling JU14",
-                    "location": "Sandefjord",
-                    "description": None,
-                    "url": None,
-                },
-                {
-                    "date": "2026-03-03",
-                    "type": "klubbforum",
-                    "age_groups": ["U13", "U14"],
-                    "title": "Klubbforum U13/U14",
-                    "location": "Kongsberg",
-                    "description": None,
-                    "url": None,
-                },
-            ],
-        }
+        assert payload["schema_version"] == 2
+        assert payload["generated_at"] == "2026-07-29T12:00:00Z"
+        assert payload["year"] == 2026
+        assert payload["validation_warnings"] == []
+        assert payload["activities"] == [
+            {
+                "date": "2026-01-17",
+                "type": "spillerutviklingssamling",
+                "category": "spillerutviklingssamling",
+                "category_label": "Spillerutviklingssamling",
+                "category_code": "SU",
+                "raw_category": None,
+                "age_groups": ["JU14"],
+                "title": "Spillerutvikling JU14",
+                "location": "Sandefjord",
+                "description": None,
+                "url": None,
+            },
+            {
+                "date": "2026-03-03",
+                "type": "annet",
+                "category": "annet",
+                "category_label": "Annen aktivitet",
+                "category_code": "AN",
+                "raw_category": None,
+                "age_groups": ["U13", "U14"],
+                "title": "Klubbforum U13/U14",
+                "location": "Kongsberg",
+                "description": None,
+                "url": None,
+            },
+        ]
 
     def test_supports_explicit_columns_and_iso_dates(self, tmp_path):
         path = tmp_path / "input.xlsx"
@@ -98,10 +106,14 @@ class TestActivityExport:
         activity = build_activities_payload(path)["activities"][0]
 
         assert activity["date"] == "2026-05-04"
-        assert activity["type"] == "samling"
+        assert activity["type"] == "unknown"
+        assert activity["category"] == "unknown"
+        assert activity["category_code"] == "?"
+        assert activity["raw_category"] == "samling"
         assert activity["age_groups"] == ["JU14", "JU16"]
         assert activity["description"] == "Ta med utstyr"
         assert activity["url"] == "https://example.com/info"
+        assert build_activities_payload(path)["validation_warnings"][0]["field"] == "category"
 
     def test_prefers_compact_activity_table_when_sheet_has_helper_headers(self, tmp_path):
         path = tmp_path / "input.xlsx"
@@ -196,6 +208,71 @@ class TestActivityExport:
         with pytest.raises(WorkbookInputError, match="mangler år"):
             build_activities_payload(path)
 
+    def test_normalizes_legacy_category_values_to_canonical_vocabulary(self, tmp_path):
+        path = tmp_path / "input.xlsx"
+        _workbook(
+            path,
+            rows=[
+                ["Dato", "Aktivitet", "Type", "Aldersgruppe"],
+                ["2026-01-01", "IA JU14", "IA", "JU14"],
+                ["2026-01-02", "RS U15", "RS", "U15"],
+                ["2026-01-03", "RM U16", "regionsmesterskap", "U16"],
+                ["2026-01-04", "Turnering JU16", "regionsturneringju16", "JU16"],
+            ],
+        )
+
+        payload = build_activities_payload(path)
+
+        assert payload["validation_warnings"] == []
+        assert [(a["category"], a["category_code"]) for a in payload["activities"]] == [
+            ("spillerutviklingssamling", "SU"),
+            ("regionslagssamling", "RS"),
+            ("regionsmesterskap", "RM"),
+            ("regionsturnering", "RT"),
+        ]
+        assert {item["id"] for item in payload["category_vocabulary"]} >= {
+            "spillerutviklingssamling",
+            "regionslagssamling",
+            "regionsmesterskap",
+            "regionsturnering",
+            "unknown",
+        }
+
+    def test_unknown_category_and_age_group_emit_deterministic_warnings(self, tmp_path):
+        path = tmp_path / "input.xlsx"
+        _workbook(
+            path,
+            rows=[
+                ["Dato", "Aktivitet", "Type", "Aldersgruppe"],
+                ["2026-02-01", "Mystery event", "mystery", "Juniorer"],
+            ],
+        )
+
+        payload = build_activities_payload(path)
+
+        assert payload["activities"][0]["category"] == "unknown"
+        assert payload["activities"][0]["category_code"] == "?"
+        assert payload["activities"][0]["age_groups"] == []
+        assert [(warning["field"], warning["raw_value"]) for warning in payload["validation_warnings"]] == [
+            ("age_groups", "Juniorer"),
+            ("category", "mystery"),
+        ]
+
+    def test_explicit_everyone_age_group_is_not_serialized_as_alle_lane(self, tmp_path):
+        path = tmp_path / "input.xlsx"
+        _workbook(
+            path,
+            rows=[
+                ["Dato", "Aktivitet", "Type", "Aldersgruppe"],
+                ["2026-02-01", "Felles samling", "SU", "Alle"],
+            ],
+        )
+
+        activity = build_activities_payload(path)["activities"][0]
+
+        assert activity["age_groups"] == ["ALL"]
+        assert "Alle" not in activity["age_groups"]
+
     def test_write_activities_json_outputs_valid_json(self, tmp_path):
         path = tmp_path / "input.xlsx"
         _workbook(
@@ -210,5 +287,6 @@ class TestActivityExport:
 
         assert out.name == "activities.json"
         data = json.loads(out.read_text(encoding="utf-8"))
+        assert data["schema_version"] == 2
         assert data["activities"][0]["date"] == "2026-02-01"
         assert data["activities"][0]["title"] == "Regionsamling U13"

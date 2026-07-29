@@ -72,6 +72,66 @@ _HELP_TEXT_RE = re.compile(r"\b(eksempel|example|hjelp|help|veiledning|forklarin
 _AGE_GROUP_RE = re.compile(r"\bJ?U\d{1,2}\b", re.IGNORECASE)
 _SPLIT_RE = re.compile(r"[,;/|]+|\s+og\s+", re.IGNORECASE)
 
+CATEGORY_VOCABULARY: dict[str, dict[str, str]] = {
+    "spillerutviklingssamling": {
+        "code": "SU",
+        "label": "Spillerutviklingssamling",
+        "description": "Regional spillerutviklingssamling eller tilsvarende utviklingsaktivitet.",
+    },
+    "regionslagssamling": {
+        "code": "RS",
+        "label": "Regionslagssamling",
+        "description": "Samling for regionslag eller regionslagskandidater.",
+    },
+    "regionsmesterskap": {
+        "code": "RM",
+        "label": "Regionsmesterskap",
+        "description": "Regionsmesterskap eller sluttspillaktivitet.",
+    },
+    "regionsturnering": {
+        "code": "RT",
+        "label": "Regionsturnering",
+        "description": "Regionsturnering for en eller flere aldersgrupper.",
+    },
+    "annet": {
+        "code": "AN",
+        "label": "Annen aktivitet",
+        "description": "Annen publisert aktivitet som ikke er en av hovedkategoriene.",
+    },
+    "unknown": {
+        "code": "?",
+        "label": "Ukjent aktivitetstype",
+        "description": "Fallback brukt når en eksplisitt kategori ikke finnes i vokabularet.",
+    },
+}
+
+_CATEGORY_ALIASES: dict[str, str] = {
+    "su": "spillerutviklingssamling",
+    "s_utvikling": "spillerutviklingssamling",
+    "spillerutvikling": "spillerutviklingssamling",
+    "spillerutviklingssamling": "spillerutviklingssamling",
+    "spillerutviklings_samling": "spillerutviklingssamling",
+    "ia": "spillerutviklingssamling",
+    "rs": "regionslagssamling",
+    "regionslag": "regionslagssamling",
+    "regionslagssamling": "regionslagssamling",
+    "regionslagsamling": "regionslagssamling",
+    "rm": "regionsmesterskap",
+    "regionsmesterskap": "regionsmesterskap",
+    "regionmesterskap": "regionsmesterskap",
+    "rt": "regionsturnering",
+    "regionsturnering": "regionsturnering",
+    "regionsturneringju16": "regionsturnering",
+    "regionsturnering_ju16": "regionsturnering",
+    "klubbforum": "annet",
+    "dommerkurs": "annet",
+    "kurs": "annet",
+    "annet": "annet",
+    "annen_aktivitet": "annet",
+}
+
+_EVERYONE_VALUES = {"alle", "all", "alle_aldersgrupper", "all_age_groups", "everyone"}
+
 
 def has_activity_table(path: str | Path) -> bool:
     """Return ``True`` when *path* contains a supported activity worksheet."""
@@ -106,13 +166,22 @@ def build_activities_payload(
             f"{sheet_name}: fant ikke en aktivitetstabell med kolonner for dato/måned og aktivitet."
         )
 
-    records = _read_activity_rows(ws, sheet_name=sheet_name, header_row=header_row, columns=columns, default_year=default_year)
+    records, warnings = _read_activity_rows(
+        ws,
+        sheet_name=sheet_name,
+        header_row=header_row,
+        columns=columns,
+        default_year=default_year,
+    )
     records.sort(key=lambda r: (r["date"], r["title"]))
     years = sorted({int(str(record["date"])[:4]) for record in records})
     payload_year = default_year if default_year is not None else (years[0] if years else None)
     return {
+        "schema_version": 2,
         "generated_at": generated_at or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
         "year": payload_year,
+        "category_vocabulary": _category_vocabulary_payload(),
+        "validation_warnings": warnings,
         "activities": records,
     }
 
@@ -224,8 +293,9 @@ def _read_activity_rows(
     header_row: int,
     columns: dict[str, int],
     default_year: int | None,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     records: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
     for row_index, row in enumerate(ws.iter_rows(min_row=header_row + 1, values_only=True), start=header_row + 1):
         values = {key: _cell(row, col_index) for key, col_index in columns.items()}
         if not any(value not in (None, "") for value in values.values()):
@@ -242,13 +312,39 @@ def _read_activity_rows(
 
         raw_type = _clean_text(values.get("type"))
         raw_age_groups = _clean_text(values.get("age_groups"))
-        age_groups = _parse_age_groups(raw_age_groups or title)
-        activity_type = raw_type or _infer_type(title, age_groups)
+        age_groups = _parse_age_groups(raw_age_groups if raw_age_groups is not None else title)
+        if raw_age_groups and not age_groups:
+            warnings.append(
+                _warning(
+                    sheet_name,
+                    row_index,
+                    "age_groups",
+                    raw_age_groups,
+                    "Aldersgruppe kunne ikke normaliseres og blir ikke vist som egen sesongsløp-rad.",
+                )
+            )
+        category_source = raw_type or _infer_type(title, age_groups)
+        category = _normalize_category(category_source, explicit=raw_type is not None)
+        if category == "unknown":
+            warnings.append(
+                _warning(
+                    sheet_name,
+                    row_index,
+                    "category",
+                    raw_type,
+                    "Ukjent aktivitetstype; bruker deterministisk fallback 'unknown'.",
+                )
+            )
+        category_meta = CATEGORY_VOCABULARY[category]
 
         records.append(
             {
                 "date": activity_date.isoformat(),
-                "type": activity_type,
+                "type": category,
+                "category": category,
+                "category_label": category_meta["label"],
+                "category_code": category_meta["code"],
+                "raw_category": raw_type,
                 "age_groups": age_groups,
                 "title": title,
                 "location": _clean_text(values.get("location")),
@@ -256,7 +352,7 @@ def _read_activity_rows(
                 "url": _clean_text(values.get("url")),
             }
         )
-    return records
+    return records, warnings
 
 
 def _cell(row: Iterable[Any], col_index: int) -> Any:
@@ -281,6 +377,30 @@ def _normalize_header(value: Any) -> str:
     text = text.replace("å", "a").replace("æ", "ae").replace("ø", "o")
     text = re.sub(r"[^a-z0-9]+", "_", text).strip("_")
     return text
+
+
+def _category_vocabulary_payload() -> list[dict[str, str]]:
+    return [
+        {"id": category_id, **metadata}
+        for category_id, metadata in CATEGORY_VOCABULARY.items()
+    ]
+
+
+def _normalize_category(value: str | None, *, explicit: bool) -> str:
+    normalized = _normalize_header(value)
+    if not normalized:
+        return "unknown" if explicit else "annet"
+    return _CATEGORY_ALIASES.get(normalized, "unknown" if explicit else "annet")
+
+
+def _warning(sheet_name: str, row_index: int, field: str, raw_value: Any, message: str) -> dict[str, Any]:
+    return {
+        "sheet": sheet_name,
+        "row": row_index,
+        "field": field,
+        "raw_value": raw_value,
+        "message": message,
+    }
 
 
 def _clean_text(value: Any) -> str | None:
@@ -376,6 +496,9 @@ def _parse_month(value: Any) -> int | None:
 def _parse_age_groups(value: str | None) -> list[str]:
     if not value:
         return []
+    normalized = _normalize_header(value)
+    if normalized in _EVERYONE_VALUES:
+        return ["ALL"]
     matches = [match.group(0).upper() for match in _AGE_GROUP_RE.finditer(value)]
     if matches:
         return list(dict.fromkeys(matches))
