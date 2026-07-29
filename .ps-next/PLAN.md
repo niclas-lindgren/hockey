@@ -10,9 +10,9 @@
 - [x] Document Make targets alongside direct CLI equivalents
   - Files: README.md, docs/rvv-miniputt-pipeline.md, tests/test_makefile_operator_interface.py
   - Approach: Update operator docs to present `make` as the concise human menu while keeping direct `scripts/rvv-miniputt` equivalents; document intentionally excluded LLM-only commands and mutation warnings; add drift tests that documented targets exist in the Makefile/help output.
-- [ ] Wire CI docs/workflow to the canonical check command where practical
-  - Files: .github/workflows/ci.yml, docs/ci.md, tests/test_makefile_operator_interface.py
-  - Approach: Update CI/documentation so the canonical `scripts/check` command is visible as the local equivalent; avoid broad YAML rewrites if matrix job splitting is still needed, but add assertions that `make check` delegates only to `scripts/check` and CI/docs mention the canonical entrypoint.
+- [x] Wire CI docs/workflow to the canonical check command where practical
+  - Files: .github/workflows/ci.yml, docs/ci.md, scripts/check, tests/test_makefile_operator_interface.py
+  - Approach: Update CI/documentation so the canonical `scripts/check` command is visible as the local equivalent; add phase selectors to `scripts/check` if needed so matrix jobs can call the canonical entrypoint without duplicating shell command sequences; add assertions that `make check` delegates only to `scripts/check` and CI/docs mention the canonical entrypoint.
 
 ## Notes
 - Source issue: https://github.com/niclas-lindgren/hockey/issues/39 (`[P2] Expand Makefile into a complete non-LLM operator interface`).
@@ -33,6 +33,13 @@
 ## Log
 
 
+
+### 2026-07-29 — Wire CI docs/workflow to the canonical check command where practical
+**Done:** Extended scripts/check with named phase selectors, updated CI jobs to call scripts/check phases instead of raw pytest command sequences for the split status checks, and updated CI docs/tests to describe and guard the canonical entrypoint relationship.
+**Rationale:** This keeps GitHub's visible matrix checks while moving the underlying command ownership into scripts/check, with make check remaining the local full-suite adapter.
+**Findings:** Targeted pytest tests/test_makefile_operator_interface.py passed: 13 passed. Quick pi-next quality gate passed: 1168 passed, 1 skipped, 26 deselected.
+**Files:** .github/workflows/ci.yml (-raw pytest runs, +scripts/check phase runs), docs/ci.md, scripts/check (+phase selectors), tests/test_makefile_operator_interface.py
+**Commit:** not committed
 ### 2026-07-29 — Document Make targets alongside direct CLI equivalents
 **Done:** Updated README and pipeline guide to introduce `make help` as the non-LLM human operator menu, map Make targets to direct scripts/rvv-miniputt or scripts/release equivalents, document mutation warnings, and note that harness-only features stay intentionally excluded from Make. Added a doc drift regression test.
 **Rationale:** Operators can now use Make for discoverability while documentation preserves the canonical direct CLI path for scripts and harnesses.

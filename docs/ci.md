@@ -14,14 +14,20 @@ calendar/network call** — all fixtures are synthetic or in-memory, so the
 whole tier is safe to require as a merge gate without flaking on a real
 club's calendar site being slow or down.
 
+The canonical local verification entrypoint is `scripts/check` (or `make
+check`, which delegates to it). With no arguments it runs the complete local
+suite. CI invokes phase selectors such as `scripts/check quick` and
+`scripts/check cli-smoke` so GitHub can keep separate visible status checks
+without duplicating the underlying command sequence in workflow YAML.
+
 | Job (status check name)                          | What it covers |
 |----------------------------------------------------|----------------|
-| `Python quick test suite`                           | The default `pytest` run (excludes `slow`/`integration`-marked tests) — the full unit/component suite. |
-| `Operator manifest & escalation tests`              | `test_run_manifest.py`, `test_capability_result.py`, `test_escalation.py`, `test_operator_run.py` specifically, as their own visible check. |
-| `Deterministic planner reproducibility`             | `test_reproducibility.py` — the same config/seeds must reproduce the same selected-candidate metadata and plan dates across two independent runs. |
-| `CLI integration smoke test`                        | `test_cli_smoke.py` (marked `integration`) — a real `rvv-miniputt` subprocess invocation (`operator run`, `status`, `sources status`, `operator questions`, `candidates`) against a synthetic workbook with zero calendar sources. |
-| `Desktop backend API smoke test`                    | `test_desktop_server_escalation.py` — a real HTTP round-trip against `desktop_server.Handler` (manifest, questions, answer, and confirms the dead `/run` route stays gone). |
-| `Desktop packaging config validation`               | `test_desktop_packaging.py` — static checks on `apps/desktop/package.json` and `release.yml` (no Electron download, no build, no publish). Guards against the wrong-owner and missing-keyring bugs found in issue #7. |
+| `Python quick test suite`                           | `scripts/check quick` — the default `pytest` run (excludes `slow`/`integration`-marked tests), covering the full unit/component suite. |
+| `Operator manifest & escalation tests`              | `scripts/check operator` — `test_run_manifest.py`, `test_capability_result.py`, `test_escalation.py`, `test_operator_run.py` specifically, as their own visible check. |
+| `Deterministic planner reproducibility`             | `scripts/check reproducibility` — `test_reproducibility.py`, where the same config/seeds must reproduce the same selected-candidate metadata and plan dates across two independent runs. |
+| `CLI integration smoke test`                        | `scripts/check cli-smoke` — `test_cli_smoke.py` (marked `integration`), a real `rvv-miniputt` subprocess invocation (`operator run`, `status`, `sources status`, `operator questions`, `candidates`) against a synthetic workbook with zero calendar sources. |
+| `Desktop backend API smoke test`                    | `scripts/check desktop-backend` — a real HTTP round-trip against `desktop_server.Handler` (manifest, questions, answer, and confirms the dead `/run` route stays gone). |
+| `Desktop packaging config validation`               | `scripts/check desktop-packaging` — static checks on `apps/desktop/package.json` and `release.yml` (no Electron download, no build, no publish). Guards against the wrong-owner and missing-keyring bugs found in issue #7. |
 | `Secret scanning (gitleaks)`                        | `gitleaks/gitleaks-action`, configured via the existing `.gitleaks.toml`. |
 
 Dependencies are cached via `actions/setup-python`'s built-in `cache: pip`,

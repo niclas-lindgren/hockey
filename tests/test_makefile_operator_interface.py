@@ -226,7 +226,21 @@ class TestMakefileOperatorInterface:
         assert result.returncode == 0, result.stderr
         assert _read_calls(log_path)[-1] == []
         makefile = MAKEFILE.read_text(encoding="utf-8")
-        assert "python3 -m pytest" not in re.search(r"\ncheck:\n(?P<body>.*?)(?:\n\S|\Z)", makefile, re.DOTALL).group("body")
+        check_body = re.search(r"\ncheck:\n(?P<body>.*?)(?:\n\S|\Z)", makefile, re.DOTALL).group("body")
+        assert "$(CHECK)" in check_body
+        assert "python3 -m pytest" not in check_body
+
+    def test_ci_invokes_scripts_check_phase_selectors(self):
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        docs = (ROOT / "docs" / "ci.md").read_text(encoding="utf-8")
+        check_script = (ROOT / "scripts" / "check").read_text(encoding="utf-8")
+
+        for phase in ["quick", "operator", "reproducibility", "cli-smoke", "desktop-backend", "desktop-packaging"]:
+            assert f"scripts/check {phase}" in ci
+            assert f"scripts/check {phase}" in docs
+            assert f"{phase})" in check_script
+        assert "scripts/check` (or `make\ncheck`" in docs
+        assert "run_all" in check_script
 
     def test_failure_from_underlying_command_is_not_masked(self, tmp_path):
         fake, log_path = _fake_cli(tmp_path)
