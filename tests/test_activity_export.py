@@ -103,6 +103,26 @@ class TestActivityExport:
         assert activity["description"] == "Ta med utstyr"
         assert activity["url"] == "https://example.com/info"
 
+    def test_prefers_compact_activity_table_when_sheet_has_helper_headers(self, tmp_path):
+        path = tmp_path / "input.xlsx"
+        _workbook(
+            path,
+            sheet_name="Årshjul",
+            rows=[
+                ["📅 Årshjul – aktiviteter"],
+                [],
+                ["MånedNr", "Måned", "Aktivitet", "Verdi", None, "Måned", "Antall", None, None, "Måned", "Dato", "Aktivitet", "Sted", "Verdi"],
+                [1, "Januar", "46037 – Aktivitet 27 (Naja)", 1, None, "Januar", 2, None, None, "Desember", "2026-12-15", "RS U15", "Kongsberg", 1],
+                [1, "Januar", "46053 – Aktivitet 26 (Magnus)", 1, None, "Januar", 2, None, None, "September", "2026-09-30", "S.Utvikling JU14", "Sandefjord", 1],
+            ],
+        )
+
+        activities = build_activities_payload(path)["activities"]
+
+        assert [activity["title"] for activity in activities] == ["S.Utvikling JU14", "RS U15"]
+        assert activities[0]["location"] == "Sandefjord"
+        assert "46037" not in json.dumps(activities, ensure_ascii=False)
+
     def test_finds_header_below_help_text_and_skips_example_rows(self, tmp_path):
         path = tmp_path / "input.xlsx"
         _workbook(

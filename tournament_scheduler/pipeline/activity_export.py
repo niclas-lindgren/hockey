@@ -156,14 +156,65 @@ def _find_activity_sheet(path: str | Path) -> tuple[Path, str] | None:
 
 def _find_header(ws: Worksheet) -> tuple[int | None, dict[str, int]]:
     for row_index, row in enumerate(ws.iter_rows(values_only=True), start=1):
-        columns: dict[str, int] = {}
+        header_cells: list[tuple[str, int]] = []
         for col_index, cell in enumerate(row):
             header = _canonical_header(cell)
-            if header and header not in columns:
-                columns[header] = col_index
-        if "title" in columns and ("date" in columns or "month" in columns):
+            if header:
+                header_cells.append((header, col_index))
+        columns = _choose_activity_table_columns(header_cells)
+        if columns:
             return row_index, columns
     return None, {}
+
+
+def _choose_activity_table_columns(header_cells: list[tuple[str, int]]) -> dict[str, int]:
+    """Choose the most compact activity table from a header row.
+
+    Some source workbooks keep helper data and the public activity table on the
+    same sheet, producing duplicate headers such as ``Måned``/``Aktivitet`` in
+    separate table blocks. Scoring around each title/activity header prevents a
+    helper table's title column from being paired with the intended table's date
+    column many cells away.
+    """
+    by_header: dict[str, list[int]] = {}
+    for header, col_index in header_cells:
+        by_header.setdefault(header, []).append(col_index)
+
+    title_cols = by_header.get("title", [])
+    if not title_cols:
+        return {}
+    date_or_month_cols = sorted(by_header.get("date", []) + by_header.get("month", []))
+    if not date_or_month_cols:
+        return {}
+
+    def closest(candidates: list[int], anchor: int) -> int | None:
+        if not candidates:
+            return None
+        return min(candidates, key=lambda col: (abs(col - anchor), col))
+
+    best: tuple[int, int, dict[str, int]] | None = None
+    for title_col in title_cols:
+        date_col = closest(by_header.get("date", []), title_col)
+        month_col = closest(by_header.get("month", []), title_col)
+        nearest_required = closest(date_or_month_cols, title_col)
+        if nearest_required is None:
+            continue
+        columns = {"title": title_col}
+        if date_col is not None:
+            columns["date"] = date_col
+        if month_col is not None:
+            columns["month"] = month_col
+        for optional in ("type", "age_groups", "location", "description", "url"):
+            col = closest(by_header.get(optional, []), title_col)
+            if col is not None:
+                columns[optional] = col
+        # Compactness matters most; prefer the rightmost compact table when
+        # scores tie because helper/summary tables commonly sit to the left.
+        score = sum(abs(col - title_col) for key, col in columns.items() if key != "title")
+        candidate = (score, -title_col, columns)
+        if best is None or candidate < best:
+            best = candidate
+    return best[2] if best else {}
 
 
 def _read_activity_rows(

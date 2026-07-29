@@ -16,6 +16,9 @@
 - [x] Document the WordPress embed flow and verify issue coverage
   - Files: docs/rvv-miniputt-pipeline.md, .ps-next/PLAN.md
   - Approach: Add a concise documentation section with published URLs and iframe snippet, then run targeted pytest coverage plus quick quality/safety/diff checks before marking complete.
+- [x] [Fix] Fix activity table detection to prefer the intended compact activity table when a year-wheel sheet contains duplicate helper/table headers
+  - Files: tournament_scheduler/pipeline/activity_export.py, tests/test_activity_export.py
+  - Approach: Update header detection to score candidate table clusters around each title/activity header and choose the nearest date/month/location columns, then add a regression test matching the supplied Årshjul sheet layout where helper columns precede the intended activity table.
 
 ## Notes
 GitHub issue: https://github.com/niclas-lindgren/hockey/issues/33
@@ -34,6 +37,13 @@ The current input.xlsx does not contain an activity sheet, so Stage 4 must remai
 
 
 
+
+### 2026-07-29 — [Fix] Fix activity table detection to prefer the intended compact activity table when a year-wheel sheet contains duplicate helper/table headers
+**Done:** Updated activity header detection to score compact table clusters around each activity/title header, so sheets with helper columns and a separate intended activity table pick the nearby date/location columns instead of cross-pairing distant headers.
+**Rationale:** The supplied year-wheel workbook keeps helper data and the public table on the same Årshjul sheet; compact header scoring correctly exports the intended table only.
+**Findings:** Validated against a regression layout matching Årshjul for aktiviteter.xlsx and confirmed the local workbook parses into 32 normalized activities without helper row IDs.
+**Files:** tournament_scheduler/pipeline/activity_export.py, tests/test_activity_export.py, .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-29 — Document the WordPress embed flow and verify issue coverage
 **Done:** Documented the new activity artifacts, published GitHub Pages URLs, WordPress iframe snippet, and optional postMessage height behavior in the RVV pipeline guide.
 **Rationale:** The docs now tell operators how to embed the generated static activity page without exposing the workbook or requiring a WordPress plugin.
