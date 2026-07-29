@@ -10,7 +10,7 @@
 - [x] Replace timeline cards/year wheel with compact marker overview and accessible overlay details
   - Files: tournament_scheduler/pipeline/activity_viewer.py, tests/test_activity_viewer.py
   - Approach: Remove year-wheel controls/SVG/code/styles; render Sesongsløp as point markers with stable category code/shape/color, deterministic collision stacking, keyboard chronological order, accessible labels, overlay dialog/drawer details with focus restoration, and mobile default list view.
-- [ ] Update docs and run focused verification
+- [x] Update docs and run focused verification
   - Files: docs/rvv-miniputt-pipeline.md, tests/test_activity_viewer.py, tests/test_activity_export.py
   - Approach: Document the normalized activity contract, category vocabulary, marker/list view hierarchy, WordPress embed behavior, and run targeted pytest coverage for activity export/viewer.
 
@@ -32,6 +32,13 @@
 ## Log
 
 
+
+### 2026-07-29 — Update docs and run focused verification
+**Done:** Documented the marker-based activity embed, normalized schema v2 contract, canonical category vocabulary, legacy mappings, unknown fallback warnings, ALL rendering rule, and mobile/list hierarchy.
+**Rationale:** The exported JSON contract and user-facing iframe behavior changed, so docs now match the marker overview and central category vocabulary required by issue #40.
+**Findings:** `pytest tests/test_activity_export.py tests/test_activity_viewer.py` passes (24 tests). Test files were already updated in earlier tasks; this task changed docs only.
+**Files:** docs/rvv-miniputt-pipeline.md
+**Commit:** not committed
 ### 2026-07-29 — Replace timeline cards/year wheel with compact marker overview and accessible overlay details
 **Done:** Reworked the standalone activity page to expose only Sesongsløp and Liste views, render compact point markers with category codes/shapes/colors, stack nearby markers deterministically, use normalized category data, and open activity details in a modal overlay with focus restoration.
 **Rationale:** Compact point markers communicate dates without implying duration and keep the full season scannable in the WordPress iframe, while the list remains the readable task-oriented/mobile view.

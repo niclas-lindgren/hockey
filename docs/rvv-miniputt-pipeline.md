@@ -133,8 +133,8 @@ A normal run can produce:
 - `season_plan.html`
 - `season_plan_report.html`
 - `input.html` — read-only "Påmeldte lag" overview of registered clubs/teams (Lag sheet only; generated when Stage 1 recorded an input workbook path)
-- `activities.json` — normalized public Aktivitetskalender data from a supported activity sheet (`Aktiviteter`, `Aktivitetsplan`, `Årshjul`, etc.) when present
-- `activities/index.html` — standalone interactive Aktivitetskalender with Årshjul/Liste views for GitHub Pages and WordPress iframe embedding
+- `activities.json` — normalized public Aktivitetskalender data from a supported activity sheet (`Aktiviteter`, `Aktivitetsplan`, `Årshjul`, etc.) when present. Schema version 2 separates `date`, `age_groups`, `category`, `title`, `location`, `description`, and `url`, includes a documented `category_vocabulary`, and records validation warnings for unknown categories/age groups.
+- `activities/index.html` — standalone interactive Aktivitetskalender with a marker-based `Sesongsløp` overview and month-grouped `Liste` view for GitHub Pages and WordPress iframe embedding
 - `season_plan_spond.xlsx`
 - `calendars.html`
 
@@ -221,7 +221,20 @@ When the input workbook contains a supported public activity table, Stage 4 writ
 - `https://niclas-lindgren.github.io/hockey/latest/activities.json`
 - `https://niclas-lindgren.github.io/hockey/latest/activities/`
 
-Use the standalone page as a responsive WordPress iframe; it loads only the small JSON export and does not parse the XLSX workbook in the browser. On desktop/tablet the default view is `Sesongsløp` (age-group swimlanes). On mobile it opens in the month-grouped `Liste` view to avoid squeezing swimlanes into a narrow iframe.
+Use the standalone page as a responsive WordPress iframe; it loads only the small JSON export and does not parse the workbook in the browser. On desktop/tablet the default view is `Sesongsløp` (age-group swimlanes) where each activity is a compact point-in-time markør. Rows answer which age group, horizontal position answers when, and marker code/shape/color answers category. Full names, location, description, and links open in an overlay dialog and are always available in the chronological list. On mobile it opens in the month-grouped `Liste` view to avoid squeezing twelve-month swimlanes into a narrow iframe.
+
+The category vocabulary is canonicalized during export rather than inferred by browser JavaScript:
+
+| Code | Category id | Norwegian label |
+|---|---|---|
+| `SU` | `spillerutviklingssamling` | Spillerutviklingssamling |
+| `RS` | `regionslagssamling` | Regionslagssamling |
+| `RM` | `regionsmesterskap` | Regionsmesterskap |
+| `RT` | `regionsturnering` | Regionsturnering |
+| `AN` | `annet` | Annen aktivitet |
+| `?` | `unknown` | Ukjent aktivitetstype |
+
+Known legacy values such as `IA`, `RS`, `regionsturnering`, and `regionsturneringju16` are mapped during export. Unknown explicit values produce `validation_warnings` and the deterministic `unknown` fallback. `Alle` remains a filter label only; it is not rendered as a synthetic age-group lane. Activities that apply to every group use `age_groups: ["ALL"]` and are duplicated across visible age-group lanes by the renderer.
 
 ```html
 <iframe
