@@ -7,7 +7,7 @@
 - [x] Normalize activity export schema and categories
   - Files: tournament_scheduler/pipeline/activity_export.py, tests/test_activity_export.py
   - Approach: Add central canonical category vocabulary and raw-value mapping; export `schema_version`, `category`, `category_label`, `category_code`, and validation warnings while keeping useful `type` compatibility; keep `age_groups` independent of browser title parsing and never synthesize an `Alle` age-group lane.
-- [ ] Replace timeline cards/year wheel with compact marker overview and accessible overlay details
+- [x] Replace timeline cards/year wheel with compact marker overview and accessible overlay details
   - Files: tournament_scheduler/pipeline/activity_viewer.py, tests/test_activity_viewer.py
   - Approach: Remove year-wheel controls/SVG/code/styles; render Sesongsløp as point markers with stable category code/shape/color, deterministic collision stacking, keyboard chronological order, accessible labels, overlay dialog/drawer details with focus restoration, and mobile default list view.
 - [ ] Update docs and run focused verification
@@ -31,6 +31,13 @@
 
 ## Log
 
+
+### 2026-07-29 — Replace timeline cards/year wheel with compact marker overview and accessible overlay details
+**Done:** Reworked the standalone activity page to expose only Sesongsløp and Liste views, render compact point markers with category codes/shapes/colors, stack nearby markers deterministically, use normalized category data, and open activity details in a modal overlay with focus restoration.
+**Rationale:** Compact point markers communicate dates without implying duration and keep the full season scannable in the WordPress iframe, while the list remains the readable task-oriented/mobile view.
+**Findings:** Focused viewer tests pass except for the docs assertion scheduled in the next task; source now contains no yearWheel/wheelView/Årshjul/timeline-item implementation strings.
+**Files:** tournament_scheduler/pipeline/activity_viewer.py, tests/test_activity_viewer.py
+**Commit:** not committed
 ### 2026-07-29 — Normalize activity export schema and categories
 **Done:** Added schema_version 2 activity export data with central category vocabulary, legacy raw-category mappings, category metadata on each activity, deterministic unknown fallback warnings, and explicit ALL handling for all-age activities.
 **Rationale:** Normalizing during export keeps the browser renderer from inferring category/age-group semantics from display titles and gives the marker view stable codes/labels to render.

@@ -1,4 +1,4 @@
-"""Tests for the standalone activity calendar page (issues #33 and #38)."""
+"""Tests for the standalone activity calendar page (issues #33, #38, and #40)."""
 
 from __future__ import annotations
 
@@ -38,7 +38,9 @@ class TestActivityViewer:
         assert json_path.name == "activities.json"
         assert html_path.as_posix().endswith("activities/index.html")
         data = json.loads(json_path.read_text(encoding="utf-8"))
+        assert data["schema_version"] == 2
         assert data["activities"][0]["date"] == "2026-01-17"
+        assert data["activities"][0]["category"] == "spillerutviklingssamling"
         html = html_path.read_text(encoding="utf-8")
         assert "Aktivitetskalender for Region Viken Vest" in html
         assert "../activities.json" in html
@@ -53,25 +55,27 @@ class TestActivityViewer:
 
         assert generate_activity_artifacts(input_path=str(input_path), export_dir=str(tmp_path / "export")) is None
 
-    def test_page_contains_view_switch_filters_and_accessible_details(self, tmp_path):
+    def test_page_contains_two_primary_views_filters_and_overlay_details(self, tmp_path):
         html_path = Path(generate_html(export_dir=str(tmp_path / "export")))
         html = html_path.read_text(encoding="utf-8")
 
-        assert 'body class="view-timeline"' in html
+        assert 'body class="view-overview"' in html
         assert "Sesongsløp" in html
         assert "Liste" in html
-        assert "Årshjul" in html
+        assert "Årshjul" not in html
+        assert "yearWheel" not in html
+        assert "wheelView" not in html
         assert "Aldersgruppe" in html
         assert "Aktivitetstype" in html
         assert 'id="ageFilter"' in html
         assert 'id="typeFilter"' in html
-        assert 'aria-live="polite"' in html
-        assert "setAttribute('role', 'button')" in html
-        assert "addEventListener('keydown'" in html
-        assert "showDetails(activity)" in html
-        assert "aria-label=\"${escapeHtml(formatDate(activity.date))}: ${escapeHtml(activity.title)}" in html
+        assert 'id="detailsDialog"' in html
+        assert 'aria-labelledby="detailsTitle"' in html
+        assert "detailsClose.addEventListener('click', closeDetails)" in html
+        assert "detailsDialog.addEventListener('close', restoreFocus)" in html
+        assert "lastActivator.focus" in html
 
-    def test_page_positions_timeline_and_year_wheel_markers_by_actual_date(self, tmp_path):
+    def test_page_positions_marker_overview_by_actual_date_including_leap_years(self, tmp_path):
         html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
 
         assert "function dayOfYear(date)" in html
@@ -79,31 +83,40 @@ class TestActivityViewer:
         assert "? 366 : 365" in html
         assert "function dateToPercent(iso, year)" in html
         assert "daysInYear(targetYear) - 1" in html
-        assert "function dateToAngle(iso, year)" in html
-        assert "Math.cos(angle)" in html
-        assert "Math.sin(angle)" in html
+        assert "class=\"timeline-marker" in html
+        assert "width: 32px" in html
+        assert "Fullt navn, sted og beskrivelse ligger i detaljer og i listen" in html
 
-    def test_page_derives_lanes_handles_multi_age_and_overlaps(self, tmp_path):
+    def test_page_derives_lanes_handles_multi_age_all_age_and_collisions(self, tmp_path):
         html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
 
         assert "function uniqueAgeGroups(activities)" in html
-        assert "activities.flatMap(activityGroups)" in html
-        assert "activityGroups(activity).forEach(group" in html
+        assert "filter(group => group !== EVERYONE_GROUP)" in html
+        assert "const EVERYONE_GROUP = 'ALL'" in html
+        assert "groups.includes(EVERYONE_GROUP) ? lanes : groups" in html
         assert "buildLaneEntries(filteredActivities, lanes)" in html
-        assert "daysBetween(entry.activity.date, laneEntries[i].activity.date) > 3" in html
-        assert "entry.stack = stack % 3" in html
+        assert "function markerCollisionSpanPercent()" in html
+        assert "getBoundingClientRect" in html
+        assert "Math.abs(entry.x - previous.x) > collisionSpan" in html
+        assert "occupiedStacks" in html
         assert "--stack:${entry.stack}" in html
+        assert "Ingen aktiviteter har en konkret aldersgruppe" in html
 
-    def test_page_uses_visible_type_legend_and_non_color_cues(self, tmp_path):
+    def test_page_uses_visible_category_legend_codes_and_non_color_cues(self, tmp_path):
         html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
 
         assert "Forklaring av aktivitetstyper" in html
         assert "function renderLegend(types)" in html
+        assert "fallbackVocabulary" in html
+        assert "{ id: 'spillerutviklingssamling', code: 'SU'" in html
+        assert "{ id: 'regionslagssamling', code: 'RS'" in html
+        assert "{ id: 'regionsmesterskap', code: 'RM'" in html
+        assert "{ id: 'regionsturnering', code: 'RT'" in html
         assert "const SHAPES = ['circle','square','diamond','ring','pill']" in html
         assert "shapeFor(type)" in html
-        assert "type-cue shape-${shapeFor(key)}" in html
-        assert "renderWheelShape(g, activity" in html
-        assert "normalizeType(type)" in html
+        assert "marker-code" in html
+        assert "categoryLabel(activity)" in html
+        assert "categoryCode(activity)" in html
 
     def test_page_has_chronological_list_mobile_default_and_iframe_height_message(self, tmp_path):
         html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
@@ -116,20 +129,32 @@ class TestActivityViewer:
         assert "rvv-activities-height" in html
         assert "postMessage" in html
         assert "overflow-x: hidden" in html
-        assert "window.addEventListener('resize', announceHeight)" in html
+        assert "window.addEventListener('resize', () => { renderTimeline(); announceHeight(); })" in html
 
-    def test_page_filters_and_views_share_data_without_reloading(self, tmp_path):
+    def test_page_filters_and_views_share_normalized_data_without_reloading(self, tmp_path):
         html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
 
         assert "function applyFilter()" in html
         assert "const selectedAge = ageFilter.value" in html
         assert "const selectedType = typeFilter.value" in html
+        assert "categoryId(activity) === selectedType" in html
         assert "renderTimeline();" in html
-        assert "renderWheel();" in html
         assert "renderList();" in html
-        assert "timelineBtn.addEventListener('click', () => setView('timeline'))" in html
+        assert "overviewBtn.addEventListener('click', () => setView('overview'))" in html
         assert "listBtn.addEventListener('click', () => setView('list'))" in html
-        assert "wheelBtn.addEventListener('click', () => setView('wheel'))" in html
+        assert "renderWheel" not in html
+
+    def test_marker_and_list_buttons_have_accessible_non_hover_details(self, tmp_path):
+        html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
+
+        assert "function accessibleName(activity, group)" in html
+        assert "activity.location ?" in html
+        assert "aria-label=\"${escapeHtml(accessibleName(activity, group))}\"" in html
+        assert "title=\"${escapeHtml(accessibleName(activity, group))}\"" in html
+        assert "showDetails(allActivities.find(a => a.id === item.dataset.id), item)" in html
+        assert "showModal" in html
+        assert "detailsClose.focus" in html
+        assert "@media (prefers-reduced-motion: reduce)" in html
 
     def test_generate_html_output_is_deterministic_and_self_contained(self, tmp_path):
         first = Path(generate_html(export_dir=str(tmp_path / "first"))).read_text(encoding="utf-8")
@@ -140,10 +165,11 @@ class TestActivityViewer:
         assert "SheetJS" not in first
         assert "xlsx" not in first.lower()
 
-    def test_wordpress_embed_docs_include_iframe_resize_contract(self):
+    def test_wordpress_embed_docs_include_marker_view_and_iframe_resize_contract(self):
         docs = (Path(__file__).parents[1] / "docs" / "rvv-miniputt-pipeline.md").read_text(encoding="utf-8")
 
         assert "Sesongsløp" in docs
+        assert "markør" in docs.lower()
         assert "rvv-activities-frame" in docs
         assert "rvv-activities-height" in docs
         assert "event.origin !== 'https://niclas-lindgren.github.io'" in docs
