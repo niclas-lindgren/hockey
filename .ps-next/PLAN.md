@@ -7,7 +7,7 @@
 - [x] Audit and finalize the Input tab implementation for issue #32
   - Files: tournament_scheduler/pipeline/input_workbook.py, tournament_scheduler/pipeline/input_viewer.py, tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/html/html_exporter.py, tournament_scheduler/pipeline/calendar_viewer.py, tournament_scheduler/pipeline/pages_bundle.py, tests/test_input_viewer.py, tests/test_input_workbook.py, tests/test_stage4_export.py, tests/test_pages_publish.py, .ps-next/PLAN.md
   - Approach: Compare the current implementation with GitHub issue #32; make any missing code/test adjustments so Stage 4 emits input.html from only the whitelisted Lag worksheet, the navigation links it alongside Plan/Calendars/Report, and the public Pages bundle includes it while excluding internal sheets and input.xlsx.
-- [ ] Verify acceptance and close GitHub issue #32
+- [x] Verify acceptance and close GitHub issue #32
   - Files: tests/test_input_viewer.py, tests/test_input_workbook.py, tests/test_stage4_export.py, tests/test_pages_publish.py, .ps-next/PLAN.md
   - Approach: Run focused pytest coverage plus the pi-next quality gate; if all criteria pass, close GitHub issue #32 with a concise implementation summary.
 
@@ -28,6 +28,13 @@
 
 ## Log
 
+
+### 2026-07-29 — Verify acceptance and close GitHub issue #32
+**Done:** Ran focused and quick verification and closed GitHub issue #32 with the passing evidence.
+**Rationale:** Acceptance was met by the current code and regression tests; closing the issue records the verified implementation upstream.
+**Findings:** Focused pytest passed (81 tests). pi-next quick gate passed (1129 passed, 1 skipped, 26 deselected). gh issue close 32 succeeded.
+**Files:** No source changes; .ps-next/PLAN.md updated for task tracking.
+**Commit:** 9c04a66
 ### 2026-07-29 — Audit and finalize the Input tab implementation for issue #32
 **Done:** Audited issue #32 against the current implementation. No source changes were needed: the code already whitelists Lag, renders input.html with Norwegian headings/totals/filters, wires Stage 4 and navbar links, includes input.html in the public Pages bundle, and covers the behavior with regression tests.
 **Rationale:** The safest completion path was verification rather than rewriting working code. Existing tests directly exercise the public-sheet whitelist, Stage 4 generation/linking, internal-sheet exclusion, and Pages bundle allowlist.
