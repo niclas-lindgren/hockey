@@ -7,7 +7,7 @@
 - [x] Add workbook activity extraction and JSON normalization
   - Files: tournament_scheduler/pipeline/activity_export.py, tests/test_activity_export.py
   - Approach: Add a small workbook reader for the intended activity table only. Support Norwegian/English header aliases for date/month/title/activity/location/type/age groups, normalize dates to ISO, infer year from activity dates, skip obvious example/help rows, and raise actionable WorkbookInputError messages with sheet and source row references for malformed dates or missing titles.
-- [ ] Generate the standalone activity page
+- [x] Generate the standalone activity page
   - Files: tournament_scheduler/pipeline/activity_viewer.py, tests/test_activity_viewer.py
   - Approach: Write activities.json plus activities/index.html from normalized records. Keep assets local/inline, load ../activities.json relatively, provide Norwegian labels, age-group filters, accessible activity buttons/details, chronological month-grouped list, mobile list default, year-wheel date positioning, today/next markers, and iframe height postMessage.
 - [ ] Integrate activity artifacts with Stage 4 export and Pages publishing
@@ -31,6 +31,13 @@ The current input.xlsx does not contain an activity sheet, so Stage 4 must remai
 
 ## Log
 
+
+### 2026-07-29 — Generate the standalone activity page
+**Done:** Added activity_viewer artifact generation for activities.json plus activities/index.html with a vanilla SVG year wheel, chronological list, age-group filter, accessible detail interactions, mobile list default, and iframe height messaging.
+**Rationale:** A standalone static page keeps WordPress embedding lightweight and avoids browser-side workbook parsing while still providing both visual and text-first presentations.
+**Findings:** The page intentionally loads ../activities.json with relative paths so it works in local exports and GitHub Pages latest/runs folders.
+**Files:** tournament_scheduler/pipeline/activity_viewer.py (+373), tests/test_activity_viewer.py (+87), .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-29 — Add workbook activity extraction and JSON normalization
 **Done:** Added a public activity workbook reader that detects supported activity sheets, locates the intended table, normalizes records into the issue #33 JSON shape, and writes deterministic activities.json output.
 **Rationale:** Keeping extraction in a narrow pipeline helper avoids browser-side XLSX parsing and preserves existing workbook privacy boundaries by only reading supported public activity sheets.
