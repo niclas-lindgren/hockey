@@ -184,6 +184,13 @@ _HTML = r"""<!doctype html>
 <script>
 (function() {
   const DATA_URL = '../activities.json';
+  const HEIGHT_MESSAGE_NAMESPACE = 'rvv.activities';
+  const HEIGHT_MESSAGE_TYPE = 'rvv-activities-height';
+  const HEIGHT_MESSAGE_SCHEMA_VERSION = 1;
+  const DEFAULT_IFRAME_ID = 'rvv-activities-frame';
+  const ALLOWED_PARENT_ORIGINS = ['https://www.rvvhockey.no', 'https://rvvhockey.no'];
+  const MIN_EMBED_HEIGHT = 320;
+  const MAX_EMBED_HEIGHT = 6000;
   const MONTHS = ['januar','februar','mars','april','mai','juni','juli','august','september','oktober','november','desember'];
   const MONTH_SHORT = ['jan','feb','mar','apr','mai','jun','jul','aug','sep','okt','nov','des'];
   const COLORS = ['#0b66c3','#7c3aed','#047857','#d82148','#c2410c','#0e7490'];
@@ -206,6 +213,9 @@ _HTML = r"""<!doctype html>
   let nextActivityId = null;
   let timelineYear = new Date().getFullYear();
   let lastActivator = null;
+  let heightRaf = 0;
+  let heightFallbackTimer = 0;
+  let lastPostedHeight = 0;
 
   const body = document.body;
   const app = document.getElementById('app');
@@ -225,6 +235,23 @@ _HTML = r"""<!doctype html>
     body.classList.remove('view-overview');
     overviewBtn.setAttribute('aria-pressed', 'false');
     listBtn.setAttribute('aria-pressed', 'true');
+  }
+
+  function iframeId() {
+    return new URLSearchParams(window.location.search).get('frame') || DEFAULT_IFRAME_ID;
+  }
+
+  function parentTargetOrigin() {
+    try {
+      const referrerOrigin = document.referrer ? new URL(document.referrer).origin : '';
+      if (ALLOWED_PARENT_ORIGINS.includes(referrerOrigin)) return referrerOrigin;
+    } catch (error) {}
+    try {
+      const ancestorOrigins = Array.from(window.location.ancestorOrigins || []);
+      const allowedAncestor = ancestorOrigins.find(origin => ALLOWED_PARENT_ORIGINS.includes(origin));
+      if (allowedAncestor) return allowedAncestor;
+    } catch (error) {}
+    return window.location.origin;
   }
 
   function escapeHtml(value) {
@@ -309,7 +336,7 @@ _HTML = r"""<!doctype html>
     body.classList.toggle('view-list', view === 'list');
     overviewBtn.setAttribute('aria-pressed', String(view === 'overview'));
     listBtn.setAttribute('aria-pressed', String(view === 'list'));
-    announceHeight();
+    announceHeight('view-change');
   }
 
   function populateFilters(activities) {
@@ -350,7 +377,7 @@ _HTML = r"""<!doctype html>
     renderTimeline();
     renderList();
     app.setAttribute('aria-busy', 'false');
-    announceHeight();
+    announceHeight('render');
   }
 
   function renderLegend(types) {
@@ -502,7 +529,7 @@ _HTML = r"""<!doctype html>
       detailsDialog.setAttribute('open', '');
     }
     detailsClose.focus({ preventScroll: true });
-    announceHeight();
+    announceHeight('details-open');
   }
 
   function closeDetails() {
@@ -518,13 +545,59 @@ _HTML = r"""<!doctype html>
     if (lastActivator && typeof lastActivator.focus === 'function' && document.contains(lastActivator)) {
       lastActivator.focus({ preventScroll: true });
     }
-    announceHeight();
+    announceHeight('details-close');
   }
 
-  function announceHeight() {
-    requestAnimationFrame(() => {
-      window.parent.postMessage({ type: 'rvv-activities-height', height: document.documentElement.scrollHeight }, '*');
-    });
+  function measuredDocumentHeight() {
+    const heights = [
+      document.documentElement.scrollHeight,
+      document.body ? document.body.scrollHeight : 0,
+      document.documentElement.offsetHeight,
+      document.body ? document.body.offsetHeight : 0
+    ].filter(value => Number.isFinite(value) && value > 0);
+    const measured = Math.ceil(Math.max(...heights, MIN_EMBED_HEIGHT));
+    return Math.max(MIN_EMBED_HEIGHT, Math.min(MAX_EMBED_HEIGHT, measured));
+  }
+
+  function postHeight(reason) {
+    heightRaf = 0;
+    if (heightFallbackTimer) {
+      clearTimeout(heightFallbackTimer);
+      heightFallbackTimer = 0;
+    }
+    const height = measuredDocumentHeight();
+    if (height === lastPostedHeight) return;
+    lastPostedHeight = height;
+    window.parent.postMessage({
+      type: HEIGHT_MESSAGE_TYPE,
+      namespace: HEIGHT_MESSAGE_NAMESPACE,
+      schema_version: HEIGHT_MESSAGE_SCHEMA_VERSION,
+      iframe_id: iframeId(),
+      height,
+      reason: reason || 'layout',
+      source_path: window.location.pathname
+    }, parentTargetOrigin());
+  }
+
+  function announceHeight(reason) {
+    if (window.parent === window) return;
+    if (heightRaf) cancelAnimationFrame(heightRaf);
+    if (heightFallbackTimer) clearTimeout(heightFallbackTimer);
+    heightRaf = requestAnimationFrame(() => postHeight(reason));
+    heightFallbackTimer = setTimeout(() => postHeight(reason || 'layout-fallback'), 180);
+  }
+
+  function installHeightObserver() {
+    if ('ResizeObserver' in window) {
+      const resizeObserver = new ResizeObserver(() => announceHeight('resize-observer'));
+      resizeObserver.observe(document.documentElement);
+      if (document.body) resizeObserver.observe(document.body);
+    } else {
+      setInterval(() => announceHeight('resize-fallback'), 500);
+    }
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => announceHeight('fonts-ready')).catch(() => announceHeight('fonts-ready-fallback'));
+    }
   }
 
   overviewBtn.addEventListener('click', () => setView('overview'));
@@ -533,7 +606,9 @@ _HTML = r"""<!doctype html>
   typeFilter.addEventListener('change', applyFilter);
   detailsClose.addEventListener('click', closeDetails);
   detailsDialog.addEventListener('close', restoreFocus);
-  window.addEventListener('resize', () => { renderTimeline(); announceHeight(); });
+  window.addEventListener('resize', () => { renderTimeline(); announceHeight('window-resize'); });
+  window.addEventListener('orientationchange', () => announceHeight('orientation-change'));
+  installHeightObserver();
 
   fetch(DATA_URL, { cache: 'no-store' })
     .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json(); })
@@ -548,7 +623,7 @@ _HTML = r"""<!doctype html>
       app.setAttribute('aria-busy', 'false');
       status.textContent = 'Kunne ikke laste aktiviteter';
       listContainer.innerHTML = `<div class="empty">Kunne ikke laste activities.json: ${escapeHtml(error.message)}</div>`;
-      announceHeight();
+      announceHeight('load-error');
     });
 })();
 </script>

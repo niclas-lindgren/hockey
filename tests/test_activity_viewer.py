@@ -127,9 +127,31 @@ class TestActivityViewer:
         assert "mobile-default" in html
         assert "view-list" in html
         assert "rvv-activities-height" in html
+        assert "HEIGHT_MESSAGE_NAMESPACE = 'rvv.activities'" in html
+        assert "HEIGHT_MESSAGE_SCHEMA_VERSION = 1" in html
+        assert "iframe_id: iframeId()" in html
         assert "postMessage" in html
+        assert "}, parentTargetOrigin())" in html
+        assert "postMessage({ type: 'rvv-activities-height', height: document.documentElement.scrollHeight }, '*')" not in html
         assert "overflow-x: hidden" in html
-        assert "window.addEventListener('resize', () => { renderTimeline(); announceHeight(); })" in html
+        assert "window.addEventListener('resize', () => { renderTimeline(); announceHeight('window-resize'); })" in html
+        assert "window.addEventListener('orientationchange', () => announceHeight('orientation-change'))" in html
+
+    def test_page_debounces_clamps_and_observes_height_changes(self, tmp_path):
+        html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
+
+        assert "const MIN_EMBED_HEIGHT = 320" in html
+        assert "const MAX_EMBED_HEIGHT = 6000" in html
+        assert "function measuredDocumentHeight()" in html
+        assert "Math.max(MIN_EMBED_HEIGHT, Math.min(MAX_EMBED_HEIGHT, measured))" in html
+        assert "let heightRaf = 0" in html
+        assert "cancelAnimationFrame(heightRaf)" in html
+        assert "setTimeout(() => postHeight(reason || 'layout-fallback'), 180)" in html
+        assert "if (height === lastPostedHeight) return" in html
+        assert "function installHeightObserver()" in html
+        assert "'ResizeObserver' in window" in html
+        assert "new ResizeObserver(() => announceHeight('resize-observer'))" in html
+        assert "document.fonts.ready.then(() => announceHeight('fonts-ready'))" in html
 
     def test_page_filters_and_views_share_normalized_data_without_reloading(self, tmp_path):
         html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
