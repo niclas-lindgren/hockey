@@ -16,6 +16,7 @@ If you need to trigger the pipeline from the agent, use these tools:
 | Tool | Equivalent slash command |
 |---|---|
 | `rvv_miniputt_run` | `/rvv-miniputt run` |
+| `rvv_miniputt_publish` | `/rvv-miniputt publish` |
 | `rvv_miniputt_status` | `/rvv-miniputt status` |
 | `rvv_miniputt_logs` | `/rvv-miniputt logs` |
 | `rvv_miniputt_calendars` | `/rvv-miniputt calendars` |
@@ -72,7 +73,7 @@ The following remain Pi-specific adapters on top of the repo workflow:
 | `/rvv-miniputt run` | Run the full pipeline (config → scraping → planning → export) |
 | `/rvv-miniputt run --resume-from 3` | Resume from stage 3 (planning) |
 | `/rvv-miniputt run --log-level verbose` | Run with verbose logging |
-| `/rvv-miniputt publish` | `operator run --publish --confirm-public` — same run as `/rvv-miniputt run` (same logging, checkpointing) plus publishing to GitHub Pages, auto-confirmed so it skips the manual approval pause that `--publish` alone (without `--confirm-public`) leaves in place. Hard validation failures (e.g. arena conflicts) still block it, and the publish outcome is appended to that run's own log file. |
+| `/rvv-miniputt publish` | `operator run --resume-from 1 --publish --confirm-public` — same run as `/rvv-miniputt run` (same logging, checkpointing) plus publishing to GitHub Pages, auto-confirmed so it skips the manual approval pause that `--publish` alone (without `--confirm-public`) leaves in place. The explicit resume stage ensures the run does not short-circuit before the publish step when checkpoints are already fresh. Hard validation failures (e.g. arena conflicts) still block it, and the publish outcome is appended to that run's own log file. |
 | `/rvv-miniputt status` | Show status of all four stages |
 | `/rvv-miniputt logs list` | Show last 10 runs |
 | `/rvv-miniputt logs show latest` | Show details for the latest run |
@@ -91,14 +92,19 @@ The following remain Pi-specific adapters on top of the repo workflow:
 --resume-from <N>                      Resume from stage N (1-4)
 --export-dir <path>                    Export directory (default: export)
 --log-level <level>                    info | verbose
---iterations N                         Stage 3 multi-seed search budget
+--iterations N                         Stage 3 multi-seed search budget (default: 1)
 --mid-planning-critic-iterations N     Optional pre-export Stage 3 critic/rerun loop (default: 0/off)
+--publish                              With /rvv-miniputt run only: route to the publish flow
 ```
+
+`/rvv-miniputt publish` and `/rvv-miniputt run --publish` use the repo operator path
+(`operator run --resume-from 1 --publish --confirm-public`) so the `gh-pages` branch is actually
+committed/pushed and the public URL is verified after the run.
 
 ## The four stages
 
 1. **Config** — loads `input.xlsx`, validates club configuration
-2. **Scraping** — scrapes calendar sources. Two-phase:
+2. **Scraping** — scrapes calendar sources (skipped when `input.xlsx` has 0 registered teams). Two-phase:
    - *Deterministic* — direct iCal feeds, iframe-based Outlook calendars, date-param pages
    - *LLM-driven* — for blocked sources (BookUp, Forumbooking, StyledCalendar), the **ScraperAgent** takes over
 3. **Planning** — builds a season plan with constraint-solving

@@ -884,8 +884,12 @@ def _run_stage2(
             )
             n = len(scraping.get("sources", []))
             blocked = scraping.get("blocked", [])
-            _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
-            log_fn(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked")
+            if scraping.get("skipped"):
+                _console.print(f"  [green]✓[/green] Skraping hoppet over — {scraping.get('skip_reason', 'ingen lag registrert')}")
+                log_fn(f"Stage 2 skipped: {scraping.get('skip_reason', 'no registered teams')}")
+            else:
+                _console.print(f"  [green]✓[/green] {n} kilder skannet, {len(blocked)} blokkert")
+                log_fn(f"Stage 2 OK: {n} sources scanned, {len(blocked)} blocked")
             if blocked:
                 for blocked_name in blocked:
                     _console.print(f"    [yellow]⚠[/yellow] {blocked_name}")
@@ -1244,6 +1248,16 @@ def _run_refinement_and_reexport(
 
     generated_calendars = False
     try:
+        plan_payload = _extract_plan_obj(plan)
+        not_started = isinstance(plan, dict) and (
+            plan.get("not_started") or (
+                isinstance(plan_payload, dict) and plan_payload.get("placeholder") == "not_started"
+            )
+        )
+        if not_started:
+            log_fn("Post-Stage4 refinement skipped: no registered teams")
+            return plan, generated_calendars, False
+
         initial_tone = _compute_verdict_tone(plan)
         log_fn(f"Post-Stage4 verdict tone: {initial_tone}")
         if initial_tone == "rough":

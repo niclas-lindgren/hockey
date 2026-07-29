@@ -279,7 +279,10 @@ class TestRunStage4:
         files = result["output_files"]
         assert result["not_started"] is True
         assert set(["excel", "ical", "csv_games", "csv_overview", "input_html", "calendars_html", "html", "html_report", "spond", "spond_games", "review_packets"]) <= set(files)
-        assert "Ikke begynt" in Path(files["html"]).read_text(encoding="utf-8")
+        html = Path(files["html"]).read_text(encoding="utf-8")
+        assert "Ikke begynt" in html
+        assert "<meta name=\"viewport\"" in html
+        assert "<div class=\"icon\">🏒</div>" in html
         assert "Ikke begynt" in Path(files["csv_games"]).read_text(encoding="utf-8")
         workbook = openpyxl.load_workbook(files["excel"])
         assert workbook.active["A1"].value.startswith("Ikke begynt")

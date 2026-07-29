@@ -37,6 +37,7 @@ from .state import PipelineState, StageName, StageStatus
 from .stage4_helpers import _dict_to_plan
 from .calendar_viewer import generate_html as _generate_calendars_html
 from .input_viewer import generate_html as _generate_input_html
+from .not_started import NOT_STARTED_MESSAGE, render_not_started_html
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_EXPORT_DIR = "export"
 DEFAULT_BASENAME = "season_plan"
-NOT_STARTED_MESSAGE = "Ikke begynt: ingen lag er registrert i input.xlsx."
 
 # Matches the "%Y-%m-%dT%H%M" directory name this module generates below.
 # Callers (e.g. a stage-by-stage orchestrator that picks one export dir up
@@ -67,8 +67,6 @@ class Stage4Error(RuntimeError):
 
 def _write_not_started_exports(primary_export_path: Path, basename: str, message: str) -> dict[str, str]:
     """Write the normal export surface as small placeholder files."""
-    from html import escape
-
     import openpyxl
 
     primary_export_path.mkdir(parents=True, exist_ok=True)
@@ -81,12 +79,7 @@ def _write_not_started_exports(primary_export_path: Path, basename: str, message
         ws.append([message])
         wb.save(path)
 
-    html = (
-        "<!doctype html><html lang=\"nb\"><head><meta charset=\"utf-8\">"
-        f"<title>{escape(message)}</title></head><body>"
-        f"<main><h1>{escape(message)}</h1><p>Legg inn lag i input.xlsx for å starte planleggingen.</p></main>"
-        "</body></html>\n"
-    )
+    html = render_not_started_html(message)
 
     excel_path = primary_export_path / f"{basename}.xlsx"
     _write_workbook(excel_path, "Ikke begynt")

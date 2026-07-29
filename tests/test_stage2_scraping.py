@@ -33,7 +33,7 @@ def _make_config_with_sources(sources):
     return {
         "start_date": "2025-09-01",
         "end_date": "2025-12-01",
-        "teams": [],
+        "teams": [{"club": "Kongsberg", "label": "Kongsberg U10", "age_group": "U10"}],
         "sources": sources,
     }
 
@@ -41,7 +41,11 @@ def _make_config_with_sources(sources):
 class TestRunStage2:
     def test_empty_sources_produces_done_checkpoint(self, tmp_path):
         state = PipelineState(tmp_path / "pipeline")
-        cfg = {"start_date": "2025-09-01", "end_date": "2025-12-01", "teams": []}
+        cfg = {
+            "start_date": "2025-09-01",
+            "end_date": "2025-12-01",
+            "teams": [{"club": "Kongsberg", "label": "Kongsberg U10", "age_group": "U10"}],
+        }
         result = run(
             cfg, state,
             datetime(2025, 9, 1), datetime(2025, 12, 1),
@@ -49,6 +53,23 @@ class TestRunStage2:
         )
         assert state.is_done(StageName.SCRAPING)
         assert result["sources"] == []
+
+    def test_empty_roster_skips_scraping_even_when_sources_are_configured(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        cfg = {
+            "start_date": "2025-09-01",
+            "end_date": "2025-12-01",
+            "teams": [],
+            "sources": [{"name": "Teamup", "type": SOURCE_ICAL, "url": "https://example.com/ical"}],
+        }
+
+        with patch("tournament_scheduler.pipeline.stage2_scraping._run_ical_scraper") as scraper:
+            result = run(cfg, state, datetime(2025, 9, 1), datetime(2025, 12, 1))
+
+        assert state.is_done(StageName.SCRAPING)
+        assert result["skipped"] is True
+        assert result["sources"] == []
+        scraper.assert_not_called()
 
     def test_ical_source_has_no_llm_confidence(self, tmp_path):
         """iCal/Google sources do not get LLM confidence logged (informational)."""

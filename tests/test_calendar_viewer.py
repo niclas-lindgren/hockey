@@ -45,6 +45,21 @@ def _write_cache(tmp_path: Path, source_name: str) -> None:
 
 
 class TestCalendarViewer:
+    def test_generate_html_uses_not_started_placeholder_from_stage4(self, tmp_path):
+        work_dir = tmp_path / ".pipeline"
+        work_dir.mkdir()
+        (work_dir / "stage4_export.json").write_text(
+            json.dumps({"data": {"not_started": True, "message": "Ikke begynt: ingen lag er registrert i input.xlsx."}}),
+            encoding="utf-8",
+        )
+
+        html_path = Path(generate_html(work_dir=str(work_dir), export_dir=str(tmp_path / "export")))
+        html = html_path.read_text(encoding="utf-8")
+
+        assert "<meta name=\"viewport\"" in html
+        assert "<div class=\"icon\">🏒</div>" in html
+        assert "Legg inn lag i <code>input.xlsx</code>" in html
+
     def test_generate_html_keeps_long_club_names_visible(self, tmp_path):
         source_name = "Sandefjord Penguins and Development Academy for Long Calendar Names"
         _write_cache(tmp_path, source_name)

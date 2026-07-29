@@ -37,6 +37,7 @@ from ..models import CalendarEvent
 from .cache_manager import ScrapedDataCache
 from ..utils.calendar_cache import CalendarCache
 
+from .not_started import NOT_STARTED_MESSAGE
 from .scraper_strategies import get_strategy, requires_credentials, needs_llm_agent, get_deterministic_scraper_type
 from .state import PipelineState, StageName, StageStatus
 from .scraper_constants import (
@@ -268,6 +269,23 @@ def run(
     state._set_status(StageName.SCRAPING, StageStatus.RUNNING)
 
     sources: list[dict[str, Any]] = config.get("sources", [])
+    teams = config.get("teams")
+
+    if isinstance(teams, list) and not teams:
+        result = {
+            "sources": [],
+            "events_by_club": {},
+            "blocked": [],
+            "empty_sources": [],
+            "cached": [],
+            "start_date": start_date.strftime("%Y-%m-%d"),
+            "end_date": end_date.strftime("%Y-%m-%d"),
+            "skipped": True,
+            "skip_reason": NOT_STARTED_MESSAGE,
+            "warning": f"Skraping hoppet over: {NOT_STARTED_MESSAGE}",
+        }
+        state.write_stage(StageName.SCRAPING, result, status=StageStatus.DONE)
+        return result
 
     if not sources:
         reason = (
@@ -659,7 +677,10 @@ if __name__ == "__main__":  # pragma: no cover
             age_text = f", cache alder ~{max(ages):.1f}t" if ages else ", fra cache"
         else:
             age_text = ""
-        print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(cached)} fra cache{age_text}, {len(blocked)} blokkert")
+        if _result.get("skipped"):
+            print(f"Stage 2 SKIPPED -- {_result.get('skip_reason') or 'ingen skraping nødvendig'}")
+        else:
+            print(f"Stage 2 OK -- {n_sources} kilder skannet, {len(cached)} fra cache{age_text}, {len(blocked)} blokkert")
         if _result.get("warning"):
             print(_result["warning"])
         append_stage_log_line(

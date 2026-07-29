@@ -8,7 +8,7 @@ Run the full RVV Miniputt pipeline end to end and publish the resulting season p
 
 ## What this does differently from `/rvv-miniputt:run`
 
-`/rvv-miniputt:run` reviews each stage's checkpoint before proceeding and never publishes. This command runs the pipeline **and** publishes in a single `operator run --publish --confirm-public` invocation — the only difference from a plain `operator run` is that publishing happens automatically afterward, with the approval gate auto-confirmed; everything else (checkpointing, retries, structured per-run logging) is identical to `/rvv-miniputt:run`, and the publish outcome is appended to that same run's log file rather than left unlogged.
+`/rvv-miniputt:run` reviews each stage's checkpoint before proceeding and never publishes. This command runs the pipeline **and** publishes in a single `operator run --resume-from 1 --publish --confirm-public` invocation — the explicit resume stage is intentional so publishing never short-circuits as “nothing to do” when checkpoints are already fresh. The only difference from a plain full operator run is that publishing happens automatically afterward, with the approval gate auto-confirmed; everything else (checkpointing, retries, structured per-run logging) is identical to `/rvv-miniputt:run`, and the publish outcome is appended to that same run's log file rather than left unlogged.
 
 **This intentionally skips the approval gate that `--publish` alone (without `--confirm-public`) leaves in place** (see `_execute_operator_publish` in `tournament_scheduler/cli/pipeline_orchestrator.py`). Use `--confirm-public` only when you want that gate skipped for this run. If you want the safer default (run, then a human explicitly approves before publish), use `/rvv-miniputt:run` followed by a separate, explicit `operator publish --confirm-public` once you've reviewed the export.
 
@@ -19,7 +19,7 @@ Run the full RVV Miniputt pipeline end to end and publish the resulting season p
 1. Run the full pipeline and publish in one command:
 
    ```bash
-   python3 -m tournament_scheduler.cli.rvv_cli operator run --publish --confirm-public [--force-refresh] [--non-strict] [--allow-missing-sources]
+   python3 -m tournament_scheduler.cli.rvv_cli operator run --resume-from 1 --publish --confirm-public [--force-refresh] [--non-strict] [--allow-missing-sources]
    ```
 
    Pass `--force-refresh` only if the user asked for a fresh scrape; pass `--non-strict` / `--allow-missing-sources` only if the user has already accepted degraded source coverage for this run. This also runs post-publish reachability verification by default (issue #20) — do not pass `--no-verify` unless the user asks.

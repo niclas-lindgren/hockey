@@ -2,11 +2,14 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { normalizeArgs } from "../lib/arg-utils";
 import { parseStatusArgs, parseLogsArgs, parseCalendarsArgs, parseScrapeArgs, parseScrapeLlmArgs } from "../lib/parsers";
 import { runPipeline, type PipelineRunResult } from "../lib/pipeline-runner";
 import { interactiveGuide } from "../lib/interactive-guide";
 import { LOG_LEVELS } from "../lib/types";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
+
+const DEFAULT_PUBLISH_PLANNER_ITERATIONS = 1;
 
 function buildStatusCommandArgs(rawArgs: unknown, cwd: string): string[] {
   const params = parseStatusArgs(rawArgs);
@@ -35,6 +38,14 @@ function buildCalendarsCommandArgs(rawArgs: unknown, cwd: string): string[] {
   const params = parseCalendarsArgs(rawArgs);
   const args = ["calendars", "--work-dir", resolve(cwd, params.work_dir ?? ".pipeline")];
   if (params.refresh) args.push("--refresh");
+  return args;
+}
+
+function buildPublishCommandArgs(rawArgs: unknown): string[] {
+  const tokens = normalizeArgs(rawArgs).split(/\s+/).filter(Boolean);
+  const args = ["operator", "run", "--resume-from", "1", "--publish", "--confirm-public"];
+  if (!tokens.includes("--iterations")) args.push("--iterations", String(DEFAULT_PUBLISH_PLANNER_ITERATIONS));
+  args.push(...tokens);
   return args;
 }
 
@@ -72,11 +83,18 @@ async function runRepoCli(commandArgs: string[], ctx: ExtensionContext, timeout 
     const { stdout, stderr } = await execFileAsync(exe, ["-m", "tournament_scheduler.cli.rvv_cli", ...commandArgs], {
       cwd: ctx.cwd,
       timeout,
+      maxBuffer: 10 * 1024 * 1024,
     });
     const parts = [stdout.trim(), stderr.trim() ? `[stderr] ${stderr.trim()}` : ""].filter(Boolean);
     return { status: "success", text: parts.join("\n") };
   } catch (err: unknown) {
-    return { status: "failure", text: err instanceof Error ? err.message : String(err) };
+    const execError = err as { stdout?: string; stderr?: string; message?: string };
+    const parts = [
+      execError.stdout?.trim(),
+      execError.stderr?.trim() ? `[stderr] ${execError.stderr.trim()}` : "",
+      execError.stdout || execError.stderr ? "" : (execError.message ?? String(err)),
+    ].filter(Boolean);
+    return { status: "failure", text: parts.join("\n") };
   }
 }
 
@@ -97,6 +115,14 @@ async function runCalendars(rawArgs: unknown, ctx: ExtensionContext): Promise<{ 
   return result;
 }
 
+async function runPublish(rawArgs: unknown, ctx: ExtensionContext): Promise<{ status: "success" | "failure"; text: string }> {
+  return runRepoCli(buildPublishCommandArgs(rawArgs), ctx, 1_800_000);
+}
+
+function wantsPublish(rawArgs: unknown): boolean {
+  return normalizeArgs(rawArgs).split(/\s+/).filter(Boolean).includes("--publish");
+}
+
 function notifyPipelineResult(ctx: ExtensionContext, result: PipelineRunResult): void {
   const level = result.status === "success" ? "info" : result.status === "cancelled" ? "warning" : "error";
   ctx.ui.notify(result.text, level);
@@ -109,13 +135,13 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
   pi.registerCommand("rvv-miniputt run", {
     description:
       "Kjør den firetrinns sesongplanleggingspipelinen for RVV-hockeyklubber. " +
-      "Støtter gjenopptak fra et bestemt trinn. Trinn 3 prøver flere tilfeldige frø internt (standard 3, sett med --iterations).\n" +
+      "Støtter gjenopptak fra et bestemt trinn. Trinn 3 kjører ett planleggingsforsøk som standard (sett --iterations for flere frø).\n" +
       "Valgfrie flagg: --input <input.xlsx> --work-dir <sti> --resume-from <trinn> --export-dir <sti> " +
-      "--log-level <info|verbose> --force-refresh --iterations <N>\n" +
+      "--log-level <info|verbose> --force-refresh --iterations <N> --publish\n" +
       "Trinn 2 gjenbruker kalenderdata fra cache (under 24 timer gammel) med mindre --force-refresh er satt.\n" +
       "Hver kjøring logges strukturelt i eksportmappen som run-<dato>.jsonl for selvforbedringsanalyse.",
     getArgumentCompletions: (prefix) => {
-      const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level", "--force-refresh", "--iterations"];
+      const words = ["--input", "--work-dir", "--resume-from", "--export-dir", "--log-level", "--force-refresh", "--iterations", "--publish"];
       const filtered = words.filter((w) => w.startsWith(prefix));
       if (prefix.startsWith("--log-level")) {
         return LOG_LEVELS.map((value) => ({ value, label: value }));
@@ -123,6 +149,14 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       return filtered.length ? filtered.map((value) => ({ value, label: value })) : null;
     },
     handler: async (args, ctx) => {
+      if (wantsPublish(args)) {
+        ctx.ui.setStatus("rvv-miniputt", "Kjører og publiserer...");
+        const result = await runPublish(args, ctx);
+        ctx.ui.setStatus("rvv-miniputt", undefined);
+        ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
+        return;
+      }
+
       const result = await runPipeline(args, ctx, (e) => {
         if (e.status === "error") {
           ctx.ui.notify(`❌ ${e.message}`, "error");
@@ -144,6 +178,36 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
         }
       });
       notifyPipelineResult(ctx, result);
+    },
+  });
+
+  // -------------------------------------------------------------------------
+  // /rvv-miniputt publish
+  // -------------------------------------------------------------------------
+  pi.registerCommand("rvv-miniputt publish", {
+    description:
+      "Kjør hele RVV Miniputt-pipelinen og publiser resultatet til GitHub Pages. " +
+      "Dette bruker repoets operator-flyt: operator run --resume-from 1 --publish --confirm-public, " +
+      "slik at Pages-publisering faktisk commits/pushes til gh-pages og verifiseres etterpå.\n" +
+      "Valgfrie flagg: --input <input.xlsx> --work-dir <sti> --export-dir <sti> " +
+      "--log-level <info|verbose> --force-refresh --non-strict --allow-missing-sources " +
+      "--iterations <N> --no-push --dry-run --no-verify",
+    getArgumentCompletions: (prefix) => {
+      const words = [
+        "--input", "--work-dir", "--export-dir", "--log-level", "--force-refresh", "--non-strict",
+        "--allow-missing-sources", "--iterations", "--no-push", "--dry-run", "--no-verify",
+        "--verify-max-attempts", "--verify-retry-delay",
+      ];
+      if (prefix.startsWith("--log-level")) {
+        return LOG_LEVELS.map((value) => ({ value, label: value }));
+      }
+      return words.filter((w) => w.startsWith(prefix)).map((value) => ({ value, label: value }));
+    },
+    handler: async (args, ctx) => {
+      ctx.ui.setStatus("rvv-miniputt", "Kjører og publiserer...");
+      const result = await runPublish(args, ctx);
+      ctx.ui.setStatus("rvv-miniputt", undefined);
+      ctx.ui.notify(result.text, result.status === "success" ? "info" : "error");
     },
   });
 
@@ -264,7 +328,7 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
     label: "RVV Miniputt: Run Pipeline",
     description:
       "Run the RVV Miniputt season-planning pipeline (config → scraping → planning → export). " +
-      "Stage 3 searches multiple random seeds internally (default 5, override with --iterations). " +
+      "Stage 3 runs one planning attempt by default (override with --iterations for multiple seeds). " +
       "This is the agent-callable equivalent of the '/rvv-miniputt run' slash command — that " +
       "command is not a shell binary and cannot be invoked via Bash.",
     promptSnippet: "Run the RVV Miniputt season-planning pipeline",
@@ -278,11 +342,40 @@ export default function rvvMiniputt(pi: ExtensionAPI): void {
       })),
     }),
     async execute(_toolCallId, params, _signal, onUpdate, ctx) {
+      if (wantsPublish(params.args ?? "")) {
+        onUpdate?.({ content: [{ type: "text", text: "[publish] ▶ Kjører pipeline og publiserer til GitHub Pages" }] });
+        const result = await runPublish(params.args ?? "", ctx);
+        return { content: [{ type: "text", text: result.text }], details: result };
+      }
+
       const result = await runPipeline(params.args ?? "", ctx, (e) => {
         onUpdate?.({
           content: [{ type: "text", text: `[${e.stage}] ${e.status === "start" ? "▶" : e.status === "ok" ? "✅" : e.status === "skip" ? "⏭️" : "❌"} ${e.message}` }],
         });
       });
+      return { content: [{ type: "text", text: result.text }], details: result };
+    },
+  });
+
+  pi.registerTool({
+    name: "rvv_miniputt_publish",
+    label: "RVV Miniputt: Publish to GitHub Pages",
+    description:
+      "Run the full RVV Miniputt pipeline and publish the result to GitHub Pages. " +
+      "Agent-callable equivalent of the '/rvv-miniputt publish' slash command. " +
+      "Uses the repo operator flow with --publish --confirm-public so the gh-pages branch is actually updated.",
+    promptSnippet: "Run and publish RVV Miniputt to GitHub Pages",
+    promptGuidelines: [
+      "Use rvv_miniputt_publish instead of trying to pass publish flags through '/rvv-miniputt run'.",
+      "This performs the real Pages publish step (commit/push to gh-pages) after a successful pipeline run.",
+    ],
+    parameters: Type.Object({
+      args: Type.Optional(Type.String({
+        description: "Same flags as '/rvv-miniputt publish', e.g. '--force-refresh --iterations 3' when you explicitly want a wider seed search",
+      })),
+    }),
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const result = await runPublish(params.args ?? "", ctx);
       return { content: [{ type: "text", text: result.text }], details: result };
     },
   });

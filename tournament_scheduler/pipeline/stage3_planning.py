@@ -29,6 +29,7 @@ from ..season_planner import SeasonPlanner
 from ..roster_loader import RosterLoader
 from ..club_registry import CLUB_REGISTRY
 from .fingerprints import stable_payload_sha256
+from .not_started import NOT_STARTED_MESSAGE
 from .state import PipelineState, StageName, StageStatus
 from .stage3_helpers import (_build_club_arenas, _build_events_by_club, _build_parallel_games, _build_roster, _build_round_length, _find_team, _make_planner, _plan_to_dict)
 
@@ -39,7 +40,6 @@ from .stage3_helpers import (_build_club_arenas, _build_events_by_club, _build_p
 # Bump only when the planner's search algorithm changes in a way that could
 # produce a different plan from the same seed/config/source fingerprint.
 PLANNER_VERSION = "1"
-NOT_STARTED_MESSAGE = "Ikke begynt: ingen lag er registrert i input.xlsx."
 
 # Deterministic candidate ranking: a hard-constraint ("fail") status always
 # loses to "warn"/"pass" regardless of aggregate score, so a good average
