@@ -116,6 +116,24 @@ def _zip_datetime(build_timestamp: datetime) -> tuple[int, int, int, int, int, i
     return (moment.year, moment.month, moment.day, moment.hour, moment.minute, moment.second)
 
 
+def _normalize_xlsx_core_properties(xml_bytes: bytes, build_timestamp: datetime) -> bytes:
+    fixed = build_timestamp.astimezone(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+    text = xml_bytes.decode("utf-8")
+    for field in ("created", "modified"):
+        pattern = rf"(<dcterms:{field}[^>]*>)(.*?)(</dcterms:{field}>)"
+        replacement = rf"\g<1>{fixed}\g<3>"
+        text, count = re.subn(pattern, replacement, text)
+        if count == 0:
+            insert_at = text.find("</cp:coreProperties>")
+            if insert_at != -1:
+                text = (
+                    text[:insert_at]
+                    + f'<dcterms:{field} xsi:type="dcterms:W3CDTF">{fixed}</dcterms:{field}>'
+                    + text[insert_at:]
+                )
+    return text.encode("utf-8")
+
+
 def _normalize_xlsx(path: Path, build_timestamp: datetime) -> None:
     """Normalize an XLSX workbook's embedded and ZIP metadata in place."""
     import openpyxl
@@ -138,7 +156,10 @@ def _normalize_xlsx(path: Path, build_timestamp: datetime) -> None:
                 info.external_attr = original_info.external_attr
                 info.comment = original_info.comment
                 info.create_system = original_info.create_system
-                dest.writestr(info, source.read(name))
+                data = source.read(name)
+                if name == "docProps/core.xml":
+                    data = _normalize_xlsx_core_properties(data, build_timestamp)
+                dest.writestr(info, data)
         tmp_path.replace(path)
     finally:
         tmp_path.unlink(missing_ok=True)

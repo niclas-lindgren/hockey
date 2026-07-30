@@ -2,6 +2,7 @@ import pytest
 
 from tournament_scheduler.testing.canonical_input import (
     build_canonical_planner,
+    canonical_input_has_teams,
     load_canonical_input_data,
     load_canonical_roster,
     load_canonical_season_window,
@@ -9,12 +10,17 @@ from tournament_scheduler.testing.canonical_input import (
 
 
 @pytest.fixture
-def canonical_input_data():
-    return load_canonical_input_data()
+def canonical_input_data(request):
+    data = load_canonical_input_data()
+    if request.node.get_closest_marker("slow") and not data.get("teams"):
+        pytest.skip("canonical input.xlsx has no registered teams")
+    return data
 
 
 @pytest.fixture
 def canonical_roster():
+    if not canonical_input_has_teams():
+        pytest.skip("canonical input.xlsx has no registered teams")
     return load_canonical_roster()
 
 
@@ -28,6 +34,8 @@ def canonical_season_window():
 # run explicitly with: python3 -m pytest -m slow --no-cov
 @pytest.fixture
 def canonical_planner():
+    if not canonical_input_has_teams():
+        pytest.skip("canonical input.xlsx has no registered teams")
     planner, start, end = build_canonical_planner()
     return planner, start, end
 

@@ -22,6 +22,8 @@ from typing import Callable
 
 import pytest
 
+from tournament_scheduler.testing.canonical_input import canonical_input_has_teams
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -97,8 +99,8 @@ def _seed_stage3_checkpoint(work_dir: Path) -> None:
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(
-        not INPUT_XLSX.exists(),
-        reason="input.xlsx not found — integration tests require a populated input workbook",
+        not canonical_input_has_teams(INPUT_XLSX),
+        reason="input.xlsx not found or has no registered teams — integration tests require a populated input workbook",
     ),
 ]
 

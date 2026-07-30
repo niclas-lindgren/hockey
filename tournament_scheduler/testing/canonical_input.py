@@ -24,6 +24,21 @@ def load_canonical_input_data(path: str | Path | None = None) -> dict[str, Any]:
     return load_workbook_config(canonical_input_path(path))
 
 
+def canonical_input_has_teams(path: str | Path | None = None) -> bool:
+    """Return whether the canonical workbook contains a populated ``Lag`` sheet.
+
+    The repository's operational ``input.xlsx`` is allowed to be an empty
+    pre-registration workbook. Slow/integration tests that exercise the real
+    season roster should treat that state as an unavailable fixture, not as a
+    product failure.
+    """
+    try:
+        data = load_canonical_input_data(path)
+    except Exception:
+        return False
+    return bool(data.get("teams"))
+
+
 def load_canonical_roster(path: str | Path | None = None) -> tuple[Roster, dict[str, int]]:
     """Load the canonical roster + per-age-group parallel-game config."""
     data = load_canonical_input_data(path)
