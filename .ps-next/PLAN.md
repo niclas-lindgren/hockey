@@ -7,7 +7,7 @@
 - [x] Add manual GitHub Actions workflows for validation, review bundle generation, publication, and rollback
   - Files: .github/workflows/season-validate.yml, .github/workflows/season-review-bundle.yml, .github/workflows/season-publish.yml, .github/workflows/season-rollback.yml
   - Approach: Use workflow_dispatch inputs with Norwegian descriptions, least-privilege permissions, concurrency, Python setup, dependency install, canonical scripts/rvv-miniputt or Make targets, artifact upload, and no hidden publish in validation/generation. Put actual publish/rollback behind protected environments and explicit confirm inputs.
-- [ ] Add workflow regression tests
+- [x] Add workflow regression tests
   - Files: tests/test_github_actions_operator_workflows.py
   - Approach: Parse the workflow YAML files, assert workflow_dispatch inputs, permission boundaries, canonical CLI entrypoints, artifact uploads, separation of generation from publication, protected publish/rollback environments, explicit confirmation/fingerprint/run-id safeguards, and absence of dangerous ad-hoc commands.
 - [ ] Document the browser-based operations flow
@@ -33,6 +33,13 @@ Do not touch the user's untracked `Årshjul for aktiviteter.xlsx` file.
 
 ## Log
 
+
+### 2026-07-30 — Add workflow regression tests
+**Done:** Added pytest regression coverage that parses all four season-operation workflows and asserts manual dispatch, permission boundaries, canonical CLI delegation, artifact contents, publish fingerprint checks, protected environments, rollback safeguards, and forbidden direct publishing patterns.
+**Rationale:** Static workflow tests catch drift without needing to run live GitHub Actions or publish Pages during CI.
+**Findings:** PyYAML parses the GitHub Actions `on` key as boolean True in this environment, so the helper supports both representations.
+**Files:** tests/test_github_actions_operator_workflows.py; .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Add manual GitHub Actions workflows for validation, review bundle generation, publication, and rollback
 **Done:** Added four workflow_dispatch workflows for validation, review-bundle generation, protected publication, and protected rollback using the canonical scripts/rvv-miniputt operator commands.
 **Rationale:** Kept GitHub Actions as thin browser adapters over existing operator capabilities so scheduling, sanitization, publishing, and rollback policy remain in application code.
