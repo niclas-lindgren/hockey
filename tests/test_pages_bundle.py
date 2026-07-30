@@ -66,6 +66,34 @@ class TestDefaultAllowlist:
         assert "input.html" in included
         assert (tmp_path / "public" / "input.html").exists()
 
+    def test_registered_team_artifacts_are_included_without_private_validation_report(self, tmp_path):
+        export_dir = _export_dir(tmp_path)
+        registered_dir = export_dir / "registered-teams"
+        registered_dir.mkdir()
+        (registered_dir / "pameldte-lag.html").write_text(
+            '<h1>Påmeldte lag</h1><a href="pameldte-lag.json">JSON</a>', encoding="utf-8"
+        )
+        (registered_dir / "pameldte-lag.json").write_text('{"total_teams": 1}', encoding="utf-8")
+        (registered_dir / "validation-report.json").write_text(
+            '{"source_sha256": "abc", "source_file": "SharePoint.csv"}', encoding="utf-8"
+        )
+
+        result = build_public_bundle(str(export_dir), str(tmp_path / "public"))
+
+        assert result.status == "ok"
+        assert "registered-teams" in DEFAULT_ALLOWED_DIRECTORIES
+        assert (tmp_path / "public" / "registered-teams" / "pameldte-lag.html").exists()
+        assert (tmp_path / "public" / "registered-teams" / "pameldte-lag.json").exists()
+        assert not (tmp_path / "public" / "registered-teams" / "validation-report.json").exists()
+        report = json.loads((tmp_path / "pages_privacy_report.json").read_text())
+        included = set(report["included_files"])
+        assert "registered-teams/pameldte-lag.html" in included
+        assert "registered-teams/pameldte-lag.json" in included
+        assert any(
+            e["file"] == "registered-teams/validation-report.json" and "private validation" in e["reason"]
+            for e in report["excluded_files"]
+        )
+
     def test_activity_artifacts_are_included_by_default(self, tmp_path):
         export_dir = _export_dir(tmp_path)
         (export_dir / "season_plan.html").write_text('<a href="activities/">Aktiviteter</a>', encoding="utf-8")

@@ -65,7 +65,8 @@ DEFAULT_ALLOWED_FILENAMES: frozenset[str] = frozenset(
 # File types eligible for inclusion at all, even if the filename is
 # allowlisted — an unknown extension fails closed rather than being copied
 # on trust.
-DEFAULT_ALLOWED_DIRECTORIES: frozenset[str] = frozenset({"activities"})
+DEFAULT_ALLOWED_DIRECTORIES: frozenset[str] = frozenset({"activities", "registered-teams"})
+DEFAULT_EXCLUDED_PUBLIC_PATHS: frozenset[str] = frozenset({"registered-teams/validation-report.json"})
 
 _ALLOWED_EXTENSIONS: frozenset[str] = frozenset(
     {".html", ".htm", ".css", ".js", ".json", ".ics", ".csv", ".xlsx", ".png", ".jpg", ".jpeg", ".svg", ".ico"}
@@ -294,6 +295,13 @@ def build_public_bundle(
     text_assets: list[tuple[Path, str, str]] = []
 
     def _consider_file(entry: Path, rel: str) -> None:
+        if rel in DEFAULT_EXCLUDED_PUBLIC_PATHS:
+            report.excluded_files.append(
+                {"file": rel, "reason": "private validation metadata is not published"}
+            )
+            excluded_file_names.add(Path(rel).name)
+            return
+
         if entry.suffix.lower() not in _ALLOWED_EXTENSIONS:
             report.excluded_files.append(
                 {"file": rel, "reason": f"unknown/unapproved file type '{entry.suffix}'"}

@@ -10,8 +10,8 @@
 - [x] Render standalone Påmeldte lag artifacts
   - Files: tournament_scheduler/pipeline/registered_teams.py, tests/test_registered_teams.py
   - Approach: Extend the module with artifact generation for registered-teams/pameldte-lag.html, registered-teams/pameldte-lag.json, and registered-teams/validation-report.json; render responsive Norwegian HTML without requiring JavaScript, with grouped age groups, counts, empty state, escaped values, and no extra/private CSV fields in public outputs.
-- [ ] Wire CLI, Make targets, and Pages publication staging
-  - Files: tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/pipeline/pages_bundle.py, Makefile, tests/test_registered_teams_publish.py, tests/test_pages_bundle.py
+- [x] Wire CLI, Make targets, and Pages publication staging
+  - Files: tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/pipeline/registered_teams.py, tournament_scheduler/pipeline/pages_bundle.py, Makefile, tests/test_registered_teams_publish.py, tests/test_pages_bundle.py
   - Approach: Add `rvv-miniputt registered-teams` with generation and guarded `--publish --confirm-public` behavior mirroring the activity-calendar overlay-on-latest workflow; add public bundle allowlist for registered-teams artifacts and thin Make targets `registered-teams`/`registered-teams-publish`.
 - [ ] Document operator workflow and verify end-to-end behavior
   - Files: README.md, .ps-next/PLAN.md
@@ -33,12 +33,19 @@ Public artifacts must include only club, label, age_group, public counts, and ge
 ## Log
 
 
+
+### 2026-07-30 — Wire CLI, Make targets, and Pages publication staging
+**Done:** Added the `registered-teams` CLI command, Make targets, staging-on-current-latest publication preparation, Pages bundle allowlisting for registered-teams public artifacts, and tests for CLI preview/staging/bundle privacy behavior.
+**Rationale:** Mirroring the activity-calendar overlay flow preserves unrelated Pages files, keeps Make thin, and reuses the existing guarded operator publish path for confirmation, sanitization, idempotent publication, and verification.
+**Findings:** `registered-teams/validation-report.json` is generated for local review but explicitly excluded from the public Pages bundle so source fingerprints and validation metadata are not published.
+**Files:** tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/pipeline/registered_teams.py, tournament_scheduler/pipeline/pages_bundle.py, Makefile, tests/test_registered_teams_publish.py, tests/test_pages_bundle.py, .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Render standalone Påmeldte lag artifacts
 **Done:** Added artifact generation for registered-teams/pameldte-lag.html, pameldte-lag.json, and validation-report.json with a responsive static Norwegian HTML page, counts/grouping, empty state, escaped values, and public/private data separation.
 **Rationale:** The generator writes reviewable local artifacts first, with public JSON and HTML separated from the richer private validation report so publishing can later preserve privacy boundaries.
 **Findings:** Validation-report.json intentionally contains source fingerprint metadata for local review; the public JSON/HTML exclude extra SharePoint fields.
 **Files:** tournament_scheduler/pipeline/registered_teams.py, tests/test_registered_teams.py, .ps-next/PLAN.md
-**Commit:** not committed
+**Commit:** 9846b56
 ### 2026-07-30 — Add registered-team CSV parsing and validation
 **Done:** Added a focused registered-team CSV parser/validator with UTF-8 BOM handling, whitespace normalization, duplicate detection, optional configured age-group validation, public payload generation, and private validation metadata.
 **Rationale:** Keeping parsing and validation in a reusable Python module avoids Makefile logic and gives the CLI/publish tasks a single application entry point to call.

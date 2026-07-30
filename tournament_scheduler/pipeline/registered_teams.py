@@ -13,10 +13,13 @@ import hashlib
 import html
 import json
 import re
+import shutil
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+
+from .activity_publish import copy_latest_snapshot
 
 PUBLIC_COLUMNS: tuple[str, ...] = ("club", "label", "age_group")
 DEFAULT_REGISTERED_TEAMS_DIR = "registered-teams"
@@ -34,6 +37,19 @@ class RegisteredTeamsValidationError(ValueError):
         super().__init__("; ".join(errors))
         self.errors = errors
         self.report = report
+
+
+class RegisteredTeamsPublishError(RuntimeError):
+    """Raised when a registered-team publish staging snapshot cannot be prepared."""
+
+
+def default_registered_teams_run_id(now: datetime | None = None) -> str:
+    """Return a stable run id prefix for registered-team publishes."""
+    moment = now or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    moment = moment.astimezone(timezone.utc)
+    return f"registered-teams-{moment.strftime('%Y%m%dT%H%M%SZ')}"
 
 
 def build_registered_teams_payload(
@@ -128,6 +144,45 @@ def build_registered_teams_payload(
     generated = generated_at or _utc_now()
     payload = _build_public_payload(rows, configured_age_groups=configured_age_groups, generated_at=generated)
     return payload, report
+
+
+def prepare_registered_teams_latest_export(
+    *,
+    csv_path: str | Path,
+    export_dir: str | Path,
+    repo_dir: str = ".",
+    branch: str = "gh-pages",
+    config_path: str | Path | None = None,
+    generated_at: str | None = None,
+    include_latest_base: bool = True,
+    require_latest_base: bool = True,
+) -> dict[str, Any]:
+    """Prepare a complete Pages snapshot with refreshed registered-team artifacts."""
+    export_path = Path(export_dir)
+    if export_path.exists():
+        shutil.rmtree(export_path)
+    export_path.mkdir(parents=True, exist_ok=True)
+
+    base_file_count = 0
+    if include_latest_base:
+        base_file_count = copy_latest_snapshot(repo_dir=repo_dir, branch=branch, destination_dir=export_path)
+        if require_latest_base and base_file_count == 0:
+            raise RegisteredTeamsPublishError(
+                f"Fant ingen eksisterende /latest/-snapshot på branch '{branch}'. "
+                "Avbryter for å unngå å publisere bare Påmeldte lag og slette andre sider."
+            )
+
+    registered_team_files = generate_registered_team_artifacts(
+        csv_path=csv_path,
+        export_dir=export_path,
+        config_path=config_path,
+        generated_at=generated_at,
+    )
+    return {
+        "export_dir": str(export_path),
+        "base_file_count": base_file_count,
+        "registered_team_files": registered_team_files,
+    }
 
 
 def generate_registered_team_artifacts(

@@ -20,11 +20,11 @@ PACKAGE_BACKEND_PS1 ?= $(ROOT_DIR)/scripts/package-desktop-backend.ps1
 NPM ?= npm
 POWERSHELL ?= powershell
 
-export ID ANSWER SCOPE SCOPE_KEY RUN_ID TAG CONFIRM_PUBLIC ARGS
+export ID ANSWER SCOPE SCOPE_KEY RUN_ID TAG CONFIRM_PUBLIC CSV ARGS
 
 PUBLIC_TARGETS := help install check test dependency-lock secret-scan rules-report \
 	operator-run operator-run-force run status logs calendars calendars-refresh sources-status \
-	aktivitetskalender aktivitetskalender-publish \
+	aktivitetskalender aktivitetskalender-publish registered-teams registered-teams-publish \
 	questions questions-all answer promote \
 	publish-preview publish verify-publish publish-history rollback \
 	desktop-start desktop-clean build-mac build-windows build-linux release-dry-run release
@@ -57,6 +57,10 @@ help:
 	@echo "                                      Regenerate activities/ from Årshjul workbook"
 	@echo "  make aktivitetskalender-publish CONFIRM_PUBLIC=1 [ARGS='...']"
 	@echo "                                      Regenerate activities/ and publish full Pages snapshot"
+	@echo "  make registered-teams CSV=downloads/Miniputt-26-27.csv [ARGS='...']"
+	@echo "                                      Regenerate registered-teams/ Påmeldte lag page"
+	@echo "  make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1 [ARGS='...']"
+	@echo "                                      Regenerate Påmeldte lag and publish full Pages snapshot"
 	@echo ""
 	@echo "Human decisions (operator supplies judgment; Make only records it):"
 	@echo "  make questions                     List pending operator questions"
@@ -131,6 +135,15 @@ aktivitetskalender:
 aktivitetskalender-publish:
 	@if [ "$${CONFIRM_PUBLIC:-}" != "1" ]; then echo "ERROR: make aktivitetskalender-publish requires CONFIRM_PUBLIC=1" >&2; exit 2; fi
 	@cd "$(ROOT_DIR)" && "$(RVV)" activities --input "$(ACTIVITY_INPUT)" --publish --confirm-public $(ARGS)
+
+registered-teams:
+	@if [ -z "$${CSV:-}" ]; then echo "ERROR: make registered-teams requires CSV=<sharepoint-export.csv>" >&2; exit 2; fi
+	@cd "$(ROOT_DIR)" && "$(RVV)" registered-teams --csv "$$CSV" $(ARGS)
+
+registered-teams-publish:
+	@if [ -z "$${CSV:-}" ]; then echo "ERROR: make registered-teams-publish requires CSV=<sharepoint-export.csv>" >&2; exit 2; fi
+	@if [ "$${CONFIRM_PUBLIC:-}" != "1" ]; then echo "ERROR: make registered-teams-publish requires CONFIRM_PUBLIC=1" >&2; exit 2; fi
+	@cd "$(ROOT_DIR)" && "$(RVV)" registered-teams --csv "$$CSV" --publish --confirm-public $(ARGS)
 
 questions:
 	@cd "$(ROOT_DIR)" && "$(RVV)" operator questions $(ARGS)

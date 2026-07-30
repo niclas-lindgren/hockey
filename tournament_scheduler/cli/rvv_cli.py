@@ -219,6 +219,69 @@ def _load_plan_and_updater(work_dir: str):
     return plan, updater, state
 
 
+def _cmd_registered_teams(args: argparse.Namespace) -> int:
+    """Handle ``rvv-miniputt registered-teams`` — refresh/publish Påmeldte lag."""
+    from pathlib import Path
+
+    from ..pipeline.activity_publish import fetch_pages_branch
+    from ..pipeline.registered_teams import (
+        RegisteredTeamsPublishError,
+        RegisteredTeamsValidationError,
+        default_registered_teams_run_id,
+        prepare_registered_teams_latest_export,
+    )
+
+    _console.print("[bold]🏒 RVV Påmeldte lag[/bold]")
+
+    try:
+        if getattr(args, "publish", False) and getattr(args, "push", True):
+            fetch_pages_branch(repo_dir=args.repo_dir, remote=args.remote, branch=args.branch)
+        config_path = Path(args.config) if getattr(args, "config", None) and Path(args.config).exists() else None
+        prepared = prepare_registered_teams_latest_export(
+            csv_path=args.csv,
+            export_dir=args.export_dir,
+            repo_dir=args.repo_dir,
+            branch=args.branch,
+            config_path=config_path,
+            generated_at=getattr(args, "generated_at", None),
+            include_latest_base=getattr(args, "base_latest", True),
+            require_latest_base=getattr(args, "base_latest", True),
+        )
+    except RegisteredTeamsValidationError as exc:
+        _console.print("[red]✗[/red] Påmeldte lag-validering feilet:")
+        for error in exc.errors:
+            _console.print(f"  [red]•[/red] {error}")
+        return 1
+    except RegisteredTeamsPublishError as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        return 1
+    except Exception as exc:  # noqa: BLE001 — CLI boundary
+        _console.print(f"[red]✗[/red] Påmeldte lag feilet: {exc}")
+        return 1
+
+    _console.print(
+        f"  [green]✓[/green] Staget komplett Pages-snapshot i {prepared['export_dir']} "
+        f"({prepared['base_file_count']} eksisterende /latest/-fil(er) kopiert)"
+    )
+    for _label, path in prepared["registered_team_files"].items():
+        _console.print(f"    → {path}")
+
+    if not getattr(args, "publish", False):
+        _console.print("  [dim]Ikke publisert. Legg til --publish --confirm-public for å oppdatere GitHub Pages.[/dim]")
+        return 0
+
+    args.operator_command = "publish"
+    args.export_dir = prepared["export_dir"]
+    args.run_id = getattr(args, "run_id", None) or default_registered_teams_run_id()
+    args.extra_public_files = getattr(args, "extra_public_files", []) or []
+    args.allow_findings = getattr(args, "allow_findings", []) or []
+
+    publish_result = _execute_operator_publish(args)
+    if publish_result is None:
+        return 1
+    return _print_pages_result(publish_result, as_json=getattr(args, "json", False))
+
+
 def _cmd_activities(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt activities`` — refresh/publish the public activity calendar."""
     from ..pipeline.activity_publish import (
@@ -1077,6 +1140,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_calendars(args)
     elif args.command == "activities":
         return _cmd_activities(args)
+    elif args.command == "registered-teams":
+        return _cmd_registered_teams(args)
     elif args.command == "run":
         return _cmd_run(args)
     elif args.command == "operator":
