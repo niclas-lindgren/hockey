@@ -1,0 +1,98 @@
+name: "Sesong: rull tilbake publisering"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Tidligere publisert run-id som /latest/ skal rulles tilbake til"
+        required: true
+      confirm_rollback:
+        description: "Skriv RULL_TILBAKE for å bekrefte offentlig rollback"
+        required: true
+      no_push:
+        description: "Lag rollback-commit lokalt uten å pushe til gh-pages"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: season-rollback-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  WORK_DIR: .pipeline/github-rollback
+
+jobs:
+  rollback-publication:
+    name: "Rollback etter miljøgodkjenning"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: pages-publication
+    steps:
+      - name: "Kontroller eksplisitt bekreftelse"
+        env:
+          CONFIRM_ROLLBACK_TEXT: ${{ inputs.confirm_rollback }}
+        run: |
+          if [ "$CONFIRM_ROLLBACK_TEXT" != "RULL_TILBAKE" ]; then
+            echo "confirm_rollback må være nøyaktig RULL_TILBAKE" >&2
+            exit 2
+          fi
+
+      - name: "Hent kode"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Sett opp Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: "Installer avhengigheter"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[test]'
+
+      - name: "Vis publiseringshistorikk før rollback"
+        run: |
+          mkdir -p "$WORK_DIR/github-actions"
+          scripts/rvv-miniputt operator publish-history \
+            --work-dir "$WORK_DIR" \
+            2>&1 | tee "$WORK_DIR/github-actions/publish-history-before.txt" || true
+
+      - name: "Rull tilbake /latest/ til valgt run-id"
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          NO_PUSH: ${{ inputs.no_push }}
+        run: |
+          push_flag=""
+          if [ "$NO_PUSH" = "true" ]; then
+            push_flag="--no-push"
+          fi
+          # shellcheck disable=SC2086
+          scripts/rvv-miniputt operator rollback "$RUN_ID" \
+            --work-dir "$WORK_DIR" \
+            --confirm-public \
+            --json \
+            $push_flag \
+            2>&1 | tee "$WORK_DIR/github-actions/rollback-result.json"
+
+      - name: "Last opp rollback-bevis"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: season-rollback-${{ github.run_id }}
+          path: |
+            ${{ env.WORK_DIR }}/github-actions/publish-history-before.txt
+            ${{ env.WORK_DIR }}/github-actions/rollback-result.json
+            ${{ env.WORK_DIR }}/run_manifest.json
+          if-no-files-found: warn

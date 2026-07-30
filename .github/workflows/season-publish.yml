@@ -1,0 +1,150 @@
+name: "Sesong: publiser godkjent pakke"
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Eksakt run-id som skal publiseres under /runs/<run-id>/"
+        required: true
+      review_run_id:
+        description: "Workflow-run-id som produserte den godkjente vurderingspakken"
+        required: true
+      artifact_name:
+        description: "Artifact-navn fra vurderingspakken"
+        required: true
+      export_dir:
+        description: "Sti til eksportmappen inni nedlastet artifact"
+        required: true
+        default: ".github-approved-bundle/export/github-review"
+      bundle_fingerprint:
+        description: "Eksakt bundle_fingerprint fra forhåndsvisningen som er godkjent"
+        required: true
+      confirm_public:
+        description: "Skriv PUBLISER for å bekrefte offentlig publisering"
+        required: true
+      no_verify:
+        description: "Hopp over post-publish Pages-verifisering"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: season-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  DOWNLOAD_DIR: .github-approved-bundle
+  WORK_DIR: .github-approved-bundle/.pipeline/github-review
+
+jobs:
+  publish-approved-bundle:
+    name: "Publiser etter miljøgodkjenning"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: pages-publication
+    steps:
+      - name: "Kontroller eksplisitt bekreftelse"
+        env:
+          CONFIRM_PUBLIC_TEXT: ${{ inputs.confirm_public }}
+        run: |
+          if [ "$CONFIRM_PUBLIC_TEXT" != "PUBLISER" ]; then
+            echo "confirm_public må være nøyaktig PUBLISER" >&2
+            exit 2
+          fi
+
+      - name: "Hent kode"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Last ned godkjent vurderingspakke"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEW_RUN_ID: ${{ inputs.review_run_id }}
+          ARTIFACT_NAME: ${{ inputs.artifact_name }}
+        run: |
+          mkdir -p "$DOWNLOAD_DIR"
+          gh run download "$REVIEW_RUN_ID" --name "$ARTIFACT_NAME" --dir "$DOWNLOAD_DIR"
+
+      - name: "Sett opp Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: "Installer avhengigheter"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[test]'
+
+      - name: "Forhåndsvis samme offentlige bunt og kontroller fingeravtrykk"
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          EXPORT_DIR: ${{ inputs.export_dir }}
+          EXPECTED_BUNDLE_FINGERPRINT: ${{ inputs.bundle_fingerprint }}
+        run: |
+          mkdir -p "$WORK_DIR/github-actions"
+          test -d "$EXPORT_DIR"
+          scripts/rvv-miniputt operator publish \
+            --work-dir "$WORK_DIR" \
+            --export-dir "$EXPORT_DIR" \
+            --run-id "$RUN_ID" \
+            --dry-run \
+            --json \
+            2>&1 | tee "$WORK_DIR/github-actions/publish-preview.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          expected = os.environ["EXPECTED_BUNDLE_FINGERPRINT"].strip()
+          preview_path = Path(os.environ["WORK_DIR"]) / "github-actions" / "publish-preview.json"
+          raw = preview_path.read_text(encoding="utf-8")
+          try:
+              payload = json.loads(raw)
+          except json.JSONDecodeError:
+              payload = {"raw": raw}
+          if expected not in json.dumps(payload, ensure_ascii=False):
+              raise SystemExit(f"Bundle fingerprint mismatch: expected {expected}")
+          PY
+
+      - name: "Publiser godkjent bunt"
+        env:
+          RUN_ID: ${{ inputs.run_id }}
+          EXPORT_DIR: ${{ inputs.export_dir }}
+          NO_VERIFY: ${{ inputs.no_verify }}
+        run: |
+          verify_flag=""
+          if [ "$NO_VERIFY" = "true" ]; then
+            verify_flag="--no-verify"
+          fi
+          # shellcheck disable=SC2086
+          scripts/rvv-miniputt operator publish \
+            --work-dir "$WORK_DIR" \
+            --export-dir "$EXPORT_DIR" \
+            --run-id "$RUN_ID" \
+            --confirm-public \
+            --json \
+            $verify_flag \
+            2>&1 | tee "$WORK_DIR/github-actions/publish-result.json"
+
+      - name: "Last opp publiseringsbevis"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: season-publish-${{ github.run_id }}
+          path: |
+            ${{ env.WORK_DIR }}/github-actions/publish-preview.json
+            ${{ env.WORK_DIR }}/github-actions/publish-result.json
+            ${{ env.WORK_DIR }}/public_bundle/pages_privacy_report.json
+            ${{ env.WORK_DIR }}/run_manifest.json
+          if-no-files-found: warn

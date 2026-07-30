@@ -1,0 +1,194 @@
+name: "Sesong: lag vurderingspakke"
+
+on:
+  workflow_dispatch:
+    inputs:
+      input_path:
+        description: "Sti til sesongarbeidsboken som skal brukes"
+        required: true
+        default: "input.xlsx"
+      iterations:
+        description: "Antall planleggingsforsøk (1-10)"
+        required: true
+        default: "3"
+      force_refresh:
+        description: "Hent kalenderdata på nytt i stedet for å bruke cache"
+        required: true
+        type: boolean
+        default: false
+      log_level:
+        description: "Loggnivå for operatørkjøringen"
+        required: true
+        type: choice
+        options:
+          - info
+          - verbose
+        default: info
+      review_issue_number:
+        description: "Valgfritt issue-nummer som skal få sammendrag som kommentar"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: season-review-bundle-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  WORK_DIR: .pipeline/github-review
+  EXPORT_DIR: export/github-review
+
+jobs:
+  generate-review-bundle:
+    name: "Generer vurderingspakke uten publisering"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: "Hent kode"
+        uses: actions/checkout@v4
+
+      - name: "Sett opp Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: "Installer avhengigheter"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[test]'
+
+      - name: "Skriv input-fingeravtrykk"
+        env:
+          INPUT_PATH: ${{ inputs.input_path }}
+        run: |
+          mkdir -p "$WORK_DIR/github-actions"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["INPUT_PATH"])
+          if not path.exists():
+              raise SystemExit(f"Input workbook not found: {path}")
+          payload = {
+              "path": str(path),
+              "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              "size_bytes": path.stat().st_size,
+          }
+          Path(os.environ["WORK_DIR"]).joinpath("github-actions", "input-fingerprint.json").write_text(
+              json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+          )
+          PY
+
+      - name: "Generer sesongplan og vurderingsfiler"
+        env:
+          INPUT_PATH: ${{ inputs.input_path }}
+          ITERATIONS: ${{ inputs.iterations }}
+          FORCE_REFRESH: ${{ inputs.force_refresh }}
+          LOG_LEVEL: ${{ inputs.log_level }}
+        run: |
+          case "$ITERATIONS" in
+            ''|*[!0-9]*) echo "iterations must be a number" >&2; exit 2 ;;
+          esac
+          if [ "$ITERATIONS" -lt 1 ] || [ "$ITERATIONS" -gt 10 ]; then
+            echo "iterations must be between 1 and 10" >&2
+            exit 2
+          fi
+          extra_refresh=""
+          if [ "$FORCE_REFRESH" = "true" ]; then
+            extra_refresh="--force-refresh"
+          fi
+          mkdir -p "$WORK_DIR/github-actions" "$EXPORT_DIR"
+          # shellcheck disable=SC2086
+          scripts/rvv-miniputt operator run \
+            --input "$INPUT_PATH" \
+            --work-dir "$WORK_DIR" \
+            --export-dir "$EXPORT_DIR" \
+            --log-level "$LOG_LEVEL" \
+            --non-strict \
+            --allow-missing-sources \
+            --iterations "$ITERATIONS" \
+            $extra_refresh \
+            2>&1 | tee "$WORK_DIR/github-actions/review-run.log"
+
+      - name: "Lag publiseringsforhåndsvisning og personvernrapport (ingen publisering)"
+        run: |
+          set +e
+          scripts/rvv-miniputt operator publish \
+            --work-dir "$WORK_DIR" \
+            --dry-run \
+            --json \
+            2>&1 | tee "$WORK_DIR/github-actions/publish-preview.json"
+          status=${PIPESTATUS[0]}
+          set -e
+          scripts/rvv-miniputt status --work-dir "$WORK_DIR" --json > "$WORK_DIR/github-actions/status.json" || true
+          exit "$status"
+
+      - name: "Skriv sammendrag til GitHub"
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEW_ISSUE_NUMBER: ${{ inputs.review_issue_number }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          work_dir = Path(os.environ["WORK_DIR"])
+          status_path = work_dir / "github-actions" / "status.json"
+          fingerprint_path = work_dir / "github-actions" / "input-fingerprint.json"
+          status = {}
+          if status_path.exists():
+              try:
+                  status = json.loads(status_path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  status = {"raw_status": status_path.read_text(encoding="utf-8")[:1000]}
+          fingerprint = json.loads(fingerprint_path.read_text(encoding="utf-8")) if fingerprint_path.exists() else {}
+          body = [
+              "## Vurderingspakke for sesongplan",
+              "",
+              f"- Workflow-run: {os.environ.get('GITHUB_SERVER_URL')}/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{os.environ.get('GITHUB_RUN_ID')}",
+              f"- Input: `{fingerprint.get('path', '?')}`",
+              f"- Input SHA-256: `{fingerprint.get('sha256', '?')}`",
+              f"- Status: `{status.get('status', status.get('overall_status', 'se artifact'))}`",
+              "- Publisering: ikke utført; bruk egen godkjenningsworkflow etter review.",
+              "",
+              "Last ned workflow-artifacten for HTML-review, logger, manifest og personvernrapport.",
+          ]
+          summary_path = work_dir / "github-actions" / "review-summary.md"
+          summary_path.write_text("\n".join(body) + "\n", encoding="utf-8")
+          Path(os.environ["GITHUB_STEP_SUMMARY"]).write_text("\n".join(body) + "\n", encoding="utf-8")
+          PY
+          if [ -n "$REVIEW_ISSUE_NUMBER" ]; then
+            gh issue comment "$REVIEW_ISSUE_NUMBER" --body-file "$WORK_DIR/github-actions/review-summary.md"
+          else
+            gh issue create --title "Sesongplan klar til vurdering ($GITHUB_RUN_ID)" --body-file "$WORK_DIR/github-actions/review-summary.md" || true
+          fi
+
+      - name: "Last opp vurderingspakke"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: season-review-bundle-${{ github.run_id }}
+          path: |
+            ${{ env.WORK_DIR }}/github-actions/input-fingerprint.json
+            ${{ env.WORK_DIR }}/github-actions/review-run.log
+            ${{ env.WORK_DIR }}/github-actions/status.json
+            ${{ env.WORK_DIR }}/github-actions/publish-preview.json
+            ${{ env.WORK_DIR }}/github-actions/review-summary.md
+            ${{ env.WORK_DIR }}/run_manifest.json
+            ${{ env.WORK_DIR }}/public_bundle/pages_privacy_report.json
+            ${{ env.WORK_DIR }}/logs/**
+            ${{ env.EXPORT_DIR }}/**
+          if-no-files-found: warn
