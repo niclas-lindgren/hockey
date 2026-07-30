@@ -182,18 +182,23 @@ class TestActivityExport:
         with pytest.raises(WorkbookInputError, match="Aktiviteter!rad 2: ugyldig dato '32.13.2026'"):
             build_activities_payload(path)
 
-    def test_missing_title_reports_sheet_and_source_row(self, tmp_path):
+    def test_missing_title_rows_are_skipped_with_warning(self, tmp_path):
         path = tmp_path / "input.xlsx"
         _workbook(
             path,
             rows=[
                 ["Dato", "Aktivitet"],
                 ["2026-02-01", ""],
+                ["2026-02-02", "RS U15"],
             ],
         )
 
-        with pytest.raises(WorkbookInputError, match="Aktiviteter!rad 2: mangler påkrevd tittel"):
-            build_activities_payload(path)
+        payload = build_activities_payload(path)
+
+        assert [activity["title"] for activity in payload["activities"]] == ["RS U15"]
+        assert payload["validation_warnings"][0]["field"] == "title"
+        assert payload["validation_warnings"][0]["row"] == 2
+        assert "hoppes over" in payload["validation_warnings"][0]["message"]
 
     def test_day_and_month_without_default_year_is_actionable(self, tmp_path):
         path = tmp_path / "input.xlsx"

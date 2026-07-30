@@ -9,6 +9,7 @@ SHELL := /bin/sh
 
 ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 RVV ?= $(ROOT_DIR)/scripts/rvv-miniputt
+ACTIVITY_INPUT ?= $(ROOT_DIR)/Årshjul for aktiviteter.xlsx
 CHECK ?= $(ROOT_DIR)/scripts/check
 RELEASE ?= $(ROOT_DIR)/scripts/release
 INSTALL ?= $(ROOT_DIR)/scripts/install.sh
@@ -23,6 +24,7 @@ export ID ANSWER SCOPE SCOPE_KEY RUN_ID TAG CONFIRM_PUBLIC ARGS
 
 PUBLIC_TARGETS := help install check test secret-scan rules-report \
 	operator-run operator-run-force run status logs calendars calendars-refresh sources-status \
+	aktivitetskalender aktivitetskalender-publish \
 	questions questions-all answer promote \
 	publish-preview publish verify-publish publish-history rollback \
 	desktop-start desktop-clean build-mac build-windows build-linux release-dry-run release
@@ -50,6 +52,10 @@ help:
 	@echo "  make calendars [ARGS='...']        scripts/rvv-miniputt calendars"
 	@echo "  make calendars-refresh             calendars --refresh"
 	@echo "  make sources-status [ARGS='...']   sources status"
+	@echo "  make aktivitetskalender [ARGS='...']"
+	@echo "                                      Regenerate activities/ from Årshjul workbook"
+	@echo "  make aktivitetskalender-publish CONFIRM_PUBLIC=1 [ARGS='...']"
+	@echo "                                      Regenerate activities/ and publish full Pages snapshot"
 	@echo ""
 	@echo "Human decisions (operator supplies judgment; Make only records it):"
 	@echo "  make questions                     List pending operator questions"
@@ -114,6 +120,13 @@ calendars-refresh:
 
 sources-status:
 	@cd "$(ROOT_DIR)" && "$(RVV)" sources status $(ARGS)
+
+aktivitetskalender:
+	@cd "$(ROOT_DIR)" && "$(RVV)" activities --input "$(ACTIVITY_INPUT)" $(ARGS)
+
+aktivitetskalender-publish:
+	@if [ "$${CONFIRM_PUBLIC:-}" != "1" ]; then echo "ERROR: make aktivitetskalender-publish requires CONFIRM_PUBLIC=1" >&2; exit 2; fi
+	@cd "$(ROOT_DIR)" && "$(RVV)" activities --input "$(ACTIVITY_INPUT)" --publish --confirm-public $(ARGS)
 
 questions:
 	@cd "$(ROOT_DIR)" && "$(RVV)" operator questions $(ARGS)

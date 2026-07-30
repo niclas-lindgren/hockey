@@ -307,7 +307,16 @@ def _read_activity_rows(
         raw_date = values.get("date")
         raw_month = values.get("month")
         if not title:
-            raise WorkbookInputError(f"{sheet_name}!rad {row_index}: mangler påkrevd tittel/aktivitet.")
+            warnings.append(
+                _warning(
+                    sheet_name,
+                    row_index,
+                    "title",
+                    values.get("title"),
+                    "Mangler tittel/aktivitet; raden hoppes over.",
+                )
+            )
+            continue
         activity_date = _parse_activity_date(raw_date, raw_month, default_year=default_year, sheet_name=sheet_name, row_index=row_index)
 
         raw_type = _clean_text(values.get("type"))
