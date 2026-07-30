@@ -4,7 +4,7 @@
 
 RVV Miniputt will be designed primarily as an **AI-operated season-planning system**.
 
-The primary user is a human supervisor working through an LLM harness such as Codex, Claude Code, OpenCode, Pi, or another capable agent environment. The human provides goals, domain judgment, credentials when necessary, and final approval. The AI operator owns the mechanical workflow.
+The primary user is a human supervisor working through an LLM harness such as Codex, Claude Code, OpenCode, Pi, or another capable agent environment. The human provides goals, domain judgment, credentials when necessary, and final approval. The AI operator owns the mechanical workflow. Routine operation should use club-controlled ownership and recovery paths rather than personal accounts; see the [ownership and handover guide](ownership-and-handover.md).
 
 This does not rule out a future non-technical desktop product. It means the near-term architecture and product decisions should optimize for reliable agent operation first.
 

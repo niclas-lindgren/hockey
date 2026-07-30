@@ -13,11 +13,12 @@ Underneath the operator experience is a deterministic, checkpointed four-stage p
 3. builds a season plan
 4. exports Excel, CSV, iCal, HTML, and Spond files
 
-The current AI-operator direction and ordered implementation backlog are documented in:
+The current AI-operator direction, ordered implementation backlog, and operational ownership guidance are documented in:
 
 - [AI operator product direction](docs/ai-operator-product-direction.md)
 - [AI operator implementation roadmap](docs/ai-operator-roadmap.md)
 - [AI operator run manifest schema](docs/run-manifest-schema.md)
+- [Ownership and handover guide](docs/ownership-and-handover.md)
 
 ## Current operator workflow
 
@@ -250,6 +251,7 @@ gitleaks detect --source . --config .gitleaks.toml --redact
 - [AI operator product direction](docs/ai-operator-product-direction.md)
 - [AI operator implementation roadmap](docs/ai-operator-roadmap.md)
 - [AI operator run manifest schema](docs/run-manifest-schema.md)
+- [Ownership and handover guide](docs/ownership-and-handover.md)
 - [Pipeline guide](docs/rvv-miniputt-pipeline.md)
 - [Rules report](docs/rvv-miniputt-rules-report.md)
 - [Desktop app prototype](docs/desktop-app.md)

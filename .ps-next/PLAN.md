@@ -7,7 +7,7 @@
 - [x] Add the ownership inventory and handover document
   - Files: docs/ownership-and-handover.md
   - Approach: Create a practical operations document from issue #46 covering critical dependencies, desired club-owned owners, backup owners, role permissions, managed secret storage/rotation, renewal/recovery procedures, removal/automation opportunities, annual review, emergency recovery, and a second-person dry-run checklist. Mark actual external account migration steps as MANUAL where they require club/admin action.
-- [ ] Link the handover guide from operator-facing docs
+- [x] Link the handover guide from operator-facing docs
   - Files: README.md, docs/rvv-miniputt-deployment-architecture.md, docs/ai-operator-product-direction.md
   - Approach: Add concise links from existing operator/deployment documentation so volunteers can find the ownership and recovery guidance without changing RVV Miniputt scheduling behavior.
 - [ ] Add documentation coverage checks
@@ -28,6 +28,13 @@
 
 ## Log
 
+
+### 2026-07-30 — Link the handover guide from operator-facing docs
+**Done:** Linked docs/ownership-and-handover.md from the README's primary documentation list and More documentation section, plus the deployment architecture and AI operator product direction docs.
+**Rationale:** Volunteers need to find the handover guide from operator-facing entry points, not by knowing the new file name.
+**Findings:** No scheduling behavior changes were needed; this is documentation navigation only.
+**Files:** README.md, docs/rvv-miniputt-deployment-architecture.md, docs/ai-operator-product-direction.md, .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Add the ownership inventory and handover document
 **Done:** Added docs/ownership-and-handover.md with ownership principles, critical dependency inventory, role matrix, managed secrets policy, handover procedure, annual access review, emergency recovery, second-person dry run, and private operations-record template.
 **Rationale:** Issue #46 requires moving operational ownership away from personal accounts, but external account transfers are manual; the repository can make the procedure explicit and auditable.

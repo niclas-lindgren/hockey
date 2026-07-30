@@ -11,6 +11,8 @@ A small RVV organizer group should be able to run the scheduler without owning m
 
 Keep the runner stateless: it reads an input workbook, writes outputs, and stores run metadata separately.
 
+Operational ownership is a separate requirement from hosting. Before any deployment becomes routine, record who controls repositories, Pages, Microsoft 365 assets, Spond/WordPress access, source credentials, domains, and recovery paths in the [ownership and handover guide](ownership-and-handover.md).
+
 ## Practical hosting options
 
 ### Option A — Vercel / Cloudflare frontend + managed Python worker + object storage
