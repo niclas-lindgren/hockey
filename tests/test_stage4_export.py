@@ -1,5 +1,6 @@
 """Tests for tournament_scheduler.pipeline.stage4_export."""
 
+import hashlib
 import logging
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -43,6 +44,13 @@ def _write_input_workbook(path: Path, raw: dict) -> None:
         sources.append([source.get("name"), source.get("type"), source.get("url")])
 
     wb.save(path)
+
+
+def _file_hashes(root: Path) -> dict[str, str]:
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in sorted(p for p in root.rglob("*") if p.is_file())
+    }
 
 
 def _make_plan_dict():
@@ -673,6 +681,31 @@ class TestRunStage4:
         )
 
         assert result["generated_at"] == datetime.fromtimestamp(1735732800, tz=timezone.utc).isoformat()
+
+    def test_same_build_timestamp_produces_identical_export_file_bytes(self, tmp_path):
+        build_timestamp = "2025-01-02T03:04:05+00:00"
+        export_a = tmp_path / "export-a"
+        export_b = tmp_path / "export-b"
+
+        run(
+            _make_plan_dict(),
+            PipelineState(tmp_path / "pipeline-a"),
+            export_dir=str(export_a),
+            timestamped_export=False,
+            build_timestamp=build_timestamp,
+        )
+        run(
+            _make_plan_dict(),
+            PipelineState(tmp_path / "pipeline-b"),
+            export_dir=str(export_b),
+            timestamped_export=False,
+            build_timestamp=build_timestamp,
+        )
+
+        hashes_a = _file_hashes(export_a)
+        hashes_b = _file_hashes(export_b)
+        assert hashes_a == hashes_b
+        assert any(name.endswith(".xlsx") for name in hashes_a)
 
     def test_export_metadata_includes_generation_timestamp_and_input_path(self, tmp_path):
         input_path = tmp_path / "input.xlsx"

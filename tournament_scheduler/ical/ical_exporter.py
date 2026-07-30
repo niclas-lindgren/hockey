@@ -26,6 +26,12 @@ from icalendar import Calendar, Event, vText
 from ..models import SeasonPlan, Tournament, Game
 
 
+def _stable_uid(*parts: object) -> str:
+    """Return a deterministic iCal UID for generated schedule content."""
+    payload = "|".join(str(part) for part in parts)
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"rvv-miniputt:{payload}"))
+
+
 # ---------------------------------------------------------------------------
 # Exporter
 # ---------------------------------------------------------------------------
@@ -194,7 +200,19 @@ class ICalExporter:
             dt_end = self._tournament_end_datetime(tournament, dt_start)
             reason = tournament.cancellation_reason or "Avlyst"
             event = Event()
-            event.add("uid", str(uuid.uuid4()))
+            event.add(
+                "uid",
+                _stable_uid(
+                    "cancelled-tournament",
+                    tournament.date.isoformat(),
+                    tournament.age_group,
+                    tournament.arena,
+                    tournament.host_club or "",
+                    tournament.start_time or "",
+                    reason,
+                    ",".join(team.label for team in tournament.teams),
+                ),
+            )
             event.add("summary", vText(f"AVLYST: {tournament.age_group} — {tournament.arena}"))
             event.add("dtstart", dt_start)
             event.add("dtend", dt_end)
@@ -230,7 +248,21 @@ class ICalExporter:
             dt_end = dt_start + game_dur
 
             event = Event()
-            event.add("uid", str(uuid.uuid4()))
+            event.add(
+                "uid",
+                _stable_uid(
+                    "game",
+                    tournament.date.isoformat(),
+                    tournament.age_group,
+                    tournament.arena,
+                    tournament.host_club or "",
+                    tournament.start_time or "",
+                    game.home.label,
+                    game.away.label,
+                    game.parallel_slot,
+                    game.round_number,
+                ),
+            )
             event.add("summary", vText(f"{game.home.label} vs {game.away.label}"))
             event.add("dtstart", dt_start)
             event.add("dtend", dt_end)
@@ -328,7 +360,23 @@ class ICalExporter:
             description = f"AVLYST: {tournament.cancellation_reason or 'ingen grunn oppgitt'}\n\n{description}"
 
         event = Event()
-        event.add("uid", str(uuid.uuid4()))
+        event.add(
+            "uid",
+            _stable_uid(
+                "tournament-summary",
+                tournament.date.isoformat(),
+                tournament.age_group,
+                tournament.arena,
+                tournament.host_club or "",
+                tournament.start_time or "",
+                club or "",
+                ",".join(team.label for team in tournament.teams),
+                ",".join(
+                    f"{game.home.label}>{game.away.label}:{game.parallel_slot}:{game.round_number}"
+                    for game in tournament.games
+                ),
+            ),
+        )
         event.add("summary", vText(summary))
         event.add("dtstart", dt_start)
         event.add("dtend", dt_end)

@@ -357,7 +357,7 @@ class ReviewPacketExporter:
         hosted = [t for t in club_tournaments if t.host_club == club]
         return {
             "club": club,
-            "packet_dir": str(packet_dir),
+            "packet_dir": packet_dir.name,
             "summary_workbook": summary_workbook.name,
             "spond_import_workbook": spond_path.name,
             "schedule_attachment": schedule_path.name,

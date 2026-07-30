@@ -7,9 +7,9 @@
 - [x] Add a canonical Stage 4 build timestamp contract
   - Files: tournament_scheduler/pipeline/stage4_export.py, tests/test_stage4_export.py
   - Approach: Introduce a small timestamp resolver used for both timestamped export directory naming and `generated_at`, honoring an explicit `build_timestamp` argument and `SOURCE_DATE_EPOCH` while preserving current wall-clock defaults. Add focused tests for stable checkpoint metadata and directory naming without changing existing callers.
-- [ ] Normalize generated workbook/ZIP bytes for reproducible exports
-  - Files: tournament_scheduler/pipeline/stage4_export.py, tests/test_stage4_export.py
-  - Approach: After Stage 4 writes XLSX outputs, normalize workbook core properties and ZIP member timestamps/order for files in the export surface using the canonical build timestamp. Cover the main workbook plus Spond/review workbooks with a reproducibility regression that hashes exported files across two runs.
+- [x] Normalize generated artifact bytes for reproducible exports
+  - Files: tournament_scheduler/pipeline/stage4_export.py, tournament_scheduler/ical/ical_exporter.py, tournament_scheduler/review/review_packet_exporter.py, tests/test_stage4_export.py
+  - Approach: After Stage 4 writes XLSX outputs, normalize workbook core properties and ZIP member timestamps/order for files in the export surface using the canonical build timestamp; also remove other volatile generated artifact fields found by the regression (for example random ICS UIDs and absolute review packet paths). Cover the main workbook plus Spond/review workbooks with a reproducibility regression that hashes exported files across two runs.
 - [ ] Stabilize public bundle fingerprint behavior and document the contract
   - Files: tournament_scheduler/pipeline/pages_publish.py, tests/test_stage4_export.py, docs/rvv-miniputt-pipeline.md
   - Approach: Add/extend an end-to-end-style test that builds a public bundle from two identical Stage 4 outputs and asserts matching per-file hashes plus bundle fingerprints; also assert a meaningful plan/input change changes at least the relevant hashes. Document `build_timestamp`/`SOURCE_DATE_EPOCH`, stable `generated_at`, and which operational timestamps remain intentionally outside content identity.
@@ -27,6 +27,13 @@ Selected open GitHub issue: https://github.com/niclas-lindgren/hockey/issues/34 
 
 ## Log
 
+
+### 2026-07-30 — Normalize generated artifact bytes for reproducible exports
+**Done:** Normalized Stage 4 workbook ZIP/core metadata after export, made iCal UIDs deterministic, removed absolute review-packet paths from generated manifests, and added a regression comparing file hashes across identical exports.
+**Rationale:** The first reproducibility test exposed drift outside XLSX files (random ICS UIDs and absolute packet paths), so the normalization task was broadened to remove all volatile artifact fields found by the regression.
+**Findings:** `pytest tests/test_stage4_export.py tests/test_review_packets.py -q` passes. Diff review warning is from an existing 'placeholder' string in not_started logic context, not new TODO/FIXME text.
+**Files:** tournament_scheduler/pipeline/stage4_export.py; tournament_scheduler/ical/ical_exporter.py; tournament_scheduler/review/review_packet_exporter.py; tests/test_stage4_export.py; .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Add a canonical Stage 4 build timestamp contract
 **Done:** Added a canonical UTC build timestamp resolver for Stage 4, wired it into timestamped export directory naming, generated_at metadata, and the standalone CLI via --build-timestamp.
 **Rationale:** A single content timestamp keeps existing wall-clock behavior by default while enabling deterministic runs through an explicit value or SOURCE_DATE_EPOCH.
