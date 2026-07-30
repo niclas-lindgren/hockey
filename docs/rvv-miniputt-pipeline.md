@@ -60,6 +60,20 @@ Each row configures one team:
 - `label`
 - `age_group`
 
+### SharePoint registration import
+
+Club registrations should flow through Microsoft Forms/Power Automate into a reviewed private SharePoint List. After review, export the list as CSV or XLSX and rebuild only the `Lag` sheet in a controlled workbook snapshot:
+
+```bash
+scripts/rvv-miniputt registrations validate registrations.csv --input input.xlsx
+scripts/rvv-miniputt registrations export registrations.csv --input input.xlsx --output input.updated.xlsx --dry-run
+scripts/rvv-miniputt registrations export registrations.csv --input input.xlsx --output input.updated.xlsx
+```
+
+`validate` never writes files. `export --dry-run` validates and prints additions, removals, likely changes, unchanged teams, and rejected rows without creating the output workbook. Non-dry-run export copies `input.xlsx`, replaces only `Lag`, and writes `input.updated.registrations.audit.json` with the source SHA-256 fingerprint and included SharePoint item IDs. Contact/comment fields from the SharePoint export are not copied into the workbook or generated public outputs by default.
+
+The expected source columns and status vocabulary are documented in [RVV Miniputt input formats](rvv-miniputt-input-formats.md#reviewed-sharepoint-registration-exports). Administrative sheets such as `Innstillinger`, `Aldersgrupper`, and `Kilder` remain controlled workbook data and are never replaced by public form submissions.
+
 ### `Kilder` rows
 
 Each row configures one calendar source:

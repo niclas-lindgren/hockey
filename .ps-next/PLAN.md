@@ -10,7 +10,7 @@
 - [x] Wire registration commands into the RVV CLI
   - Files: tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tests/test_rvv_cli_portability.py
   - Approach: Add `registrations validate` and `registrations export` subcommands that call the domain module, validate required CLI arguments, preserve exit codes, support `--dry-run`, and print concise Norwegian summaries without exposing contact/comment fields by default.
-- [ ] Document the SharePoint export workflow
+- [x] Document the SharePoint export workflow
   - Files: docs/rvv-miniputt-input-formats.md, docs/rvv-miniputt-pipeline.md, README.md
   - Approach: Document expected SharePoint CSV/XLSX columns, status handling, dry-run/export commands, audit artifacts, privacy behavior, and link the workflow from operator-facing docs.
 - [ ] Run verification and archive the plan
@@ -35,6 +35,13 @@ Existing workbook conventions live in `tournament_scheduler/pipeline/input_workb
 ## Log
 
 
+
+### 2026-07-30 — Document the SharePoint export workflow
+**Done:** Documented the reviewed SharePoint CSV/XLSX import workflow, required/alias columns, active/rejected status handling, dry-run/export commands, audit sidecar, privacy behavior, and administrative-sheet preservation in the input formats guide, pipeline guide, and README.
+**Rationale:** Operators need to understand the supported Power Automate → SharePoint List → reviewed export → controlled `input.xlsx` path before using the new CLI commands in routine registration work.
+**Findings:** The docs already consistently position `input.xlsx` as the controlled pipeline artifact, so the registration import docs emphasize that only `Lag` is registration-owned while administrative sheets stay workbook-controlled.
+**Files:** docs/rvv-miniputt-input-formats.md (+SharePoint registration export section), docs/rvv-miniputt-pipeline.md (+registration import workflow), README.md (+operator workflow snippet). Targeted check: pytest tests/test_registrations.py tests/test_rvv_cli_portability.py (16 passed).
+**Commit:** not committed
 ### 2026-07-30 — Wire registration commands into the RVV CLI
 **Done:** Added `rvv-miniputt registrations validate` and `rvv-miniputt registrations export` parser/dispatcher wiring. Commands call the shared registration module, preserve nonzero exits on validation errors, support `--dry-run`, and render concise Norwegian summaries that omit contact/comment details. Added CLI parser and subprocess coverage.
 **Rationale:** The CLI remains a thin adapter over the new registration domain module, so future browser/GitHub Actions/operator surfaces can reuse the same deterministic import policy.

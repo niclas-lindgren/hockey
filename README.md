@@ -47,6 +47,16 @@ Common Make targets and their direct equivalents:
 
 `ARGS='...'` is appended to the relevant underlying CLI command for normal option forwarding. Mutating targets retain explicit gates: `make publish` and `make rollback` require `CONFIRM_PUBLIC=1`, and release creation goes through `scripts/release` rather than raw `git tag`/`git push`. `make`, `make help`, `make run`, and `make operator-run` never publish publicly.
 
+Reviewed registrations from Microsoft Forms/Power Automate/SharePoint should be exported as CSV/XLSX and converted into a controlled workbook snapshot before planning:
+
+```bash
+scripts/rvv-miniputt registrations validate registrations.csv --input input.xlsx
+scripts/rvv-miniputt registrations export registrations.csv --input input.xlsx --output input.updated.xlsx --dry-run
+scripts/rvv-miniputt registrations export registrations.csv --input input.xlsx --output input.updated.xlsx
+```
+
+This replaces only the `Lag` sheet, preserves administrative workbook sheets, writes an audit sidecar with source fingerprint and SharePoint item IDs, and excludes contact/comment fields from the generated workbook. See [RVV Miniputt input formats](docs/rvv-miniputt-input-formats.md#reviewed-sharepoint-registration-exports).
+
 Browser-only operation is available through manual GitHub Actions workflows when a volunteer should not run local commands:
 
 | Browser workflow | Purpose | Safety boundary |
@@ -237,6 +247,7 @@ With `--timestamped-export`, exports are written to a timestamped subfolder for 
 - `scripts/rvv-miniputt run` — run the complete pipeline
 - `scripts/rvv-miniputt status` — inspect stage and checkpoint status
 - `scripts/rvv-miniputt logs ...` — inspect structured run logs
+- `scripts/rvv-miniputt registrations validate|export ...` — validate reviewed SharePoint exports and rebuild the controlled `Lag` sheet
 - `scripts/rvv-miniputt calendars` — regenerate calendar HTML from cache
 - `scripts/rvv-miniputt calendars --refresh` — refresh sources before rebuilding calendar HTML
 - `rvv-miniputt recovery-inject` — inject recovered source data

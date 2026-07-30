@@ -67,6 +67,37 @@ Notes:
 - Duplicate `label` values are allowed across different age groups, but not within the same age group.
 - If `teams` is supplied as a file reference in a lower-level config, the pipeline resolves it relative to the workbook directory.
 
+### Reviewed SharePoint registration exports
+
+`input.xlsx` remains the controlled pipeline input, but the `Lag` sheet can be rebuilt from a reviewed SharePoint List export so volunteers do not copy registrations by hand.
+
+Supported interchange files:
+
+- CSV (`.csv`, UTF-8/UTF-8-BOM)
+- Excel (`.xlsx` / `.xlsm`, first worksheet)
+
+Required columns, with accepted aliases:
+
+| Canonical field | Typical SharePoint/export aliases | Notes |
+|---|---|---|
+| `sharepoint_id` | `SharePoint ID`, `Item ID`, `ID`, `list_item_id` | Stable item identity used for audit and duplicate detection. |
+| `club` | `club`, `Klubb`, `Forening` | Must already exist in the controlled workbook. |
+| `label` | `Lag`, `Lagnavn`, `team label`, `team_name`, `label` | Team label written to `Lag.label`. |
+| `age_group` | `Aldergruppe`, `age group`, `klasse` | Must be declared in `Aldersgrupper` when that sheet is present. |
+| `status` | `Status`, `approval_state`, `Godkjenningsstatus` | Controls whether the row becomes active. |
+
+Accepted active statuses are `approved`, `current`, `active`, `accepted`, `godkjent`, `aktiv`, and `gjeldende`. Rejected statuses (`rejected`, `withdrawn`, `duplicate`, `incomplete`, `avvist`, `trukket`, `duplikat`, `ufullstendig`) are reported and excluded. Unknown statuses, missing required fields, unknown clubs/age groups, duplicate SharePoint IDs, and duplicate team identities block import with actionable errors.
+
+Optional contact/comment columns may exist in the SharePoint export, but they are not written into `input.xlsx` or public outputs. Non-dry-run export writes a sidecar audit file named `input.updated.registrations.audit.json` containing the source fingerprint, included SharePoint IDs, and the diff summary.
+
+```bash
+scripts/rvv-miniputt registrations validate registrations.csv --input input.xlsx
+scripts/rvv-miniputt registrations export registrations.csv --input input.xlsx --output input.updated.xlsx --dry-run
+scripts/rvv-miniputt registrations export registrations.csv --input input.xlsx --output input.updated.xlsx
+```
+
+Export copies the controlled workbook, replaces only the `Lag` sheet with approved/current registrations, and preserves `Innstillinger`, `Aldersgrupper`, `Kilder`, `Datopreferanser`, and any other non-`Lag` sheets unchanged.
+
 ### `Kilder`
 
 Columns:
