@@ -10,7 +10,7 @@
 - [x] Install and validate from the lock in operator/CI paths
   - Files: scripts/install.sh, scripts/package-desktop-backend.sh, scripts/package-desktop-backend.ps1, .github/workflows/ci.yml, Makefile, scripts/check
   - Approach: Install `requirements.lock` with `--require-hashes`, install the project editable with `--no-deps`, update CI cache keys and install steps, make desktop packaging install locked runtime before locked desktop tools, and add a `scripts/check dependency-lock` phase that detects stale lock output.
-- [ ] Document and test the deterministic dependency workflow
+- [x] Document and test the deterministic dependency workflow
   - Files: README.md, docs/ci.md, tests/test_dependency_lock_workflow.py
   - Approach: Document operator installs, lock refresh commands, platform/desktop optional handling, and CI expectations; add static tests proving CI/install/check use `requirements.lock`, refresh command exists, and docs mention the locked workflow.
 
@@ -27,6 +27,13 @@ Selected GitHub issue #35 because higher-numbered open GitHub issues #46, #45, a
 ## Log
 
 
+
+### 2026-07-30 — Document and test the deterministic dependency workflow
+**Done:** Documented locked operator installs, lock refresh, CI freshness checks, and desktop/platform handling; added regression coverage for the lock workflow and updated Makefile interface tests for the new dependency-lock target/check phase.
+**Rationale:** Static regression tests keep the workflow visible without performing slow package resolution on every unit test run, while scripts/check dependency-lock remains the executable freshness gate.
+**Findings:** pi_next_plan_drift does not include untracked files in its changed-file set, so it reported tests/test_dependency_lock_workflow.py as not changed until staging; the task also intentionally touched scripts/refresh-python-lock.sh and tests/test_makefile_operator_interface.py to keep examples and existing Makefile tests consistent.
+**Files:** README.md, docs/ci.md, scripts/refresh-python-lock.sh, tests/test_dependency_lock_workflow.py (new), tests/test_makefile_operator_interface.py, .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Install and validate from the lock in operator/CI paths
 **Done:** Updated operator install, desktop packaging, CI jobs, Makefile, and scripts/check so supported install/check paths consume requirements.lock with hash checking and install the local project without dependency resolution.
 **Rationale:** Installing the committed lock first makes CI/operator dependency resolution deterministic; editable installs with --no-deps preserve local source wiring without letting pip re-resolve broad pyproject constraints.

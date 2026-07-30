@@ -12,7 +12,7 @@ if ! command -v "$PIP_COMPILE_BIN" >/dev/null 2>&1; then
 ERROR: pip-compile was not found.
 Install pip-tools in an isolated environment, then rerun this command, for example:
   python3 -m venv /tmp/rvv-pip-tools
-  /tmp/rvv-pip-tools/bin/python -m pip install --upgrade pip pip-tools
+  /tmp/rvv-pip-tools/bin/python -m pip install --upgrade 'pip<26' 'pip-tools==7.6.0'
   PIP_COMPILE_BIN=/tmp/rvv-pip-tools/bin/pip-compile scripts/refresh-python-lock.sh
 EOF
   exit 2

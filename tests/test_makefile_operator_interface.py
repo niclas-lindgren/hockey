@@ -16,6 +16,7 @@ PUBLIC_TARGETS = [
     "install",
     "check",
     "test",
+    "dependency-lock",
     "secret-scan",
     "rules-report",
     "operator-run",
@@ -235,7 +236,7 @@ class TestMakefileOperatorInterface:
         docs = (ROOT / "docs" / "ci.md").read_text(encoding="utf-8")
         check_script = (ROOT / "scripts" / "check").read_text(encoding="utf-8")
 
-        for phase in ["quick", "operator", "reproducibility", "cli-smoke", "desktop-backend", "desktop-packaging"]:
+        for phase in ["dependency-lock", "quick", "operator", "reproducibility", "cli-smoke", "desktop-backend", "desktop-packaging"]:
             assert f"scripts/check {phase}" in ci
             assert f"scripts/check {phase}" in docs
             assert f"{phase})" in check_script
@@ -268,6 +269,7 @@ class TestMakefileOperatorInterface:
         for target in [
             "make help",
             "make check",
+            "make dependency-lock",
             "make operator-run",
             "make operator-run-force",
             "make run",

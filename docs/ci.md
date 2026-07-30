@@ -22,6 +22,7 @@ without duplicating the underlying command sequence in workflow YAML.
 
 | Job (status check name)                          | What it covers |
 |----------------------------------------------------|----------------|
+| `Python dependency lock freshness`                  | `scripts/check dependency-lock` — recreates `requirements.lock` from `pyproject.toml` with pip-tools and fails if the committed hash-checked lock would change. |
 | `Python quick test suite`                           | `scripts/check quick` — the default `pytest` run (excludes `slow`/`integration`-marked tests), covering the full unit/component suite. |
 | `Operator manifest & escalation tests`              | `scripts/check operator` — `test_run_manifest.py`, `test_capability_result.py`, `test_escalation.py`, `test_operator_run.py` specifically, as their own visible check. |
 | `Deterministic planner reproducibility`             | `scripts/check reproducibility` — `test_reproducibility.py`, where the same config/seeds must reproduce the same selected-candidate metadata and plan dates across two independent runs. |
@@ -30,8 +31,9 @@ without duplicating the underlying command sequence in workflow YAML.
 | `Desktop packaging config validation`               | `scripts/check desktop-packaging` — static checks on `apps/desktop/package.json` and `release.yml` (no Electron download, no build, no publish). Guards against the wrong-owner and missing-keyring bugs found in issue #7. |
 | `Secret scanning (gitleaks)`                        | `gitleaks/gitleaks-action`, configured via the existing `.gitleaks.toml`. |
 
-Dependencies are cached via `actions/setup-python`'s built-in `cache: pip`,
-keyed on `requirements.txt` and `pyproject.toml`, across all jobs.
+Python jobs install from the committed hash-checked `requirements.lock` and then install the repository with `pip install --no-deps -e .`; they do not resolve the broad dependency ranges in `pyproject.toml` during normal CI. Dependencies are cached via `actions/setup-python`'s built-in `cache: pip`, keyed on `requirements.lock` and `pyproject.toml`, across jobs that install the locked set.
+
+`pyproject.toml` remains the canonical direct dependency declaration. Refresh the lock intentionally with `scripts/refresh-python-lock.sh` (or `make dependency-lock` to verify freshness after refresh). The refresh script uses pip-tools and generates the lock with all optional dependency groups, so test dependencies and desktop packaging tools (`keyring`, `PyInstaller`, and their transitives) are pinned alongside runtime dependencies. Platform/browser assets that are not Python packages, such as Playwright Chromium binaries and Electron/npm dependencies, remain managed by their existing installers/lockfiles.
 
 Failure artifacts: the quick-suite job uploads its `htmlcov/` coverage
 report; the reproducibility and CLI-smoke jobs upload their `--basetemp`
@@ -81,6 +83,7 @@ On the `main` branch, enable **Require status checks to pass before
 merging** and require these exact check names (they're the job `name:`
 values above, as GitHub renders them):
 
+- `Python dependency lock freshness`
 - `Python quick test suite`
 - `Operator manifest & escalation tests`
 - `Deterministic planner reproducibility`

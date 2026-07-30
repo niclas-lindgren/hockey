@@ -42,6 +42,7 @@ Common Make targets and their direct equivalents:
 | Publish verification/history | `make verify-publish`, `make publish-history` | `scripts/rvv-miniputt operator verify`, `scripts/rvv-miniputt operator publish-history` |
 | Roll back latest | `make rollback RUN_ID=<id> CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt operator rollback <id> --confirm-public` |
 | Local verification | `make check` | `scripts/check` |
+| Dependency lock freshness | `make dependency-lock` | `scripts/check dependency-lock` |
 | Guarded release | `make release-dry-run TAG=vX.Y.Z`, `make release TAG=vX.Y.Z` | `scripts/release --dry-run vX.Y.Z`, `scripts/release vX.Y.Z` |
 
 `ARGS='...'` is appended to the relevant underlying CLI command for normal option forwarding. Mutating targets retain explicit gates: `make publish` and `make rollback` require `CONFIRM_PUBLIC=1`, and release creation goes through `scripts/release` rather than raw `git tag`/`git push`. `make`, `make help`, `make run`, and `make operator-run` never publish publicly.
@@ -179,7 +180,7 @@ make install
 sh scripts/install.sh
 ```
 
-Run `sh scripts/install.sh --help` for installer options. The installer uses `requirements.txt` for runtime dependencies and installs the project in editable mode from `pyproject.toml`.
+Run `sh scripts/install.sh --help` for installer options. The installer uses the committed hash-checked `requirements.lock` dependency set and then installs the local project in editable mode with `--no-deps`, so operator installs do not re-resolve broad dependency ranges.
 
 For Playwright browser binaries used by scraping:
 
@@ -189,14 +190,25 @@ INSTALL_PLAYWRIGHT=1 make install
 INSTALL_PLAYWRIGHT=1 sh scripts/install.sh
 ```
 
-Manual install:
+Manual locked install:
 
 ```sh
 python3 -m venv venv
-venv/bin/python3 -m pip install --upgrade pip setuptools wheel
-venv/bin/python3 -m pip install -r requirements.txt
-venv/bin/python3 -m pip install -e .
+venv/bin/python3 -m pip install --upgrade pip
+venv/bin/python3 -m pip install --require-hashes -r requirements.lock
+venv/bin/python3 -m pip install --no-deps -e .
 ```
+
+`pyproject.toml` remains the canonical direct dependency declaration. `requirements.txt` is a human-readable list of broad runtime inputs for maintainers, but deterministic CI/operator/packaging installs use `requirements.lock`. Refresh the lock intentionally after changing Python dependencies:
+
+```sh
+python3 -m venv /tmp/rvv-pip-tools
+/tmp/rvv-pip-tools/bin/python -m pip install --upgrade 'pip<26' 'pip-tools==7.6.0'
+PIP_COMPILE_BIN=/tmp/rvv-pip-tools/bin/pip-compile scripts/refresh-python-lock.sh
+make dependency-lock
+```
+
+The lock is generated from `pyproject.toml` with all optional dependency groups so quick tests, canonical checks, and desktop packaging use exact package versions. Playwright browser binaries are still installed separately with `INSTALL_PLAYWRIGHT=1` because browser downloads are not Python packages.
 
 ## Inputs
 
