@@ -13,7 +13,7 @@
 - [x] Document the browser-based operations flow
   - Files: docs/ci.md, docs/rvv-miniputt-pipeline.md, README.md
   - Approach: Describe who uses each workflow, inputs, artifacts, approval separation, protected environments, and the equivalent local CLI/Make commands. Link the docs prominently from the existing operator sections.
-- [ ] Run checks and archive
+- [x] Run checks and archive
   - Files: .ps-next/PLAN.md, .ps-next/VERIFY.md
   - Approach: Run targeted workflow tests, quick quality gate where feasible, pi-next safety/diff/drift scans, then verify acceptance criteria and archive the plan.
 
@@ -35,6 +35,13 @@ Do not touch the user's untracked `Årshjul for aktiviteter.xlsx` file.
 
 
 
+
+### 2026-07-30 — Run checks and archive
+**Done:** Ran targeted workflow/docs tests and the quick Python quality gate, then ran pi-next safety, diff-review, drift, and plan-structure checks.
+**Rationale:** The quick gate exercises the full non-slow/non-integration suite, and targeted tests cover the new workflow contract without requiring live GitHub Actions or public publishing.
+**Findings:** Quality gate passed: 1181 passed, 1 skipped, 26 deselected. Targeted tests passed: 20 passed. Safety scan, diff review, plan drift, and PLAN validation passed.
+**Files:** .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Document the browser-based operations flow
 **Done:** Documented the manual GitHub Actions operator flow in README, CI docs, and the pipeline guide, including workflow purposes, artifacts, permission boundaries, protected publishing, rollback, and equivalent CLI/Make delegation.
 **Rationale:** Operators need one discoverable browser path while maintainers need CI documentation explaining why these workflows are operational entrypoints rather than PR checks.
