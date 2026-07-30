@@ -1,7 +1,7 @@
 """Tests for tournament_scheduler.pipeline.stage4_export."""
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 import json
 import re
@@ -647,6 +647,32 @@ class TestRunStage4:
         lines = games_path.read_text().splitlines()
         assert lines[0] == "date,arena,age_group,home,away,parallel_slot"
         assert len(lines) > 1  # header + at least one game row
+
+    def test_explicit_build_timestamp_controls_metadata_and_timestamped_directory(self, tmp_path):
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_plan_dict(),
+            state,
+            export_dir=str(tmp_path / "export"),
+            build_timestamp="2025-01-02T03:04:05+00:00",
+        )
+
+        assert result["generated_at"] == "2025-01-02T03:04:05+00:00"
+        assert Path(result["output_files"]["html"]).parent.name == "2025-01-02T0304"
+        envelope = state.read_envelope(StageName.EXPORT)
+        assert envelope["data"]["generated_at"] == "2025-01-02T03:04:05+00:00"
+
+    def test_source_date_epoch_controls_stage4_build_timestamp(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("SOURCE_DATE_EPOCH", "1735732800")
+        state = PipelineState(tmp_path / "pipeline")
+        result = run(
+            _make_plan_dict(),
+            state,
+            export_dir=str(tmp_path / "export"),
+            timestamped_export=False,
+        )
+
+        assert result["generated_at"] == datetime.fromtimestamp(1735732800, tz=timezone.utc).isoformat()
 
     def test_export_metadata_includes_generation_timestamp_and_input_path(self, tmp_path):
         input_path = tmp_path / "input.xlsx"

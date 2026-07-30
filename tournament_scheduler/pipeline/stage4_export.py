@@ -57,6 +57,42 @@ DEFAULT_BASENAME = "season_plan"
 _TIMESTAMP_DIR_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{4}$")
 
 
+def _resolve_build_timestamp(build_timestamp: str | int | float | datetime | None = None) -> datetime:
+    """Return the canonical UTC content timestamp for a Stage 4 export.
+
+    ``build_timestamp`` wins when provided. Otherwise ``SOURCE_DATE_EPOCH``
+    is honored for reproducible builds, falling back to the current wall
+    clock. Naive datetimes/ISO strings are treated as UTC because the value
+    describes generated content, not a local operator audit moment.
+    """
+    raw: str | int | float | datetime | None = build_timestamp
+    if raw is None:
+        raw = os.environ.get("SOURCE_DATE_EPOCH")
+
+    if raw is None or raw == "":
+        return datetime.now(timezone.utc).replace(microsecond=0)
+
+    if isinstance(raw, datetime):
+        moment = raw
+    elif isinstance(raw, (int, float)):
+        moment = datetime.fromtimestamp(float(raw), tz=timezone.utc)
+    else:
+        value = str(raw).strip()
+        if not value:
+            return datetime.now(timezone.utc).replace(microsecond=0)
+        if re.fullmatch(r"\d+(?:\.\d+)?", value):
+            moment = datetime.fromtimestamp(float(value), tz=timezone.utc)
+        else:
+            try:
+                moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            except ValueError as exc:
+                raise Stage4Error(f"Ugyldig build timestamp '{raw}': {exc}") from exc
+
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(timezone.utc).replace(microsecond=0)
+
+
 # ---------------------------------------------------------------------------
 # Errors
 # ---------------------------------------------------------------------------
@@ -141,6 +177,7 @@ def run(
     basename: str = DEFAULT_BASENAME,
     strict: bool = True,
     timestamped_export: bool = True,
+    build_timestamp: str | int | float | datetime | None = None,
 ) -> dict[str, Any]:
     """Export the Stage 3 plan to Excel, iCal, and CSV.
 
@@ -179,12 +216,13 @@ def run(
     plan = _dict_to_plan(plan_dict)
     export_path = Path(export_dir)
     export_path.mkdir(parents=True, exist_ok=True)
+    canonical_build_timestamp = _resolve_build_timestamp(build_timestamp)
 
     # Store the primary export path (may be flat or timestamped)
     primary_export_path = export_path
     already_timestamped = bool(_TIMESTAMP_DIR_RE.match(export_path.name))
     if timestamped_export and not already_timestamped:
-        ts_dir = datetime.now().strftime("%Y-%m-%dT%H%M")
+        ts_dir = canonical_build_timestamp.strftime("%Y-%m-%dT%H%M")
         primary_export_path = export_path / ts_dir
         primary_export_path.mkdir(parents=True, exist_ok=True)
 
@@ -195,7 +233,7 @@ def run(
         effective_config = load_effective_config(state)
     except Exception:
         effective_config = {}
-    generated_at = datetime.now(timezone.utc).isoformat()
+    generated_at = canonical_build_timestamp.isoformat()
     input_path = str(effective_config.get("input_path") or "input.xlsx")
 
     if plan_dict.get("placeholder") == "not_started" or (plan_checkpoint.get("not_started") and not plan.tournaments):
@@ -471,6 +509,11 @@ if __name__ == "__main__":  # pragma: no cover
         action="store_false",
         help="Write exports flat into --export-dir",
     )
+    parser.add_argument(
+        "--build-timestamp",
+        default=None,
+        help="Canonical content timestamp (ISO-8601 or epoch seconds) for reproducible exports",
+    )
     parser.set_defaults(timestamped_export=True)
     cli_args = parser.parse_args()
 
@@ -489,6 +532,7 @@ if __name__ == "__main__":  # pragma: no cover
             _state,
             export_dir=cli_args.export_dir,
             timestamped_export=cli_args.timestamped_export,
+            build_timestamp=cli_args.build_timestamp,
         )
         files = _result.get("output_files", {})
         print(f"Stage 4 OK — {len(files)} filer eksportert: {', '.join(files.values())}")
