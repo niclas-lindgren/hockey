@@ -193,6 +193,17 @@ Pi-only features remain the interactive guide and extension-managed tool wrapper
 
 Publication and rollback default to non-mutating preview paths unless `CONFIRM_PUBLIC=1` is supplied to the mutating target. Release tagging is handled by `scripts/release`; the Makefile does not call raw `git tag` or `git push`.
 
+### Browser-based GitHub Actions flow
+
+For volunteers who should operate entirely in GitHub's browser UI, use the manual workflows under the repository **Actions** tab:
+
+1. **`Sesong: valider inndata`** (`season-validate.yml`) — supply the workbook path, run validation/quick checks, and download the artifact containing input fingerprint, status JSON, logs, manifest, and validation outputs.
+2. **`Sesong: lag vurderingspakke`** (`season-review-bundle.yml`) — generate the candidate plan/review bundle and publish dry-run. Download the artifact containing the exported HTML/Excel/CSV/iCal files, `run_manifest.json`, run logs, `publish-preview.json`, and `public_bundle/pages_privacy_report.json`. Share the optional GitHub issue summary with reviewers.
+3. **`Sesong: publiser godkjent pakke`** (`season-publish.yml`) — after review, provide the review workflow run id, artifact name, exact `run_id`, exact `bundle_fingerprint` from the preview, and `PUBLISER`. This job runs in the protected `pages-publication` environment, rechecks the fingerprint, then calls `scripts/rvv-miniputt operator publish --confirm-public`.
+4. **`Sesong: rull tilbake publisering`** (`season-rollback.yml`) — provide a previously published `run_id` and `RULL_TILBAKE`. This also runs in the protected `pages-publication` environment and delegates to `operator rollback --confirm-public`.
+
+These workflows are wrappers around the same commands listed above. They do not embed scheduling logic in YAML, and generation/review jobs do not include `--confirm-public` or any direct `gh-pages` manipulation.
+
 ### Full run
 
 ```bash

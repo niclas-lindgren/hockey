@@ -45,6 +45,17 @@ Common Make targets and their direct equivalents:
 
 `ARGS='...'` is appended to the relevant underlying CLI command for normal option forwarding. Mutating targets retain explicit gates: `make publish` and `make rollback` require `CONFIRM_PUBLIC=1`, and release creation goes through `scripts/release` rather than raw `git tag`/`git push`. `make`, `make help`, `make run`, and `make operator-run` never publish publicly.
 
+Browser-only operation is available through manual GitHub Actions workflows when a volunteer should not run local commands:
+
+| Browser workflow | Purpose | Safety boundary |
+|---|---|---|
+| `Sesong: valider inndata` | Validate a workbook and upload input fingerprint, status, logs, manifest, and validation artifacts. | Read-only; never publishes. |
+| `Sesong: lag vurderingspakke` | Generate a candidate plan/review bundle and upload HTML exports, logs, manifest, publish preview, and privacy report. | Read-only; never publishes. |
+| `Sesong: publiser godkjent pakke` | Download an approved review artifact, verify the exact `bundle_fingerprint`, and publish through `operator publish --confirm-public`. | Requires the protected `pages-publication` environment plus `PUBLISER`. |
+| `Sesong: rull tilbake publisering` | Restore `/latest/` to a prior immutable run. | Requires the protected `pages-publication` environment plus `RULL_TILBAKE`. |
+
+Use these workflows from GitHub's **Actions** tab; they call the same `scripts/rvv-miniputt` operator commands as the Make targets and keep generation, approval, publication, and rollback separated.
+
 LLM-harness-only conveniences such as `/rvv-miniputt guide`, extension-managed browser recovery, and agent-callable Pi tools are intentionally excluded from Make. Use the Pi/Claude/OpenCode/Codex adapters when that harness capability is required.
 
 The goal-oriented entry point is `operator run`. It inspects workspace state, resumes from the earliest stage that is missing, incomplete, or stale, and reports a structured summary — no manual stage coordination required:

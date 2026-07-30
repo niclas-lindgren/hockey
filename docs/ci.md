@@ -38,6 +38,32 @@ report; the reproducibility and CLI-smoke jobs upload their `--basetemp`
 directory (generated run manifests, checkpoints, logs) on failure so a
 human or agent can inspect exactly what state a failing run produced.
 
+## Browser-based operator workflows
+
+The repository also contains manual, browser-dispatched workflows for trained
+volunteers. They are not PR checks; they are operational entrypoints under the
+GitHub **Actions** tab and remain thin wrappers over `scripts/rvv-miniputt`.
+
+| Workflow file | Browser name | Main use | Mutation boundary |
+|---|---|---|---|
+| `.github/workflows/season-validate.yml` | `Sesong: valider inndata` | Validate a supplied workbook path, run the canonical quick check/operator validation path, and upload `input-fingerprint.json`, status, logs, manifest, and validation/export artifacts. | `contents: read`; no publish flags. |
+| `.github/workflows/season-review-bundle.yml` | `Sesong: lag vurderingspakke` | Generate the review bundle from a workbook, create a publish dry-run/privacy report, upload review HTML/exports/logs/manifest, and optionally create/comment on a GitHub issue. | `contents: read`, `issues: write`; no `--confirm-public`. |
+| `.github/workflows/season-publish.yml` | `Sesong: publiser godkjent pakke` | Download the approved review artifact, rerun publish dry-run, verify the exact approved `bundle_fingerprint`, then call `operator publish --confirm-public`. | `contents: write`, `actions: read`, protected `pages-publication` environment, `PUBLISER` confirmation. |
+| `.github/workflows/season-rollback.yml` | `Sesong: rull tilbake publisering` | Roll `/latest/` back to a selected published `run_id` through `operator rollback --confirm-public`. | `contents: write`, protected `pages-publication` environment, `RULL_TILBAKE` confirmation. |
+
+Repository maintainers should configure the `pages-publication` environment
+with required reviewers for the publisher/approver role. Generation and
+publication intentionally live in different workflows and permissions: a
+review-bundle run can never publish as a hidden side effect, and publish cannot
+run unless the operator supplies the review artifact id, exact run id, and exact
+bundle fingerprint from the reviewed preview.
+
+Regression coverage lives in
+`tests/test_github_actions_operator_workflows.py`. It statically parses these
+workflow files and verifies manual dispatch, permission boundaries, canonical
+CLI delegation, required artifacts, protected publish/rollback environments,
+and the absence of direct `gh-pages`/pipeline-module publishing logic.
+
 ## Slower/optional tier
 
 Unchanged by this issue, and intentionally *not* required on every PR:

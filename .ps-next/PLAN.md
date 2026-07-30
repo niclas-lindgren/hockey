@@ -10,7 +10,7 @@
 - [x] Add workflow regression tests
   - Files: tests/test_github_actions_operator_workflows.py
   - Approach: Parse the workflow YAML files, assert workflow_dispatch inputs, permission boundaries, canonical CLI entrypoints, artifact uploads, separation of generation from publication, protected publish/rollback environments, explicit confirmation/fingerprint/run-id safeguards, and absence of dangerous ad-hoc commands.
-- [ ] Document the browser-based operations flow
+- [x] Document the browser-based operations flow
   - Files: docs/ci.md, docs/rvv-miniputt-pipeline.md, README.md
   - Approach: Describe who uses each workflow, inputs, artifacts, approval separation, protected environments, and the equivalent local CLI/Make commands. Link the docs prominently from the existing operator sections.
 - [ ] Run checks and archive
@@ -34,6 +34,13 @@ Do not touch the user's untracked `Årshjul for aktiviteter.xlsx` file.
 ## Log
 
 
+
+### 2026-07-30 — Document the browser-based operations flow
+**Done:** Documented the manual GitHub Actions operator flow in README, CI docs, and the pipeline guide, including workflow purposes, artifacts, permission boundaries, protected publishing, rollback, and equivalent CLI/Make delegation.
+**Rationale:** Operators need one discoverable browser path while maintainers need CI documentation explaining why these workflows are operational entrypoints rather than PR checks.
+**Findings:** No separate operator-handbook file exists yet, so the flow is linked from the current README/operator and pipeline docs.
+**Files:** README.md; docs/ci.md; docs/rvv-miniputt-pipeline.md; .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Add workflow regression tests
 **Done:** Added pytest regression coverage that parses all four season-operation workflows and asserts manual dispatch, permission boundaries, canonical CLI delegation, artifact contents, publish fingerprint checks, protected environments, rollback safeguards, and forbidden direct publishing patterns.
 **Rationale:** Static workflow tests catch drift without needing to run live GitHub Actions or publish Pages during CI.
