@@ -7,7 +7,7 @@
 - [x] Document the standalone registered-team operator workflow
   - Files: docs/rvv-miniputt-pipeline.md, README.md, tests/test_registered_teams_publish.py
   - Approach: Add the `registered-teams` Make/CLI commands and public URL/path guidance to the operator pipeline docs, keeping README wording consistent; add or adjust lightweight regression coverage if the docs/help expectations are not locked down.
-- [ ] Verify issue #47 behavior and fix any gaps found
+- [x] Verify issue #47 behavior and fix any gaps found
   - Files: tournament_scheduler/pipeline/registered_teams.py, tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/pipeline/pages_bundle.py, Makefile, tests/test_registered_teams.py, tests/test_registered_teams_publish.py, tests/test_pages_bundle.py
   - Approach: Run targeted pytest coverage plus CLI/Make smoke checks for header-only CSV generation and non-publish preview; inspect artifacts for privacy-safe public JSON/HTML and private validation metadata; fix only regressions needed to satisfy issue #47.
 
@@ -28,6 +28,13 @@ Selected from GitHub issue #47: https://github.com/niclas-lindgren/hockey/issues
 
 ## Log
 
+
+### 2026-07-30 — Verify issue #47 behavior and fix any gaps found
+**Done:** Verified the existing registered-team generator, CLI/Make entrypoints, Pages sanitizer allowlist, empty-state handling, privacy projection, and publish-staging overlay behavior against issue #47.
+**Rationale:** The implementation already satisfied the behavior after the documentation update; no further source changes were needed for this task.
+**Findings:** Targeted pytest passed for registered-team and Pages bundle coverage; Make smoke generated non-published preview artifacts for both header-only and populated SharePoint CSV inputs; public HTML/JSON excluded email, comments, SharePointId, source fingerprint, and local provenance while validation-report.json retained private metadata.
+**Files:** No additional implementation files changed; verified tournament_scheduler/pipeline/registered_teams.py, CLI/Make entrypoints, pages bundle filtering, and tests.
+**Commit:** not committed
 ### 2026-07-30 — Document the standalone registered-team operator workflow
 **Done:** Added standalone Påmeldte lag Make/CLI commands and public WordPress URL guidance to the operator pipeline docs, and kept README/operator-doc coverage locked with a regression test.
 **Rationale:** Issue #47 requires this workflow to be discoverable as a routine standalone content update with a stable public path; the implementation already existed but the pipeline docs lacked the Make target rows and URL.
