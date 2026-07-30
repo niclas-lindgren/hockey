@@ -7,7 +7,7 @@
 - [x] Add registered-team CSV parsing and validation
   - Files: tournament_scheduler/pipeline/registered_teams.py, tests/test_registered_teams.py
   - Approach: Create a focused module that reads UTF-8/UTF-8-BOM CSV, requires club/label/age_group, trims whitespace, detects duplicate normalized rows, ignores/report extra columns, optionally validates age groups from JSON config, and returns deterministic public payload plus private validation metadata.
-- [ ] Render standalone Påmeldte lag artifacts
+- [x] Render standalone Påmeldte lag artifacts
   - Files: tournament_scheduler/pipeline/registered_teams.py, tests/test_registered_teams.py
   - Approach: Extend the module with artifact generation for registered-teams/pameldte-lag.html, registered-teams/pameldte-lag.json, and registered-teams/validation-report.json; render responsive Norwegian HTML without requiring JavaScript, with grouped age groups, counts, empty state, escaped values, and no extra/private CSV fields in public outputs.
 - [ ] Wire CLI, Make targets, and Pages publication staging
@@ -32,10 +32,17 @@ Public artifacts must include only club, label, age_group, public counts, and ge
 
 ## Log
 
+
+### 2026-07-30 — Render standalone Påmeldte lag artifacts
+**Done:** Added artifact generation for registered-teams/pameldte-lag.html, pameldte-lag.json, and validation-report.json with a responsive static Norwegian HTML page, counts/grouping, empty state, escaped values, and public/private data separation.
+**Rationale:** The generator writes reviewable local artifacts first, with public JSON and HTML separated from the richer private validation report so publishing can later preserve privacy boundaries.
+**Findings:** Validation-report.json intentionally contains source fingerprint metadata for local review; the public JSON/HTML exclude extra SharePoint fields.
+**Files:** tournament_scheduler/pipeline/registered_teams.py, tests/test_registered_teams.py, .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Add registered-team CSV parsing and validation
 **Done:** Added a focused registered-team CSV parser/validator with UTF-8 BOM handling, whitespace normalization, duplicate detection, optional configured age-group validation, public payload generation, and private validation metadata.
 **Rationale:** Keeping parsing and validation in a reusable Python module avoids Makefile logic and gives the CLI/publish tasks a single application entry point to call.
 **Findings:** The repo already has registration workbook tooling, but this standalone page should stay independent and only project club/label/age_group.
 **Files:** tournament_scheduler/pipeline/registered_teams.py (new), tests/test_registered_teams.py (new), .ps-next/PLAN.md
-**Commit:** not committed
+**Commit:** ab0fad1
 <!-- pi-next appends entries here after each task -->

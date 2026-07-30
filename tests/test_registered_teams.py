@@ -10,6 +10,8 @@ import pytest
 from tournament_scheduler.pipeline.registered_teams import (
     RegisteredTeamsValidationError,
     build_registered_teams_payload,
+    generate_registered_team_artifacts,
+    render_registered_teams_html,
 )
 
 
@@ -127,3 +129,72 @@ class TestRegisteredTeamsPayload:
 
         assert len(report["source_sha256"]) == 64
         assert "source_sha256" not in payload
+
+
+class TestRegisteredTeamsArtifacts:
+    def test_generates_html_public_json_and_private_validation_report(self, tmp_path):
+        path = _csv(
+            tmp_path / "teams.csv",
+            "club,label,age_group,email\nJar,Jar 1,U10,person@example.com\nKongsberg,Kongsberg,U8,secret@example.com\n",
+        )
+
+        artifacts = generate_registered_team_artifacts(
+            csv_path=path,
+            export_dir=tmp_path / "export",
+            generated_at="2026-07-30T12:00:00Z",
+        )
+
+        html_path = Path(artifacts["registered_teams_html"])
+        json_path = Path(artifacts["registered_teams_json"])
+        report_path = Path(artifacts["registered_teams_validation_report"])
+        assert html_path.as_posix().endswith("registered-teams/pameldte-lag.html")
+        assert json_path.as_posix().endswith("registered-teams/pameldte-lag.json")
+        assert report_path.as_posix().endswith("registered-teams/validation-report.json")
+        html = html_path.read_text(encoding="utf-8")
+        public_json = json.loads(json_path.read_text(encoding="utf-8"))
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+
+        assert "Påmeldte lag" in html
+        assert "Sist oppdatert" in html
+        assert "Jar 1" in html
+        assert "person@example.com" not in html
+        assert "person@example.com" not in json.dumps(public_json, ensure_ascii=False)
+        assert report["excluded_columns"] == ["email"]
+        assert len(report["source_sha256"]) == 64
+
+    def test_empty_state_page_is_useful_and_publishable(self, tmp_path):
+        artifacts = generate_registered_team_artifacts(
+            csv_path=_csv(tmp_path / "teams.csv", "club,label,age_group\n"),
+            export_dir=tmp_path / "export",
+            generated_at="2026-07-30T12:00:00Z",
+        )
+
+        html = Path(artifacts["registered_teams_html"]).read_text(encoding="utf-8")
+        public_json = json.loads(Path(artifacts["registered_teams_json"]).read_text(encoding="utf-8"))
+
+        assert "Ingen lag er registrert ennå" in html
+        assert "Lag totalt</span><strong>0</strong>" in html
+        assert public_json["total_teams"] == 0
+        assert public_json["age_groups"] == []
+
+    def test_render_escapes_unsafe_html_content(self):
+        payload = {
+            "generated_at": "2026-07-30T12:00:00Z",
+            "total_teams": 1,
+            "total_clubs": 1,
+            "age_groups": [
+                {
+                    "age_group": "U10<script>",
+                    "team_count": 1,
+                    "club_count": 1,
+                    "clubs": [{"club": "Jar <b>", "team_count": 1, "teams": ["Jar & <script>"]}],
+                }
+            ],
+        }
+
+        html = render_registered_teams_html(payload)
+
+        assert "U10&lt;script&gt;" in html
+        assert "Jar &lt;b&gt;" in html
+        assert "Jar &amp; &lt;script&gt;" in html
+        assert "<script>" not in html

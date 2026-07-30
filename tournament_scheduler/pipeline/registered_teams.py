@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import html
 import json
 import re
 from collections import defaultdict
@@ -18,6 +19,10 @@ from pathlib import Path
 from typing import Any, Iterable
 
 PUBLIC_COLUMNS: tuple[str, ...] = ("club", "label", "age_group")
+DEFAULT_REGISTERED_TEAMS_DIR = "registered-teams"
+REGISTERED_TEAMS_HTML = "pameldte-lag.html"
+REGISTERED_TEAMS_JSON = "pameldte-lag.json"
+REGISTERED_TEAMS_VALIDATION_REPORT = "validation-report.json"
 _SCHEMA_VERSION = 1
 _WHITESPACE_RE = re.compile(r"\s+")
 
@@ -125,6 +130,143 @@ def build_registered_teams_payload(
     return payload, report
 
 
+def generate_registered_team_artifacts(
+    *,
+    csv_path: str | Path,
+    export_dir: str | Path = "export",
+    config_path: str | Path | None = None,
+    generated_at: str | None = None,
+) -> dict[str, str]:
+    """Validate *csv_path* and write public/review registered-team artifacts."""
+    payload, report = build_registered_teams_payload(
+        csv_path,
+        config_path=config_path,
+        generated_at=generated_at,
+    )
+    target_dir = Path(export_dir) / DEFAULT_REGISTERED_TEAMS_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    json_path = target_dir / REGISTERED_TEAMS_JSON
+    validation_path = target_dir / REGISTERED_TEAMS_VALIDATION_REPORT
+    html_path = target_dir / REGISTERED_TEAMS_HTML
+
+    json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    validation_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    html_path.write_text(render_registered_teams_html(payload), encoding="utf-8")
+
+    return {
+        "registered_teams_html": str(html_path),
+        "registered_teams_json": str(json_path),
+        "registered_teams_validation_report": str(validation_path),
+    }
+
+
+def render_registered_teams_html(payload: dict[str, Any]) -> str:
+    """Render a static, accessible Norwegian page from a public payload."""
+    age_groups = payload.get("age_groups", []) or []
+    generated_at = _format_generated_at(str(payload.get("generated_at", "")))
+    total_teams = int(payload.get("total_teams", 0) or 0)
+    total_clubs = int(payload.get("total_clubs", 0) or 0)
+
+    if not age_groups:
+        content = (
+            '<section class="empty-state">'
+            '<h2>Ingen lag er registrert ennå</h2>'
+            '<p>Oversikten oppdateres fortløpende når påmeldinger er godkjent.</p>'
+            '</section>'
+        )
+    else:
+        sections = []
+        for group in age_groups:
+            clubs = []
+            for club in group.get("clubs", []) or []:
+                teams = "".join(f"<li>{_e(team)}</li>" for team in club.get("teams", []) or [])
+                clubs.append(
+                    '<article class="club-card">'
+                    f'<h3>{_e(club.get("club", ""))}</h3>'
+                    f'<p>{int(club.get("team_count", 0) or 0)} lag</p>'
+                    f'<ul>{teams}</ul>'
+                    '</article>'
+                )
+            sections.append(
+                '<section class="age-group-card">'
+                '<div class="age-group-card__head">'
+                f'<h2>{_e(group.get("age_group", ""))}</h2>'
+                f'<span>{int(group.get("team_count", 0) or 0)} lag · {int(group.get("club_count", 0) or 0)} klubber</span>'
+                '</div>'
+                f'<div class="club-grid">{"".join(clubs)}</div>'
+                '</section>'
+            )
+        content = "\n".join(sections)
+
+    return f"""<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Påmeldte lag</title>
+<style>
+  :root {{ --bg:#f7fafc; --surface:#ffffff; --ink:#102033; --muted:#5b6f84; --line:#d7e2ec; --accent:#0b66c3; --accent-soft:#e5f1fc; --shadow:0 18px 45px rgba(15,23,42,.10); --radius:18px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }}
+  * {{ box-sizing:border-box; }}
+  body {{ margin:0; background:radial-gradient(circle at top left,#dceffd,transparent 28rem),var(--bg); color:var(--ink); line-height:1.5; }}
+  .wrap {{ width:min(1120px,100%); margin:0 auto; padding:clamp(16px,3vw,32px); }}
+  header {{ display:grid; gap:10px; margin-bottom:24px; }}
+  .eyebrow {{ color:#07477f; font-size:13px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }}
+  h1 {{ margin:0; font-size:clamp(32px,5vw,54px); letter-spacing:-.045em; line-height:1.03; }}
+  .lead {{ max-width:780px; margin:0; color:var(--muted); font-size:clamp(15px,2vw,18px); }}
+  .meta-grid {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:22px 0; }}
+  .metric, .age-group-card, .empty-state {{ background:rgba(255,255,255,.9); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); }}
+  .metric {{ padding:16px; }}
+  .metric span {{ display:block; color:var(--muted); font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }}
+  .metric strong {{ display:block; margin-top:4px; font-size:clamp(24px,4vw,36px); letter-spacing:-.04em; }}
+  .age-group-stack {{ display:grid; gap:16px; }}
+  .age-group-card {{ overflow:hidden; }}
+  .age-group-card__head {{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#fff,var(--accent-soft)); }}
+  .age-group-card h2 {{ margin:0; font-size:24px; }}
+  .age-group-card__head span {{ color:#07477f; font-weight:850; }}
+  .club-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; padding:16px; }}
+  .club-card {{ border:1px solid var(--line); border-radius:14px; background:var(--surface); padding:14px; }}
+  .club-card h3 {{ margin:0 0 2px; font-size:17px; }}
+  .club-card p {{ margin:0 0 10px; color:var(--muted); font-weight:750; }}
+  .club-card ul {{ margin:0; padding-left:20px; }}
+  .club-card li {{ margin:2px 0; }}
+  .empty-state {{ padding:32px; text-align:center; }}
+  .empty-state h2 {{ margin:0 0 8px; }}
+  .empty-state p {{ margin:0; color:var(--muted); }}
+  footer {{ margin-top:24px; color:var(--muted); font-size:14px; }}
+  a {{ color:var(--accent); font-weight:800; }}
+  @media (max-width:720px) {{ .meta-grid {{ grid-template-columns:1fr; }} .age-group-card__head {{ align-items:flex-start; flex-direction:column; }} }}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">RVV Hockey</div>
+    <h1>Påmeldte lag</h1>
+    <p class="lead">Offentlig oversikt over godkjente lagpåmeldinger. Påmeldingene kan endre seg frem til påmeldingsfristen, og siden oppdateres når nye lag er godkjent.</p>
+  </header>
+
+  <section class="meta-grid" aria-label="Nøkkeltall">
+    <div class="metric"><span>Lag totalt</span><strong>{total_teams}</strong></div>
+    <div class="metric"><span>Klubber</span><strong>{total_clubs}</strong></div>
+    <div class="metric"><span>Aldersgrupper</span><strong>{len(age_groups)}</strong></div>
+  </section>
+
+  <main class="age-group-stack">
+    {content}
+  </main>
+
+  <footer>
+    Sist oppdatert: <time datetime="{_e(str(payload.get('generated_at', '')))}">{_e(generated_at)}</time>.
+    Personopplysninger, kontaktfelt, SharePoint-ID-er, interne statuser og kommentarer publiseres ikke.
+    <a href="pameldte-lag.json">Last ned offentlig JSON</a>.
+  </footer>
+</div>
+</body>
+</html>
+"""
+
+
 def _build_public_payload(
     rows: Iterable[dict[str, str]],
     *,
@@ -218,6 +360,22 @@ def _load_configured_age_groups(config_path: str | Path | None) -> list[str]:
     if not isinstance(groups, list):
         return []
     return [_normalize_value(group) for group in groups if _normalize_value(group)]
+
+
+def _format_generated_at(value: str) -> str:
+    if not value:
+        return "ukjent tidspunkt"
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    return moment.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _e(value: Any) -> str:
+    return html.escape(str(value or ""), quote=True)
 
 
 def _canonical_header(value: Any) -> str:
