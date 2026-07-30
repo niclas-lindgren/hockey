@@ -140,6 +140,22 @@ A normal run can produce:
 
 With `--timestamped-export`, the same files are written into a timestamped subdirectory under `export/`.
 
+### Reproducible Stage 4 exports
+
+Stage 4 treats `generated_at` as content metadata. By default it uses the current UTC wall clock, but reproducible builds can pin the canonical content timestamp with `SOURCE_DATE_EPOCH`:
+
+```bash
+SOURCE_DATE_EPOCH=1735732800 scripts/rvv-miniputt run --resume-from 4 --export-dir export
+```
+
+The standalone Stage 4 entrypoint also accepts an explicit ISO-8601 or epoch value:
+
+```bash
+python3 -m tournament_scheduler.pipeline.stage4_export --build-timestamp 2025-01-01T12:00:00Z
+```
+
+That timestamp is used consistently for `generated_at`, timestamped export folder naming, and XLSX/ZIP metadata normalization. Identical Stage 3/input content plus the same build timestamp should produce identical exported public bytes and the same Pages bundle fingerprint; meaningful plan/content changes still change the affected file hashes. Operational audit times — run logs, publish history, approvals, git commit times, and rollback records — remain separate from this content identity and continue to record when an operation actually happened.
+
 ## Operator flows
 
 ### Cross-harness entrypoints
@@ -218,6 +234,7 @@ Useful flags:
 - `--iterations N` — run the Stage 3 planner with multiple random seeds and keep the best plan for that Stage 3 attempt (default: 1 everywhere). Seeds after the first inherit penalty hints from the best-scoring seed found so far's weak fairness metrics, rather than each seed being an equally blind restart — a seed that already passes the fairness gate stops the search early instead of burning the remaining budget. Increase this manually when plan quality needs a wider search.
 - `--mid-planning-critic-iterations N` — opt into a pre-export critic loop after Stage 3 and before Stage 4; the loop inspects `.pipeline/stage3_planning.json`, stores structured `planning_critic_hints`, reruns Stage 3 with numeric penalty hints from those findings, and repeats up to `N` times before export
 - `--timestamped-export` — write diffable exports into a timestamped folder only
+- `SOURCE_DATE_EPOCH=<epoch-seconds>` — pin Stage 4 content timestamps for reproducible export bytes and stable public bundle fingerprints
 
 ### Pre-export planning critic vs post-export refinement
 

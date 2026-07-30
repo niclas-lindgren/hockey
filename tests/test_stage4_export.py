@@ -14,6 +14,8 @@ from tournament_scheduler.html.html_exporter import HtmlExporter
 from tournament_scheduler.models import Game, Roster, SeasonPlan, Team, Tournament
 from tournament_scheduler.pipeline.cache_manager import ScrapedDataCache
 from tournament_scheduler.pipeline.not_started import NOT_STARTED_MESSAGE
+from tournament_scheduler.pipeline.pages_bundle import build_public_bundle
+from tournament_scheduler.pipeline.pages_publish import bundle_fingerprint
 from tournament_scheduler.pipeline.stage4_export import Stage4Error, _dict_to_plan, run
 from tournament_scheduler.pipeline.state import PipelineState, StageName, StageStatus
 
@@ -706,6 +708,48 @@ class TestRunStage4:
         hashes_b = _file_hashes(export_b)
         assert hashes_a == hashes_b
         assert any(name.endswith(".xlsx") for name in hashes_a)
+
+    def test_public_bundle_fingerprint_is_stable_for_unchanged_export_content(self, tmp_path):
+        build_timestamp = "2025-01-02T03:04:05+00:00"
+        export_a = tmp_path / "export-a"
+        export_b = tmp_path / "export-b"
+        export_c = tmp_path / "export-c"
+
+        run(
+            _make_plan_dict(),
+            PipelineState(tmp_path / "pipeline-a"),
+            export_dir=str(export_a),
+            timestamped_export=False,
+            build_timestamp=build_timestamp,
+        )
+        run(
+            _make_plan_dict(),
+            PipelineState(tmp_path / "pipeline-b"),
+            export_dir=str(export_b),
+            timestamped_export=False,
+            build_timestamp=build_timestamp,
+        )
+        changed_plan = _make_plan_dict()
+        changed_plan["plan"]["tournaments"][0]["arena"] = "Jarahallen"
+        run(
+            changed_plan,
+            PipelineState(tmp_path / "pipeline-c"),
+            export_dir=str(export_c),
+            timestamped_export=False,
+            build_timestamp=build_timestamp,
+        )
+
+        for source, target in (
+            (export_a, tmp_path / "public-a"),
+            (export_b, tmp_path / "public-b"),
+            (export_c, tmp_path / "public-c"),
+        ):
+            result = build_public_bundle(str(source), str(target))
+            assert result.status == "ok"
+
+        assert _file_hashes(tmp_path / "public-a") == _file_hashes(tmp_path / "public-b")
+        assert bundle_fingerprint(str(tmp_path / "public-a")) == bundle_fingerprint(str(tmp_path / "public-b"))
+        assert bundle_fingerprint(str(tmp_path / "public-a")) != bundle_fingerprint(str(tmp_path / "public-c"))
 
     def test_export_metadata_includes_generation_timestamp_and_input_path(self, tmp_path):
         input_path = tmp_path / "input.xlsx"
