@@ -10,7 +10,7 @@
 - [x] Link the handover guide from operator-facing docs
   - Files: README.md, docs/rvv-miniputt-deployment-architecture.md, docs/ai-operator-product-direction.md
   - Approach: Add concise links from existing operator/deployment documentation so volunteers can find the ownership and recovery guidance without changing RVV Miniputt scheduling behavior.
-- [ ] Add documentation coverage checks
+- [x] Add documentation coverage checks
   - Files: tests/test_ownership_handover_doc.py
   - Approach: Add pytest coverage that verifies the guide exists and contains the required inventory, roles, managed secrets, annual review, emergency recovery, and dry-run sections so future edits do not remove the handover-critical content.
 
@@ -29,6 +29,13 @@
 ## Log
 
 
+
+### 2026-07-30 — Add documentation coverage checks
+**Done:** Added pytest coverage for the ownership handover guide's inventory dependencies, handover-critical sections, and links from operator-facing docs.
+**Rationale:** The issue is documentation-heavy; regression tests keep future edits from removing the operational handover content needed for bus-factor reduction.
+**Findings:** Targeted pytest passes; untracked-file aware git status was needed because review/drift tools do not report new unstaged files until staged.
+**Files:** tests/test_ownership_handover_doc.py (new), .ps-next/PLAN.md
+**Commit:** not committed
 ### 2026-07-30 — Link the handover guide from operator-facing docs
 **Done:** Linked docs/ownership-and-handover.md from the README's primary documentation list and More documentation section, plus the deployment architecture and AI operator product direction docs.
 **Rationale:** Volunteers need to find the handover guide from operator-facing entry points, not by knowing the new file name.
