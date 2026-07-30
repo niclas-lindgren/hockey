@@ -33,6 +33,8 @@ Common Make targets and their direct equivalents:
 | Raw four-stage pipeline | `make run ARGS='--input input.xlsx'` | `scripts/rvv-miniputt run --input input.xlsx` |
 | Status/log inspection | `make status`, `make logs` | `scripts/rvv-miniputt status`, `scripts/rvv-miniputt logs list` |
 | Calendar report | `make calendars`, `make calendars-refresh` | `scripts/rvv-miniputt calendars`, `scripts/rvv-miniputt calendars --refresh` |
+| Påmeldte lag page | `make registered-teams CSV=downloads/Miniputt-26-27.csv` | `scripts/rvv-miniputt registered-teams --csv downloads/Miniputt-26-27.csv` |
+| Publish Påmeldte lag | `make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt registered-teams --csv downloads/Miniputt-26-27.csv --publish --confirm-public` |
 | Source health | `make sources-status` | `scripts/rvv-miniputt sources status` |
 | Pending questions | `make questions`, `make questions-all` | `scripts/rvv-miniputt operator questions [--all]` |
 | Record a decision | `make answer ID=<id> ANSWER='<answer>'` | `scripts/rvv-miniputt operator answer <id> '<answer>'` |
@@ -46,6 +48,15 @@ Common Make targets and their direct equivalents:
 | Guarded release | `make release-dry-run TAG=vX.Y.Z`, `make release TAG=vX.Y.Z` | `scripts/release --dry-run vX.Y.Z`, `scripts/release vX.Y.Z` |
 
 `ARGS='...'` is appended to the relevant underlying CLI command for normal option forwarding. Mutating targets retain explicit gates: `make publish` and `make rollback` require `CONFIRM_PUBLIC=1`, and release creation goes through `scripts/release` rather than raw `git tag`/`git push`. `make`, `make help`, `make run`, and `make operator-run` never publish publicly.
+
+Reviewed registrations from Microsoft Forms/Power Automate/SharePoint can also be published as a standalone **Påmeldte lag** page without generating a season plan or changing `input.xlsx`:
+
+```bash
+make registered-teams CSV=downloads/Miniputt-26-27.csv
+make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1
+```
+
+This validates a SharePoint CSV with `club,label,age_group`, writes review artifacts under `registered-teams/` (`pameldte-lag.html`, public `pameldte-lag.json`, and a private validation report), stages it on top of the current GitHub Pages `/latest/` snapshot, and publishes only after the same public-confirmation/sanitization safeguards as other Pages updates. Extra SharePoint columns such as contact details, IDs, internal statuses, and comments are ignored by default and are not included in the public page or JSON.
 
 Reviewed registrations from Microsoft Forms/Power Automate/SharePoint should be exported as CSV/XLSX and converted into a controlled workbook snapshot before planning:
 

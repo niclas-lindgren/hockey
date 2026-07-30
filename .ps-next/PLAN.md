@@ -13,7 +13,7 @@
 - [x] Wire CLI, Make targets, and Pages publication staging
   - Files: tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/pipeline/registered_teams.py, tournament_scheduler/pipeline/pages_bundle.py, Makefile, tests/test_registered_teams_publish.py, tests/test_pages_bundle.py
   - Approach: Add `rvv-miniputt registered-teams` with generation and guarded `--publish --confirm-public` behavior mirroring the activity-calendar overlay-on-latest workflow; add public bundle allowlist for registered-teams artifacts and thin Make targets `registered-teams`/`registered-teams-publish`.
-- [ ] Document operator workflow and verify end-to-end behavior
+- [x] Document operator workflow and verify end-to-end behavior
   - Files: README.md, .ps-next/PLAN.md
   - Approach: Add the registered-team workflow to the operator command table and standalone content-update guidance, then run targeted pytest plus a broader quality gate and mechanical acceptance verification.
 
@@ -34,12 +34,19 @@ Public artifacts must include only club, label, age_group, public counts, and ge
 
 
 
+
+### 2026-07-30 — Document operator workflow and verify end-to-end behavior
+**Done:** Documented the Påmeldte lag Make/CLI workflow in README, updated prior task commit metadata in PLAN, and verified the Make preview command, targeted tests, grep checks, plan validation, safety scan, diff review, plan drift, and standard quality gate.
+**Rationale:** The operator-facing README now presents this as a routine standalone content update and the final verification evidence is captured before archive.
+**Findings:** The standalone Make preview generates the header-only empty state into the requested review directory without publishing.
+**Files:** README.md, .ps-next/PLAN.md
+**Commit:** a0098ee
 ### 2026-07-30 — Wire CLI, Make targets, and Pages publication staging
 **Done:** Added the `registered-teams` CLI command, Make targets, staging-on-current-latest publication preparation, Pages bundle allowlisting for registered-teams public artifacts, and tests for CLI preview/staging/bundle privacy behavior.
 **Rationale:** Mirroring the activity-calendar overlay flow preserves unrelated Pages files, keeps Make thin, and reuses the existing guarded operator publish path for confirmation, sanitization, idempotent publication, and verification.
 **Findings:** `registered-teams/validation-report.json` is generated for local review but explicitly excluded from the public Pages bundle so source fingerprints and validation metadata are not published.
 **Files:** tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tournament_scheduler/pipeline/registered_teams.py, tournament_scheduler/pipeline/pages_bundle.py, Makefile, tests/test_registered_teams_publish.py, tests/test_pages_bundle.py, .ps-next/PLAN.md
-**Commit:** not committed
+**Commit:** fae4b9c
 ### 2026-07-30 — Render standalone Påmeldte lag artifacts
 **Done:** Added artifact generation for registered-teams/pameldte-lag.html, pameldte-lag.json, and validation-report.json with a responsive static Norwegian HTML page, counts/grouping, empty state, escaped values, and public/private data separation.
 **Rationale:** The generator writes reviewable local artifacts first, with public JSON and HTML separated from the richer private validation report so publishing can later preserve privacy boundaries.
