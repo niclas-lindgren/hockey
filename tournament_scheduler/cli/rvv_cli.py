@@ -420,6 +420,36 @@ def _cmd_sources(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_registrations(args: argparse.Namespace) -> int:
+    """Handle reviewed SharePoint registration import commands."""
+    from ..registrations import (
+        RegistrationImportError,
+        export_registrations,
+        format_registration_summary,
+        validate_registrations,
+    )
+
+    try:
+        if args.registrations_command == "validate":
+            result = validate_registrations(args.source, input_path=args.input)
+        elif args.registrations_command == "export":
+            result = export_registrations(
+                args.source,
+                input_path=args.input,
+                output_path=args.output,
+                dry_run=getattr(args, "dry_run", False),
+            )
+        else:
+            _console.print("[yellow]Bruk: rvv-miniputt registrations validate|export[/yellow]")
+            return 1
+    except RegistrationImportError as exc:
+        _console.print(f"[red]✗[/red] {exc}")
+        return 1
+
+    _console.print(f"[green]✓[/green] {format_registration_summary(result)}")
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # tournament subcommand handlers
 # ---------------------------------------------------------------------------
@@ -1053,6 +1083,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_operator(args)
     elif args.command == "sources":
         return _cmd_sources(args)
+    elif args.command == "registrations":
+        return _cmd_registrations(args)
     elif args.command == "logs":
         return _cmd_logs(args)
     elif args.command == "cancel":

@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import csv
 import hashlib
 import os
 import subprocess
 import sys
 from pathlib import Path
+
+import openpyxl
 
 from tournament_scheduler.cli.args import build_parser
 from tournament_scheduler.cli.reporting import _build_status_text
@@ -117,6 +120,111 @@ def test_status_marks_downstream_stale_when_input_workbook_fingerprint_changes(t
     assert "stale from config" in output
     assert "Stage 4 (Export): failed" in output
     assert PipelineState(work_dir).is_stale(StageName.EXPORT)
+
+
+def test_registrations_parser_accepts_validate_and_export_commands() -> None:
+    validate_args = build_parser().parse_args(
+        ["registrations", "validate", "sharepoint.csv", "--input", "input.xlsx"]
+    )
+    assert validate_args.command == "registrations"
+    assert validate_args.registrations_command == "validate"
+    assert validate_args.source == "sharepoint.csv"
+    assert validate_args.input == "input.xlsx"
+
+    export_args = build_parser().parse_args(
+        [
+            "registrations",
+            "export",
+            "sharepoint.xlsx",
+            "--input",
+            "input.xlsx",
+            "--output",
+            "input.updated.xlsx",
+            "--dry-run",
+        ]
+    )
+    assert export_args.registrations_command == "export"
+    assert export_args.output == "input.updated.xlsx"
+    assert export_args.dry_run is True
+
+
+def test_registrations_cli_validates_and_exports_without_leaking_contact_fields(tmp_path) -> None:
+    input_path = tmp_path / "input.xlsx"
+    wb = openpyxl.Workbook()
+    settings = wb.active
+    settings.title = "Innstillinger"
+    settings.append(["felt", "verdi"])
+    settings.append(["start_date", "2026-10-01"])
+    settings.append(["end_date", "2027-04-30"])
+    age_groups = wb.create_sheet("Aldersgrupper")
+    age_groups.append(["age_group", "parallel_games"])
+    age_groups.append(["U10", 3])
+    teams = wb.create_sheet("Lag")
+    teams.append(["club", "label", "age_group"])
+    teams.append(["Kongsberg", "Kongsberg 1", "U10"])
+    wb.save(input_path)
+
+    registrations = tmp_path / "sharepoint.csv"
+    with open(registrations, "w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["SharePoint ID", "Klubb", "Lag", "Aldergruppe", "Status", "Kontakt", "Kommentar"],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "SharePoint ID": "42",
+                "Klubb": "Kongsberg",
+                "Lag": "Kongsberg 1",
+                "Aldergruppe": "U10",
+                "Status": "Godkjent",
+                "Kontakt": "private@example.test",
+                "Kommentar": "do not publish",
+            }
+        )
+
+    validate = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "tournament_scheduler.cli.rvv_cli",
+            "registrations",
+            "validate",
+            str(registrations),
+            "--input",
+            str(input_path),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "Aktive lag: 1" in validate.stdout
+    assert "private@example.test" not in validate.stdout
+    assert "do not publish" not in validate.stdout
+
+    output_path = tmp_path / "input.updated.xlsx"
+    export = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "tournament_scheduler.cli.rvv_cli",
+            "registrations",
+            "export",
+            str(registrations),
+            "--input",
+            str(input_path),
+            "--output",
+            str(output_path),
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "Skrev arbeidsbok" in export.stdout
+    assert output_path.exists()
+    assert output_path.with_suffix(".registrations.audit.json").exists()
 
 
 def test_logs_list_subcommand_is_available_from_python_cli(tmp_path) -> None:

@@ -7,7 +7,7 @@
 - [x] Add registration import domain module
   - Files: tournament_scheduler/registrations.py, tests/test_registrations.py
   - Approach: Search existing workbook-loading patterns, then implement CSV/XLSX parsing, column/status validation, duplicate/ambiguity checks, active-team normalization, dry-run diff generation, workbook `Lag` sheet replacement, provenance audit writing, and focused pytest coverage with temporary workbooks.
-- [ ] Wire registration commands into the RVV CLI
+- [x] Wire registration commands into the RVV CLI
   - Files: tournament_scheduler/cli/args.py, tournament_scheduler/cli/rvv_cli.py, tests/test_rvv_cli_portability.py
   - Approach: Add `registrations validate` and `registrations export` subcommands that call the domain module, validate required CLI arguments, preserve exit codes, support `--dry-run`, and print concise Norwegian summaries without exposing contact/comment fields by default.
 - [ ] Document the SharePoint export workflow
@@ -34,6 +34,13 @@ Existing workbook conventions live in `tournament_scheduler/pipeline/input_workb
 
 ## Log
 
+
+### 2026-07-30 — Wire registration commands into the RVV CLI
+**Done:** Added `rvv-miniputt registrations validate` and `rvv-miniputt registrations export` parser/dispatcher wiring. Commands call the shared registration module, preserve nonzero exits on validation errors, support `--dry-run`, and render concise Norwegian summaries that omit contact/comment details. Added CLI parser and subprocess coverage.
+**Rationale:** The CLI remains a thin adapter over the new registration domain module, so future browser/GitHub Actions/operator surfaces can reuse the same deterministic import policy.
+**Findings:** The existing `scripts/rvv-miniputt` launcher works for the new command through the Python CLI parser; focused subprocess tests cover validate/export behavior and privacy-safe summaries.
+**Files:** tournament_scheduler/cli/args.py (+registrations subcommands), tournament_scheduler/cli/rvv_cli.py (+_cmd_registrations), tests/test_rvv_cli_portability.py (+CLI coverage). Targeted check: pytest tests/test_registrations.py tests/test_rvv_cli_portability.py (16 passed).
+**Commit:** not committed
 ### 2026-07-30 — Add registration import domain module
 **Done:** Implemented a deterministic registration import domain module with CSV/XLSX parsing, SharePoint-ID/status validation, active/rejected row separation, duplicate and controlled-value checks, dry-run diffing, Lag-sheet replacement, audit JSON output, and CLI-safe summary formatting. Added focused pytest coverage for CSV/XLSX validation, dry-run diffs, workbook preservation/privacy, duplicates, unknown statuses/values, and missing columns.
 **Rationale:** Keeping parsing, validation, diffing, workbook mutation, and audit generation in a transport-independent module lets CLI/GitHub Actions/desktop adapters share one deterministic registration workflow without duplicating policy.

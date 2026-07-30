@@ -694,6 +694,45 @@ def build_parser() -> argparse.ArgumentParser:
     logs_stats = logs_sub.add_parser("stats", help="Show aggregate run statistics")
     logs_stats.add_argument("--work-dir", default=".pipeline", help=argparse.SUPPRESS)
 
+    # registrations — reviewed SharePoint List export -> controlled input.xlsx snapshot
+    registrations = sub.add_parser(
+        "registrations",
+        help="Validate or export reviewed SharePoint registrations into the Lag sheet of input.xlsx",
+    )
+    registrations_sub = registrations.add_subparsers(dest="registrations_command")
+
+    registrations_validate = registrations_sub.add_parser(
+        "validate",
+        help="Validate a reviewed SharePoint CSV/XLSX export without writing a workbook",
+    )
+    registrations_validate.add_argument("source", help="Reviewed SharePoint List export (.csv/.xlsx)")
+    registrations_validate.add_argument(
+        "--input",
+        required=True,
+        help="Controlled pipeline input workbook to validate against (input.xlsx)",
+    )
+
+    registrations_export = registrations_sub.add_parser(
+        "export",
+        help="Create an updated input workbook with only Lag replaced from approved registrations",
+    )
+    registrations_export.add_argument("source", help="Reviewed SharePoint List export (.csv/.xlsx)")
+    registrations_export.add_argument(
+        "--input",
+        required=True,
+        help="Controlled pipeline input workbook to copy and update",
+    )
+    registrations_export.add_argument(
+        "--output",
+        required=True,
+        help="Output workbook path for the updated controlled input snapshot",
+    )
+    registrations_export.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show validation/diff summary without writing the output workbook or audit artifact",
+    )
+
     # scrape — single-club troubleshooting
     scrape = sub.add_parser("scrape", help="Scrape a single club's calendar for troubleshooting")
     scrape.add_argument(
