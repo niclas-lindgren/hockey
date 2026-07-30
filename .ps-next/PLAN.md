@@ -10,7 +10,7 @@
 - [x] Wire operator CLI handlers through the application layer
   - Files: tournament_scheduler/cli/rvv_cli.py, tests/test_escalation.py, tests/test_manifest_persistence.py
   - Approach: Keep current public output and argparse contracts, but have questions/answer/promote/health handlers call the new application functions; use a local operator subcommand handler map so patched handler functions in existing tests still route correctly.
-- [ ] Document and enforce the architecture boundary slice
+- [x] Document and enforce the architecture boundary slice
   - Files: docs/application-architecture.md, tests/test_application_architecture.py
   - Approach: Document dependency rules and examples for adding a use case; add lightweight import-boundary tests that prevent application modules from importing CLI, Rich console, desktop HTTP, or subprocess transport code.
 
@@ -29,6 +29,13 @@
 ## Log
 
 
+
+### 2026-07-30 — Document and enforce the architecture boundary slice
+**Done:** Added the application architecture guide and static import-boundary tests for application modules.
+**Rationale:** The migration needs explicit dependency rules and an automated guardrail so future slices do not pull transport/Rich/desktop concerns into the use-case layer.
+**Findings:** The current application modules only import DTOs and pipeline persistence APIs, so they satisfy the new boundary test.
+**Files:** docs/application-architecture.md (new); tests/test_application_architecture.py (new); .ps-next/PLAN.md updated
+**Commit:** not committed
 ### 2026-07-30 — Wire operator CLI handlers through the application layer
 **Done:** Rewired `operator questions`, `answer`, `promote`, and `health` CLI handlers to call typed application use cases, and replaced the operator subcommand if/elif chain with a local handler registry.
 **Rationale:** The CLI now renders/transports application results instead of directly owning operator-state persistence policy, while the local registry keeps existing monkeypatch-based dispatch tests working.
