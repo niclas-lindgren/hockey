@@ -7,7 +7,7 @@
 - [x] Add typed operator state/question use cases
   - Files: tournament_scheduler/application/__init__.py, tournament_scheduler/application/dto.py, tournament_scheduler/application/operator_state.py, tests/test_application_operator_state.py
   - Approach: Create dataclass DTOs/results for operator questions and manifest health, wrap existing pipeline escalation/run-manifest APIs in pure in-process functions, and test them with temporary work directories without CLI/Rich/HTTP imports.
-- [ ] Wire operator CLI handlers through the application layer
+- [x] Wire operator CLI handlers through the application layer
   - Files: tournament_scheduler/cli/rvv_cli.py, tests/test_escalation.py, tests/test_manifest_persistence.py
   - Approach: Keep current public output and argparse contracts, but have questions/answer/promote/health handlers call the new application functions; use a local operator subcommand handler map so patched handler functions in existing tests still route correctly.
 - [ ] Document and enforce the architecture boundary slice
@@ -28,6 +28,13 @@
 
 ## Log
 
+
+### 2026-07-30 — Wire operator CLI handlers through the application layer
+**Done:** Rewired `operator questions`, `answer`, `promote`, and `health` CLI handlers to call typed application use cases, and replaced the operator subcommand if/elif chain with a local handler registry.
+**Rationale:** The CLI now renders/transports application results instead of directly owning operator-state persistence policy, while the local registry keeps existing monkeypatch-based dispatch tests working.
+**Findings:** Existing CLI output and JSON contracts were preserved by converting DTOs back to dictionaries at the transport boundary.
+**Files:** tournament_scheduler/cli/rvv_cli.py (+53/-60); .ps-next/PLAN.md updated
+**Commit:** not committed
 ### 2026-07-30 — Add typed operator state/question use cases
 **Done:** Added a typed application package slice for operator question listing/answering/promotion and manifest health checks, with DTO round-tripping and direct use-case tests.
 **Rationale:** This moves operator-state policy behind an in-process application API before adapters are rewired, matching the first incremental step of GitHub issue #44 without changing public CLI behavior.

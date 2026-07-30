@@ -21,6 +21,12 @@ from typing import Sequence
 
 from rich.console import Console
 
+from ..application.operator_state import (
+    check_operator_health,
+    list_operator_questions,
+    promote_operator_question,
+    record_operator_answer,
+)
 from .args import build_parser as _build_parser
 from .pipeline_orchestrator import (
     _cmd_calendars,
@@ -277,24 +283,20 @@ def _cmd_activities(args: argparse.Namespace) -> int:
 
 def _cmd_operator(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt operator ...`` — dispatches to sub-subcommands."""
-    if args.operator_command == "run":
-        return _cmd_operator_run(args)
-    elif args.operator_command == "questions":
-        return _cmd_operator_questions(args)
-    elif args.operator_command == "answer":
-        return _cmd_operator_answer(args)
-    elif args.operator_command == "promote":
-        return _cmd_operator_promote(args)
-    elif args.operator_command == "health":
-        return _cmd_operator_health(args)
-    elif args.operator_command == "publish":
-        return _cmd_operator_publish(args)
-    elif args.operator_command == "verify":
-        return _cmd_operator_verify(args)
-    elif args.operator_command == "rollback":
-        return _cmd_operator_rollback(args)
-    elif args.operator_command == "publish-history":
-        return _cmd_operator_publish_history(args)
+    handlers = {
+        "run": _cmd_operator_run,
+        "questions": _cmd_operator_questions,
+        "answer": _cmd_operator_answer,
+        "promote": _cmd_operator_promote,
+        "health": _cmd_operator_health,
+        "publish": _cmd_operator_publish,
+        "verify": _cmd_operator_verify,
+        "rollback": _cmd_operator_rollback,
+        "publish-history": _cmd_operator_publish_history,
+    }
+    handler = handlers.get(args.operator_command)
+    if handler is not None:
+        return handler(args)
     _console.print(
         "[yellow]Bruk: rvv-miniputt operator run|questions|answer|promote|health|publish|verify|"
         "rollback|publish-history[/yellow]"
@@ -308,14 +310,12 @@ def _cmd_operator_questions(args: argparse.Namespace) -> int:
     Defaults to unanswered questions only, matching the pre-#12 behavior;
     ``--all`` also includes answered and stale ones (the full audit trail).
     """
-    from ..pipeline.escalation import all_questions, unanswered_questions
-
-    questions = all_questions(args.work_dir) if getattr(args, "all", False) else unanswered_questions(args.work_dir)
+    questions = list_operator_questions(args.work_dir, include_all=getattr(args, "all", False))
 
     if getattr(args, "json", False):
         import json as _json
 
-        print(_json.dumps(questions, indent=2, ensure_ascii=False))
+        print(_json.dumps([question.to_dict() for question in questions], indent=2, ensure_ascii=False))
         return 0
 
     if not questions:
@@ -324,43 +324,40 @@ def _cmd_operator_questions(args: argparse.Namespace) -> int:
 
     _console.print(f"[bold]Spørsmål[/bold] ({len(questions)})\n")
     for question in questions:
-        marker = "[yellow]?[/yellow]" if not question.get("answered") else "[green]✓[/green]"
-        _console.print(f"{marker} ({question.get('type')}) {question.get('summary')}")
-        _console.print(f"    id: [dim]{question.get('id')}[/dim]")
-        scope = question.get("scope", "workspace")
-        if scope != "workspace":
-            _console.print(f"    [dim]scope: {scope} ({question.get('scope_key')})[/dim]")
-        if question.get("stale"):
-            _console.print(f"    [red]FORELDET:[/red] {question.get('stale_reason')}")
-        if question.get("answered"):
-            _console.print(f"    [green]Svar: {question.get('answer')}[/green]")
-        if question.get("context"):
-            _console.print(f"    Kontekst: {question['context']}")
-        if question.get("recommendation"):
-            _console.print(f"    [cyan]Anbefaling: {question['recommendation']}[/cyan]")
-        if question.get("impact"):
-            _console.print(f"    Konsekvens: {question['impact']}")
-        for alt in question.get("alternatives") or []:
+        marker = "[yellow]?[/yellow]" if not question.answered else "[green]✓[/green]"
+        _console.print(f"{marker} ({question.type}) {question.summary}")
+        _console.print(f"    id: [dim]{question.id}[/dim]")
+        if question.scope != "workspace":
+            _console.print(f"    [dim]scope: {question.scope} ({question.scope_key})[/dim]")
+        if question.stale:
+            _console.print(f"    [red]FORELDET:[/red] {question.stale_reason}")
+        if question.answered:
+            _console.print(f"    [green]Svar: {question.answer}[/green]")
+        if question.context:
+            _console.print(f"    Kontekst: {question.context}")
+        if question.recommendation:
+            _console.print(f"    [cyan]Anbefaling: {question.recommendation}[/cyan]")
+        if question.impact:
+            _console.print(f"    Konsekvens: {question.impact}")
+        for alt in question.alternatives:
             _console.print(f"    · {alt}")
-        if not question.get("answered"):
-            _console.print(f"    [dim]Svar med: rvv-miniputt operator answer {question.get('id')} \"<svar>\"[/dim]")
+        if not question.answered:
+            _console.print(f"    [dim]Svar med: rvv-miniputt operator answer {question.id} \"<svar>\"[/dim]")
         _console.print("")
     return 0
 
 
 def _cmd_operator_answer(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt operator answer <id> <answer>`` — record a durable decision."""
-    from ..pipeline.escalation import answer_question
-
     try:
-        entry = answer_question(
+        entry = record_operator_answer(
             args.work_dir, args.question_id, args.answer, decided_by=getattr(args, "decided_by", None)
         )
     except ValueError as exc:
         _console.print(f"[red]✗[/red] {exc}")
         return 1
 
-    _console.print(f"[green]✓[/green] Registrert svar på spørsmål {entry['id']}: {entry['answer']}")
+    _console.print(f"[green]✓[/green] Registrert svar på spørsmål {entry.id}: {entry.answer}")
     _console.print(
         "[dim]Kjør 'rvv-miniputt operator run' på nytt for å fortsette der pipelinen stoppet.[/dim]"
     )
@@ -369,14 +366,12 @@ def _cmd_operator_answer(args: argparse.Namespace) -> int:
 
 def _cmd_operator_promote(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt operator promote <id> <scope>`` — broaden a decision's scope (issue #12)."""
-    from ..pipeline.escalation import promote_question
-
     try:
-        entry = promote_question(
+        entry = promote_operator_question(
             args.work_dir,
             args.question_id,
             args.scope,
-            new_scope_key=getattr(args, "scope_key", "") or "",
+            scope_key=getattr(args, "scope_key", "") or "",
             decided_by=getattr(args, "decided_by", None),
         )
     except ValueError as exc:
@@ -384,33 +379,31 @@ def _cmd_operator_promote(args: argparse.Namespace) -> int:
         return 1
 
     _console.print(
-        f"[green]✓[/green] Forfremmet spørsmål {args.question_id} til scope '{entry['scope']}' (ny id: {entry['id']})"
+        f"[green]✓[/green] Forfremmet spørsmål {args.question_id} til scope '{entry.scope}' (ny id: {entry.id})"
     )
     return 0
 
 
 def _cmd_operator_health(args: argparse.Namespace) -> int:
     """Handle ``rvv-miniputt operator health`` — the operator-state health check (issue #14)."""
-    from ..pipeline.run_manifest import RunManifest
-
-    result = RunManifest(args.work_dir).check_health()
+    result = check_operator_health(args.work_dir)
 
     if getattr(args, "json", False):
         import json as _json
 
-        print(_json.dumps(result, indent=2, ensure_ascii=False))
-        return 0 if result["healthy"] else 1
+        print(_json.dumps(result.to_dict(), indent=2, ensure_ascii=False))
+        return result.exit_code
 
-    if result["healthy"]:
+    if result.healthy:
         _console.print("[green]✓[/green] Run manifest er sunn og skrivbar.")
         return 0
-    if result["writable"]:
-        _console.print(f"[yellow]⚠[/yellow] Run manifest ble gjenopprettet: {result['detail']}")
-        recovery = result.get("manifest_recovery") or {}
+    if result.writable:
+        _console.print(f"[yellow]⚠[/yellow] Run manifest ble gjenopprettet: {result.detail}")
+        recovery = result.manifest_recovery or {}
         if recovery.get("backup_path"):
             _console.print(f"    [dim]Sikkerhetskopi av skadet fil: {recovery['backup_path']}[/dim]")
         return 1
-    _console.print(f"[red]✗[/red] Run manifest kan ikke skrives: {result['detail']}")
+    _console.print(f"[red]✗[/red] Run manifest kan ikke skrives: {result.detail}")
     return 1
 
 
