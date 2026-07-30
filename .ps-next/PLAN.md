@@ -13,7 +13,7 @@
 - [x] Document the SharePoint export workflow
   - Files: docs/rvv-miniputt-input-formats.md, docs/rvv-miniputt-pipeline.md, README.md
   - Approach: Document expected SharePoint CSV/XLSX columns, status handling, dry-run/export commands, audit artifacts, privacy behavior, and link the workflow from operator-facing docs.
-- [ ] Run verification and archive the plan
+- [x] Run verification and archive the plan
   - Files: tests/test_registrations.py, tests/test_rvv_cli_portability.py, .ps-next/VERIFY.md
   - Approach: Run targeted tests for registrations and CLI portability, run the pi-next quality gate where feasible, verify acceptance criteria, and archive/record the completed GitHub issue plan.
 
@@ -36,6 +36,13 @@ Existing workbook conventions live in `tournament_scheduler/pipeline/input_workb
 
 
 
+
+### 2026-07-30 — Run verification and archive the plan
+**Done:** Ran the targeted registration/CLI tests, validated PLAN.md structure, ran the quick pi-next quality gate, and prepared the plan for final acceptance verification/archive.
+**Rationale:** The new registration workflow is covered by focused tests and the broader non-slow/non-integration Python suite, so the remaining step is mechanical acceptance verification and archive.
+**Findings:** Checks passed: `pytest tests/test_registrations.py tests/test_rvv_cli_portability.py` (16 passed); `pi_next_quality_gate(level=quick)` ran `python3 -m pytest -q -m "not slow and not integration"` (1211 passed, 1 skipped, 26 deselected).
+**Files:** No source changes in this task; verification operated on tests/test_registrations.py, tests/test_rvv_cli_portability.py, and plan state.
+**Commit:** not committed
 ### 2026-07-30 — Document the SharePoint export workflow
 **Done:** Documented the reviewed SharePoint CSV/XLSX import workflow, required/alias columns, active/rejected status handling, dry-run/export commands, audit sidecar, privacy behavior, and administrative-sheet preservation in the input formats guide, pipeline guide, and README.
 **Rationale:** Operators need to understand the supported Power Automate → SharePoint List → reviewed export → controlled `input.xlsx` path before using the new CLI commands in routine registration work.
