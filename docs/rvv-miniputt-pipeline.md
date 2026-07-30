@@ -211,6 +211,8 @@ Pi-only features remain the interactive guide and extension-managed tool wrapper
 | Forced goal-oriented run | `make operator-run-force` | `scripts/rvv-miniputt operator run --force` |
 | Status and logs | `make status`, `make logs` | `scripts/rvv-miniputt status`, `scripts/rvv-miniputt logs list` |
 | Calendar reports | `make calendars`, `make calendars-refresh` | `scripts/rvv-miniputt calendars`, `scripts/rvv-miniputt calendars --refresh` |
+| Påmeldte lag page | `make registered-teams CSV=downloads/Miniputt-26-27.csv` | `scripts/rvv-miniputt registered-teams --csv downloads/Miniputt-26-27.csv` |
+| Publish Påmeldte lag | `make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt registered-teams --csv downloads/Miniputt-26-27.csv --publish --confirm-public` |
 | Source health | `make sources-status` | `scripts/rvv-miniputt sources status` |
 | Human questions | `make questions`, `make questions-all` | `scripts/rvv-miniputt operator questions [--all]` |
 | Human answer | `make answer ID=<id> ANSWER='<answer>'` | `scripts/rvv-miniputt operator answer <id> '<answer>'` |
@@ -222,6 +224,19 @@ Pi-only features remain the interactive guide and extension-managed tool wrapper
 | Release | `make release-dry-run TAG=vX.Y.Z`, `make release TAG=vX.Y.Z` | `scripts/release --dry-run vX.Y.Z`, `scripts/release vX.Y.Z` |
 
 Publication and rollback default to non-mutating preview paths unless `CONFIRM_PUBLIC=1` is supplied to the mutating target. Release tagging is handled by `scripts/release`; the Makefile does not call raw `git tag` or `git push`.
+
+### Standalone Påmeldte lag update
+
+Reviewed SharePoint registrations can be published without running Stage 1–4, changing `input.xlsx`, or regenerating the activity calendar:
+
+```bash
+make registered-teams CSV=downloads/Miniputt-26-27.csv
+make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1
+```
+
+The command validates the public `club,label,age_group` CSV fields, ignores extra SharePoint/contact/status/comment columns, writes review artifacts under `registered-teams/`, and stages the result on top of the current Pages `/latest/` snapshot so unrelated season-plan and activity files remain in place. The public page path for WordPress links or iframes is:
+
+- `https://niclas-lindgren.github.io/hockey/latest/registered-teams/pameldte-lag.html`
 
 ### Browser-based GitHub Actions flow
 

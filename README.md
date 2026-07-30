@@ -56,7 +56,7 @@ make registered-teams CSV=downloads/Miniputt-26-27.csv
 make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1
 ```
 
-This validates a SharePoint CSV with `club,label,age_group`, writes review artifacts under `registered-teams/` (`pameldte-lag.html`, public `pameldte-lag.json`, and a private validation report), stages it on top of the current GitHub Pages `/latest/` snapshot, and publishes only after the same public-confirmation/sanitization safeguards as other Pages updates. Extra SharePoint columns such as contact details, IDs, internal statuses, and comments are ignored by default and are not included in the public page or JSON.
+This validates a SharePoint CSV with `club,label,age_group`, writes review artifacts under `registered-teams/` (`pameldte-lag.html`, public `pameldte-lag.json`, and a private validation report), stages it on top of the current GitHub Pages `/latest/` snapshot, and publishes only after the same public-confirmation/sanitization safeguards as other Pages updates. Extra SharePoint columns such as contact details, IDs, internal statuses, and comments are ignored by default and are not included in the public page or JSON. The public link for WordPress is `https://niclas-lindgren.github.io/hockey/latest/registered-teams/pameldte-lag.html`.
 
 Reviewed registrations from Microsoft Forms/Power Automate/SharePoint should be exported as CSV/XLSX and converted into a controlled workbook snapshot before planning:
 
