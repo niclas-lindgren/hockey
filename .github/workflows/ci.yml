@@ -21,6 +21,20 @@ env:
   PYTHON_VERSION: "3.12"
 
 jobs:
+  dependency-lock:
+    name: Python dependency lock freshness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Verify committed lock is fresh
+        run: scripts/check dependency-lock
+
   python-quick-tests:
     name: Python quick test suite
     runs-on: ubuntu-latest
@@ -33,14 +47,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements.lock
             pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[test]'
+          pip install --require-hashes -r requirements.lock
+          pip install --no-deps -e .
 
       - name: Run quick test suite
         run: scripts/check quick
@@ -65,14 +79,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements.lock
             pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[test]'
+          pip install --require-hashes -r requirements.lock
+          pip install --no-deps -e .
 
       - name: Run operator control-path tests
         run: scripts/check operator
@@ -89,14 +103,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements.lock
             pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[test]'
+          pip install --require-hashes -r requirements.lock
+          pip install --no-deps -e .
 
       - name: Run reproducibility fixture
         run: scripts/check reproducibility
@@ -121,14 +135,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements.lock
             pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[test]'
+          pip install --require-hashes -r requirements.lock
+          pip install --no-deps -e .
 
       - name: Run CLI smoke test
         run: scripts/check cli-smoke
@@ -153,14 +167,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements.lock
             pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[test]'
+          pip install --require-hashes -r requirements.lock
+          pip install --no-deps -e .
 
       - name: Run desktop backend smoke test
         run: scripts/check desktop-backend
@@ -177,14 +191,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements.lock
             pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[test]'
+          pip install --require-hashes -r requirements.lock
+          pip install --no-deps -e .
 
       - name: Validate packaging configuration (no build, no publish)
         run: scripts/check desktop-packaging

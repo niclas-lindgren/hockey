@@ -22,7 +22,8 @@ fi
   --resolver=backtracking \
   --strip-extras \
   --generate-hashes \
-  --extra test \
+  --allow-unsafe \
+  --all-extras \
   --output-file requirements.lock \
   pyproject.toml
 
@@ -35,4 +36,4 @@ if not text.startswith(header):
     path.write_text(header + text)
 PY
 
-echo "Updated requirements.lock from pyproject.toml[test]"
+echo "Updated requirements.lock from pyproject.toml with all optional dependency groups"

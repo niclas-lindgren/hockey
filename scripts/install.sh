@@ -5,8 +5,9 @@ show_help() {
   cat <<'EOF'
 Usage: scripts/install.sh [--help|-h]
 
-Creates a virtualenv (default: ./venv), installs runtime dependencies from
-requirements.txt, and installs the project in editable mode.
+Creates a virtualenv (default: ./venv), installs the locked Python dependency
+set from requirements.lock, and installs the project in editable mode without
+resolving additional dependencies.
 
 Environment variables:
   VENV_DIR=venv              Virtualenv directory
@@ -43,14 +44,19 @@ if [ ! -x "$VENV_PY" ]; then
   exit 1
 fi
 
-printf '%s\n' "Upgrading packaging tools ..."
-"$VENV_PY" -m pip install --upgrade pip setuptools wheel
+if [ ! -f requirements.lock ]; then
+  printf '%s\n' "Error: requirements.lock is missing. Run scripts/refresh-python-lock.sh intentionally before installing." >&2
+  exit 1
+fi
 
-printf '%s\n' "Installing runtime dependencies from requirements.txt ..."
-"$VENV_PY" -m pip install -r requirements.txt
+printf '%s\n' "Upgrading pip ..."
+"$VENV_PY" -m pip install --upgrade pip
 
-printf '%s\n' "Installing rvv-miniputt in editable mode ..."
-"$VENV_PY" -m pip install -e .
+printf '%s\n' "Installing locked Python dependencies from requirements.lock ..."
+"$VENV_PY" -m pip install --require-hashes -r requirements.lock
+
+printf '%s\n' "Installing rvv-miniputt in editable mode without dependency resolution ..."
+"$VENV_PY" -m pip install --no-deps -e .
 
 if [ "$INSTALL_PLAYWRIGHT" = "1" ]; then
   printf '%s\n' "Installing Playwright Chromium browser ..."

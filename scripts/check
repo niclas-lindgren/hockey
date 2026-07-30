@@ -31,6 +31,7 @@ CI jobs may invoke individual phases so the command sequence is still owned by
 this script while GitHub keeps separate visible status checks.
 
 Phases:
+  dependency-lock    verify requirements.lock is fresh from pyproject.toml
   quick              default pytest suite
   operator           operator manifest/escalation control-path tests
   reproducibility    deterministic planner reproducibility fixture
@@ -48,6 +49,23 @@ EOF
 
 run_named_phase() {
   case "$1" in
+    dependency-lock)
+      run_phase "Python dependency lock freshness" bash -c '
+        set -euo pipefail
+        tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/rvv-pip-tools.XXXXXX")
+        trap "rm -rf \"$tmp_dir\"" EXIT
+        python3 -m venv "$tmp_dir"
+        "$tmp_dir/bin/python" -m pip install --quiet --upgrade "pip<26" "pip-tools==7.6.0"
+        before_lock="$tmp_dir/requirements.lock.before"
+        cp requirements.lock "$before_lock"
+        PIP_COMPILE_BIN="$tmp_dir/bin/pip-compile" scripts/refresh-python-lock.sh >/tmp/rvv-refresh-python-lock.out 2>&1
+        if ! cmp -s "$before_lock" requirements.lock; then
+          echo "ERROR: requirements.lock is stale. Run scripts/refresh-python-lock.sh and commit the result." >&2
+          diff -u "$before_lock" requirements.lock >&2 || true
+          exit 1
+        fi
+      '
+      ;;
     quick)
       run_phase "Python quick test suite" "$PYTHON_CMD" -m pytest
       ;;
@@ -92,7 +110,7 @@ run_named_phase() {
 }
 
 run_all() {
-  local phases=(quick operator reproducibility cli-smoke desktop-backend desktop-packaging rules-report)
+  local phases=(dependency-lock quick operator reproducibility cli-smoke desktop-backend desktop-packaging rules-report)
   for named_phase in "${phases[@]}"; do
     run_named_phase "$named_phase"
   done

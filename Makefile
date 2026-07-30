@@ -22,7 +22,7 @@ POWERSHELL ?= powershell
 
 export ID ANSWER SCOPE SCOPE_KEY RUN_ID TAG CONFIRM_PUBLIC ARGS
 
-PUBLIC_TARGETS := help install check test secret-scan rules-report \
+PUBLIC_TARGETS := help install check test dependency-lock secret-scan rules-report \
 	operator-run operator-run-force run status logs calendars calendars-refresh sources-status \
 	aktivitetskalender aktivitetskalender-publish \
 	questions questions-all answer promote \
@@ -40,6 +40,7 @@ help:
 	@echo "  make install                       Install Python/project dependencies"
 	@echo "  make check [ARGS='...']            Run canonical verification via scripts/check"
 	@echo "  make test [ARGS='...']             Run pytest directly for local iteration"
+	@echo "  make dependency-lock               Verify requirements.lock is fresh"
 	@echo "  make secret-scan                   Run repository secret scan"
 	@echo "  make rules-report                  Regenerate/check scheduler rules report"
 	@echo ""
@@ -90,6 +91,9 @@ check:
 
 test:
 	@cd "$(ROOT_DIR)" && python3 -m pytest $(ARGS)
+
+dependency-lock:
+	@cd "$(ROOT_DIR)" && "$(CHECK)" dependency-lock
 
 secret-scan:
 	@cd "$(ROOT_DIR)" && sh "$(SECRET_SCAN)" $(ARGS)

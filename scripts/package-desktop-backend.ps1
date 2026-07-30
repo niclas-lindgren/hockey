@@ -3,7 +3,7 @@
   Builds the RVV Miniputt Python backend into a standalone .exe with PyInstaller.
 .DESCRIPTION
   Run this on Windows before packaging the Electron app.
-  Requires: Python 3.12, pip, and all requirements.txt dependencies installed.
+  Requires: Python 3.12, pip, and the committed requirements.lock file.
 
   Usage:
     powershell -ExecutionPolicy Bypass -File scripts/package-desktop-backend.ps1
@@ -33,10 +33,21 @@ if ($env:PYTHON_BIN) {
 
 Write-Host "Using Python: $Python"
 
-# Ensure pyinstaller is installed
-& $Python -m pip install --upgrade pyinstaller keyring
+if (-not (Test-Path "$RootDir\requirements.lock")) {
+  Write-Error "requirements.lock is missing. Run scripts/refresh-python-lock.sh intentionally before packaging."
+  exit 1
+}
+
+# Install the locked Python dependency set, including desktop packaging tools.
+& $Python -m pip install --require-hashes -r requirements.lock
 if ($LASTEXITCODE -ne 0) {
-  Write-Error "pip install failed"
+  Write-Error "locked dependency install failed"
+  exit 1
+}
+
+& $Python -m pip install --no-deps -e .
+if ($LASTEXITCODE -ne 0) {
+  Write-Error "editable project install failed"
   exit 1
 }
 

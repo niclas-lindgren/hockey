@@ -12,7 +12,13 @@ else
   PYTHON_BIN="python3"
 fi
 
-"$PYTHON_BIN" -m pip install --upgrade pyinstaller keyring
+if [[ ! -f requirements.lock ]]; then
+  echo "ERROR: requirements.lock is missing. Run scripts/refresh-python-lock.sh intentionally before packaging." >&2
+  exit 1
+fi
+
+"$PYTHON_BIN" -m pip install --require-hashes -r requirements.lock
+"$PYTHON_BIN" -m pip install --no-deps -e .
 "$PYTHON_BIN" -m PyInstaller \
   --name rvv-miniputt-backend \
   --clean \
