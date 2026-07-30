@@ -4,11 +4,8 @@ STATUS: PASS
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| `pytest tests/test_registrations.py tests/test_rvv_cli_portability.py` passes. | PASS | Ran `pytest tests/test_registrations.py tests/test_rvv_cli_portability.py`: 16 passed. |
-| `scripts/rvv-miniputt registrations validate <csv-or-xlsx> --input input.xlsx` validates required columns, statuses, duplicates, clubs, and age groups without writing output. | PASS | `tests/test_registrations.py` covers CSV and XLSX parsing, missing required columns, unknown statuses, duplicate SharePoint IDs, duplicate team identities, unknown clubs, and unknown age groups; `tests/test_rvv_cli_portability.py` verifies CLI parser/subprocess validate path. |
-| `scripts/rvv-miniputt registrations export <csv-or-xlsx> --input input.xlsx --output input.updated.xlsx --dry-run` shows additions, removals, changes, unchanged rows, and rejected records without creating the output workbook. | PASS | `test_validate_csv_reports_diff_without_writing` asserts dry-run counts for added/removed/changed/unchanged/rejected and confirms the output workbook is not created. |
-| Non-dry-run export writes an updated workbook with only the `Lag` sheet replaced and writes a provenance/audit artifact containing source fingerprint and included SharePoint IDs. | PASS | `test_non_dry_run_replaces_only_lag_sheet_and_writes_audit` asserts sheet order/preservation, updated `Lag` rows, audit sidecar existence, source fingerprint, and included SharePoint IDs. |
-| Personal contact/comment fields from the registration export are not written into the generated workbook. | PASS | Registration tests assert contact/comment values are absent from generated workbook values; CLI subprocess test asserts contact/comment values are absent from summaries. |
-| README and RVV docs describe the Power Automate → SharePoint List → reviewed export → `input.xlsx` workflow. | PASS | Added workflow docs to `README.md`, `docs/rvv-miniputt-input-formats.md`, and `docs/rvv-miniputt-pipeline.md`. |
-
-Additional quality evidence: `pi_next_quality_gate(level=quick)` ran `python3 -m pytest -q -m "not slow and not integration"`: 1211 passed, 1 skipped, 26 deselected.
+| run: make registered-teams CSV=/tmp/rvv-registered-teams-empty.csv ARGS='--export-dir /tmp/rvv-registered-teams-review --generated-at 2026-07-30T12:00:00Z --no-base-latest' | PASS | exit 0; generated `/tmp/rvv-registered-teams-review/registered-teams/pameldte-lag.html` and `pameldte-lag.json` without publishing. |
+| run: python3 -m pytest tests/test_registered_teams.py tests/test_registered_teams_publish.py tests/test_pages_bundle.py | PASS | exit 0; 35 passed. |
+| Makefile contains registered-teams-publish target (grep: Makefile:registered-teams-publish) | PASS | `rg -n "registered-teams-publish" Makefile` found target at `Makefile:143` and help text at `Makefile:62`. |
+| README.md contains Påmeldte lag operator guidance (grep: README.md:Påmeldte lag) | PASS | `rg -n "Påmeldte lag" README.md` found operator table/guidance at `README.md:36-52`. |
+| CLI parser contains registered-teams command (grep: tournament_scheduler/cli/args.py:registered-teams) | PASS | `rg -n "registered-teams" tournament_scheduler/cli/args.py` found parser command at `args.py:59-61`. |
