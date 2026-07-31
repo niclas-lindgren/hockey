@@ -120,6 +120,7 @@ jobs:
 
       - name: "Publiser aktivitetskalender"
         run: |
+          set -o pipefail
           mkdir -p "$WORK_DIR/github-actions"
           scripts/rvv-miniputt activities \
             --input "$ACTIVITY_INPUT" \
@@ -132,17 +133,17 @@ jobs:
         env:
           ACTIVITY_INPUT: ${{ steps.resolve_input.outputs.input }}
 
-      - name: "Vis generert aktivitetsside"
+      - name: "Vis publisert aktivitetsside"
         run: |
           OWNER="${GITHUB_REPOSITORY%%/*}"
           REPO="${GITHUB_REPOSITORY#*/}"
           ACTIVITY_URL="https://${OWNER}.github.io/${REPO}/latest/activities/"
 
-          echo "Generert HTML-side for aktivitetskalender: $ACTIVITY_URL"
+          echo "Publisert HTML-side for aktivitetskalender: $ACTIVITY_URL"
           {
             echo "## Publisert aktivitetskalender"
             echo
-            echo "Den genererte HTML-siden er tilgjengelig her:"
+            echo "Den publiserte HTML-siden er tilgjengelig her:"
             echo
             echo "[$ACTIVITY_URL]($ACTIVITY_URL)"
           } >> "$GITHUB_STEP_SUMMARY"
