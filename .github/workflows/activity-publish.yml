@@ -1,12 +1,6 @@
 name: "Aktivitetskalender: auto-publiser"
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "inputs/activities/activities.xlsx"
-      - "inputs/activities/activities.json"
   workflow_dispatch:
     inputs:
       input_path:
