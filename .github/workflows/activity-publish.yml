@@ -81,6 +81,38 @@ jobs:
           echo "format=$FORMAT" >> "$GITHUB_OUTPUT"
           echo "Resolved input=$INPUT format=$FORMAT"
 
+      - name: "Normaliser kanoniske aktivitetsdata"
+        if: steps.resolve_input.outputs.format == 'json'
+        id: normalize_input
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import date
+
+          from tournament_scheduler.pipeline.activity_normalize import normalize_activity_json
+
+          changed = normalize_activity_json(
+              os.environ["ACTIVITY_INPUT"],
+              year=date.today().year,
+          )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"changed={'true' if changed else 'false'}\n")
+          print("Aktivitetsdata normalisert til ISO-datoer." if changed else "Aktivitetsdata var allerede normalisert.")
+          PY
+        env:
+          ACTIVITY_INPUT: ${{ steps.resolve_input.outputs.input }}
+
+      - name: "Lagre normaliserte aktivitetsdata"
+        if: steps.normalize_input.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$ACTIVITY_INPUT"
+          git commit -m "[bot] [skip ci] Normaliser aktivitetsdatoer"
+          git push origin HEAD:main
+        env:
+          ACTIVITY_INPUT: ${{ steps.resolve_input.outputs.input }}
+
       - name: "Valider inndata og skriv fingeravtrykk"
         run: |
           mkdir -p "$WORK_DIR/github-actions"
