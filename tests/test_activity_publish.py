@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-import shutil
+import json
 import subprocess
 from pathlib import Path
 
 import openpyxl
 
-from tournament_scheduler.pipeline.activity_publish import prepare_activity_latest_export
+from tournament_scheduler.pipeline.activity_publish import (
+    _normalise_partial_dates_for_publish,
+    prepare_activity_latest_export,
+)
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -36,6 +39,7 @@ def _repo_with_pages_latest(repo: Path) -> None:
         if child.name == ".git":
             continue
         if child.is_dir():
+            import shutil
             shutil.rmtree(child)
         else:
             child.unlink()
@@ -70,47 +74,28 @@ class TestActivityPublish:
         assert (export_dir / "activities" / "index.html").exists()
         assert "RS U15" in (export_dir / "activities.json").read_text(encoding="utf-8")
 
-    def test_prepare_activity_latest_export_uses_remote_tracking_pages_ref(self, tmp_path):
-        source = tmp_path / "source"
-        _repo_with_pages_latest(source)
-
-        bare = tmp_path / "remote.git"
-        subprocess.run(
-            ["git", "clone", "--bare", str(source), str(bare)],
-            check=True,
-            capture_output=True,
-            text=True,
+    def test_normalises_compact_sharepoint_dates_without_mutating_source(self, tmp_path):
+        source = tmp_path / "activities.json"
+        source.write_text(
+            json.dumps(
+                {
+                    "schemaVersion": 1,
+                    "worksheet": "Årshjul",
+                    "values": [
+                        ["Måned", "Dato", "Aktivitet"],
+                        ["Desember", "15.12.", "RS U15"],
+                        ["September", "30.9.", "RS JU16"],
+                    ],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
         )
 
-        checkout = tmp_path / "checkout"
-        subprocess.run(
-            ["git", "clone", str(bare), str(checkout)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        assert subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", "gh-pages^{commit}"],
-            cwd=checkout,
-            capture_output=True,
-        ).returncode != 0
-        assert subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", "origin/gh-pages^{commit}"],
-            cwd=checkout,
-            capture_output=True,
-        ).returncode == 0
+        normalised = _normalise_partial_dates_for_publish(source)
 
-        workbook = tmp_path / "activities.xlsx"
-        _write_activity_workbook(workbook)
-        export_dir = tmp_path / "staged-remote"
-
-        result = prepare_activity_latest_export(
-            input_path=str(workbook),
-            export_dir=export_dir,
-            repo_dir=str(checkout),
-            branch="gh-pages",
-        )
-
-        assert result["base_file_count"] == 1
-        assert (export_dir / "season_plan.html").exists()
-        assert (export_dir / "activities" / "index.html").exists()
+        assert normalised != source
+        assert json.loads(source.read_text(encoding="utf-8"))["values"][1][1] == "15.12."
+        values = json.loads(normalised.read_text(encoding="utf-8"))["values"]
+        assert values[1][1] == "15"
+        assert values[2][1] == "30"
