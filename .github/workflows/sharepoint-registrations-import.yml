@@ -2,21 +2,15 @@ name: "SharePoint: importer påmeldte lag (JSON)"
 
 on:
   issues:
-    types: [opened]
-  workflow_dispatch:
-    inputs:
-      issue_number:
-        description: "Nummeret på GitHub-issuen som skal importeres"
-        required: true
-        type: string
+    types: [opened, reopened]
 
 permissions:
   contents: write
   issues: write
 
 concurrency:
-  group: sharepoint-registrations-import
-  cancel-in-progress: false
+  group: sharepoint-registrations-${{ github.event.issue.number }}
+  cancel-in-progress: true
 
 env:
   PYTHON_VERSION: "3.12"
@@ -26,160 +20,35 @@ jobs:
   import-registrations:
     name: "Importer påmeldte lag fra SharePoint"
     if: |
-      github.event_name == 'workflow_dispatch'
-      || (
-        github.event.issue.title == 'sharepoint-sync: registrations'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
-      )
+      github.event.issue.title == 'sharepoint-sync: registrations'
+      && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     outputs:
-      changed: ${{ steps.validate.outputs.changed }}
-      version: ${{ steps.parse.outputs.version }}
-      drive_item_id: ${{ steps.parse.outputs.drive_item_id }}
-      sha256: ${{ steps.validate.outputs.sha256 }}
-      team_count: ${{ steps.validate.outputs.team_count }}
+      changed: ${{ steps.import.outputs.changed }}
+      sha256: ${{ steps.import.outputs.sha256 }}
+      team_count: ${{ steps.import.outputs.team_count }}
       commit_sha: ${{ steps.commit.outputs.commit_sha }}
     steps:
       - name: "Hent kode"
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-
-      - name: "Hent og valider issue"
-        id: issue
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
-        run: |
-          BODY_FILE="$RUNNER_TEMP/sharepoint-registrations-issue-body.txt"
-
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            gh issue view "$ISSUE_NUMBER" --repo "$GH_REPO" \
-              --json title,body,authorAssociation,state \
-              > "$RUNNER_TEMP/issue-payload.json"
-
-            TITLE=$(jq -r '.title' "$RUNNER_TEMP/issue-payload.json")
-            AUTHOR_ASSOC=$(jq -r '.authorAssociation' "$RUNNER_TEMP/issue-payload.json")
-            STATE=$(jq -r '.state' "$RUNNER_TEMP/issue-payload.json")
-
-            if [ "$TITLE" != "sharepoint-sync: registrations" ]; then
-              echo "FEIL: Issuen har feil tittel: '$TITLE'" >&2
-              exit 1
-            fi
-            if ! jq -n -e --arg a "$AUTHOR_ASSOC" '["OWNER","MEMBER","COLLABORATOR"] | index($a)' >/dev/null; then
-              echo "FEIL: Forfatteren har ikke trusted-tilgang: $AUTHOR_ASSOC" >&2
-              exit 1
-            fi
-            if [ "$STATE" != "OPEN" ]; then
-              echo "FEIL: Issuen er ikke åpen: $STATE" >&2
-              exit 1
-            fi
-
-            jq -r '.body' "$RUNNER_TEMP/issue-payload.json" > "$BODY_FILE"
-          else
-            jq -r '.issue.body' "$GITHUB_EVENT_PATH" > "$BODY_FILE"
-          fi
-
-          echo "body_file=$BODY_FILE" >> "$GITHUB_OUTPUT"
-          echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+          fetch-depth: 1
 
       - name: "Sett opp Python"
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            pyproject.toml
+          cache-dependency-path: pyproject.toml
 
-      - name: "Installer avhengigheter"
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[test]'
+      - name: "Installer runtime-avhengigheter"
+        run: pip install -e .
 
-      - name: "Parse issue-body"
-        id: parse
+      - name: "Importer, valider og skriv kanonisk CSV"
+        id: import
         env:
-          ISSUE_BODY_FILE: ${{ steps.issue.outputs.body_file }}
-          EXPECTED_DRIVE_ID: ${{ vars.SHAREPOINT_REGISTRATIONS_DRIVE_ID }}
-          EXPECTED_DRIVE_ITEM_ID: ${{ vars.SHAREPOINT_REGISTRATIONS_DRIVE_ITEM_ID }}
-        run: |
-          python - <<'PY'
-          import json
-          import os
-          import re
-          import sys
-          from pathlib import Path
-
-          issue_body = Path(os.environ["ISSUE_BODY_FILE"]).read_text(encoding="utf-8")
-          required = {"source", "content_json"}
-          allowed = required | {"target_path", "drive_id", "drive_item_id", "version"}
-          key_re = re.compile(r"^([a-z_][a-z0-9_]*)=(.*)$")
-
-          errors = []
-          parsed = {}
-          seen = set()
-          for raw_line in issue_body.splitlines():
-              line = raw_line.strip()
-              if not line or line.startswith(("#", ">", "```")):
-                  continue
-              match = key_re.match(line)
-              if not match:
-                  continue
-              key, value = match.group(1), match.group(2).strip()
-              if key in seen:
-                  errors.append(f"Duplikat nøkkel: {key}")
-                  continue
-              if key not in allowed:
-                  errors.append(f"Ukjent nøkkel: {key}")
-                  continue
-              seen.add(key)
-              if not value:
-                  errors.append(f"Tom verdi for: {key}")
-                  continue
-              parsed[key] = value
-
-          missing = required - set(parsed)
-          if missing:
-              errors.append(f"Mangler påkrevde felt: {', '.join(sorted(missing))}")
-          if parsed.get("source", "") != "sharepoint":
-              errors.append("source må være 'sharepoint'")
-
-          expected_drive_id = os.environ.get("EXPECTED_DRIVE_ID", "")
-          expected_drive_item_id = os.environ.get("EXPECTED_DRIVE_ITEM_ID", "")
-          if expected_drive_id and parsed.get("drive_id", "") != expected_drive_id:
-              errors.append("drive_id matcher ikke forventet repository-variabel")
-          if expected_drive_item_id and parsed.get("drive_item_id", "") != expected_drive_item_id:
-              errors.append("drive_item_id matcher ikke forventet repository-variabel")
-
-          try:
-              content_json = json.loads(parsed.get("content_json", ""))
-          except json.JSONDecodeError as exc:
-              errors.append(f"content_json er ikke gyldig JSON: {exc}")
-              content_json = None
-
-          if errors:
-              for error in errors:
-                  print(f"✗ {error}", file=sys.stderr)
-              raise SystemExit(1)
-
-          payload_path = Path(os.environ["RUNNER_TEMP"]) / "registrations-content.json"
-          payload_path.write_text(json.dumps(content_json, ensure_ascii=False), encoding="utf-8")
-
-          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-              print(f"content_json_file={payload_path}", file=output)
-              for key in ("drive_id", "drive_item_id", "version"):
-                  print(f"{key}={parsed.get(key, '')}", file=output)
-          PY
-
-      - name: "Konverter, valider og skriv kanonisk CSV"
-        id: validate
-        env:
-          CONTENT_JSON_FILE: ${{ steps.parse.outputs.content_json_file }}
-          CANONICAL_PATH: ${{ env.CANONICAL_PATH }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           python - <<'PY'
           import csv
@@ -187,7 +56,7 @@ jobs:
           import io
           import json
           import os
-          import sys
+          import re
           from pathlib import Path
 
           from tournament_scheduler.pipeline.registered_teams import (
@@ -195,14 +64,30 @@ jobs:
               build_registered_teams_payload,
           )
 
-          payload = json.loads(Path(os.environ["CONTENT_JSON_FILE"]).read_text(encoding="utf-8"))
+          fields = {}
+          for raw_line in os.environ.get("ISSUE_BODY", "").splitlines():
+              match = re.match(r"^([a-z_][a-z0-9_]*)=(.*)$", raw_line.strip())
+              if match:
+                  fields[match.group(1)] = match.group(2).strip()
+
+          if fields.get("source") != "sharepoint":
+              raise SystemExit("source må være 'sharepoint'")
+          if fields.get("target_path", os.environ["CANONICAL_PATH"]) != os.environ["CANONICAL_PATH"]:
+              raise SystemExit("target_path matcher ikke kanonisk repository-sti")
+
+          try:
+              payload = json.loads(fields["content_json"])
+          except KeyError:
+              raise SystemExit("Mangler content_json")
+          except json.JSONDecodeError as exc:
+              raise SystemExit(f"content_json er ikke gyldig JSON: {exc}") from exc
 
           def extract_rows(value):
               if isinstance(value, list):
                   return value
               if not isinstance(value, dict):
                   raise ValueError("content_json må være en liste eller et objekt med registreringsrader")
-              for key in ("rows", "value", "data", "items", "registrations"):
+              for key in ("body", "rows", "value", "data", "items", "registrations"):
                   rows = value.get(key)
                   if isinstance(rows, list):
                       headers = value.get("headers") or value.get("columns")
@@ -226,17 +111,11 @@ jobs:
                       return target
               return None
 
-          try:
-              source_rows = extract_rows(payload)
-          except ValueError as exc:
-              print(f"JSON-kontrakt feilet: {exc}", file=sys.stderr)
-              raise SystemExit(1)
-
+          source_rows = extract_rows(payload)
           public_rows = []
           for index, raw_row in enumerate(source_rows, start=1):
               if not isinstance(raw_row, dict):
-                  print(f"JSON-kontrakt feilet: rad {index} er ikke et objekt", file=sys.stderr)
-                  raise SystemExit(1)
+                  raise SystemExit(f"JSON-kontrakt feilet: rad {index} er ikke et objekt")
               projected = {"club": "", "label": "", "age_group": ""}
               for raw_key, raw_value in raw_row.items():
                   key = canonical_key(raw_key)
@@ -248,43 +127,35 @@ jobs:
           writer = csv.DictWriter(buffer, fieldnames=["club", "label", "age_group"], lineterminator="\n")
           writer.writeheader()
           writer.writerows(public_rows)
-          normalized = buffer.getvalue()
-          normalized_bytes = normalized.encode("utf-8")
+          normalized_bytes = buffer.getvalue().encode("utf-8")
 
           temp_csv = Path(os.environ["RUNNER_TEMP"]) / "registered-teams.csv"
           temp_csv.write_bytes(normalized_bytes)
           try:
               public_payload, _ = build_registered_teams_payload(temp_csv)
           except RegisteredTeamsValidationError as exc:
-              print(f"Påmeldingsdata feilet validering: {exc}", file=sys.stderr)
-              raise SystemExit(1)
+              raise SystemExit(f"Påmeldingsdata feilet validering: {exc}") from exc
 
           canonical_path = Path(os.environ["CANONICAL_PATH"])
           changed = not canonical_path.exists() or canonical_path.read_bytes() != normalized_bytes
           if changed:
               canonical_path.parent.mkdir(parents=True, exist_ok=True)
               canonical_path.write_bytes(normalized_bytes)
-              print("FILE_CHANGED=1")
-          else:
-              print("FILE_UNCHANGED=1")
 
-          sha256 = hashlib.sha256(normalized_bytes).hexdigest()
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
               print(f"changed={'true' if changed else 'false'}", file=output)
-              print(f"sha256={sha256}", file=output)
+              print(f"sha256={hashlib.sha256(normalized_bytes).hexdigest()}", file=output)
               print(f"team_count={public_payload.get('total_teams', 0)}", file=output)
           PY
 
       - name: "Commit og push endrede påmeldingsdata"
-        if: steps.validate.outputs.changed == 'true'
+        if: steps.import.outputs.changed == 'true'
         id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$CANONICAL_PATH"
-          git commit \
-            -m "[bot] Importer påmeldte lag fra SharePoint" \
-            -m "source=sharepoint drive_id=${{ steps.parse.outputs.drive_id || 'ukjent' }} drive_item_id=${{ steps.parse.outputs.drive_item_id || 'ukjent' }} version=${{ steps.parse.outputs.version || 'ukjent' }}"
+          git commit -m "[bot] [skip ci] Importer påmeldte lag fra SharePoint"
           git push origin HEAD:main
           echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -301,80 +172,27 @@ jobs:
 
   finalize-sync-issue:
     name: "Rapporter resultat og avslutt sync-issue"
-    needs:
-      - import-registrations
-      - publish-registered-teams
-    if: |
-      always()
-      && (
-        github.event_name == 'workflow_dispatch'
-        || (
-          github.event.issue.title == 'sharepoint-sync: registrations'
-          && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
-        )
-      )
+    needs: [import-registrations, publish-registered-teams]
+    if: always() && github.event.issue.title == 'sharepoint-sync: registrations'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
-      ACTIONS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
       IMPORT_RESULT: ${{ needs.import-registrations.result }}
       PUBLISH_RESULT: ${{ needs.publish-registered-teams.result }}
+      TEAM_COUNT: ${{ needs.import-registrations.outputs.team_count }}
       FILE_CHANGED: ${{ needs.import-registrations.outputs.changed }}
       FILE_SHA256: ${{ needs.import-registrations.outputs.sha256 }}
-      TEAM_COUNT: ${{ needs.import-registrations.outputs.team_count }}
-      COMMIT_SHA: ${{ needs.import-registrations.outputs.commit_sha }}
-      DRIVE_ITEM_ID: ${{ needs.import-registrations.outputs.drive_item_id }}
-      VERSION: ${{ needs.import-registrations.outputs.version }}
     steps:
       - name: "Kommenter og lukk ved suksess"
         if: env.IMPORT_RESULT == 'success' && env.PUBLISH_RESULT == 'success'
         run: |
-          OWNER="${GITHUB_REPOSITORY%%/*}"
-          REPO="${GITHUB_REPOSITORY#*/}"
-          PAGES_URL="https://${OWNER}.github.io/${REPO}/latest/registered-teams/pameldte-lag.html"
-
-          if [ "$FILE_CHANGED" = "true" ]; then
-            CHANGE_TEXT="Påmeldingsdata ble endret og committet."
-          else
-            CHANGE_TEXT="Påmeldingsdata var uendret, så ingen ny commit ble laget."
-          fi
-
-          cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
-          ✅ Påmeldingsdata er validert, generert og publisert.
-
-          $CHANGE_TEXT
-
-          - Antall lag: \`${TEAM_COUNT:-0}\`
-          - Version: \`${VERSION:-ukjent}\`
-          - DriveItemId: \`${DRIVE_ITEM_ID:-ukjent}\`
-          - SHA-256: \`${FILE_SHA256:-ukjent}\`
-          - Publisert HTML: $PAGES_URL
-          - Actions-run: $ACTIONS_URL
-          EOF
-
-          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/issue-comment.md"
+          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body "✅ Påmeldingsdata er validert og publisert. Lag: ${TEAM_COUNT:-0}. Endret: ${FILE_CHANGED:-false}. SHA-256: ${FILE_SHA256:-ukjent}."
           gh issue close "$ISSUE_NUMBER" --repo "$GH_REPO" --reason completed
 
       - name: "Kommenter ved feil"
         if: env.IMPORT_RESULT != 'success' || env.PUBLISH_RESULT != 'success'
         run: |
-          if [ "$IMPORT_RESULT" != "success" ]; then
-            STAGE="import/validering/commit"
-          else
-            STAGE="generering/publisering"
-          fi
-
-          cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
-          ❌ SharePoint-synkronisering av påmeldte lag feilet under **$STAGE**.
-
-          - Import-resultat: \`$IMPORT_RESULT\`
-          - Publiseringsresultat: \`$PUBLISH_RESULT\`
-          - Actions-run: $ACTIONS_URL
-
-          Issuen holdes åpen for manuell gjennomgang.
-          EOF
-
-          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/issue-comment.md"
+          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body "❌ Synkronisering feilet. Import: $IMPORT_RESULT. Publisering: $PUBLISH_RESULT. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
