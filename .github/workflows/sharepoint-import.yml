@@ -239,12 +239,12 @@ jobs:
   publish-activity-calendar:
     name: "Generer og publiser aktivitetskalender"
     needs: import-activities-json
-    if: needs.import-activities-json.outputs.changed == 'true'
+    if: needs.import-activities-json.result == 'success'
     uses: ./.github/workflows/activity-publish.yml
     with:
       activity_input: inputs/activities/activities.json
       activity_input_format: json
-      checkout_ref: ${{ needs.import-activities-json.outputs.commit_sha }}
+      checkout_ref: ${{ needs.import-activities-json.outputs.commit_sha || github.sha }}
     secrets: inherit
 
   finalize-sync-issue:
@@ -277,43 +277,35 @@ jobs:
       VERSION: ${{ needs.import-activities-json.outputs.version }}
     steps:
       - name: "Kommenter og lukk ved suksess"
-        if: |
-          env.IMPORT_RESULT == 'success'
-          && (
-            env.FILE_CHANGED != 'true'
-            || env.PUBLISH_RESULT == 'success'
-          )
+        if: env.IMPORT_RESULT == 'success' && env.PUBLISH_RESULT == 'success'
         run: |
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          PAGES_URL="https://${OWNER}.github.io/${REPO}/latest/activities/"
+
           if [ "$FILE_CHANGED" = "true" ]; then
-            cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
-          ✅ Aktivitetsdata er validert, importert, generert og publisert.
+            CHANGE_TEXT="Aktivitetsdata ble endret og committet."
+          else
+            CHANGE_TEXT="Aktivitetsdata var uendret, så ingen ny commit ble laget."
+          fi
+
+          cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
+          ✅ Aktivitetsdata er validert, generert og publisert.
+
+          $CHANGE_TEXT
 
           - Version: \`${VERSION:-ukjent}\`
           - DriveItemId: \`${DRIVE_ITEM_ID:-ukjent}\`
           - SHA-256: \`${FILE_SHA256:-ukjent}\`
-          - Commit: \`${COMMIT_SHA:-ukjent}\`
+          - Publisert HTML: $PAGES_URL
           - Actions-run: $ACTIONS_URL
           EOF
-          else
-            cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
-          ℹ️ Aktivitetsdata er validert, men er uendret. Ingen commit eller ny publisering var nødvendig.
-
-          - Version: \`${VERSION:-ukjent}\`
-          - SHA-256: \`${FILE_SHA256:-ukjent}\`
-          - Actions-run: $ACTIONS_URL
-          EOF
-          fi
 
           gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/issue-comment.md"
           gh issue close "$ISSUE_NUMBER" --repo "$GH_REPO" --reason completed
 
       - name: "Kommenter ved feil"
-        if: |
-          env.IMPORT_RESULT != 'success'
-          || (
-            env.FILE_CHANGED == 'true'
-            && env.PUBLISH_RESULT != 'success'
-          )
+        if: env.IMPORT_RESULT != 'success' || env.PUBLISH_RESULT != 'success'
         run: |
           if [ "$IMPORT_RESULT" != "success" ]; then
             STAGE="import/validering/commit"
