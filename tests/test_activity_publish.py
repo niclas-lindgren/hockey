@@ -75,7 +75,12 @@ class TestActivityPublish:
         _repo_with_pages_latest(source)
 
         bare = tmp_path / "remote.git"
-        _git(source, "clone", "--bare", str(source), str(bare))
+        subprocess.run(
+            ["git", "clone", "--bare", str(source), str(bare)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
         checkout = tmp_path / "checkout"
         subprocess.run(
@@ -84,7 +89,6 @@ class TestActivityPublish:
             capture_output=True,
             text=True,
         )
-        _git(checkout, "branch", "-D", "gh-pages")
         assert subprocess.run(
             ["git", "rev-parse", "--verify", "--quiet", "gh-pages^{commit}"],
             cwd=checkout,
