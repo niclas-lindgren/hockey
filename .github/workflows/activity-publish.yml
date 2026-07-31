@@ -4,20 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       input_path:
-        description: "Sti til aktivitetsdata (XLSX eller JSON)"
+        description: "Sti til kanoniske aktivitetsdata (JSON)"
         required: true
-        default: "inputs/activities/activities.xlsx"
+        default: "inputs/activities/activities.json"
   workflow_call:
     inputs:
       activity_input:
-        description: "Sti til aktivitetsdatafil (XLSX eller JSON)"
+        description: "Sti til aktivitetsdatafil (JSON, eller XLSX for eksplisitte eldre kall)"
         type: string
         required: true
       activity_input_format:
-        description: "'xlsx' eller 'json'"
+        description: "'json' eller 'xlsx'"
         type: string
         required: false
-        default: "xlsx"
+        default: "json"
       checkout_ref:
         description: "Commit/ref som inneholder aktivitetsdataene"
         type: string
@@ -65,15 +65,17 @@ jobs:
       - name: "Finn inndata"
         id: resolve_input
         run: |
-          INPUT="${{ inputs.activity_input || inputs.input_path || 'inputs/activities/activities.xlsx' }}"
-          FORMAT="${{ inputs.activity_input_format || 'xlsx' }}"
+          INPUT="${{ inputs.activity_input || inputs.input_path || 'inputs/activities/activities.json' }}"
+          FORMAT="${{ inputs.activity_input_format || 'json' }}"
 
-          if [ "$FORMAT" != "json" ]; then
-            case "$INPUT" in
-              *.json) FORMAT="json" ;;
-              *)      FORMAT="xlsx" ;;
-            esac
-          fi
+          case "$INPUT" in
+            *.json) FORMAT="json" ;;
+            *.xlsx) FORMAT="xlsx" ;;
+            *)
+              echo "FEIL: Aktivitetsdata må være JSON eller XLSX: $INPUT" >&2
+              exit 1
+              ;;
+          esac
 
           echo "input=$INPUT" >> "$GITHUB_OUTPUT"
           echo "format=$FORMAT" >> "$GITHUB_OUTPUT"
