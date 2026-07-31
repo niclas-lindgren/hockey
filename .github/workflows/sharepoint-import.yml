@@ -265,6 +265,7 @@ jobs:
     timeout-minutes: 5
     env:
       GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
       ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
       ACTIONS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       IMPORT_RESULT: ${{ needs.import-activities-json.result }}
@@ -303,8 +304,8 @@ jobs:
           EOF
           fi
 
-          gh issue comment "$ISSUE_NUMBER" --body-file "$RUNNER_TEMP/issue-comment.md"
-          gh issue close "$ISSUE_NUMBER" --reason completed
+          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/issue-comment.md"
+          gh issue close "$ISSUE_NUMBER" --repo "$GH_REPO" --reason completed
 
       - name: "Kommenter ved feil"
         if: |
@@ -330,4 +331,4 @@ jobs:
           Issuen holdes åpen for manuell gjennomgang.
           EOF
 
-          gh issue comment "$ISSUE_NUMBER" --body-file "$RUNNER_TEMP/issue-comment.md"
+          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/issue-comment.md"
