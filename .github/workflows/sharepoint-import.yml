@@ -20,6 +20,7 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12"
   CANONICAL_PATH: "inputs/activities/activities.json"
+  SOURCE_PATH: "inputs/activities/activities.xlsx"
 
 jobs:
   import-activities-json:
@@ -118,8 +119,10 @@ jobs:
               errors.append(f"Mangler påkrevde felt: {', '.join(sorted(missing))}")
           if parsed.get("source") != "sharepoint":
               errors.append("source må være 'sharepoint'")
-          if parsed.get("target_path", os.environ["CANONICAL_PATH"]) != os.environ["CANONICAL_PATH"]:
-              errors.append("target_path matcher ikke kanonisk repository-sti")
+
+          target_path = parsed.get("target_path")
+          if target_path and target_path not in {os.environ["SOURCE_PATH"], os.environ["CANONICAL_PATH"]}:
+              errors.append("target_path matcher verken SharePoint-kildefilen eller kanonisk repository-sti")
 
           expected_drive_id = os.environ.get("EXPECTED_DRIVE_ID", "")
           expected_drive_item_id = os.environ.get("EXPECTED_DRIVE_ITEM_ID", "")
