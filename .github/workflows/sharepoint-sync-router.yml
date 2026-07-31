@@ -1,0 +1,54 @@
+name: "SharePoint sync router"
+run-name: >-
+  SharePoint sync — ${{ github.event.issue.title == 'sharepoint-sync: registrations' && 'registrations' || github.event.issue.title == 'sharepoint-sync: activities' && 'activities' || 'ignored' }} — #${{ github.event.issue.number }}
+
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  actions: write
+  issues: read
+
+concurrency:
+  group: sharepoint-sync-router-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  route:
+    name: "Route SharePoint sync issue"
+    if: >-
+      ${{
+        (github.event.issue.title == 'sharepoint-sync: registrations'
+        || github.event.issue.title == 'sharepoint-sync: activities')
+        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+      }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+    steps:
+      - name: "Start matching sync workflow"
+        run: |
+          case "$ISSUE_TITLE" in
+            "sharepoint-sync: registrations")
+              WORKFLOW="sharepoint-registrations-import.yml"
+              ;;
+            "sharepoint-sync: activities")
+              WORKFLOW="sharepoint-import.yml"
+              ;;
+            *)
+              echo "No supported SharePoint route for: $ISSUE_TITLE" >&2
+              exit 1
+              ;;
+          esac
+
+          gh workflow run "$WORKFLOW" \
+            --repo "$GH_REPO" \
+            --ref main \
+            -f issue_number="$ISSUE_NUMBER"
+
+          echo "Dispatched $WORKFLOW for issue #$ISSUE_NUMBER"

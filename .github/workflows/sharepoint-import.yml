@@ -1,8 +1,7 @@
 name: "SharePoint: importer aktivitetsdata (JSON)"
+run-name: "Activities sync — issue #${{ inputs.issue_number }}"
 
 on:
-  issues:
-    types: [opened]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -15,8 +14,8 @@ permissions:
   issues: write
 
 concurrency:
-  group: sharepoint-activities-import
-  cancel-in-progress: false
+  group: sharepoint-activities-${{ inputs.issue_number }}
+  cancel-in-progress: true
 
 env:
   PYTHON_VERSION: "3.12"
@@ -24,15 +23,9 @@ env:
 
 jobs:
   import-activities-json:
-    name: "Importer aktivitetsdata (content_json) fra SharePoint"
-    if: |
-      github.event_name == 'workflow_dispatch'
-      || (
-        github.event.issue.title == 'sharepoint-sync: activities'
-        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
-      )
+    name: "Importer aktivitetsdata fra SharePoint"
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     outputs:
       changed: ${{ steps.validate.outputs.changed }}
       version: ${{ steps.parse.outputs.version }}
@@ -43,60 +36,41 @@ jobs:
       - name: "Hent kode"
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: "Hent og valider issue"
+      - name: "Hent og valider sync-issue"
         id: issue
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
-          BODY_FILE="$RUNNER_TEMP/sharepoint-issue-body.txt"
+          gh issue view "$ISSUE_NUMBER" --repo "$GH_REPO" \
+            --json title,body,authorAssociation,state \
+            > "$RUNNER_TEMP/issue.json"
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            gh issue view "$ISSUE_NUMBER" \
-              --json title,body,authorAssociation,state \
-              > "$RUNNER_TEMP/issue-payload.json"
+          jq -e '
+            .authorAssociation as $association
+            | .title == "sharepoint-sync: activities"
+              and .state == "OPEN"
+              and (["OWNER", "MEMBER", "COLLABORATOR"] | index($association) != null)
+          ' "$RUNNER_TEMP/issue.json" >/dev/null || {
+            echo "Issue is not an open trusted activity sync request" >&2
+            exit 1
+          }
 
-            TITLE=$(jq -r '.title' "$RUNNER_TEMP/issue-payload.json")
-            AUTHOR_ASSOC=$(jq -r '.authorAssociation' "$RUNNER_TEMP/issue-payload.json")
-            STATE=$(jq -r '.state' "$RUNNER_TEMP/issue-payload.json")
-
-            if [ "$TITLE" != "sharepoint-sync: activities" ]; then
-              echo "FEIL: Issuen har feil tittel: '$TITLE'" >&2
-              exit 1
-            fi
-            if ! jq -n -e --arg a "$AUTHOR_ASSOC" '["OWNER","MEMBER","COLLABORATOR"] | index($a)' >/dev/null; then
-              echo "FEIL: Forfatteren har ikke trusted-tilgang: $AUTHOR_ASSOC" >&2
-              exit 1
-            fi
-            if [ "$STATE" != "OPEN" ]; then
-              echo "FEIL: Issuen er ikke åpen: $STATE" >&2
-              exit 1
-            fi
-
-            jq -r '.body' "$RUNNER_TEMP/issue-payload.json" > "$BODY_FILE"
-          else
-            jq -r '.issue.body' "$GITHUB_EVENT_PATH" > "$BODY_FILE"
-          fi
-
-          echo "body_file=$BODY_FILE" >> "$GITHUB_OUTPUT"
-          echo "number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+          jq -r '.body' "$RUNNER_TEMP/issue.json" > "$RUNNER_TEMP/issue-body.txt"
+          echo "body_file=$RUNNER_TEMP/issue-body.txt" >> "$GITHUB_OUTPUT"
 
       - name: "Sett opp Python"
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            pyproject.toml
+          cache-dependency-path: pyproject.toml
 
-      - name: "Installer avhengigheter"
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install -e '.[test]'
+      - name: "Installer runtime-avhengigheter"
+        run: pip install -e .
 
       - name: "Parse issue-body"
         id: parse
@@ -113,20 +87,17 @@ jobs:
           from pathlib import Path
 
           issue_body = Path(os.environ["ISSUE_BODY_FILE"]).read_text(encoding="utf-8")
-
           required = {"source", "content_json"}
           allowed = required | {"target_path", "drive_id", "drive_item_id", "version"}
-          key_re = re.compile(r"^([a-z_][a-z0-9_]*)=(.*)$")
-
-          errors: list[str] = []
-          parsed: dict[str, str] = {}
-          seen: set[str] = set()
+          parsed = {}
+          seen = set()
+          errors = []
 
           for raw_line in issue_body.splitlines():
               line = raw_line.strip()
               if not line or line.startswith(("#", ">", "```")):
                   continue
-              match = key_re.match(line)
+              match = re.match(r"^([a-z_][a-z0-9_]*)=(.*)$", line)
               if not match:
                   continue
               key, value = match.group(1), match.group(2).strip()
@@ -145,9 +116,10 @@ jobs:
           missing = required - set(parsed)
           if missing:
               errors.append(f"Mangler påkrevde felt: {', '.join(sorted(missing))}")
-
-          if parsed.get("source", "") != "sharepoint":
+          if parsed.get("source") != "sharepoint":
               errors.append("source må være 'sharepoint'")
+          if parsed.get("target_path", os.environ["CANONICAL_PATH"]) != os.environ["CANONICAL_PATH"]:
+              errors.append("target_path matcher ikke kanonisk repository-sti")
 
           expected_drive_id = os.environ.get("EXPECTED_DRIVE_ID", "")
           expected_drive_item_id = os.environ.get("EXPECTED_DRIVE_ITEM_ID", "")
@@ -156,41 +128,35 @@ jobs:
           if expected_drive_item_id and parsed.get("drive_item_id", "") != expected_drive_item_id:
               errors.append("drive_item_id matcher ikke forventet repository-variabel")
 
-          content_json_raw = parsed.get("content_json", "")
-          content_json = None
           try:
-              content_json = json.loads(content_json_raw)
+              content_json = json.loads(parsed.get("content_json", ""))
           except json.JSONDecodeError as exc:
               errors.append(f"content_json er ikke gyldig JSON: {exc}")
+              content_json = None
 
           if errors:
               for error in errors:
                   print(f"✗ {error}", file=sys.stderr)
               raise SystemExit(1)
 
-          temp_json_path = Path(os.environ["RUNNER_TEMP"]) / "content_json_payload.json"
-          temp_json_path.write_text(
-              json.dumps(content_json, ensure_ascii=False),
-              encoding="utf-8",
-          )
+          payload_path = Path(os.environ["RUNNER_TEMP"]) / "activity-content.json"
+          payload_path.write_text(json.dumps(content_json, ensure_ascii=False), encoding="utf-8")
 
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-              print(f"content_json_file={temp_json_path}", file=output)
+              print(f"content_json_file={payload_path}", file=output)
               for key in ("drive_id", "drive_item_id", "version"):
                   print(f"{key}={parsed.get(key, '')}", file=output)
           PY
 
-      - name: "Valider JSON-kontrakt og skriv kanonisk fil"
+      - name: "Valider og skriv kanonisk aktivitetsfil"
         id: validate
         env:
           CONTENT_JSON_FILE: ${{ steps.parse.outputs.content_json_file }}
-          CANONICAL_PATH: ${{ env.CANONICAL_PATH }}
         run: |
           python - <<'PY'
           import hashlib
           import json
           import os
-          import sys
           from pathlib import Path
 
           from tournament_scheduler.pipeline.activity_export import (
@@ -202,25 +168,20 @@ jobs:
           try:
               validate_content_json(payload)
           except ActivityJSONValidationError as exc:
-              print(f"JSON-kontrakt feilet: {exc}", file=sys.stderr)
-              raise SystemExit(1)
+              raise SystemExit(f"JSON-kontrakt feilet: {exc}") from exc
 
+          normalized_bytes = (
+              json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+          ).encode("utf-8")
           canonical_path = Path(os.environ["CANONICAL_PATH"])
-          normalized = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-          normalized_bytes = normalized.encode("utf-8")
-          file_sha256 = hashlib.sha256(normalized_bytes).hexdigest()
           changed = not canonical_path.exists() or canonical_path.read_bytes() != normalized_bytes
-
           if changed:
               canonical_path.parent.mkdir(parents=True, exist_ok=True)
               canonical_path.write_bytes(normalized_bytes)
-              print("FILE_CHANGED=1")
-          else:
-              print("FILE_UNCHANGED=1")
 
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
               print(f"changed={'true' if changed else 'false'}", file=output)
-              print(f"sha256={file_sha256}", file=output)
+              print(f"sha256={hashlib.sha256(normalized_bytes).hexdigest()}", file=output)
           PY
 
       - name: "Commit og push endret aktivitetsdata"
@@ -249,30 +210,19 @@ jobs:
 
   finalize-sync-issue:
     name: "Rapporter resultat og avslutt sync-issue"
-    needs:
-      - import-activities-json
-      - publish-activity-calendar
-    if: |
-      always()
-      && (
-        github.event_name == 'workflow_dispatch'
-        || (
-          github.event.issue.title == 'sharepoint-sync: activities'
-          && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
-        )
-      )
+    needs: [import-activities-json, publish-activity-calendar]
+    if: always()
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 3
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      ISSUE_NUMBER: ${{ inputs.issue_number || github.event.issue.number }}
+      ISSUE_NUMBER: ${{ inputs.issue_number }}
       ACTIONS_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       IMPORT_RESULT: ${{ needs.import-activities-json.result }}
       PUBLISH_RESULT: ${{ needs.publish-activity-calendar.result }}
       FILE_CHANGED: ${{ needs.import-activities-json.outputs.changed }}
       FILE_SHA256: ${{ needs.import-activities-json.outputs.sha256 }}
-      COMMIT_SHA: ${{ needs.import-activities-json.outputs.commit_sha }}
       DRIVE_ITEM_ID: ${{ needs.import-activities-json.outputs.drive_item_id }}
       VERSION: ${{ needs.import-activities-json.outputs.version }}
     steps:
@@ -282,45 +232,10 @@ jobs:
           OWNER="${GITHUB_REPOSITORY%%/*}"
           REPO="${GITHUB_REPOSITORY#*/}"
           PAGES_URL="https://${OWNER}.github.io/${REPO}/latest/activities/"
-
-          if [ "$FILE_CHANGED" = "true" ]; then
-            CHANGE_TEXT="Aktivitetsdata ble endret og committet."
-          else
-            CHANGE_TEXT="Aktivitetsdata var uendret, så ingen ny commit ble laget."
-          fi
-
-          cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
-          ✅ Aktivitetsdata er validert, generert og publisert.
-
-          $CHANGE_TEXT
-
-          - Version: \`${VERSION:-ukjent}\`
-          - DriveItemId: \`${DRIVE_ITEM_ID:-ukjent}\`
-          - SHA-256: \`${FILE_SHA256:-ukjent}\`
-          - Publisert HTML: $PAGES_URL
-          - Actions-run: $ACTIONS_URL
-          EOF
-
-          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/issue-comment.md"
+          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body "✅ Aktivitetsdata er validert og publisert. Endret: ${FILE_CHANGED:-false}. Version: ${VERSION:-ukjent}. DriveItemId: ${DRIVE_ITEM_ID:-ukjent}. SHA-256: ${FILE_SHA256:-ukjent}. Publisert HTML: $PAGES_URL."
           gh issue close "$ISSUE_NUMBER" --repo "$GH_REPO" --reason completed
 
       - name: "Kommenter ved feil"
         if: env.IMPORT_RESULT != 'success' || env.PUBLISH_RESULT != 'success'
         run: |
-          if [ "$IMPORT_RESULT" != "success" ]; then
-            STAGE="import/validering/commit"
-          else
-            STAGE="generering/publisering"
-          fi
-
-          cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
-          ❌ SharePoint-synkronisering feilet under **$STAGE**.
-
-          - Import-resultat: \`$IMPORT_RESULT\`
-          - Publiseringsresultat: \`$PUBLISH_RESULT\`
-          - Actions-run: $ACTIONS_URL
-
-          Issuen holdes åpen for manuell gjennomgang.
-          EOF
-
-          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/issue-comment.md"
+          gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body "❌ Synkronisering feilet. Import: $IMPORT_RESULT. Publisering: $PUBLISH_RESULT. Run: $ACTIONS_URL"
