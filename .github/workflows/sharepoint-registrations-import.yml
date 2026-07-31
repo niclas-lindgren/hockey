@@ -291,12 +291,12 @@ jobs:
   publish-registered-teams:
     name: "Generer og publiser påmeldte lag"
     needs: import-registrations
-    if: needs.import-registrations.outputs.changed == 'true'
+    if: needs.import-registrations.result == 'success'
     uses: ./.github/workflows/registration-publish.yml
     with:
       csv_path: inputs/registrations/registered-teams.csv
       workbook_path: inputs/season/input.xlsx
-      checkout_ref: ${{ needs.import-registrations.outputs.commit_sha }}
+      checkout_ref: ${{ needs.import-registrations.outputs.commit_sha || github.sha }}
     secrets: inherit
 
   finalize-sync-issue:
@@ -330,51 +330,36 @@ jobs:
       VERSION: ${{ needs.import-registrations.outputs.version }}
     steps:
       - name: "Kommenter og lukk ved suksess"
-        if: |
-          env.IMPORT_RESULT == 'success'
-          && (
-            env.FILE_CHANGED != 'true'
-            || env.PUBLISH_RESULT == 'success'
-          )
+        if: env.IMPORT_RESULT == 'success' && env.PUBLISH_RESULT == 'success'
         run: |
           OWNER="${GITHUB_REPOSITORY%%/*}"
           REPO="${GITHUB_REPOSITORY#*/}"
           PAGES_URL="https://${OWNER}.github.io/${REPO}/latest/registered-teams/pameldte-lag.html"
 
           if [ "$FILE_CHANGED" = "true" ]; then
-            cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
-          ✅ Påmeldingsdata er validert, importert, generert og publisert.
+            CHANGE_TEXT="Påmeldingsdata ble endret og committet."
+          else
+            CHANGE_TEXT="Påmeldingsdata var uendret, så ingen ny commit ble laget."
+          fi
+
+          cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
+          ✅ Påmeldingsdata er validert, generert og publisert.
+
+          $CHANGE_TEXT
 
           - Antall lag: \`${TEAM_COUNT:-0}\`
           - Version: \`${VERSION:-ukjent}\`
           - DriveItemId: \`${DRIVE_ITEM_ID:-ukjent}\`
           - SHA-256: \`${FILE_SHA256:-ukjent}\`
-          - Commit: \`${COMMIT_SHA:-ukjent}\`
           - Publisert HTML: $PAGES_URL
           - Actions-run: $ACTIONS_URL
           EOF
-          else
-            cat > "$RUNNER_TEMP/issue-comment.md" <<EOF
-          ℹ️ Påmeldingsdata er validert, men er uendret. Ingen commit eller ny publisering var nødvendig.
-
-          - Antall lag: \`${TEAM_COUNT:-0}\`
-          - Version: \`${VERSION:-ukjent}\`
-          - SHA-256: \`${FILE_SHA256:-ukjent}\`
-          - Gjeldende HTML: $PAGES_URL
-          - Actions-run: $ACTIONS_URL
-          EOF
-          fi
 
           gh issue comment "$ISSUE_NUMBER" --repo "$GH_REPO" --body-file "$RUNNER_TEMP/issue-comment.md"
           gh issue close "$ISSUE_NUMBER" --repo "$GH_REPO" --reason completed
 
       - name: "Kommenter ved feil"
-        if: |
-          env.IMPORT_RESULT != 'success'
-          || (
-            env.FILE_CHANGED == 'true'
-            && env.PUBLISH_RESULT != 'success'
-          )
+        if: env.IMPORT_RESULT != 'success' || env.PUBLISH_RESULT != 'success'
         run: |
           if [ "$IMPORT_RESULT" != "success" ]; then
             STAGE="import/validering/commit"
