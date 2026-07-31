@@ -1,0 +1,103 @@
+name: "Aktivitetskalender: auto-publiser"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "inputs/activities/activities.xlsx"
+  workflow_dispatch:
+    inputs:
+      input_path:
+        description: "Sti til aktivitetsarbeidsboken"
+        required: true
+        default: "inputs/activities/activities.xlsx"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: routine-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  WORK_DIR: .pipeline/github-activity-publish
+  ACTIVITY_INPUT: ${{ inputs.input_path || 'inputs/activities/activities.xlsx' }}
+
+jobs:
+  publish-activity-calendar:
+    name: "Publiser aktivitetskalender"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: "Hent kode"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Sett opp Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: "Installer avhengigheter"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[test]'
+
+      - name: "Skriv input-fingeravtrykk"
+        run: |
+          mkdir -p "$WORK_DIR/github-actions"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          input_path = os.environ["ACTIVITY_INPUT"]
+          path = Path(input_path)
+          if not path.exists():
+              raise SystemExit(f"Aktivitetsarbeidsbok ikke funnet: {path}")
+          payload = {
+              "path": str(path),
+              "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              "size_bytes": path.stat().st_size,
+          }
+          Path(os.environ["WORK_DIR"]).joinpath("github-actions", "input-fingerprint.json").write_text(
+              json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+          )
+          PY
+
+      - name: "Kjør kanoniske raske sjekker"
+        run: scripts/check quick
+
+      - name: "Publiser aktivitetskalender"
+        run: |
+          mkdir -p "$WORK_DIR/github-actions"
+          scripts/rvv-miniputt activities \
+            --input "$ACTIVITY_INPUT" \
+            --work-dir "$WORK_DIR" \
+            --publish \
+            --confirm-public \
+            --json \
+            2>&1 | tee "$WORK_DIR/github-actions/publish-result.json"
+          scripts/rvv-miniputt status --work-dir "$WORK_DIR" --json > "$WORK_DIR/github-actions/status.json" || true
+
+      - name: "Last opp publiseringsbevis"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: activity-publish-${{ github.run_id }}
+          path: |
+            ${{ env.WORK_DIR }}/github-actions/input-fingerprint.json
+            ${{ env.WORK_DIR }}/github-actions/publish-result.json
+            ${{ env.WORK_DIR }}/github-actions/status.json
+            ${{ env.WORK_DIR }}/run_manifest.json
+            ${{ env.WORK_DIR }}/public_bundle/pages_privacy_report.json
+          if-no-files-found: warn

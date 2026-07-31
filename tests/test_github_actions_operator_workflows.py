@@ -15,6 +15,8 @@ WORKFLOW_FILES = {
     "review": WORKFLOWS / "season-review-bundle.yml",
     "publish": WORKFLOWS / "season-publish.yml",
     "rollback": WORKFLOWS / "season-rollback.yml",
+    "activity-publish": WORKFLOWS / "activity-publish.yml",
+    "registration-publish": WORKFLOWS / "registration-publish.yml",
 }
 
 
@@ -45,12 +47,24 @@ WORKFLOWS_PARSED = {name: Workflow(path) for name, path in WORKFLOW_FILES.items(
 
 
 def test_all_browser_operator_workflows_exist_and_are_manual():
-    for name, workflow in WORKFLOWS_PARSED.items():
+    for name in ["validate", "review", "publish", "rollback"]:
+        workflow = WORKFLOWS_PARSED[name]
         assert workflow.path.exists(), name
         assert workflow.workflow_dispatch, name
         on_block = workflow.data.get("on", workflow.data.get(True, {}))
         assert set(on_block) == {"workflow_dispatch"}
         assert workflow.data.get("concurrency"), name
+
+
+def test_routine_publish_workflows_exist_and_trigger_on_path():
+    for name in ["activity-publish", "registration-publish"]:
+        workflow = WORKFLOWS_PARSED[name]
+        assert workflow.path.exists(), name
+        on_block = workflow.data.get("on", workflow.data.get(True, {}))
+        # Both workflows support workflow_dispatch and push.paths
+        assert "workflow_dispatch" in on_block, f"{name} should support workflow_dispatch"
+        assert "push" in on_block, f"{name} should support push trigger"
+        assert workflow.data.get("concurrency"), f"{name} should have a concurrency group"
 
 
 def test_validation_and_review_generation_never_publish_publicly():
@@ -138,6 +152,99 @@ def test_rollback_is_separate_protected_and_requires_run_id():
     assert "rollback-result.json" in workflow.text
 
 
+# ---------------------------------------------------------------------------
+# Routine content auto-publish workflows (issue #49)
+# ---------------------------------------------------------------------------
+
+
+def test_activity_publish_delegates_to_cli_and_preserves_latest_snapshot():
+    workflow = WORKFLOWS_PARSED["activity-publish"]
+
+    assert workflow.data["permissions"] == {"contents": "write"}
+    # Path-triggered on the canonical input.
+    on_block = workflow.data.get("on", workflow.data.get(True, {}))
+    push_block = on_block.get("push", {})
+    assert "inputs/activities/activities.xlsx" in str(push_block.get("paths", []))
+    # workflow_dispatch input
+    assert "input_path" in workflow.inputs
+    # Canonical CLI delegation
+    assert "scripts/rvv-miniputt activities" in workflow.text
+    assert "--publish" in workflow.text
+    assert "--confirm-public" in workflow.text
+    # Shares routine-publish concurrency group
+    assert "routine-publish" in workflow.text
+    # Artifact uploads on failure
+    assert "actions/upload-artifact@v4" in workflow.text
+    assert "input-fingerprint.json" in workflow.text
+    assert "publish-result.json" in workflow.text
+    assert "pages_privacy_report.json" in workflow.text
+    assert "scripts/check quick" in workflow.text
+
+
+def test_registration_publish_delegates_to_cli_and_syncs_workbook():
+    workflow = WORKFLOWS_PARSED["registration-publish"]
+
+    assert workflow.data["permissions"] == {"contents": "write"}
+    # Path-triggered on the canonical CSV.
+    on_block = workflow.data.get("on", workflow.data.get(True, {}))
+    push_block = on_block.get("push", {})
+    assert "inputs/registrations/registered-teams.csv" in str(push_block.get("paths", []))
+    # workflow_dispatch inputs
+    assert "csv_path" in workflow.inputs
+    assert "workbook_path" in workflow.inputs
+    # Canonical CLI delegation
+    assert "scripts/rvv-miniputt registered-teams" in workflow.text
+    assert "--publish" in workflow.text
+    assert "--confirm-public" in workflow.text
+    # Shares routine-publish concurrency group
+    assert "routine-publish" in workflow.text
+    # Sync step with loop prevention
+    assert "sync_registered_teams_to_workbook" in workflow.text
+    assert "[skip ci]" in workflow.text
+    # Artifact uploads
+    assert "actions/upload-artifact@v4" in workflow.text
+    assert "sync-report.json" in workflow.text
+    assert "scripts/check quick" in workflow.text
+
+
+def test_routine_publish_workflows_never_run_full_season_planning():
+    """Neither routine workflow invokes the full season-planning pipeline."""
+    for name in ["activity-publish", "registration-publish"]:
+        workflow = WORKFLOWS_PARSED[name]
+        assert "operator run" not in workflow.text, f"{name} must not run full season planning"
+        assert "stage1_config" not in workflow.text, f"{name} must not call pipeline stages directly"
+        assert "stage2_scraping" not in workflow.text, f"{name} must not call pipeline stages directly"
+        assert "stage3_planning" not in workflow.text, f"{name} must not call pipeline stages directly"
+        assert "stage4_export" not in workflow.text, f"{name} must not call pipeline stages directly"
+
+
+def test_routine_publish_workflows_serialize_publication():
+    """Both routine workflows use the same concurrency group to serialize Pages writes."""
+    activity_wf = WORKFLOWS_PARSED["activity-publish"]
+    reg_wf = WORKFLOWS_PARSED["registration-publish"]
+
+    assert "routine-publish" in activity_wf.text
+    assert "routine-publish" in reg_wf.text
+    # Verify it's the exact same group key
+    activity_group = activity_wf.data.get("concurrency", {})
+    reg_group = reg_wf.data.get("concurrency", {})
+    assert activity_group.get("group") == reg_group.get("group") == "routine-publish-${{ github.ref }}"
+
+
+def test_registration_publish_prevents_recursive_loops():
+    """Workbook commit includes [skip ci] and path filters prevent re-trigger."""
+    workflow = WORKFLOWS_PARSED["registration-publish"]
+
+    # The commit message for workbook updates must contain [skip ci]
+    assert "[skip ci]" in workflow.text
+    # Path trigger only on the CSV, not the workbook
+    on_block = workflow.data.get("on", workflow.data.get(True, {}))
+    push_block = on_block.get("push", {})
+    paths = push_block.get("paths", [])
+    assert "inputs/registrations/registered-teams.csv" in str(paths)
+    assert "inputs/season/input.xlsx" not in str(paths)
+
+
 def test_workflows_delegate_to_canonical_cli_instead_of_reimplementing_policy():
     forbidden_fragments = [
         "python -m tournament_scheduler.pipeline.stage",
@@ -158,3 +265,7 @@ def test_workflows_delegate_to_canonical_cli_instead_of_reimplementing_policy():
             assert "scripts/rvv-miniputt operator publish" in workflow.text
         if name == "rollback":
             assert "scripts/rvv-miniputt operator rollback" in workflow.text
+        if name == "activity-publish":
+            assert "scripts/rvv-miniputt activities" in workflow.text
+        if name == "registration-publish":
+            assert "scripts/rvv-miniputt registered-teams" in workflow.text

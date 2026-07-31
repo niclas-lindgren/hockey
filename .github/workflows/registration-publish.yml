@@ -1,0 +1,172 @@
+name: "Påmeldte lag: auto-publiser"
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "inputs/registrations/registered-teams.csv"
+  workflow_dispatch:
+    inputs:
+      csv_path:
+        description: "Sti til påmeldings-CSV fra SharePoint"
+        required: true
+        default: "inputs/registrations/registered-teams.csv"
+      workbook_path:
+        description: "Sti til sesongarbeidsboken som skal oppdateres"
+        required: true
+        default: "inputs/season/input.xlsx"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: routine-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+  WORK_DIR: .pipeline/github-registration-publish
+  CSV_PATH: ${{ inputs.csv_path || 'inputs/registrations/registered-teams.csv' }}
+  WORKBOOK_PATH: ${{ inputs.workbook_path || 'inputs/season/input.xlsx' }}
+
+jobs:
+  publish-registered-teams:
+    name: "Publiser påmeldte lag"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: "Hent kode"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Sett opp Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: "Installer avhengigheter"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[test]'
+
+      - name: "Skriv input-fingeravtrykk"
+        run: |
+          mkdir -p "$WORK_DIR/github-actions"
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          csv_path = os.environ["CSV_PATH"]
+          path = Path(csv_path)
+          if not path.exists():
+              raise SystemExit(f"Påmeldings-CSV ikke funnet: {path}")
+          payload = {
+              "path": str(path),
+              "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              "size_bytes": path.stat().st_size,
+          }
+          Path(os.environ["WORK_DIR"]).joinpath("github-actions", "input-fingerprint.json").write_text(
+              json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+          )
+          PY
+
+      - name: "Kjør kanoniske raske sjekker"
+        run: scripts/check quick
+
+      - name: "Synkroniser registreringer til arbeidsbok"
+        id: sync
+        run: |
+          mkdir -p "$WORK_DIR/github-actions"
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          from tournament_scheduler.pipeline.registration_sync import (
+              RegistrationSyncError,
+              sync_registered_teams_to_workbook,
+          )
+
+          csv_path = os.environ["CSV_PATH"]
+          workbook_path = os.environ["WORKBOOK_PATH"]
+
+          # Fall back to root input.xlsx when inputs/season/input.xlsx does not exist.
+          workbook = Path(workbook_path)
+          fallback = Path("input.xlsx")
+          if not workbook.exists() and fallback.exists():
+              workbook = fallback
+              workbook_path = str(fallback)
+
+          work_dir = Path(os.environ["WORK_DIR"])
+          sync_report_path = work_dir / "github-actions" / "sync-report.json"
+
+          try:
+              result = sync_registered_teams_to_workbook(csv_path, workbook_path)
+          except RegistrationSyncError as exc:
+              sync_report_path.write_text(
+                  json.dumps({"error": str(exc)}, indent=2, ensure_ascii=False), encoding="utf-8"
+              )
+              print(f"SYNC_ERROR: {exc}", file=sys.stderr)
+              sys.exit(1)
+
+          result["workbook_path"] = workbook_path
+          sync_report_path.write_text(
+              json.dumps(result, indent=2, ensure_ascii=False, default=str), encoding="utf-8"
+          )
+
+          # Set outputs for downstream steps.
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              print(f"changed={'true' if result['changed'] else 'false'}", file=f)
+              print(f"workbook_path={workbook_path}", file=f)
+              print(f"team_count={result['team_count']}", file=f)
+
+          print(f"SYNC_OK changed={result['changed']} teams={result['team_count']}")
+          PY
+
+      - name: "Commit oppdatert arbeidsbok"
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          WORKBOOK_PATH: ${{ steps.sync.outputs.workbook_path }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$WORKBOOK_PATH"
+          git commit -m "[bot] [skip ci] Oppdater Lag-arket fra godkjente påmeldinger" -m "Automatisk synkronisert fra $CSV_PATH."
+          git push origin HEAD:main
+
+      - name: "Publiser påmeldte lag"
+        run: |
+          mkdir -p "$WORK_DIR/github-actions"
+          scripts/rvv-miniputt registered-teams \
+            --csv "$CSV_PATH" \
+            --work-dir "$WORK_DIR" \
+            --publish \
+            --confirm-public \
+            --json \
+            2>&1 | tee "$WORK_DIR/github-actions/publish-result.json"
+          scripts/rvv-miniputt status --work-dir "$WORK_DIR" --json > "$WORK_DIR/github-actions/status.json" || true
+
+      - name: "Last opp publiseringsbevis"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: registration-publish-${{ github.run_id }}
+          path: |
+            ${{ env.WORK_DIR }}/github-actions/input-fingerprint.json
+            ${{ env.WORK_DIR }}/github-actions/sync-report.json
+            ${{ env.WORK_DIR }}/github-actions/publish-result.json
+            ${{ env.WORK_DIR }}/github-actions/status.json
+            ${{ env.WORK_DIR }}/run_manifest.json
+            ${{ env.WORK_DIR }}/public_bundle/pages_privacy_report.json
+          if-no-files-found: warn
