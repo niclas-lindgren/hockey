@@ -50,9 +50,10 @@ jobs:
             > "$RUNNER_TEMP/issue.json"
 
           jq -e '
-            .title == "sharepoint-sync: activities"
-            and .state == "OPEN"
-            and (["OWNER", "MEMBER", "COLLABORATOR"] | index(.authorAssociation) != null)
+            .authorAssociation as $association
+            | .title == "sharepoint-sync: activities"
+              and .state == "OPEN"
+              and (["OWNER", "MEMBER", "COLLABORATOR"] | index($association) != null)
           ' "$RUNNER_TEMP/issue.json" >/dev/null || {
             echo "Issue is not an open trusted activity sync request" >&2
             exit 1
