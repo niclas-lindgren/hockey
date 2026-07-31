@@ -44,15 +44,14 @@ jobs:
           GH_REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
-          gh issue view "$ISSUE_NUMBER" --repo "$GH_REPO" \
-            --json title,body,authorAssociation,state \
+          gh api "repos/$GH_REPO/issues/$ISSUE_NUMBER" \
+            --jq '{title, body, state, author_association}' \
             > "$RUNNER_TEMP/issue.json"
 
           jq -e '
-            .authorAssociation as $association
-            | .title == "sharepoint-sync: registrations"
-              and .state == "OPEN"
-              and (["OWNER", "MEMBER", "COLLABORATOR"] | index($association) != null)
+            .title == "sharepoint-sync: registrations"
+            and .state == "open"
+            and (["OWNER", "MEMBER", "COLLABORATOR"] | index(.author_association) != null)
           ' "$RUNNER_TEMP/issue.json" >/dev/null || {
             echo "Issue is not an open trusted registration sync request" >&2
             exit 1
