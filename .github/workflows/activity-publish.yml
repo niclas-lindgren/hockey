@@ -122,17 +122,19 @@ jobs:
         env:
           ACTIVITY_INPUT: ${{ steps.resolve_input.outputs.input }}
 
-      - name: "Vis publisert side"
+      - name: "Vis generert aktivitetsside"
         run: |
           OWNER="${GITHUB_REPOSITORY%%/*}"
           REPO="${GITHUB_REPOSITORY#*/}"
-          PAGES_URL="https://${OWNER}.github.io/${REPO}/latest/"
+          ACTIVITY_URL="https://${OWNER}.github.io/${REPO}/latest/activities/"
 
-          echo "Publisert side: $PAGES_URL"
+          echo "Generert HTML-side for aktivitetskalender: $ACTIVITY_URL"
           {
             echo "## Publisert aktivitetskalender"
             echo
-            echo "[$PAGES_URL]($PAGES_URL)"
+            echo "Den genererte HTML-siden er tilgjengelig her:"
+            echo
+            echo "[$ACTIVITY_URL]($ACTIVITY_URL)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Last opp publiseringsbevis"
