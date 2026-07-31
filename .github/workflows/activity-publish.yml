@@ -39,7 +39,7 @@ jobs:
   publish-activity-calendar:
     name: "Publiser aktivitetskalender"
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: "Hent kode"
         uses: actions/checkout@v4
@@ -56,11 +56,11 @@ jobs:
             requirements.txt
             pyproject.toml
 
-      - name: "Installer avhengigheter"
+      - name: "Installer runtime-avhengigheter"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -e '.[test]'
+          pip install -e .
 
       - name: "Finn inndata"
         id: resolve_input
@@ -81,7 +81,7 @@ jobs:
           echo "format=$FORMAT" >> "$GITHUB_OUTPUT"
           echo "Resolved input=$INPUT format=$FORMAT"
 
-      - name: "Skriv input-fingeravtrykk"
+      - name: "Valider inndata og skriv fingeravtrykk"
         run: |
           mkdir -p "$WORK_DIR/github-actions"
           python - <<'PY'
@@ -90,9 +90,22 @@ jobs:
           import os
           from pathlib import Path
 
+          from tournament_scheduler.pipeline.activity_export import (
+              ActivityJSONValidationError,
+              validate_content_json,
+          )
+
           path = Path(os.environ["ACTIVITY_INPUT"])
           if not path.exists():
               raise SystemExit(f"Aktivitetsdata ikke funnet: {path}")
+
+          if path.suffix.lower() == ".json":
+              try:
+                  payload = json.loads(path.read_text(encoding="utf-8"))
+                  validate_content_json(payload)
+              except (json.JSONDecodeError, ActivityJSONValidationError) as exc:
+                  raise SystemExit(f"Ugyldig aktivitets-JSON: {exc}") from exc
+
           payload = {
               "path": str(path),
               "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -104,9 +117,6 @@ jobs:
           PY
         env:
           ACTIVITY_INPUT: ${{ steps.resolve_input.outputs.input }}
-
-      - name: "Kjør kanoniske raske sjekker"
-        run: scripts/check quick
 
       - name: "Publiser aktivitetskalender"
         run: |
