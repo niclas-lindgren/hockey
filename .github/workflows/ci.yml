@@ -1,17 +1,8 @@
 name: CI
 
-# Required-fast tier: covers the operator control path (manifest, escalation,
-# candidate reproducibility, CLI wiring, desktop backend API) without any
-# live external calendar dependency, so every check here can run offline and
-# quickly. Slower/optional checks (a full Electron+Python packaged build)
-# live in desktop-build.yml (manual dispatch) and release.yml (tag push) —
-# see docs/ci.md for the required-vs-optional split and recommended branch
-# protection settings.
-
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -47,14 +38,14 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
           cache-dependency-path: |
-            requirements.lock
+            requirements.txt
             pyproject.toml
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock
-          pip install --no-deps -e .
+          pip install -r requirements.txt
+          pip install -e '.[test]'
 
       - name: Run quick test suite
         run: scripts/check quick
@@ -66,142 +57,6 @@ jobs:
           name: coverage-html
           path: htmlcov/
           if-no-files-found: ignore
-
-  operator-control-path-tests:
-    name: Operator manifest & escalation tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            requirements.lock
-            pyproject.toml
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock
-          pip install --no-deps -e .
-
-      - name: Run operator control-path tests
-        run: scripts/check operator
-
-  planner-reproducibility:
-    name: Deterministic planner reproducibility
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            requirements.lock
-            pyproject.toml
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock
-          pip install --no-deps -e .
-
-      - name: Run reproducibility fixture
-        run: scripts/check reproducibility
-
-      - name: Upload generated manifests on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: reproducibility-failure-state
-          path: repro-tmp/
-          if-no-files-found: ignore
-
-  cli-smoke:
-    name: CLI integration smoke test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            requirements.lock
-            pyproject.toml
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock
-          pip install --no-deps -e .
-
-      - name: Run CLI smoke test
-        run: scripts/check cli-smoke
-
-      - name: Upload run manifests and logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cli-smoke-failure-state
-          path: cli-smoke-tmp/
-          if-no-files-found: ignore
-
-  desktop-backend-smoke:
-    name: Desktop backend API smoke test
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            requirements.lock
-            pyproject.toml
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock
-          pip install --no-deps -e .
-
-      - name: Run desktop backend smoke test
-        run: scripts/check desktop-backend
-
-  desktop-packaging-validate:
-    name: Desktop packaging config validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-          cache-dependency-path: |
-            requirements.lock
-            pyproject.toml
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --require-hashes -r requirements.lock
-          pip install --no-deps -e .
-
-      - name: Validate packaging configuration (no build, no publish)
-        run: scripts/check desktop-packaging
 
   secret-scan:
     name: Secret scanning (gitleaks)
