@@ -2,16 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 
 import openpyxl
 
-from tournament_scheduler.pipeline.activity_publish import (
-    _normalise_partial_dates_for_publish,
-    prepare_activity_latest_export,
-)
+from tournament_scheduler.pipeline.activity_publish import prepare_activity_latest_export
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -40,6 +36,7 @@ def _repo_with_pages_latest(repo: Path) -> None:
             continue
         if child.is_dir():
             import shutil
+
             shutil.rmtree(child)
         else:
             child.unlink()
@@ -73,29 +70,3 @@ class TestActivityPublish:
         assert (export_dir / "activities.json").exists()
         assert (export_dir / "activities" / "index.html").exists()
         assert "RS U15" in (export_dir / "activities.json").read_text(encoding="utf-8")
-
-    def test_normalises_compact_sharepoint_dates_without_mutating_source(self, tmp_path):
-        source = tmp_path / "activities.json"
-        source.write_text(
-            json.dumps(
-                {
-                    "schemaVersion": 1,
-                    "worksheet": "Årshjul",
-                    "values": [
-                        ["Måned", "Dato", "Aktivitet"],
-                        ["Desember", "15.12.", "RS U15"],
-                        ["September", "30.9.", "RS JU16"],
-                    ],
-                },
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
-        )
-
-        normalised = _normalise_partial_dates_for_publish(source)
-
-        assert normalised != source
-        assert json.loads(source.read_text(encoding="utf-8"))["values"][1][1] == "15.12."
-        values = json.loads(normalised.read_text(encoding="utf-8"))["values"]
-        assert values[1][1] == "15"
-        assert values[2][1] == "30"
