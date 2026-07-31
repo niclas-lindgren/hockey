@@ -66,7 +66,7 @@ jobs:
               echo "FEIL: Issuen har feil tittel: '$TITLE'" >&2
               exit 1
             fi
-            if ! jq -e --arg a "$AUTHOR_ASSOC" '["OWNER","MEMBER","COLLABORATOR"] | index($a)' >/dev/null; then
+            if ! jq -n -e --arg a "$AUTHOR_ASSOC" '["OWNER","MEMBER","COLLABORATOR"] | index($a)' >/dev/null; then
               echo "FEIL: Forfatteren har ikke trusted-tilgang: $AUTHOR_ASSOC" >&2
               exit 1
             fi
