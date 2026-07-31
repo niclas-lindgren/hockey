@@ -119,7 +119,8 @@ def prepare_activity_latest_export(*, input_path: str, export_dir: str | Path, r
         if require_latest_base and base_file_count == 0:
             raise ActivityPublishError(f"Fant ingen eksisterende /latest/-snapshot på branch '{branch}' eller dens remote-tracking ref. Avbryter for å unngå å publisere bare aktivitetskalenderen og slette andre sider.")
     publish_input = _normalise_partial_dates_for_publish(input_path)
-    activity_files = generate_activity_artifacts(input_path=str(publish_input), export_dir=str(export_path), default_year=default_year, generated_at=generated_at)
+    effective_year = default_year or datetime.now(timezone.utc).year
+    activity_files = generate_activity_artifacts(input_path=str(publish_input), export_dir=str(export_path), default_year=effective_year, generated_at=generated_at)
     if activity_files is None:
         raise WorkbookInputError(f"Fant ingen støttet aktivitetsfane i '{input_path}' (forventet f.eks. 'Aktiviteter' eller 'Årshjul').")
     return {"export_dir": str(export_path), "base_file_count": base_file_count, "activity_files": activity_files}
