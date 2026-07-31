@@ -217,106 +217,187 @@ def generate_registered_team_artifacts(
 
 
 def render_registered_teams_html(payload: dict[str, Any]) -> str:
-    """Render a static, accessible Norwegian page from a public payload."""
-    age_groups = payload.get("age_groups", []) or []
-    generated_at = _format_generated_at(str(payload.get("generated_at", "")))
+    """Render a compact, searchable Norwegian club overview."""
+    generated_raw = str(payload.get("generated_at", ""))
+    generated_at = _format_generated_at(generated_raw)
     total_teams = int(payload.get("total_teams", 0) or 0)
-    total_clubs = int(payload.get("total_clubs", 0) or 0)
 
-    if not age_groups:
+    clubs: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for group in payload.get("age_groups", []) or []:
+        age_group = str(group.get("age_group", ""))
+        for club in group.get("clubs", []) or []:
+            club_name = str(club.get("club", ""))
+            for team in club.get("teams", []) or []:
+                clubs[club_name].append({"age_group": age_group, "label": str(team)})
+
+    def age_sort_key(value: str) -> tuple[int, int | str, str]:
+        match = re.fullmatch(r"(J?U)(\d+)", value, flags=re.IGNORECASE)
+        if match:
+            return (0, int(match.group(2)), match.group(1).upper())
+        return (1, value.casefold(), value)
+
+    sections: list[str] = []
+    for club_name in sorted(clubs, key=str.casefold):
+        teams = sorted(
+            clubs[club_name],
+            key=lambda team: (age_sort_key(team["age_group"]), team["label"].casefold()),
+        )
+        searchable = " ".join(
+            [club_name, *[f"{team['age_group']} {team['label']}" for team in teams]]
+        ).casefold()
+        team_items = "".join(
+            '<li>'
+            f'<span class="age-badge">{_e(team["age_group"])}</span>'
+            f'<span class="team-name">{_e(team["label"])}</span>'
+            '</li>'
+            for team in teams
+        )
+        sections.append(
+            f'<section class="club" data-search="{_e(searchable)}">'
+            '<div class="club-heading">'
+            f'<h2>{_e(club_name)}</h2>'
+            f'<span>{len(teams)} {"lag" if len(teams) == 1 else "lag"}</span>'
+            '</div>'
+            f'<ul>{team_items}</ul>'
+            '</section>'
+        )
+
+    if sections:
+        content = "\n".join(sections)
+        empty_hidden = '<p class="no-results" id="no-results" hidden>Ingen klubber eller lag matcher søket.</p>'
+    else:
         content = (
             '<section class="empty-state">'
             '<h2>Ingen lag er registrert ennå</h2>'
-            '<p>Oversikten oppdateres fortløpende når påmeldinger er godkjent.</p>'
+            '<p>Oversikten oppdateres når påmeldinger er godkjent.</p>'
             '</section>'
         )
-    else:
-        sections = []
-        for group in age_groups:
-            clubs = []
-            for club in group.get("clubs", []) or []:
-                teams = "".join(f"<li>{_e(team)}</li>" for team in club.get("teams", []) or [])
-                clubs.append(
-                    '<article class="club-card">'
-                    f'<h3>{_e(club.get("club", ""))}</h3>'
-                    f'<p>{int(club.get("team_count", 0) or 0)} lag</p>'
-                    f'<ul>{teams}</ul>'
-                    '</article>'
-                )
-            sections.append(
-                '<section class="age-group-card">'
-                '<div class="age-group-card__head">'
-                f'<h2>{_e(group.get("age_group", ""))}</h2>'
-                f'<span>{int(group.get("team_count", 0) or 0)} lag · {int(group.get("club_count", 0) or 0)} klubber</span>'
-                '</div>'
-                f'<div class="club-grid">{"".join(clubs)}</div>'
-                '</section>'
-            )
-        content = "\n".join(sections)
+        empty_hidden = ""
 
     return f"""<!doctype html>
 <html lang="nb">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
 <title>Påmeldte lag</title>
 <style>
-  :root {{ --bg:#f7fafc; --surface:#ffffff; --ink:#102033; --muted:#5b6f84; --line:#d7e2ec; --accent:#0b66c3; --accent-soft:#e5f1fc; --shadow:0 18px 45px rgba(15,23,42,.10); --radius:18px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }}
+  :root {{
+    --page:#f5f7fa;
+    --surface:#ffffff;
+    --ink:#172536;
+    --muted:#64748b;
+    --line:#dbe3ec;
+    --accent:#0d5fa8;
+    --accent-soft:#eaf3fb;
+    --focus:#1d76c5;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  }}
   * {{ box-sizing:border-box; }}
-  body {{ margin:0; background:radial-gradient(circle at top left,#dceffd,transparent 28rem),var(--bg); color:var(--ink); line-height:1.5; }}
-  .wrap {{ width:min(1120px,100%); margin:0 auto; padding:clamp(16px,3vw,32px); }}
-  header {{ display:grid; gap:10px; margin-bottom:24px; }}
-  .eyebrow {{ color:#07477f; font-size:13px; font-weight:850; letter-spacing:.08em; text-transform:uppercase; }}
-  h1 {{ margin:0; font-size:clamp(32px,5vw,54px); letter-spacing:-.045em; line-height:1.03; }}
-  .lead {{ max-width:780px; margin:0; color:var(--muted); font-size:clamp(15px,2vw,18px); }}
-  .meta-grid {{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:22px 0; }}
-  .metric, .age-group-card, .empty-state {{ background:rgba(255,255,255,.9); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); }}
-  .metric {{ padding:16px; }}
-  .metric span {{ display:block; color:var(--muted); font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }}
-  .metric strong {{ display:block; margin-top:4px; font-size:clamp(24px,4vw,36px); letter-spacing:-.04em; }}
-  .age-group-stack {{ display:grid; gap:16px; }}
-  .age-group-card {{ overflow:hidden; }}
-  .age-group-card__head {{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 20px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#fff,var(--accent-soft)); }}
-  .age-group-card h2 {{ margin:0; font-size:24px; }}
-  .age-group-card__head span {{ color:#07477f; font-weight:850; }}
-  .club-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; padding:16px; }}
-  .club-card {{ border:1px solid var(--line); border-radius:14px; background:var(--surface); padding:14px; }}
-  .club-card h3 {{ margin:0 0 2px; font-size:17px; }}
-  .club-card p {{ margin:0 0 10px; color:var(--muted); font-weight:750; }}
-  .club-card ul {{ margin:0; padding-left:20px; }}
-  .club-card li {{ margin:2px 0; }}
-  .empty-state {{ padding:32px; text-align:center; }}
-  .empty-state h2 {{ margin:0 0 8px; }}
-  .empty-state p {{ margin:0; color:var(--muted); }}
-  footer {{ margin-top:24px; color:var(--muted); font-size:14px; }}
-  a {{ color:var(--accent); font-weight:800; }}
-  @media (max-width:720px) {{ .meta-grid {{ grid-template-columns:1fr; }} .age-group-card__head {{ align-items:flex-start; flex-direction:column; }} }}
+  body {{ margin:0; background:var(--page); color:var(--ink); line-height:1.45; }}
+  .wrap {{ width:min(820px,100%); margin:0 auto; padding:clamp(18px,4vw,40px); }}
+  header {{ margin-bottom:20px; }}
+  .eyebrow {{ margin:0 0 4px; color:var(--accent); font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }}
+  h1 {{ margin:0; font-size:clamp(30px,6vw,46px); line-height:1.05; letter-spacing:-.035em; }}
+  .intro {{ margin:10px 0 0; max-width:680px; color:var(--muted); font-size:16px; }}
+  .updated {{ display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; margin:14px 0 0; color:var(--muted); font-size:14px; }}
+  .updated strong {{ color:var(--ink); }}
+  .toolbar {{ position:sticky; top:0; z-index:5; margin:0 0 16px; padding:10px 0; background:linear-gradient(var(--page) 74%,rgba(245,247,250,0)); }}
+  .search {{ position:relative; }}
+  .search svg {{ position:absolute; left:14px; top:50%; width:20px; height:20px; transform:translateY(-50%); color:var(--muted); pointer-events:none; }}
+  .search input {{ width:100%; min-height:48px; padding:12px 46px 12px 44px; border:1px solid #bcc9d6; border-radius:12px; background:var(--surface); color:var(--ink); font:inherit; box-shadow:0 2px 8px rgba(15,23,42,.05); }}
+  .search input:focus {{ outline:3px solid rgba(29,118,197,.22); border-color:var(--focus); }}
+  .clear {{ position:absolute; right:8px; top:50%; min-width:34px; min-height:34px; transform:translateY(-50%); border:0; border-radius:9px; background:transparent; color:var(--muted); font-size:22px; cursor:pointer; }}
+  .clear:hover {{ background:#eef2f6; color:var(--ink); }}
+  .results-meta {{ margin:6px 2px 0; color:var(--muted); font-size:13px; }}
+  main {{ overflow:hidden; border:1px solid var(--line); border-radius:14px; background:var(--surface); box-shadow:0 8px 24px rgba(15,23,42,.06); }}
+  .club {{ padding:17px 20px 18px; }}
+  .club + .club {{ border-top:1px solid var(--line); }}
+  .club-heading {{ display:flex; justify-content:space-between; gap:14px; align-items:baseline; margin-bottom:9px; }}
+  .club h2 {{ margin:0; font-size:20px; letter-spacing:-.015em; }}
+  .club-heading span {{ color:var(--muted); font-size:13px; white-space:nowrap; }}
+  .club ul {{ display:grid; gap:5px; margin:0; padding:0; list-style:none; }}
+  .club li {{ display:grid; grid-template-columns:52px minmax(0,1fr); gap:10px; align-items:baseline; min-height:28px; }}
+  .age-badge {{ display:inline-flex; justify-content:center; align-items:center; min-width:44px; padding:3px 7px; border-radius:999px; background:var(--accent-soft); color:#084d87; font-size:12px; font-weight:800; line-height:1.4; }}
+  .team-name {{ min-width:0; overflow-wrap:anywhere; }}
+  .no-results, .empty-state {{ margin:0; padding:34px 20px; text-align:center; color:var(--muted); }}
+  .empty-state h2 {{ margin:0 0 6px; color:var(--ink); font-size:20px; }}
+  .empty-state p {{ margin:0; }}
+  footer {{ margin-top:18px; color:var(--muted); font-size:13px; }}
+  footer a {{ color:var(--accent); }}
+  [hidden] {{ display:none !important; }}
+  @media (max-width:520px) {{
+    .wrap {{ padding:18px 12px 28px; }}
+    .toolbar {{ padding-top:6px; }}
+    .club {{ padding:15px 14px 16px; }}
+    .club-heading {{ align-items:flex-start; }}
+    .club li {{ grid-template-columns:48px minmax(0,1fr); gap:8px; }}
+  }}
+  @media (prefers-reduced-motion:reduce) {{ * {{ scroll-behavior:auto !important; }} }}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <div class="eyebrow">RVV Hockey</div>
+    <p class="eyebrow">RVV Hockey</p>
     <h1>Påmeldte lag</h1>
-    <p class="lead">Offentlig oversikt over godkjente lagpåmeldinger. Påmeldingene kan endre seg frem til påmeldingsfristen, og siden oppdateres når nye lag er godkjent.</p>
+    <p class="intro">Lag som meldes på via påmeldingsskjemaet, blir publisert her etter automatisk kontroll. Dersom påmeldingen ikke kan behandles automatisk, blir den kontrollert manuelt først.</p>
+    <p class="updated"><span><strong>{total_teams}</strong> registrerte lag</span><span>Sist oppdatert: <time datetime="{_e(generated_raw)}">{_e(generated_at)}</time></span></p>
   </header>
 
-  <section class="meta-grid" aria-label="Nøkkeltall">
-    <div class="metric"><span>Lag totalt</span><strong>{total_teams}</strong></div>
-    <div class="metric"><span>Klubber</span><strong>{total_clubs}</strong></div>
-    <div class="metric"><span>Aldersgrupper</span><strong>{len(age_groups)}</strong></div>
-  </section>
+  <div class="toolbar">
+    <label class="search" for="team-search">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <input id="team-search" type="search" inputmode="search" autocomplete="off" placeholder="Søk etter klubb, lag eller aldersgruppe" aria-describedby="results-meta">
+      <button class="clear" id="clear-search" type="button" aria-label="Tøm søk" hidden>×</button>
+    </label>
+    <p class="results-meta" id="results-meta" aria-live="polite"></p>
+  </div>
 
-  <main class="age-group-stack">
+  <main id="club-list">
     {content}
+    {empty_hidden}
   </main>
 
   <footer>
-    Sist oppdatert: <time datetime="{_e(str(payload.get('generated_at', '')))}">{_e(generated_at)}</time>.
-    Personopplysninger, kontaktfelt, SharePoint-ID-er, interne statuser og kommentarer publiseres ikke.
-    <a href="pameldte-lag.json">Last ned offentlig JSON</a>.
+    Oversikten oppdateres automatisk når godkjente påmeldinger behandles.
+    <a href="pameldte-lag.json">Åpne offentlig JSON</a>.
   </footer>
 </div>
+<script>
+(() => {{
+  const input = document.getElementById('team-search');
+  const clearButton = document.getElementById('clear-search');
+  const clubs = Array.from(document.querySelectorAll('.club'));
+  const noResults = document.getElementById('no-results');
+  const resultsMeta = document.getElementById('results-meta');
+  if (!input || clubs.length === 0) return;
+
+  const normalize = value => value.toLocaleLowerCase('nb-NO').trim();
+  const render = () => {{
+    const query = normalize(input.value);
+    let visible = 0;
+    clubs.forEach(club => {{
+      const match = !query || club.dataset.search.includes(query);
+      club.hidden = !match;
+      if (match) visible += 1;
+    }});
+    clearButton.hidden = !query;
+    if (noResults) noResults.hidden = visible !== 0;
+    resultsMeta.textContent = query
+      ? `${{visible}} av ${{clubs.length}} klubber vises`
+      : `${{clubs.length}} klubber`;
+  }};
+
+  input.addEventListener('input', render);
+  clearButton.addEventListener('click', () => {{
+    input.value = '';
+    input.focus();
+    render();
+  }});
+  render();
+}})();
+</script>
 </body>
 </html>
 """
@@ -419,31 +500,46 @@ def _load_configured_age_groups(config_path: str | Path | None) -> list[str]:
 
 def _format_generated_at(value: str) -> str:
     if not value:
-        return "ukjent tidspunkt"
-    if value.endswith("Z"):
-        value = value[:-1] + "+00:00"
+        return "ukjent"
     try:
-        moment = datetime.fromisoformat(value)
+        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return value
-    return moment.strftime("%Y-%m-%d %H:%M UTC")
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    moment = moment.astimezone()
+    months = (
+        "januar",
+        "februar",
+        "mars",
+        "april",
+        "mai",
+        "juni",
+        "juli",
+        "august",
+        "september",
+        "oktober",
+        "november",
+        "desember",
+    )
+    return f"{moment.day}. {months[moment.month - 1]} {moment.year} kl. {moment:%H:%M}"
 
 
-def _e(value: Any) -> str:
-    return html.escape(str(value or ""), quote=True)
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _canonical_header(value: Any) -> str:
-    return _normalize_value(value).casefold().lstrip("\ufeff")
-
-
-def _normalize_value(value: Any) -> str:
+def _normalize_value(value: object) -> str:
     return _WHITESPACE_RE.sub(" ", str(value or "").strip())
+
+
+def _canonical_header(value: object) -> str:
+    return _normalize_value(value).casefold().replace(" ", "_").replace("-", "_")
 
 
 def _dedupe_key(value: str) -> str:
     return _normalize_value(value).casefold()
 
 
-def _utc_now() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+def _e(value: object) -> str:
+    return html.escape(str(value or ""), quote=True)
