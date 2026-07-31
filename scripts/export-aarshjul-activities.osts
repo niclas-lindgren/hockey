@@ -1,0 +1,23 @@
+function main(workbook: ExcelScript.Workbook): string {
+  const worksheet = workbook.getWorksheet("Årshjul");
+
+  if (!worksheet) {
+    throw new Error("Fant ikke regnearket 'Årshjul'.");
+  }
+
+  const range = worksheet.getUsedRange(true);
+
+  if (!range) {
+    return JSON.stringify({
+      schemaVersion: 1,
+      worksheet: worksheet.getName(),
+      values: []
+    });
+  }
+
+  return JSON.stringify({
+    schemaVersion: 1,
+    worksheet: worksheet.getName(),
+    values: range.getTexts()
+  });
+}
