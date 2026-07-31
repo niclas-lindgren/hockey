@@ -1,27 +1,39 @@
 name: "Påmeldte lag: auto-publiser"
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "inputs/registrations/registered-teams.csv"
   workflow_dispatch:
     inputs:
       csv_path:
-        description: "Sti til påmeldings-CSV fra SharePoint"
+        description: "Sti til kanonisk påmeldings-CSV"
         required: true
         default: "inputs/registrations/registered-teams.csv"
       workbook_path:
         description: "Sti til sesongarbeidsboken som skal oppdateres"
         required: true
         default: "inputs/season/input.xlsx"
+  workflow_call:
+    inputs:
+      csv_path:
+        description: "Sti til kanonisk påmeldings-CSV"
+        type: string
+        required: false
+        default: "inputs/registrations/registered-teams.csv"
+      workbook_path:
+        description: "Sti til sesongarbeidsboken som skal oppdateres"
+        type: string
+        required: false
+        default: "inputs/season/input.xlsx"
+      checkout_ref:
+        description: "Commit/ref som inneholder påmeldingsdataene"
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
 concurrency:
-  group: routine-publish-${{ github.ref }}
+  group: registration-publish-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -41,6 +53,7 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ inputs.checkout_ref || github.sha }}
 
       - name: "Sett opp Python"
         uses: actions/setup-python@v5
@@ -66,8 +79,7 @@ jobs:
           import os
           from pathlib import Path
 
-          csv_path = os.environ["CSV_PATH"]
-          path = Path(csv_path)
+          path = Path(os.environ["CSV_PATH"])
           if not path.exists():
               raise SystemExit(f"Påmeldings-CSV ikke funnet: {path}")
           payload = {
@@ -101,7 +113,6 @@ jobs:
           csv_path = os.environ["CSV_PATH"]
           workbook_path = os.environ["WORKBOOK_PATH"]
 
-          # Fall back to root input.xlsx when inputs/season/input.xlsx does not exist.
           workbook = Path(workbook_path)
           fallback = Path("input.xlsx")
           if not workbook.exists() and fallback.exists():
@@ -125,11 +136,10 @@ jobs:
               json.dumps(result, indent=2, ensure_ascii=False, default=str), encoding="utf-8"
           )
 
-          # Set outputs for downstream steps.
-          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
-              print(f"changed={'true' if result['changed'] else 'false'}", file=f)
-              print(f"workbook_path={workbook_path}", file=f)
-              print(f"team_count={result['team_count']}", file=f)
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"changed={'true' if result['changed'] else 'false'}", file=output)
+              print(f"workbook_path={workbook_path}", file=output)
+              print(f"team_count={result['team_count']}", file=output)
 
           print(f"SYNC_OK changed={result['changed']} teams={result['team_count']}")
           PY
@@ -156,6 +166,21 @@ jobs:
             --json \
             2>&1 | tee "$WORK_DIR/github-actions/publish-result.json"
           scripts/rvv-miniputt status --work-dir "$WORK_DIR" --json > "$WORK_DIR/github-actions/status.json" || true
+
+      - name: "Vis publisert HTML-side"
+        run: |
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          PAGES_URL="https://${OWNER}.github.io/${REPO}/latest/registered-teams/pameldte-lag.html"
+
+          echo "Publisert side for påmeldte lag: $PAGES_URL"
+          {
+            echo "## Publisert side for påmeldte lag"
+            echo
+            echo "[$PAGES_URL]($PAGES_URL)"
+            echo
+            echo "Denne HTML-siden kan brukes direkte som kilde i en iframe."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: "Last opp publiseringsbevis"
         if: always()
