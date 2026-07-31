@@ -173,7 +173,7 @@ jobs:
   finalize-sync-issue:
     name: "Rapporter resultat og avslutt sync-issue"
     needs: [import-registrations, publish-registered-teams]
-    if: always() && github.event.issue.title == 'sharepoint-sync: registrations'
+    if: ${{ always() && github.event.issue.title == 'sharepoint-sync: registrations' }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:
