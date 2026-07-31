@@ -1,0 +1,295 @@
+name: "SharePoint: importer aktivitetsarbeidsbok"
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: sharepoint-import-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  import-activities-workbook:
+    name: "Importer aktivitetsarbeidsbok fra SharePoint"
+    if: "github.event.issue.title == 'sharepoint-sync: activities'"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: "Hent kode"
+        uses: actions/checkout@v4
+
+      - name: "Sett opp Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: "Installer avhengigheter"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e '.[test]'
+
+      - name: "Parse og valider issue-body"
+        id: parse
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          issue_body = os.environ["ISSUE_BODY"]
+          issue_number = os.environ["ISSUE_NUMBER"]
+
+          REQUIRED = {"source", "target_path", "download_url"}
+          ALLOWED = REQUIRED | {"drive_id", "drive_item_id", "version"}
+          KEY_RE = re.compile(r"^([a-z_][a-z0-9_]*)=(.*)$")
+
+          errors = []
+          parsed: dict[str, str] = {}
+          seen: set[str] = set()
+
+          for raw_line in issue_body.splitlines():
+              line = raw_line.strip()
+              if not line or line.startswith(("#", ">", "```")):
+                  continue
+              match = KEY_RE.match(line)
+              if not match:
+                  continue
+              key, value = match.group(1), match.group(2).strip()
+              if key in seen:
+                  errors.append(f"Duplikat nøkkel: {key}")
+                  continue
+              if key not in ALLOWED:
+                  errors.append(f"Ukjent nøkkel: {key}")
+                  continue
+              seen.add(key)
+              if not value:
+                  errors.append(f"Tom verdi for: {key}")
+                  continue
+              parsed[key] = value
+
+          missing = REQUIRED - set(parsed)
+          if missing:
+              errors.append(f"Mangler påkrevde felt: {', '.join(sorted(missing))}")
+
+          if errors:
+              print(f"ISSUE_BODY_INVALID=1", file=sys.stderr)
+              for error in errors:
+                  print(f"  ✗ {error}", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"ISSUE_PARSED_OK=1")
+          for key in sorted(parsed):
+              if key == "download_url":
+                  # Never print the URL itself.
+                  print(f"  ✓ {key}=<redacted>")
+              else:
+                  print(f"  ✓ {key}={parsed[key]}")
+
+          # Write parsed fields to a JSON file for downstream steps.
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a") as f:
+              print(f"source={parsed['source']}", file=f)
+              print(f"target_path={parsed['target_path']}", file=f)
+              print(f"download_url={parsed['download_url']}", file=f)
+              for opt in ("drive_id", "drive_item_id", "version"):
+                  if opt in parsed:
+                      print(f"{opt}={parsed[opt]}", file=f)
+          PY
+
+      - name: "Last ned og valider arbeidsbok"
+        id: download
+        env:
+          DOWNLOAD_URL: ${{ steps.parse.outputs.download_url }}
+          TARGET_PATH: ${{ steps.parse.outputs.target_path }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          import sys
+          import tempfile
+          from pathlib import Path
+
+          import openpyxl
+          import requests
+
+          download_url = os.environ["DOWNLOAD_URL"]
+          target_path = Path(os.environ["TARGET_PATH"])
+
+          # 1. Download with redirect following, short timeout.
+          try:
+              resp = requests.get(
+                  download_url,
+                  allow_redirects=True,
+                  timeout=30,
+                  stream=True,
+                  headers={"Accept": "application/octet-stream, */*"},
+              )
+              resp.raise_for_status()
+          except requests.RequestException as exc:
+              print(f"DOWNLOAD_FAILED=1", file=sys.stderr)
+              print(f"Nedlasting feilet: {exc}", file=sys.stderr)
+              sys.exit(1)
+
+          # 2. Read the body (bounded to prevent memory issues — max ~20 MB).
+          chunks = []
+          total = 0
+          for chunk in resp.iter_content(chunk_size=8192):
+              chunks.append(chunk)
+              total += len(chunk)
+              if total > 20 * 1024 * 1024:
+                  print(f"DOWNLOAD_FAILED=1", file=sys.stderr)
+                  print("Filen er for stor (>20 MB).", file=sys.stderr)
+                  sys.exit(1)
+          content = b"".join(chunks)
+
+          if not content:
+              print(f"DOWNLOAD_FAILED=1", file=sys.stderr)
+              print("Nedlastingen returnerte en tom fil.", file=sys.stderr)
+              sys.exit(1)
+
+          # 3. Verify XLSX magic bytes (ZIP-based format).
+          if content[:4] != b"PK\x03\x04":
+              content_type = resp.headers.get("Content-Type", "")
+              preview = content[:200].decode("utf-8", errors="replace")
+              print(f"DOWNLOAD_FAILED=1", file=sys.stderr)
+              print(f"Filen er ikke en gyldig XLSX. Content-Type: {content_type}", file=sys.stderr)
+              print(f"Første 200 bytes: {preview}", file=sys.stderr)
+              sys.exit(1)
+
+          # 4. Write to temp file and try to open with openpyxl.
+          tmp = Path(tempfile.mkstemp(suffix=".xlsx")[1])
+          try:
+              tmp.write_bytes(content)
+              wb = openpyxl.load_workbook(tmp, read_only=True, data_only=True)
+              sheet_count = len(wb.sheetnames)
+              wb.close()
+          except Exception as exc:
+              tmp.unlink(missing_ok=True)
+              print(f"DOWNLOAD_FAILED=1", file=sys.stderr)
+              print(f"Filen kunne ikke åpnes som XLSX: {exc}", file=sys.stderr)
+              sys.exit(1)
+
+          # 5. Compute SHA-256.
+          file_sha256 = hashlib.sha256(content).hexdigest()
+
+          # 6. Compare with existing canonical file.
+          changed = True
+          existing_sha256 = ""
+          if target_path.exists():
+              existing_sha256 = hashlib.sha256(target_path.read_bytes()).hexdigest()
+              changed = existing_sha256 != file_sha256
+
+          # 7. Write the downloaded file into the canonical location if changed.
+          if changed:
+              target_path.parent.mkdir(parents=True, exist_ok=True)
+              target_path.write_bytes(content)
+              print(f"FILE_CHANGED=1")
+          else:
+              print(f"FILE_UNCHANGED=1")
+
+          result = {
+              "sha256": file_sha256,
+              "size_bytes": len(content),
+              "sheets": sheet_count,
+              "changed": changed,
+              "existing_sha256": existing_sha256 if target_path.exists() else None,
+          }
+          result_path = Path(os.environ["GITHUB_OUTPUT"])
+          with result_path.open("a") as f:
+              print(f"changed={'true' if changed else 'false'}", file=f)
+              print(f"sha256={file_sha256}", file=f)
+              print(f"size_bytes={len(content)}", file=f)
+              print(f"sheets={sheet_count}", file=f)
+
+          print(json.dumps(result, indent=2, ensure_ascii=False))
+          tmp.unlink(missing_ok=True)
+          PY
+
+      - name: "Commit og push endret arbeidsbok"
+        if: steps.download.outputs.changed == 'true'
+        env:
+          TARGET_PATH: ${{ steps.parse.outputs.target_path }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$TARGET_PATH"
+          git commit -m "[bot] Importer aktivitetsarbeidsbok fra SharePoint" -m "source=sharepoint drive_id=${{ steps.parse.outputs.drive_id || 'ukjent' }} drive_item_id=${{ steps.parse.outputs.drive_item_id || 'ukjent' }} version=${{ steps.parse.outputs.version || 'ukjent' }}"
+          git push origin HEAD:main
+
+      - name: "Kommenter og lukk issue — suksess"
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          FILE_CHANGED: ${{ steps.download.outputs.changed }}
+          FILE_SHA256: ${{ steps.download.outputs.sha256 }}
+          FILE_SHEETS: ${{ steps.download.outputs.sheets }}
+        run: |
+          if [ "$FILE_CHANGED" = "true" ]; then
+            cat > /tmp/issue-comment.md <<'BODYEOF'
+          ✅ Arbeidsboken er importert og commitet.
+
+          **SHA-256:** BODYEOF
+            printf '`%s`\n' "$FILE_SHA256" >> /tmp/issue-comment.md
+            cat >> /tmp/issue-comment.md <<'BODYEOF'
+          **Ark:** BODYEOF
+            printf '%s\n' "$FILE_SHEETS" >> /tmp/issue-comment.md
+            cat >> /tmp/issue-comment.md <<'BODYEOF'
+          **DriveItemId:** BODYEOF
+            printf '`%s`\n' "${{ steps.parse.outputs.drive_item_id || 'ukjent' }}" >> /tmp/issue-comment.md
+            cat >> /tmp/issue-comment.md <<'BODYEOF'
+          **Version:** BODYEOF
+            printf '`%s`\n' "${{ steps.parse.outputs.version || 'ukjent' }}" >> /tmp/issue-comment.md
+            cat >> /tmp/issue-comment.md <<'BODYEOF'
+
+          Path-triggeren for aktivitetskalender-publisering kjører nå automatisk.
+          BODYEOF
+          else
+            cat > /tmp/issue-comment.md <<'BODYEOF'
+          ℹ️ Arbeidsboken er uendret — samme SHA-256 som eksisterende kanonisk fil.
+
+          **SHA-256:** BODYEOF
+            printf '`%s`\n' "$FILE_SHA256" >> /tmp/issue-comment.md
+            cat >> /tmp/issue-comment.md <<'BODYEOF'
+
+          Ingen commit er nødvendig.
+          BODYEOF
+          fi
+          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/issue-comment.md
+          gh issue close "$ISSUE_NUMBER" --reason "completed"
+
+      - name: "Kommenter issue — feil"
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          cat > /tmp/issue-comment.md <<'BODYEOF'
+          ❌ Import feilet. Se workflow-run for detaljer.
+
+          Mulige årsaker:
+          - Ugyldig eller utløpt nedlastingslenke
+          - Filen er ikke en gyldig XLSX-arbeidsbok
+          - Issue-body mangler påkrevde felt eller har ugyldige nøkler
+
+          Workflowen har lastet opp diagnostikk som artifact. Issue holdes åpen for manuell gjennomgang.
+          BODYEOF
+          gh issue comment "$ISSUE_NUMBER" --body-file /tmp/issue-comment.md

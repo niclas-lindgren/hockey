@@ -1,90 +1,118 @@
 # Power Automate – GitHub-synkronisering for RVV Miniputt
 
-Denne siden dokumenterer hvordan Power Automate kan synkronisere godkjente
-inndatafiler inn i GitHub-repositoriet slik at GitHub Actions automatisk
-regenererer og publiserer de riktige offentlige sidene.
+Denne siden dokumenterer hvordan Power Automate synkroniserer godkjente
+inndatafiler til GitHub-repositoriet via **issues**, slik at GitHub Actions
+automatisk importerer, validerer, og publiserer de riktige offentlige sidene.
+
+## Arkitektur
+
+Power Automate oppretter en maskinlesbar GitHub issue. GitHub Actions laster
+ned filen fra en midlertidig lenke, validerer den, og committer den til den
+kanoniske `inputs/`-stien. En eksisterende path-trigger workflow regenererer og
+publiserer deretter offentlige sider.
+
+```text
+SharePoint-fil endres
+  → Power Automate oppretter GitHub issue med nedlastingslenke
+  → GitHub Actions import-workflow laster ned og validerer filen
+  → commit til inputs/activities/activities.xlsx
+  → path-trigger workflow regenererer og publiserer aktivitetskalender
+```
 
 ## Prinsipper
 
-- **Power Automate publiserer ikke kalenderen.** Ansvaret stopper etter at
-  filen er synkronisert inn i repositoriet. GitHub Actions håndterer validering,
-  generering og publisering.
+- **Power Automate publiserer ikke noe.** Ansvaret stopper etter at en
+  maskinlesbar issue er opprettet. GitHub Actions håndterer all validering,
+  import, generering og publisering.
 - **Én commit per godkjent snapshot**, ikke én per skjema-respons.
 - **Sammenlign innhold før commit.** Ingen commit hvis filen er uendret.
-- **Bruk git-SHA for samtidighetskontroll.** Les filens nåværende SHA fra
-  GitHub API før oppdatering for å unngå å overskrive endringer.
+- **Stabil identifikasjon.** SharePoint-filer identifiseres med `DriveId` +
+  `DriveItemId`, ikke filnavn eller sti.
 - **Utelat personopplysninger.** Eksporter kun de operasjonelle feltene
   repositoriet trenger.
+- **Power Automate trenger kun den innebygde GitHub-koblingen** for å opprette
+  issues — ingen premium HTTP actions eller PAT med skrivetilgang.
 
-## Oppsett av tilgangstoken
+## Flyt A: Aktivitetskalender (via GitHub issues)
 
-Anbefalt tilnærming: **finmasket PAT (Personal Access Token)**.
-
-### Opprette PAT
-
-1. Gå til [GitHub Settings > Developer settings > Personal access tokens > Fine-grained tokens](https://github.com/settings/tokens?type=beta).
-2. Velg **Generate new token**.
-3.Gi tokenet et beskrivende navn, f.eks. `RVV-Power-Automate`.
-4. Under **Resource owner**, velg organisasjonen eller brukeren som eier
-   `region-viken-vest-hockey/hockey`.
-5. Under **Repository access**, velg **Only select repositories** og velg
-   `region-viken-vest-hockey/hockey`.
-6. Under **Permissions**, velg **Repository permissions**:
-   - `Contents`: **Read and write**
-7. Klikk **Generate token** og kopier tokenet umiddelbart.
-
-### GitHub App (fremtidig herding)
-
-En GitHub App gir finere tilgangskontroll og rotasjon, men krever mer
-infrastruktur. Dagens anbefaling er PAT. Oppgrader til GitHub App når:
-
-- Flere uavhengige flyter trenger forskjellige tillatelsesnivåer.
-- Organisasjonen ønsker token-gjennomsiktighet per installasjon.
-- Det er operasjonelt forsvarlig å drifte nøkkelrotasjon.
-
-## Flyt A: Aktivitetskalender
-
-Denne flyten dekker sesongens aktivitetsarbeidsbok, som redigeres i Teams
-og lagres i SharePoint.
-
-```
-Teams-aktivitetsarbeidsbok oppdatert
-  → SharePoint-utløser: «When a file is created or modified (properties only)»
-  → filtrer til aktuell arbeidsbok
-  → vent 2 minutter (AutoSave-debounce)
-  → hent binært filinnhold
-  → sammenlign med GitHub-filens innhold (SHA-256)
-  → oppdater inputs/activities/activities.xlsx kun hvis innhold er endret
-  → GitHub Actions regenererer og publiserer aktivitetskalenderen
-```
-
-### Power Automate-steg
+### Power Automate-oppsett
 
 | Steg | Kobling | Handling |
 |------|---------|----------|
-| 1 | SharePoint | **When a file is created or modified (properties only)** — pek til dokumentbiblioteket og mappen der aktivitetsarbeidsboken ligger. Filtrer på filnavn. |
-| 2 | Innebygd | **Delay** — 2 minutter for å la AutoSave fullføre og unngå delvise opplastinger. |
-| 3 | SharePoint | **Get file content** — hent det binære innholdet av filen. |
-| 4 | HTTP | **GitHub API: Get file content** — `GET /repos/region-viken-vest-hockey/hockey/contents/inputs/activities/activities.xlsx?ref=main`. Sammenlign `sha`-feltet i responsen med SHA-256 av det lokale filinnholdet. |
-| 5 | Betingelse | Hvis innhold er uendret → avslutt. Ellers → fortsett. |
-| 6 | HTTP | **GitHub API: Create or update file contents** — `PUT /repos/region-viken-vest-hockey/hockey/contents/inputs/activities/activities.xlsx`. Bruk `sha` fra steg 4. Commit-melding: `Aktivitetskalender: oppdatert fra Teams/SharePoint`. |
+| 1 | SharePoint | **When a file is created or modified (properties only)** — pek til dokumentbiblioteket. Filtrer på `DriveId` og `DriveItemId` for aktivitetsarbeidsboken. |
+| 2 | Innebygd | **Delay** — 2 minutter for å la AutoSave fullføre. |
+| 3 | SharePoint | **Create sharing link** — opprett en midlertidig, skrivebeskyttet delingslenke (`view`, ikke `edit`). |
+| 4 | Innebygd | Bygg issue-body: se kontrakten under. |
+| 5 | GitHub | **Create issue** — repo `region-viken-vest-hockey/hockey`, tittel `sharepoint-sync: activities`, body som spesifisert. |
 
-### Hva skjer etter commit
+### Issue-kontrakt
 
-GitHub Actions-workflowen `.github/workflows/activity-publish.yml` trigges
-automatisk av endringer på `inputs/activities/activities.xlsx` og:
+Issuen må ha **nøyaktig** denne tittelen:
 
-1. Validerer arbeidsboken.
-2. Regenererer aktivitetskalenderen (JSON + HTML).
-3. Slår sammen med eksisterende `/latest/`-snapshot.
-4. Publiserer til GitHub Pages.
+```text
+sharepoint-sync: activities
+```
 
-Hvis validering feiler, publiseres ingenting. Workflowen laster opp en
-feilrapport som artifact.
+Body er én `nøkkel=verdi` per linje (pluss tillatte tomme/Markdown-linjer):
+
+```text
+source=sharepoint
+target_path=inputs/activities/activities.xlsx
+drive_id=<SharePoint DriveId>
+drive_item_id=<SharePoint DriveItemId>
+version=<SharePoint VersionNumber>
+download_url=<midlertidig skrivebeskyttet delingslenke>
+```
+
+| Felt | Påkrevd | Beskrivelse |
+|------|---------|-------------|
+| `source` | Ja | Må være `sharepoint`. |
+| `target_path` | Ja | Må være `inputs/activities/activities.xlsx`. |
+| `download_url` | Ja | Midlertidig skrivebeskyttet delingslenke. Må peke til en gyldig XLSX-fil. |
+| `drive_id` | Nei | SharePoint DriveId. Brukes kun i diagnostikk. |
+| `drive_item_id` | Nei | SharePoint DriveItemId. Brukes kun i diagnostikk. |
+| `version` | Nei | SharePoint-versjonsnummer. Brukes kun i diagnostikk. |
+
+Andre nøkler avvises. Duplikate nøkler avvises. URL-en skrives aldri til
+logger, artifakter eller issue-kommentarer.
+
+### Hva skjer etter at issuen er opprettet
+
+1. **GitHub Actions** `.github/workflows/sharepoint-import.yml` trigges av
+   `issues: [opened]`.
+2. Kun issues med tittel `sharepoint-sync: activities` kjøres.
+3. Workflowen:
+   - Parser og validerer issue-body.
+   - Laster ned filen fra `download_url` (følger redirects).
+   - Verifiserer at responsen er en gyldig XLSX (magic bytes + openpyxl).
+   - Sammenligner SHA-256 med eksisterende kanonisk fil.
+   - **Hvis endret:** committer til `inputs/activities/activities.xlsx`.
+   - **Hvis uendret:** ingen commit.
+   - Kommenterer og lukker issuen.
+4. **Ved commit:** `.github/workflows/activity-publish.yml` trigges av
+   path-endringen og regenererer + publiserer aktivitetskalenderen.
+5. **Ved feil:** issuen forblir åpen med en diagnosekommentar. Ingen
+   repository-filer endres.
+
+### Håndtering av SharePoint-filer som slettes og gjenskapes
+
+Hvis aktivitetsarbeidsboken slettes og lastes opp på nytt i SharePoint, får
+den en ny `DriveItemId`. Power Automate må da:
+
+1. Identifisere den nye filen ved hjelp av filnavn eller dokumentbibliotek-sti.
+2. Oppdatere `DriveItemId`-filteret i Power Automate-flyten.
+3. Opprette en ny `sharepoint-sync: activities`-issue med den nye ID-en.
+
+Dette er en manuell operasjon — den skjer svært sjelden og dokumenteres her
+for fullstendighet.
 
 ## Flyt B: Påmeldte lag
 
-Denne flyten dekker lagsregistrering via Microsoft Forms.
+Denne flyten dekker lagsregistrering via Microsoft Forms og synkroniseres
+foreløpig via direkte CSV-commit. Den kan senere migreres til samme
+issue-baserte mønster som aktivitetskalenderen.
+
+### Dagens flyt
 
 ```
 Microsoft Forms
@@ -107,43 +135,29 @@ Før dataene når SharePoint-listen, bør Power Automate validere:
 Godkjente svar går til en privat SharePoint-liste. Avviste svar varsles
 manuelt.
 
-### Eksport og synkronisering
-
-| Steg | Kobling | Handling |
-|------|---------|----------|
-| 1 | SharePoint | **Get items** — hent alle godkjente rader fra SharePoint-listen. |
-| 2 | Innebygd | **Create CSV table** — bygg en CSV med kolonnene `club`, `label`, `age_group`. Inkluder ingen personopplysninger, SharePoint-ID-er, interne statuser eller kommentarer. |
-| 3 | HTTP | **GitHub API: Get file content** — `GET /repos/region-viken-vest-hockey/hockey/contents/inputs/registrations/registered-teams.csv?ref=main`. |
-| 4 | Betingelse | Sammenlign CSV-innholdet (normalisert: trim + casefold). Hvis uendret → avslutt. |
-| 5 | HTTP | **GitHub API: Create or update file contents** — `PUT /repos/region-viken-vest-hockey/hockey/contents/inputs/registrations/registered-teams.csv`. Bruk `sha` fra steg 3. Commit-melding: `Påmeldinger: oppdatert fra SharePoint-godkjente registreringer`. |
-
 ### Hva skjer etter commit
 
 GitHub Actions-workflowen `.github/workflows/registration-publish.yml` trigges
 automatisk og:
 
 1. Validerer CSV-en.
-2. Synkroniserer lagdataene inn i `Lag`-arket i sesongarbeidsboken
-   (`inputs/season/input.xlsx`).
+2. Synkroniserer lagdataene inn i `Lag`-arket i sesongarbeidsboken.
 3. Committer oppdatert arbeidsbok med `[skip ci]` for å unngå rekursive
    workflow-kjøringer.
 4. Genererer `pameldte-lag.html` og `pameldte-lag.json`.
 5. Slår sammen med eksisterende `/latest/`-snapshot.
 6. Publiserer til GitHub Pages.
 
-Commit-meldingen for arbeidsbokoppdateringen inneholder `[skip ci]` slik at
-ingen andre workflows trigges av denne interne oppdateringen.
-
 ## Samtidighet og idempotens
 
-- Begge publiseringsworkflowene deler `concurrency`-gruppe
-  (`routine-publish-${{ github.ref }}`). Dette serialiserer alle
-  rutinepubliseringer og forhindrer samtidige skrivinger til `gh-pages`.
-- Power Automate bør alltid hente gjeldende `sha` før `PUT` for å unngå
-  «409 Conflict» ved samtidige oppdateringer.
-- Ved `409 Conflict`: gjenta lesingen (steg 1–4) og prøv på nytt én gang.
-- Identiske inndata produserer identiske utdata. Workflowene genererer ikke
-  unødvendige commits eller Pages-oppdateringer.
+- **Import-workflowen** har egen `concurrency`-gruppe (`sharepoint-import`).
+  Dette forhindrer samtidige importer.
+- **Publiseringsworkflowene** deler `concurrency`-gruppe
+  (`routine-publish`). Dette serialiserer alle rutinepubliseringer og
+  forhindrer samtidige skrivinger til `gh-pages`.
+- Import-workflowen bruker `git push` og GitHub håndterer push-konflikter.
+- SHA-256-sammenligning forhindrer unødvendige commits.
+- Identiske inndata produserer identiske utdata.
 
 ## Eierskap og tilgang
 
@@ -155,10 +169,11 @@ Minimum to personer bør ha eierskap over hver komponent:
 | Power Automate-flyt (påmeldinger) | 2 klubautoriserte |
 | SharePoint-dokumentbibliotek | 2 klubautoriserte |
 | SharePoint-liste (påmeldinger) | 2 klubautoriserte |
-| GitHub PAT | 2 klubautoriserte |
 | GitHub repository (admin) | 2 klubautoriserte |
 
-Dette sikrer at ingen enkeltperson blir et kritisk flaskehalspunkt.
+GitHub-koblingen i Power Automate bruker OAuth mot en klubautorisert
+GitHub-konto. Ingen PAT eller hemmeligheter lagres i Power Automate-miljøet
+utover den innebygde koblingen.
 
 ## Gjenoppretting
 
@@ -170,13 +185,13 @@ Dette sikrer at ingen enkeltperson blir et kritisk flaskehalspunkt.
 - **Påmeldte lag:** Eksporter SharePoint-listen til CSV manuelt, og last opp
   til `inputs/registrations/registered-teams.csv`.
 
-### Hvis GitHub Actions feiler
+### Hvis import-workflowen feiler
 
-- Gå til **Actions**-fanen i repositoriet.
-- Finn den feilede workflow-kjøringen.
-- Last ned artifacten for å se input-fingeravtrykk, valideringsrapport og logger.
-- Etter å ha rettet feilen, kjør workflowen manuelt via **Run workflow**
-  (begge workflowene støtter `workflow_dispatch`).
+- Issuen forblir åpen med en diagnosekommentar.
+- Gå til **Actions**-fanen og finn den feilede kjøringen.
+- Rett feilen og opprett en ny issue med tittel `sharepoint-sync: activities`
+  og oppdatert body.
+- Alternativt: commit filen manuelt til `inputs/activities/activities.xlsx`.
 
 ### Manuell regenerering uten Power Automate
 
@@ -191,18 +206,30 @@ make registered-teams-publish \
   CONFIRM_PUBLIC=1
 ```
 
+### Hvis SharePoint-filen får ny DriveItemId
+
+1. Identifiser den nye filens `DriveItemId` via SharePoint-grensesnittet eller
+   Microsoft Graph.
+2. Oppdater `DriveItemId`-filteret i Power Automate-flyten.
+3. Opprett en ny `sharepoint-sync: activities`-issue for å trigge import.
+
 ## Sikkerhet
 
 - **Ingen hemmeligheter i repositoriet.** Microsoft 365-legitimasjon,
-  GitHub-tokens, skjemakoder og kontaktopplysninger lagres i Power Automate
-  sine sikrede tilkoblinger og miljøvariabler — aldri i filer.
+  skjemakoder og kontaktopplysninger lagres i Power Automate/SharePoint —
+  aldri i filer.
 - **Offentlig påmeldingsside inneholder kun `club`, `label` og `age_group`.**
   Ingen navn, epostadresser, telefonnumre, kommentarer eller interne statuser.
-- **PAT har kun `Contents: Read and write`** på det ene repositoriet.
-- **Power Automate-flytene kjører under en dedikert tjenestekonto** som
-  klubben kontrollerer — ikke en personlig konto.
-- **Workflowene bruker `contents: write`** (minimumstillatelse for
-  `gh-pages`-publisering) og serialiseres via `concurrency`-grupper.
+- **Nedlastingslenker skrives aldri til logger, artifakter eller
+  issue-kommentarer.** URL-en finnes kun i den opprinnelige issue-bodyen og
+  brukes én gang av import-workflowen.
+- **Power Automate har kun tilgang til å opprette issues** via den innebygde
+  GitHub-koblingen — ingen repository-skrivetilgang.
+- **Import-workflowen bruker `contents: write` og `issues: write`** —
+  minimumstillatelser for å committe filer og administrere trigger-issues.
+- **Workflowene serialiseres via `concurrency`-grupper.**
+- **Midlertidige delingslenker er skrivebeskyttet (`view`)** og utløper
+  automatisk.
 
 ## Relatert dokumentasjon
 

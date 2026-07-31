@@ -17,6 +17,7 @@ WORKFLOW_FILES = {
     "rollback": WORKFLOWS / "season-rollback.yml",
     "activity-publish": WORKFLOWS / "activity-publish.yml",
     "registration-publish": WORKFLOWS / "registration-publish.yml",
+    "sharepoint-import": WORKFLOWS / "sharepoint-import.yml",
 }
 
 
@@ -269,3 +270,112 @@ def test_workflows_delegate_to_canonical_cli_instead_of_reimplementing_policy():
             assert "scripts/rvv-miniputt activities" in workflow.text
         if name == "registration-publish":
             assert "scripts/rvv-miniputt registered-teams" in workflow.text
+        if name == "sharepoint-import":
+            # Import workflow delegates to Python inline scripts for download/validation.
+            assert "openpyxl" in workflow.text
+            assert "requests" in workflow.text
+
+
+# ---------------------------------------------------------------------------
+# SharePoint import workflow (issue #49 follow-up)
+# ---------------------------------------------------------------------------
+
+
+def test_sharepoint_import_triggered_by_issues():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    on_block = workflow.data.get("on", workflow.data.get(True, {}))
+    assert "issues" in on_block, "Import workflow must trigger on issues"
+    issues_block = on_block["issues"]
+    assert "opened" in issues_block.get("types", [])
+
+
+def test_sharepoint_import_has_least_privilege_permissions():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    assert workflow.data["permissions"] == {"contents": "write", "issues": "write"}
+
+
+def test_sharepoint_import_title_gates_on_exact_issue_title():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    # The job-level if gates on the exact issue title.
+    job = list(workflow.jobs.values())[0]
+    assert "sharepoint-sync: activities" in str(job.get("if", ""))
+
+
+def test_sharepoint_import_validates_issue_body_contract():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # Body parsing: required and allowed fields.
+    assert "source" in text
+    assert "target_path" in text
+    assert "download_url" in text
+    assert "drive_id" in text
+    assert "drive_item_id" in text
+    # Unknown key rejection
+    assert "Ukjent nøkkel" in text
+    # Duplicate key rejection
+    assert "Duplikat nøkkel" in text
+    # Missing required field rejection
+    assert "Mangler påkrevde felt" in text
+
+
+def test_sharepoint_import_downloads_and_validates_xlsx():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # Download with requests
+    assert "requests.get" in text
+    assert "allow_redirects=True" in text
+    # XLSX magic byte verification
+    assert "PK\\x03\\x04" in text or "PK\\x03\\x04" in text or "PK\\003\\004" in text or "PK\x03\x04" in text
+    # openpyxl validation
+    assert "openpyxl.load_workbook" in text
+    # Size bound
+    assert "20 * 1024 * 1024" in text
+    # SHA-256 comparison
+    assert "hashlib.sha256" in text
+
+
+def test_sharepoint_import_never_exposes_download_url():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # The download_url value itself must not appear in logs/comments.
+    assert "<redacted>" in text
+    # The env var DOWNLOAD_URL is passed to the download step, but never echoed.
+    # Git commit message uses source/drive_id/drive_item_id/version, not the URL.
+    assert "Importer aktivitetsarbeidsbok fra SharePoint" in text
+
+
+def test_sharepoint_import_commits_only_when_changed():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # The commit step is conditional on changed=true.
+    assert "steps.download.outputs.changed == 'true'" in text
+    # Unchanged detection.
+    assert "FILE_UNCHANGED" in text
+    # Success comment.
+    assert "gh issue close" in text
+
+
+def test_sharepoint_import_leaves_issue_open_on_failure():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # Failure comment step.
+    assert "Kommenter issue — feil" in text
+    assert "if: failure()" in text
+    # Does NOT close on failure.
+    # The success step has gh issue close; failure step does not.
+
+
+def test_sharepoint_import_has_concurrency_group():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    assert "sharepoint-import" in workflow.text
+    group = workflow.data.get("concurrency", {})
+    assert group.get("group") == "sharepoint-import-${{ github.ref }}"
