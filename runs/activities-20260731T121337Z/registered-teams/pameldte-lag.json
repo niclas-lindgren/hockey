@@ -1,0 +1,58 @@
+{
+  "age_groups": [
+    {
+      "age_group": "U7",
+      "club_count": 1,
+      "clubs": [
+        {
+          "club": "Tønsberg",
+          "team_count": 1,
+          "teams": [
+            "Tønsberg"
+          ]
+        }
+      ],
+      "team_count": 1
+    },
+    {
+      "age_group": "U8",
+      "club_count": 1,
+      "clubs": [
+        {
+          "club": "Holmen",
+          "team_count": 1,
+          "teams": [
+            "Holmen Svart"
+          ]
+        }
+      ],
+      "team_count": 1
+    },
+    {
+      "age_group": "U11",
+      "club_count": 2,
+      "clubs": [
+        {
+          "club": "Jar",
+          "team_count": 1,
+          "teams": [
+            "Jar"
+          ]
+        },
+        {
+          "club": "Kongsberg",
+          "team_count": 1,
+          "teams": [
+            "Kongsberg"
+          ]
+        }
+      ],
+      "team_count": 2
+    }
+  ],
+  "generated_at": "2026-07-31T12:07:43Z",
+  "schema_version": 1,
+  "title": "Påmeldte lag",
+  "total_clubs": 4,
+  "total_teams": 4
+}
