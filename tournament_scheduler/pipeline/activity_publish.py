@@ -37,15 +37,17 @@ def default_activity_run_id(now: datetime | None = None) -> str:
 
 
 def fetch_pages_branch(*, repo_dir: str = ".", remote: str = "origin", branch: str = "gh-pages") -> None:
-    """Best-effort-safe fetch of the Pages branch before copying ``latest/``.
+    """Fetch the Pages branch into its remote-tracking ref before staging.
 
-    Raises :class:`ActivityPublishError` if git cannot fetch.  Fetching before
-    staging matters because the later publish step overwrites ``/latest/`` with
-    the staged snapshot; starting from a stale local branch could otherwise
-    remove newer public files.
+    An explicit refspec is used because ``git fetch origin gh-pages`` only
+    guarantees ``FETCH_HEAD``. GitHub Actions normally checks out a detached
+    commit and therefore has no local ``gh-pages`` branch. Keeping
+    ``refs/remotes/<remote>/<branch>`` current gives snapshot staging a stable,
+    unambiguous source ref.
     """
+    refspec = f"+refs/heads/{branch}:refs/remotes/{remote}/{branch}"
     proc = subprocess.run(
-        ["git", "fetch", remote, branch],
+        ["git", "fetch", remote, refspec],
         cwd=repo_dir,
         capture_output=True,
         text=True,
@@ -57,13 +59,34 @@ def fetch_pages_branch(*, repo_dir: str = ".", remote: str = "origin", branch: s
         )
 
 
+def _resolve_pages_ref(*, repo_dir: str, branch: str) -> str | None:
+    """Resolve a usable commit ref for the Pages branch.
+
+    Local development commonly has a local ``gh-pages`` branch, while GitHub
+    Actions normally only has ``origin/gh-pages``. ``FETCH_HEAD`` is retained
+    as a final compatibility fallback for callers using a custom fetch step.
+    """
+    candidates = (branch, f"origin/{branch}", "FETCH_HEAD")
+    for candidate in candidates:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"{candidate}^{{commit}}"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            timeout=_GIT_TIMEOUT_SECONDS,
+        )
+        if proc.returncode == 0:
+            return candidate
+    return None
+
+
 def copy_latest_snapshot(
     *,
     repo_dir: str = ".",
     branch: str = "gh-pages",
     destination_dir: str | Path,
 ) -> int:
-    """Copy files from ``<branch>:latest/`` into *destination_dir*.
+    """Copy files from the resolved Pages ref's ``latest/`` into destination.
 
     ``latest/_meta.json`` is intentionally skipped; the publish step writes a
     fresh fingerprint for the new complete bundle.
@@ -71,8 +94,12 @@ def copy_latest_snapshot(
     dest = Path(destination_dir)
     dest.mkdir(parents=True, exist_ok=True)
 
+    pages_ref = _resolve_pages_ref(repo_dir=repo_dir, branch=branch)
+    if pages_ref is None:
+        return 0
+
     tree_proc = subprocess.run(
-        ["git", "ls-tree", "-r", "--name-only", branch, "--", "latest"],
+        ["git", "ls-tree", "-r", "--name-only", pages_ref, "--", "latest"],
         cwd=repo_dir,
         capture_output=True,
         text=True,
@@ -91,14 +118,15 @@ def copy_latest_snapshot(
         if not relative:
             continue
         show_proc = subprocess.run(
-            ["git", "show", f"{branch}:{branch_path}"],
+            ["git", "show", f"{pages_ref}:{branch_path}"],
             cwd=repo_dir,
             capture_output=True,
             timeout=_GIT_TIMEOUT_SECONDS,
         )
         if show_proc.returncode != 0:
             raise ActivityPublishError(
-                f"Kunne ikke lese {branch}:{branch_path}: {show_proc.stderr.decode('utf-8', errors='replace').strip()}"
+                f"Kunne ikke lese {pages_ref}:{branch_path}: "
+                f"{show_proc.stderr.decode('utf-8', errors='replace').strip()}"
             )
         target = dest / relative
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -135,7 +163,7 @@ def prepare_activity_latest_export(
         base_file_count = copy_latest_snapshot(repo_dir=repo_dir, branch=branch, destination_dir=export_path)
         if require_latest_base and base_file_count == 0:
             raise ActivityPublishError(
-                f"Fant ingen eksisterende /latest/-snapshot på branch '{branch}'. "
+                f"Fant ingen eksisterende /latest/-snapshot på branch '{branch}' eller dens remote-tracking ref. "
                 "Avbryter for å unngå å publisere bare aktivitetskalenderen og slette andre sider."
             )
 
