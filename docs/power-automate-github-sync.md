@@ -6,17 +6,19 @@ automatisk importerer, validerer, og publiserer de riktige offentlige sidene.
 
 ## Arkitektur
 
-Power Automate oppretter en maskinlesbar GitHub issue. GitHub Actions laster
-ned filen fra en midlertidig lenke, validerer den, og committer den til den
-kanoniske `inputs/`-stien. En eksisterende path-trigger workflow regenererer og
-publiserer deretter offentlige sider.
+Power Automate kjører et Office Script i SharePoint som leser
+``Årshjul``-arket og oppretter en maskinlesbar GitHub issue med
+``content_json``. GitHub Actions validerer JSON-kontrakten, skriver
+en deterministisk kanonisk fil, og kaller aktivitetskalender-publisering
+direkte via ``workflow_call``.
 
 ```text
-SharePoint-fil endres
-  → Power Automate oppretter GitHub issue med nedlastingslenke
-  → GitHub Actions import-workflow laster ned og validerer filen
-  → commit til inputs/activities/activities.xlsx
-  → path-trigger workflow regenererer og publiserer aktivitetskalender
+SharePoint-arbeidsbok endres
+  → Office Script leser Årshjul-arket og serialiserer til JSON
+  → Power Automate oppretter GitHub issue med content_json
+  → GitHub Actions import-workflow validerer JSON-kontrakten
+  → commit til inputs/activities/activities.json
+  → workflow_call trigger aktivitetskalender-publisering
 ```
 
 ## Prinsipper
@@ -26,12 +28,14 @@ SharePoint-fil endres
   import, generering og publisering.
 - **Én commit per godkjent snapshot**, ikke én per skjema-respons.
 - **Sammenlign innhold før commit.** Ingen commit hvis filen er uendret.
-- **Stabil identifikasjon.** SharePoint-filer identifiseres med `DriveId` +
-  `DriveItemId`, ikke filnavn eller sti.
+- **Stabil identifikasjon.** SharePoint-filer identifiseres med ``DriveId`` +
+  ``DriveItemId``, ikke filnavn eller sti.
 - **Utelat personopplysninger.** Eksporter kun de operasjonelle feltene
   repositoriet trenger.
 - **Power Automate trenger kun den innebygde GitHub-koblingen** for å opprette
   issues — ingen premium HTTP actions eller PAT med skrivetilgang.
+- **JSON-kontrakten er stabil.** ``content_json`` er plain JSON, ikke Base64.
+  Office Scriptet skal forbli uendret med mindre det er absolutt nødvendig.
 
 ## Flyt A: Aktivitetskalender (via GitHub issues)
 
@@ -39,11 +43,11 @@ SharePoint-fil endres
 
 | Steg | Kobling | Handling |
 |------|---------|----------|
-| 1 | SharePoint | **When a file is created or modified (properties only)** — pek til dokumentbiblioteket. Filtrer på `DriveId` og `DriveItemId` for aktivitetsarbeidsboken. |
+| 1 | SharePoint | **When a file is created or modified (properties only)** — pek til dokumentbiblioteket. Filtrer på ``DriveId`` og ``DriveItemId`` for aktivitetsarbeidsboken. |
 | 2 | Innebygd | **Delay** — 2 minutter for å la AutoSave fullføre. |
-| 3 | SharePoint | **Create sharing link** — opprett en midlertidig, skrivebeskyttet delingslenke (`view`, ikke `edit`). |
-| 4 | Innebygd | Bygg issue-body: se kontrakten under. |
-| 5 | GitHub | **Create issue** — repo `region-viken-vest-hockey/hockey`, tittel `sharepoint-sync: activities`, body som spesifisert. |
+| 3 | SharePoint | **Run script** — kjør Office Scriptet som leser ``Årshjul``-arket og returnerer ``content_json``. |
+| 4 | Innebygd | Bygg issue-body: se kontrakten under. ``content_json``-verdien er hele Office Script-resultatet serialisert som JSON-streng. |
+| 5 | GitHub | **Create issue** — repo ``region-viken-vest-hockey/hockey``, tittel ``sharepoint-sync: activities``, body som spesifisert. |
 
 ### Issue-kontrakt
 
@@ -53,7 +57,7 @@ Issuen må ha **nøyaktig** denne tittelen:
 sharepoint-sync: activities
 ```
 
-Body er én `nøkkel=verdi` per linje (pluss tillatte tomme/Markdown-linjer):
+Body er én ``nøkkel=verdi`` per linje (pluss tillatte tomme/Markdown-linjer):
 
 ```text
 source=sharepoint
@@ -61,38 +65,61 @@ target_path=inputs/activities/activities.xlsx
 drive_id=<SharePoint DriveId>
 drive_item_id=<SharePoint DriveItemId>
 version=<SharePoint VersionNumber>
-download_url=<midlertidig skrivebeskyttet delingslenke>
+content_json={"schemaVersion":1,"worksheet":"Årshjul","values":[[...],...]}
 ```
 
 | Felt | Påkrevd | Beskrivelse |
 |------|---------|-------------|
-| `source` | Ja | Må være `sharepoint`. |
-| `target_path` | Ja | Må være `inputs/activities/activities.xlsx`. |
-| `download_url` | Ja | Midlertidig skrivebeskyttet delingslenke. Må peke til en gyldig XLSX-fil. |
-| `drive_id` | Nei | SharePoint DriveId. Brukes kun i diagnostikk. |
-| `drive_item_id` | Nei | SharePoint DriveItemId. Brukes kun i diagnostikk. |
-| `version` | Nei | SharePoint-versjonsnummer. Brukes kun i diagnostikk. |
+| ``source`` | Ja | Må være ``sharepoint``. |
+| ``content_json`` | Ja | Plain JSON (ikke Base64). Inneholder ``schemaVersion``, ``worksheet``, og ``values`` — en todimensjonal array med det komplette brukte området fra ``Årshjul``-arket. |
+| ``target_path`` | Nei | Legacy. Kan inneholde den gamle XLSX-stien. Importøren bruker den **ikke** som skrivesti — den kanoniske destinasjonen er hardkodet. |
+| ``drive_id`` | Nei | SharePoint DriveId. Brukes kun i diagnostikk. |
+| ``drive_item_id`` | Nei | SharePoint DriveItemId. Brukes kun i diagnostikk. |
+| ``version`` | Nei | SharePoint-versjonsnummer. Brukes kun i diagnostikk. |
 
-Andre nøkler avvises. Duplikate nøkler avvises. URL-en skrives aldri til
-logger, artifakter eller issue-kommentarer.
+Andre nøkler avvises. Duplikate nøkler avvises.
+
+### ``content_json``-kontrakt
+
+```json
+{
+  "schemaVersion": 1,
+  "worksheet": "Årshjul",
+  "values": [
+    ["Måned", "Dato", "Aktivitet", "Aldersgruppe", "Sted"],
+    ["September", 15, "Spillerutvikling U9", "U9", "Kongsberg"],
+    ["Oktober", 3, "Regionsturnering U12", "U12", "Jar"]
+  ]
+}
+```
+
+Valideringsregler:
+
+- Rotverdien må være et objekt.
+- ``schemaVersion`` må være ``1``.
+- ``worksheet`` må være ``"Årshjul"``.
+- ``values`` må være en todimensjonal array.
+- Hver rad må være en array.
+- Celler kan kun inneholde JSON-kompatible skalarverdier (tall, tekst, bool, null) — ikke objekter eller nestede arrays.
 
 ### Hva skjer etter at issuen er opprettet
 
-1. **GitHub Actions** `.github/workflows/sharepoint-import.yml` trigges av
-   `issues: [opened]`.
-2. Kun issues med tittel `sharepoint-sync: activities` kjøres.
+1. **GitHub Actions** ``.github/workflows/sharepoint-import.yml`` trigges av
+   ``issues: [opened]``.
+2. Kun issues med tittel ``sharepoint-sync: activities`` kjøres.
 3. Workflowen:
    - Parser og validerer issue-body.
-   - Laster ned filen fra `download_url` (følger redirects).
-   - Verifiserer at responsen er en gyldig XLSX (magic bytes + openpyxl).
-   - Sammenligner SHA-256 med eksisterende kanonisk fil.
-   - **Hvis endret:** committer til `inputs/activities/activities.xlsx`.
+   - Validerer ``content_json``-kontrakten (``schemaVersion``, ``worksheet``, ``values``).
+   - Serialiserer deterministisk og sammenligner SHA-256 med eksisterende kanonisk fil.
+   - **Hvis endret:** committer til ``inputs/activities/activities.json``.
    - **Hvis uendret:** ingen commit.
    - Kommenterer og lukker issuen.
-4. **Ved commit:** `.github/workflows/activity-publish.yml` trigges av
-   path-endringen og regenererer + publiserer aktivitetskalenderen.
-5. **Ved feil:** issuen forblir åpen med en diagnosekommentar. Ingen
-   repository-filer endres.
+4. **Ved endret commit:** workflowen kaller ``activity-publish.yml`` via
+   ``workflow_call``, som regenererer og publiserer aktivitetskalenderen.
+   Dette er deterministisk og avhenger ikke av at ``GITHUB_TOKEN``-pushes
+   trigger nye workflows.
+5. **Ved feil:** issuen forblir åpen med en diagnosekommentar og lenke til
+   Actions-run. Ingen repository-filer endres.
 
 ### Håndtering av SharePoint-filer som slettes og gjenskapes
 
@@ -179,9 +206,11 @@ utover den innebygde koblingen.
 
 ### Hvis Power Automate feiler
 
-- **Aktivitetskalender:** Eksporter arbeidsboken manuelt fra Teams/SharePoint,
-  og last den opp til `inputs/activities/activities.xlsx` via GitHub-grensesnittet
-  eller `git push`. Workflowen trigges automatisk.
+- **Aktivitetskalender:** Eksporter ``Årshjul``-arket manuelt fra Teams/SharePoint
+  og last opp ``inputs/activities/activities.json`` via GitHub-grensesnittet
+  eller ``git push``. Workflowen trigges automatisk av path-endringen.
+- **Alternativt:** opprett en ny ``sharepoint-sync: activities``-issue manuelt
+  med gyldig ``content_json``.
 - **Påmeldte lag:** Eksporter SharePoint-listen til CSV manuelt, og last opp
   til `inputs/registrations/registered-teams.csv`.
 
@@ -196,7 +225,11 @@ utover den innebygde koblingen.
 ### Manuell regenerering uten Power Automate
 
 ```bash
-# Aktivitetskalender
+# Aktivitetskalender (fra JSON)
+make aktivitetskalender-publish CONFIRM_PUBLIC=1 \
+  ACTIVITY_INPUT=inputs/activities/activities.json
+
+# Aktivitetskalender (fra XLSX — legacy)
 make aktivitetskalender-publish CONFIRM_PUBLIC=1 \
   ACTIVITY_INPUT=inputs/activities/activities.xlsx
 
@@ -218,16 +251,15 @@ make registered-teams-publish \
 - **Ingen hemmeligheter i repositoriet.** Microsoft 365-legitimasjon,
   skjemakoder og kontaktopplysninger lagres i Power Automate/SharePoint —
   aldri i filer.
-- **Offentlig påmeldingsside inneholder kun `club`, `label` og `age_group`.**
+- **Offentlig påmeldingsside inneholder kun ``club``, ``label`` og ``age_group``.**
   Ingen navn, epostadresser, telefonnumre, kommentarer eller interne statuser.
-- **Nedlastingslenker skrives aldri til logger, artifakter eller
-  issue-kommentarer.** URL-en finnes kun i den opprinnelige issue-bodyen og
-  brukes én gang av import-workflowen.
+- **``content_json`` skrives direkte i issue-bodyen** — ingen midlertidige
+  delingslenker eller eksterne nedlastinger.
 - **Power Automate har kun tilgang til å opprette issues** via den innebygde
   GitHub-koblingen — ingen repository-skrivetilgang.
-- **Import-workflowen bruker `contents: write` og `issues: write`** —
+- **Import-workflowen bruker ``contents: write`` og ``issues: write``** —
   minimumstillatelser for å committe filer og administrere trigger-issues.
-- **Workflowene serialiseres via `concurrency`-grupper.**
+- **Workflowene serialiseres via ``concurrency``-grupper.**
 - **Midlertidige delingslenker er skrivebeskyttet (`view`)** og utløper
   automatisk.
 

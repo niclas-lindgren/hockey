@@ -295,3 +295,247 @@ class TestActivityExport:
         assert data["schema_version"] == 2
         assert data["activities"][0]["date"] == "2026-02-01"
         assert data["activities"][0]["title"] == "Regionsamling U13"
+
+
+# ---------------------------------------------------------------------------
+# Power Automate content_json → schema-v2 tests (GitHub issue #55)
+# ---------------------------------------------------------------------------
+
+from tournament_scheduler.pipeline.activity_export import (
+    ActivityJSONValidationError,
+    build_activities_payload_from_values,
+    validate_content_json,
+)
+
+
+class TestValidateContentJSON:
+    def test_valid_payload_passes(self):
+        payload = {
+            "schemaVersion": 1,
+            "worksheet": "Årshjul",
+            "values": [["Måned", "Aktivitet"], ["Januar", "Klubbforum"]],
+        }
+        validate_content_json(payload)  # does not raise
+
+    def test_rejects_non_dict(self):
+        with pytest.raises(ActivityJSONValidationError, match="JSON-objekt"):
+            validate_content_json([1, 2, 3])
+
+    def test_rejects_wrong_schema_version(self):
+        payload = {"schemaVersion": 2, "worksheet": "Årshjul", "values": []}
+        with pytest.raises(ActivityJSONValidationError, match="schemaVersion må være 1"):
+            validate_content_json(payload)
+
+    def test_rejects_missing_schema_version(self):
+        payload = {"worksheet": "Årshjul", "values": []}
+        with pytest.raises(ActivityJSONValidationError, match="schemaVersion må være 1"):
+            validate_content_json(payload)
+
+    def test_rejects_wrong_worksheet(self):
+        payload = {"schemaVersion": 1, "worksheet": "Aktiviteter", "values": []}
+        with pytest.raises(ActivityJSONValidationError, match="worksheet må være"):
+            validate_content_json(payload)
+
+    def test_rejects_missing_values(self):
+        payload = {"schemaVersion": 1, "worksheet": "Årshjul"}
+        with pytest.raises(ActivityJSONValidationError, match="values må være"):
+            validate_content_json(payload)
+
+    def test_rejects_values_not_a_list(self):
+        payload = {"schemaVersion": 1, "worksheet": "Årshjul", "values": "not-a-list"}
+        with pytest.raises(ActivityJSONValidationError, match="values må være"):
+            validate_content_json(payload)
+
+    def test_rejects_empty_values(self):
+        payload = {"schemaVersion": 1, "worksheet": "Årshjul", "values": []}
+        with pytest.raises(ActivityJSONValidationError, match="values er tom"):
+            validate_content_json(payload)
+
+    def test_rejects_non_list_rows(self):
+        payload = {"schemaVersion": 1, "worksheet": "Årshjul", "values": ["not-a-row"]}
+        with pytest.raises(ActivityJSONValidationError, match="rad 1 er ikke en array"):
+            validate_content_json(payload)
+
+    def test_rejects_nested_object_in_cell(self):
+        payload = {
+            "schemaVersion": 1,
+            "worksheet": "Årshjul",
+            "values": [["Måned", {"nested": "object"}]],
+        }
+        with pytest.raises(ActivityJSONValidationError, match="er et objekt eller array"):
+            validate_content_json(payload)
+
+    def test_rejects_nested_array_in_cell(self):
+        payload = {
+            "schemaVersion": 1,
+            "worksheet": "Årshjul",
+            "values": [[["nested", "array"]]],
+        }
+        with pytest.raises(ActivityJSONValidationError, match="er et objekt eller array"):
+            validate_content_json(payload)
+
+    def test_allows_null_and_bool_cells(self):
+        payload = {
+            "schemaVersion": 1,
+            "worksheet": "Årshjul",
+            "values": [["Måned", "Aktivitet"], [None, True]],
+        }
+        validate_content_json(payload)  # does not raise
+
+    def test_allows_numeric_cells(self):
+        payload = {
+            "schemaVersion": 1,
+            "worksheet": "Årshjul",
+            "values": [["Måned", "Dato"], ["Januar", 17]],
+        }
+        validate_content_json(payload)  # does not raise
+
+
+class TestBuildActivitiesPayloadFromValues:
+    def test_transforms_valid_values_to_schema_v2(self):
+        values = [
+            ["Måned", "Dato", "Aktivitet", "Sted"],
+            ["Mars", 3, "Klubbforum U13/U14", "Kongsberg"],
+            ["Januar", 17, "Spillerutvikling JU14", "Sandefjord"],
+        ]
+        payload = build_activities_payload_from_values(
+            values, worksheet_name="Årshjul", default_year=2026, generated_at="2026-07-31T12:00:00Z"
+        )
+
+        assert payload["schema_version"] == 2
+        assert payload["generated_at"] == "2026-07-31T12:00:00Z"
+        assert payload["year"] == 2026
+        assert len(payload["activities"]) == 2
+        # Sorted by date: January before March.
+        assert payload["activities"][0]["date"] == "2026-01-17"
+        assert payload["activities"][0]["title"] == "Spillerutvikling JU14"
+        assert payload["activities"][1]["date"] == "2026-03-03"
+        assert payload["activities"][1]["title"] == "Klubbforum U13/U14"
+
+    def test_infers_year_from_data_when_not_provided(self):
+        values = [
+            ["Dato", "Aktivitet"],
+            ["2027-05-01", "Testaktivitet"],
+        ]
+        payload = build_activities_payload_from_values(
+            values, worksheet_name="Årshjul", generated_at="2026-07-31T12:00:00Z"
+        )
+        assert payload["year"] == 2027
+
+    def test_year_is_none_when_no_records(self):
+        values = [
+            ["Måned", "Aktivitet"],
+            # No data rows with a title.
+            ["", ""],
+        ]
+        payload = build_activities_payload_from_values(
+            values, worksheet_name="Årshjul", default_year=None, generated_at="2026-07-31T12:00:00Z"
+        )
+        assert payload["year"] is None
+        assert payload["activities"] == []
+
+    def test_raises_when_no_header_found(self):
+        values = [
+            ["Kolonne1", "Kolonne2"],  # no recognised date/month/title headers
+        ]
+        with pytest.raises(WorkbookInputError, match="fant ikke en aktivitetstabell"):
+            build_activities_payload_from_values(values, worksheet_name="Årshjul")
+
+    def test_produces_same_output_as_xlsx_path_for_equivalent_data(self, tmp_path):
+        """Smoke test: the JSON path yields the same schema-v2 output as the XLSX path."""
+        rows = [
+            ["Måned", "Dato", "Aktivitet", "Aldersgruppe", "Sted"],
+            ["Februar", 14, "Spillerutvikling U9", "U9", "Jar"],
+            ["Mars", 21, "Regionsturnering U12", "U12", "Holmen"],
+        ]
+        # XLSX path.
+        xlsx_path = tmp_path / "input.xlsx"
+        _workbook(xlsx_path, sheet_name="Årshjul", rows=rows)
+        xlsx_payload = build_activities_payload(
+            xlsx_path, default_year=2026, generated_at="2026-07-31T12:00:00Z"
+        )
+
+        # JSON path.
+        json_payload = build_activities_payload_from_values(
+            rows, worksheet_name="Årshjul", default_year=2026, generated_at="2026-07-31T12:00:00Z"
+        )
+
+        # Compare the activity arrays (generated_at differs).
+        assert json_payload["schema_version"] == xlsx_payload["schema_version"]
+        assert json_payload["year"] == xlsx_payload["year"]
+        assert json_payload["activities"] == xlsx_payload["activities"]
+        assert json_payload["validation_warnings"] == xlsx_payload["validation_warnings"]
+        assert json_payload["category_vocabulary"] == xlsx_payload["category_vocabulary"]
+
+    def test_empty_values_produces_empty_activities(self):
+        values = [
+            ["Dato", "Aktivitet"],
+        ]
+        payload = build_activities_payload_from_values(
+            values, worksheet_name="Årshjul", default_year=2026, generated_at="2026-07-31T12:00:00Z"
+        )
+        assert payload["activities"] == []
+        assert payload["year"] == 2026
+
+    def test_skips_help_rows(self):
+        values = [
+            ["Måned", "Dato", "Aktivitet"],
+            ["Help", 1, "Example activity to skip"],
+            ["Mars", 15, "Klubbforum U13"],
+        ]
+        payload = build_activities_payload_from_values(
+            values, worksheet_name="Årshjul", default_year=2026, generated_at="2026-07-31T12:00:00Z"
+        )
+        assert len(payload["activities"]) == 1
+        assert payload["activities"][0]["title"] == "Klubbforum U13"
+
+
+class TestBuildActivitiesPayloadJSONDispatch:
+    def test_json_file_dispatches_to_power_automate_path(self, tmp_path):
+        """build_activities_payload with a .json file uses the JSON path."""
+        json_path = tmp_path / "activities.json"
+        payload = {
+            "schemaVersion": 1,
+            "worksheet": "Årshjul",
+            "values": [
+                ["Dato", "Aktivitet", "Aldersgruppe"],
+                ["2026-09-15", "Spillerutvikling U9", "U9"],
+            ],
+        }
+        json_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+        result = build_activities_payload(json_path, default_year=2026, generated_at="2026-07-31T12:00:00Z")
+
+        assert result is not None
+        assert result["schema_version"] == 2
+        assert len(result["activities"]) == 1
+        assert result["activities"][0]["title"] == "Spillerutvikling U9"
+        assert result["activities"][0]["age_groups"] == ["U9"]
+
+    def test_json_file_returns_none_when_missing(self, tmp_path):
+        json_path = tmp_path / "nonexistent.json"
+        assert build_activities_payload(json_path) is None
+
+    def test_json_file_returns_none_when_empty(self, tmp_path):
+        json_path = tmp_path / "empty.json"
+        json_path.write_text("", encoding="utf-8")
+        assert build_activities_payload(json_path) is None
+
+    def test_json_file_raises_on_invalid_json(self, tmp_path):
+        json_path = tmp_path / "bad.json"
+        json_path.write_text("not json", encoding="utf-8")
+        with pytest.raises(WorkbookInputError, match="Kunne ikke lese JSON"):
+            build_activities_payload(json_path)
+
+    def test_json_file_raises_on_non_object(self, tmp_path):
+        json_path = tmp_path / "array.json"
+        json_path.write_text("[1, 2, 3]", encoding="utf-8")
+        with pytest.raises(WorkbookInputError, match="må være et objekt"):
+            build_activities_payload(json_path)
+
+    def test_json_file_raises_on_contract_violation(self, tmp_path):
+        json_path = tmp_path / "bad_contract.json"
+        payload = {"schemaVersion": 2, "worksheet": "Feil", "values": []}
+        json_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        with pytest.raises(ActivityJSONValidationError, match="schemaVersion må være 1"):
+            build_activities_payload(json_path)

@@ -6,12 +6,24 @@ on:
       - main
     paths:
       - "inputs/activities/activities.xlsx"
+      - "inputs/activities/activities.json"
   workflow_dispatch:
     inputs:
       input_path:
-        description: "Sti til aktivitetsarbeidsboken"
+        description: "Sti til aktivitetsdata (XLSX eller JSON)"
         required: true
         default: "inputs/activities/activities.xlsx"
+  workflow_call:
+    inputs:
+      activity_input:
+        description: "Sti til aktivitetsdatafil (XLSX eller JSON)"
+        type: string
+        required: true
+      activity_input_format:
+        description: "'xlsx' eller 'json'"
+        type: string
+        required: false
+        default: "xlsx"
 
 permissions:
   contents: write
@@ -23,7 +35,6 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12"
   WORK_DIR: .pipeline/github-activity-publish
-  ACTIVITY_INPUT: ${{ inputs.input_path || 'inputs/activities/activities.xlsx' }}
 
 jobs:
   publish-activity-calendar:
@@ -51,6 +62,26 @@ jobs:
           pip install -r requirements.txt
           pip install -e '.[test]'
 
+      - name: "Finn inndata"
+        id: resolve_input
+        run: |
+          # Determine the input path and format.
+          # workflow_call provides explicit inputs; push/dispatch use env/inputs.
+          INPUT="${{ inputs.activity_input || inputs.input_path || 'inputs/activities/activities.xlsx' }}"
+          FORMAT="${{ inputs.activity_input_format || 'xlsx' }}"
+
+          # Auto-detect format from file extension when not explicitly json.
+          if [ "$FORMAT" != "json" ]; then
+            case "$INPUT" in
+              *.json) FORMAT="json" ;;
+              *)      FORMAT="xlsx" ;;
+            esac
+          fi
+
+          echo "input=$INPUT" >> "$GITHUB_OUTPUT"
+          echo "format=$FORMAT" >> "$GITHUB_OUTPUT"
+          echo "Resolved input=$INPUT format=$FORMAT"
+
       - name: "Skriv input-fingeravtrykk"
         run: |
           mkdir -p "$WORK_DIR/github-actions"
@@ -63,7 +94,7 @@ jobs:
           input_path = os.environ["ACTIVITY_INPUT"]
           path = Path(input_path)
           if not path.exists():
-              raise SystemExit(f"Aktivitetsarbeidsbok ikke funnet: {path}")
+              raise SystemExit(f"Aktivitetsdata ikke funnet: {path}")
           payload = {
               "path": str(path),
               "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -73,6 +104,8 @@ jobs:
               json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
           )
           PY
+        env:
+          ACTIVITY_INPUT: ${{ steps.resolve_input.outputs.input }}
 
       - name: "Kjør kanoniske raske sjekker"
         run: scripts/check quick
@@ -88,6 +121,8 @@ jobs:
             --json \
             2>&1 | tee "$WORK_DIR/github-actions/publish-result.json"
           scripts/rvv-miniputt status --work-dir "$WORK_DIR" --json > "$WORK_DIR/github-actions/status.json" || true
+        env:
+          ACTIVITY_INPUT: ${{ steps.resolve_input.outputs.input }}
 
       - name: "Last opp publiseringsbevis"
         if: always()

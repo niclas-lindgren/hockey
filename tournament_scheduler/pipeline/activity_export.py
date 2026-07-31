@@ -146,10 +146,57 @@ def build_activities_payload(
 ) -> dict[str, Any] | None:
     """Read a public activity table and return the normalized JSON payload.
 
-    Returns ``None`` when the workbook has no supported activity worksheet.
-    Raises :class:`WorkbookInputError` when a supported sheet has malformed or
-    incomplete activity rows.
+    Supports:
+
+    - **XLSX workbooks** — the original path; finds a supported activity
+      worksheet (``Årshjul``, ``Aktiviteter``, etc.) and extracts rows.
+    - **JSON files** — a Power Automate ``content_json`` payload (schema v1)
+      saved as ``.json``.  The file is validated against the contract and
+      transformed to schema v2.
+
+    Returns ``None`` when the workbook/source has no supported activity table.
+    Raises :class:`WorkbookInputError` or :class:`ActivityJSONValidationError`
+    on malformed input.
     """
+    path_obj = Path(path)
+    if path_obj.suffix.lower() == ".json":
+        return _build_payload_from_json_file(path_obj, default_year=default_year, generated_at=generated_at)
+    return _build_payload_from_xlsx(path_obj, default_year=default_year, generated_at=generated_at)
+
+
+def _build_payload_from_json_file(
+    path: Path,
+    *,
+    default_year: int | None,
+    generated_at: str | None,
+) -> dict[str, Any] | None:
+    """Load a JSON file and build the schema-v2 payload from it."""
+    if not path.exists():
+        return None
+    raw = path.read_text(encoding="utf-8")
+    if not raw.strip():
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise WorkbookInputError(f"Kunne ikke lese JSON-filen '{path}': {exc}") from exc
+    if not isinstance(payload, dict):
+        raise WorkbookInputError(f"JSON-filen '{path}' må være et objekt, ikke {type(payload).__name__}.")
+    validate_content_json(payload)
+    return build_activities_payload_from_values(
+        payload["values"],
+        worksheet_name=payload["worksheet"],
+        default_year=default_year,
+        generated_at=generated_at,
+    )
+
+
+def _build_payload_from_xlsx(
+    path: Path,
+    *,
+    default_year: int | None,
+    generated_at: str | None,
+) -> dict[str, Any] | None:
     found = _find_activity_sheet(path)
     if found is None:
         return None
@@ -169,6 +216,95 @@ def build_activities_payload(
     records, warnings = _read_activity_rows(
         ws,
         sheet_name=sheet_name,
+        header_row=header_row,
+        columns=columns,
+        default_year=default_year,
+    )
+    records.sort(key=lambda r: (r["date"], r["title"]))
+    years = sorted({int(str(record["date"])[:4]) for record in records})
+    payload_year = default_year if default_year is not None else (years[0] if years else None)
+    return {
+        "schema_version": 2,
+        "generated_at": generated_at or datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+        "year": payload_year,
+        "category_vocabulary": _category_vocabulary_payload(),
+        "validation_warnings": warnings,
+        "activities": records,
+    }
+
+
+class ActivityJSONValidationError(ValueError):
+    """Raised when a Power Automate ``content_json`` payload fails contract validation."""
+
+
+def validate_content_json(payload: dict[str, Any]) -> None:
+    """Validate a Power Automate ``content_json`` payload against the contract.
+
+    Raises :class:`ActivityJSONValidationError` with a Norwegian-language
+    message when validation fails.
+    """
+    if not isinstance(payload, dict):
+        raise ActivityJSONValidationError("content_json må være et JSON-objekt.")
+
+    schema_version = payload.get("schemaVersion")
+    if schema_version != 1:
+        raise ActivityJSONValidationError(
+            f"schemaVersion må være 1, fikk {schema_version!r}."
+        )
+
+    worksheet = payload.get("worksheet")
+    if worksheet != "Årshjul":
+        raise ActivityJSONValidationError(
+            f"worksheet må være 'Årshjul', fikk {worksheet!r}."
+        )
+
+    values = payload.get("values")
+    if not isinstance(values, list):
+        raise ActivityJSONValidationError(
+            "values må være en todimensjonal array (liste av rader)."
+        )
+    if not values:
+        raise ActivityJSONValidationError("values er tom — ingen rader å importere.")
+
+    for row_idx, row in enumerate(values, start=1):
+        if not isinstance(row, list):
+            raise ActivityJSONValidationError(
+                f"values rad {row_idx} er ikke en array."
+            )
+        for col_idx, cell in enumerate(row, start=1):
+            if isinstance(cell, (dict, list)):
+                raise ActivityJSONValidationError(
+                    f"values[{row_idx - 1}][{col_idx - 1}] er et objekt eller array — "
+                    f"celler må være enkle verdier (tall, tekst, bool, null)."
+                )
+
+
+def build_activities_payload_from_values(
+    values: list[list[Any]],
+    *,
+    worksheet_name: str,
+    default_year: int | None = None,
+    generated_at: str | None = None,
+) -> dict[str, Any]:
+    """Build the schema-v2 activity payload from a raw 2D *values* array.
+
+    This is the JSON-equivalent of :func:`build_activities_payload`: it accepts
+    the ``values`` array from a Power Automate ``content_json`` payload
+    (schema v1) and returns the same normalized schema-v2 dict.  The caller is
+    responsible for validating the contract before calling this function.
+
+    Raises :class:`WorkbookInputError` when the values table has no
+    recognisable header row.
+    """
+    header_row, columns = _find_header_in_rows(values)
+    if header_row is None:
+        raise WorkbookInputError(
+            f"{worksheet_name}: fant ikke en aktivitetstabell med kolonner for dato/måned og aktivitet."
+        )
+
+    records, warnings = _read_activity_rows_from_list(
+        values,
+        sheet_name=worksheet_name,
         header_row=header_row,
         columns=columns,
         default_year=default_year,
@@ -225,6 +361,20 @@ def _find_activity_sheet(path: str | Path) -> tuple[Path, str] | None:
 
 def _find_header(ws: Worksheet) -> tuple[int | None, dict[str, int]]:
     for row_index, row in enumerate(ws.iter_rows(values_only=True), start=1):
+        header_cells: list[tuple[str, int]] = []
+        for col_index, cell in enumerate(row):
+            header = _canonical_header(cell)
+            if header:
+                header_cells.append((header, col_index))
+        columns = _choose_activity_table_columns(header_cells)
+        if columns:
+            return row_index, columns
+    return None, {}
+
+
+def _find_header_in_rows(rows: list[list[Any]]) -> tuple[int | None, dict[str, int]]:
+    """Same as :func:`_find_header` but for a 2D list instead of a Worksheet."""
+    for row_index, row in enumerate(rows, start=1):
         header_cells: list[tuple[str, int]] = []
         for col_index, cell in enumerate(row):
             header = _canonical_header(cell)
@@ -294,74 +444,110 @@ def _read_activity_rows(
     columns: dict[str, int],
     default_year: int | None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Read activity rows from an openpyxl Worksheet."""
     records: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     for row_index, row in enumerate(ws.iter_rows(min_row=header_row + 1, values_only=True), start=header_row + 1):
-        values = {key: _cell(row, col_index) for key, col_index in columns.items()}
-        if not any(value not in (None, "") for value in values.values()):
-            continue
-        if _is_help_or_example_row(values):
-            continue
-
-        title = _clean_text(values.get("title"))
-        raw_date = values.get("date")
-        raw_month = values.get("month")
-        if not title:
-            warnings.append(
-                _warning(
-                    sheet_name,
-                    row_index,
-                    "title",
-                    values.get("title"),
-                    "Mangler tittel/aktivitet; raden hoppes over.",
-                )
-            )
-            continue
-        activity_date = _parse_activity_date(raw_date, raw_month, default_year=default_year, sheet_name=sheet_name, row_index=row_index)
-
-        raw_type = _clean_text(values.get("type"))
-        raw_age_groups = _clean_text(values.get("age_groups"))
-        age_groups = _parse_age_groups(raw_age_groups if raw_age_groups is not None else title)
-        if raw_age_groups and not age_groups:
-            warnings.append(
-                _warning(
-                    sheet_name,
-                    row_index,
-                    "age_groups",
-                    raw_age_groups,
-                    "Aldersgruppe kunne ikke normaliseres og blir ikke vist som egen sesongsløp-rad.",
-                )
-            )
-        category_source = raw_type or _infer_type(title, age_groups)
-        category = _normalize_category(category_source, explicit=raw_type is not None)
-        if category == "unknown":
-            warnings.append(
-                _warning(
-                    sheet_name,
-                    row_index,
-                    "category",
-                    raw_type,
-                    "Ukjent aktivitetstype; bruker deterministisk fallback 'unknown'.",
-                )
-            )
-        category_meta = CATEGORY_VOCABULARY[category]
-
-        records.append(
-            {
-                "date": activity_date.isoformat(),
-                "type": category,
-                "category": category,
-                "category_label": category_meta["label"],
-                "category_code": category_meta["code"],
-                "raw_category": raw_type,
-                "age_groups": age_groups,
-                "title": title,
-                "location": _clean_text(values.get("location")),
-                "description": _clean_text(values.get("description")),
-                "url": _clean_text(values.get("url")),
-            }
+        _process_activity_row(
+            row, row_index=row_index, columns=columns, sheet_name=sheet_name,
+            default_year=default_year, records=records, warnings=warnings,
         )
     return records, warnings
+
+
+def _read_activity_rows_from_list(
+    rows: list[list[Any]],
+    *,
+    sheet_name: str,
+    header_row: int,
+    columns: dict[str, int],
+    default_year: int | None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Same as :func:`_read_activity_rows` but for a 2D list instead of a Worksheet."""
+    records: list[dict[str, Any]] = []
+    warnings: list[dict[str, Any]] = []
+    for row_index, row in enumerate(rows[header_row:], start=header_row + 1):
+        _process_activity_row(
+            row, row_index=row_index, columns=columns, sheet_name=sheet_name,
+            default_year=default_year, records=records, warnings=warnings,
+        )
+    return records, warnings
+
+
+def _process_activity_row(
+    row: Iterable[Any],
+    *,
+    row_index: int,
+    columns: dict[str, int],
+    sheet_name: str,
+    default_year: int | None,
+    records: list[dict[str, Any]],
+    warnings: list[dict[str, Any]],
+) -> None:
+    values = {key: _cell(row, col_index) for key, col_index in columns.items()}
+    if not any(value not in (None, "") for value in values.values()):
+        return
+    if _is_help_or_example_row(values):
+        return
+
+    title = _clean_text(values.get("title"))
+    raw_date = values.get("date")
+    raw_month = values.get("month")
+    if not title:
+        warnings.append(
+            _warning(
+                sheet_name,
+                row_index,
+                "title",
+                values.get("title"),
+                "Mangler tittel/aktivitet; raden hoppes over.",
+            )
+        )
+        return
+    activity_date = _parse_activity_date(raw_date, raw_month, default_year=default_year, sheet_name=sheet_name, row_index=row_index)
+
+    raw_type = _clean_text(values.get("type"))
+    raw_age_groups = _clean_text(values.get("age_groups"))
+    age_groups = _parse_age_groups(raw_age_groups if raw_age_groups is not None else title)
+    if raw_age_groups and not age_groups:
+        warnings.append(
+            _warning(
+                sheet_name,
+                row_index,
+                "age_groups",
+                raw_age_groups,
+                "Aldersgruppe kunne ikke normaliseres og blir ikke vist som egen sesongsløp-rad.",
+            )
+        )
+    category_source = raw_type or _infer_type(title, age_groups)
+    category = _normalize_category(category_source, explicit=raw_type is not None)
+    if category == "unknown":
+        warnings.append(
+            _warning(
+                sheet_name,
+                row_index,
+                "category",
+                raw_type,
+                "Ukjent aktivitetstype; bruker deterministisk fallback 'unknown'.",
+            )
+        )
+    category_meta = CATEGORY_VOCABULARY[category]
+
+    records.append(
+        {
+            "date": activity_date.isoformat(),
+            "type": category,
+            "category": category,
+            "category_label": category_meta["label"],
+            "category_code": category_meta["code"],
+            "raw_category": raw_type,
+            "age_groups": age_groups,
+            "title": title,
+            "location": _clean_text(values.get("location")),
+            "description": _clean_text(values.get("description")),
+            "url": _clean_text(values.get("url")),
+        }
+    )
 
 
 def _cell(row: Iterable[Any], col_index: int) -> Any:

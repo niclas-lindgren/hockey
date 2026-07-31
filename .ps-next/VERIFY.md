@@ -1,18 +1,16 @@
 # Verification Report
 
-STATUS: PASS
+STATUS: NEEDS_REVIEW
 
 | Criterion | Verdict | Evidence |
 | --- | --- | --- |
-| Run the import workflow by creating an issue titled exactly `sharepoint-sync: activities`. | PASS | Workflow has `on: issues: types: [opened]` and job-level `if:` gates on `github.event.issue.title == 'sharepoint-sync: activities'`. Test `test_sharepoint_import_title_gates_on_exact_issue_title` verifies the title check. |
-| Validate the issue body contract and return errors for missing, duplicate, and unexpected keys. | PASS | Python inline parser checks for `Mangler påkrevde felt`, `Duplikat nøkkel`, `Ukjent nøkkel` and exits with code 1 on validation errors. Test `test_sharepoint_import_validates_issue_body_contract` verifies all three rejection patterns. |
-| Download the file and verify it contains valid XLSX magic bytes; reject HTML, login pages, and empty responses. | PASS | Download step verifies `PK\x03\x04` magic bytes, validates with `openpyxl.load_workbook`, rejects Content-Type mismatches, empty files, and files >20 MB. Test `test_sharepoint_import_downloads_and_validates_xlsx` verifies. |
-| Show that invalid downloads never modify repository inputs. | PASS | Download step runs before the commit step. On download failure, `sys.exit(1)` is called before any file write. The commit step is gated on `steps.download.outputs.changed == 'true'`. Test `test_sharepoint_import_commits_only_when_changed` verifies the gate. |
-| Show that an unchanged workbook creates no commit and closes the issue with an explanatory comment. | PASS | SHA-256 comparison detects unchanged files (`FILE_UNCHANGED`). The commit step gate prevents commit. Success comment includes `Ingen commit er nødvendig`. Issue is closed regardless of change. |
-| Show that a changed valid workbook is committed to `inputs/activities/activities.xlsx`. | PASS | When SHA-256 differs, `FILE_CHANGED` is set, `target_path.parent.mkdir(parents=True, exist_ok=True)` creates the directory, and `target_path.write_bytes(content)` writes. The commit step runs `git add "$TARGET_PATH"` and pushes. |
-| Run the workflow and verify it comments on and closes successful trigger issues. | PASS | Success step (`if: success()`) uses `gh issue comment` with `--body-file` and `gh issue close --reason "completed"`. Both changed and unchanged paths close the issue. |
-| Show that failed trigger issues remain open with a useful diagnostic comment. | PASS | Failure step (`if: failure()`) uses `gh issue comment` but does NOT call `gh issue close`. Comment lists possible causes. Test `test_sharepoint_import_leaves_issue_open_on_failure` verifies. |
-| Show that download URLs are not exposed in logs or comments. | PASS | Body parser prints `<redacted>` for download_url. Comment bodies contain SHA-256, DriveItemId, version — never the URL. Commit message uses source/drive_id, not URL. Test `test_sharepoint_import_never_exposes_download_url` verifies. |
-| Run concurrent imports and verify they are serialized safely. | PASS | Workflow has `concurrency: group: sharepoint-import-${{ github.ref }}` with `cancel-in-progress: false`. Test `test_sharepoint_import_has_concurrency_group` verifies. |
-| `docs/power-automate-github-sync.md` exists and contains the issue-based contract and recovery sections. | PASS | File exists (9598 bytes). Contains: Architecture diagram, Issue-kontrakt section with field table, Håndtering av SharePoint-filer som slettes og gjenskapes, Gjenoppretting section with manual recovery commands. |
-| Run tests that cover valid import, malformed body, invalid download, unchanged file, and changed file. | PASS | 22 workflow tests pass including 8 new import workflow tests: `test_sharepoint_import_triggered_by_issues`, `test_sharepoint_import_has_least_privilege_permissions`, `test_sharepoint_import_title_gates_on_exact_issue_title`, `test_sharepoint_import_validates_issue_body_contract`, `test_sharepoint_import_downloads_and_validates_xlsx`, `test_sharepoint_import_never_exposes_download_url`, `test_sharepoint_import_commits_only_when_changed`, `test_sharepoint_import_leaves_issue_open_on_failure`, `test_sharepoint_import_has_concurrency_group`. |
+| Run the import workflow with the current Power Automate payload (schemaVersion=1, worksheet=Årshjul, values as 2D array) and verify it succeeds without Office Script changes. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Valid `content_json` is imported to `inputs/activities/activities.json`. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Invalid JSON, schema version, worksheet name, or `values` shape is rejected with a clear error. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| The issue-provided `target_path` cannot cause writes outside the canonical destination. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| An unchanged payload creates no commit. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| A changed payload creates a deterministic commit. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Activity generation and publishing run automatically after a changed import (via workflow_call, not push event). | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| A successful or unchanged run comments on and closes the sync issue. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| A failed run leaves the sync issue open with a useful failure comment and Actions link. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
+| Run `pytest tests/test_activity_export.py -v` and confirm tests pass for parsing, validation, canonical serialization, unchanged imports, changed imports, and issue-closing behavior. | MANUAL | Requires model/human judgment; no embedded run:/grep: check. |
