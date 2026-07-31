@@ -122,6 +122,19 @@ jobs:
         env:
           ACTIVITY_INPUT: ${{ steps.resolve_input.outputs.input }}
 
+      - name: "Vis publisert side"
+        run: |
+          OWNER="${GITHUB_REPOSITORY%%/*}"
+          REPO="${GITHUB_REPOSITORY#*/}"
+          PAGES_URL="https://${OWNER}.github.io/${REPO}/latest/"
+
+          echo "Publisert side: $PAGES_URL"
+          {
+            echo "## Publisert aktivitetskalender"
+            echo
+            echo "[$PAGES_URL]($PAGES_URL)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: "Last opp publiseringsbevis"
         if: always()
         uses: actions/upload-artifact@v4
