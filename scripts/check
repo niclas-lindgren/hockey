@@ -32,7 +32,7 @@ this script while GitHub keeps separate visible status checks.
 
 Phases:
   dependency-lock    verify requirements.lock is fresh from pyproject.toml
-  quick              default pytest suite
+  quick              fast pytest suite without coverage
   operator           operator manifest/escalation control-path tests
   reproducibility    deterministic planner reproducibility fixture
   cli-smoke          integration-marked CLI smoke test
@@ -67,7 +67,7 @@ run_named_phase() {
       '
       ;;
     quick)
-      run_phase "Python quick test suite" "$PYTHON_CMD" -m pytest
+      run_phase "Fast Python test suite" "$PYTHON_CMD" -m pytest --no-cov -q
       ;;
     operator)
       run_phase "Operator manifest and escalation tests" "$PYTHON_CMD" -m pytest --no-cov -v \
