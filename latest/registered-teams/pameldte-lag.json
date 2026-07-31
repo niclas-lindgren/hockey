@@ -1,0 +1,37 @@
+{
+  "age_groups": [
+    {
+      "age_group": "U9",
+      "club_count": 1,
+      "clubs": [
+        {
+          "club": "Kongsberg",
+          "team_count": 1,
+          "teams": [
+            "Kongsberg"
+          ]
+        }
+      ],
+      "team_count": 1
+    },
+    {
+      "age_group": "U10",
+      "club_count": 1,
+      "clubs": [
+        {
+          "club": "Kongsberg",
+          "team_count": 1,
+          "teams": [
+            "Kongsberg"
+          ]
+        }
+      ],
+      "team_count": 1
+    }
+  ],
+  "generated_at": "2026-07-31T10:58:19Z",
+  "schema_version": 1,
+  "title": "Påmeldte lag",
+  "total_clubs": 1,
+  "total_teams": 2
+}
