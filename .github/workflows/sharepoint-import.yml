@@ -14,11 +14,12 @@ concurrency:
 
 env:
   PYTHON_VERSION: "3.12"
+  CANONICAL_PATH: "inputs/activities/activities.xlsx"
 
 jobs:
   import-activities-workbook:
     name: "Importer aktivitetsarbeidsbok fra SharePoint"
-    if: "github.event.issue.title == 'sharepoint-sync: activities'"
+    if: "github.event.issue.title == 'sharepoint-sync: activities' && contains(fromJSON('[\"OWNER\",\"MEMBER\",\"COLLABORATOR\"]'), github.event.issue.author_association)"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -60,6 +61,14 @@ jobs:
           ALLOWED = REQUIRED | {"drive_id", "drive_item_id", "version"}
           KEY_RE = re.compile(r"^([a-z_][a-z0-9_]*)=(.*)$")
 
+          # Hard-coded contract values — these must match exactly.
+          EXPECTED_SOURCE = "sharepoint"
+          EXPECTED_TARGET = "inputs/activities/activities.xlsx"
+
+          # Optional identifier validation (set as env vars in repository settings).
+          EXPECTED_DRIVE_ID = os.environ.get("EXPECTED_DRIVE_ID", "")
+          EXPECTED_DRIVE_ITEM_ID = os.environ.get("EXPECTED_DRIVE_ITEM_ID", "")
+
           errors = []
           parsed: dict[str, str] = {}
           seen: set[str] = set()
@@ -88,6 +97,18 @@ jobs:
           if missing:
               errors.append(f"Mangler påkrevde felt: {', '.join(sorted(missing))}")
 
+          # Enforce the fixed contract values.
+          if parsed.get("source", "") != EXPECTED_SOURCE:
+              errors.append(f"source må være '{EXPECTED_SOURCE}', fikk '{parsed.get('source', '')}'")
+          if parsed.get("target_path", "") != EXPECTED_TARGET:
+              errors.append(f"target_path må være '{EXPECTED_TARGET}', fikk '{parsed.get('target_path', '')}'")
+
+          # Optional identifier validation.
+          if EXPECTED_DRIVE_ID and parsed.get("drive_id", "") != EXPECTED_DRIVE_ID:
+              errors.append(f"drive_id matcher ikke forventet verdi")
+          if EXPECTED_DRIVE_ITEM_ID and parsed.get("drive_item_id", "") != EXPECTED_DRIVE_ITEM_ID:
+              errors.append(f"drive_item_id matcher ikke forventet verdi")
+
           if errors:
               print(f"ISSUE_BODY_INVALID=1", file=sys.stderr)
               for error in errors:
@@ -102,7 +123,8 @@ jobs:
               else:
                   print(f"  ✓ {key}={parsed[key]}")
 
-          # Write parsed fields to a JSON file for downstream steps.
+          # Write parsed fields to output.  target_path is validated above; the
+          # actual write destination is always the hard-coded CANONICAL_PATH.
           output = Path(os.environ["GITHUB_OUTPUT"])
           with output.open("a") as f:
               print(f"source={parsed['source']}", file=f)
@@ -117,7 +139,7 @@ jobs:
         id: download
         env:
           DOWNLOAD_URL: ${{ steps.parse.outputs.download_url }}
-          TARGET_PATH: ${{ steps.parse.outputs.target_path }}
+          CANONICAL_PATH: ${{ env.CANONICAL_PATH }}
         run: |
           python - <<'PY'
           import hashlib
@@ -131,7 +153,8 @@ jobs:
           import requests
 
           download_url = os.environ["DOWNLOAD_URL"]
-          target_path = Path(os.environ["TARGET_PATH"])
+          # Hard-coded destination — never use issue-provided target_path.
+          canonical_path = Path(os.environ["CANONICAL_PATH"])
 
           # 1. Download with redirect following, short timeout.
           try:
@@ -193,14 +216,14 @@ jobs:
           # 6. Compare with existing canonical file.
           changed = True
           existing_sha256 = ""
-          if target_path.exists():
-              existing_sha256 = hashlib.sha256(target_path.read_bytes()).hexdigest()
+          if canonical_path.exists():
+              existing_sha256 = hashlib.sha256(canonical_path.read_bytes()).hexdigest()
               changed = existing_sha256 != file_sha256
 
-          # 7. Write the downloaded file into the canonical location if changed.
+          # 7. Write the downloaded file into the hard-coded canonical location.
           if changed:
-              target_path.parent.mkdir(parents=True, exist_ok=True)
-              target_path.write_bytes(content)
+              canonical_path.parent.mkdir(parents=True, exist_ok=True)
+              canonical_path.write_bytes(content)
               print(f"FILE_CHANGED=1")
           else:
               print(f"FILE_UNCHANGED=1")
@@ -210,7 +233,7 @@ jobs:
               "size_bytes": len(content),
               "sheets": sheet_count,
               "changed": changed,
-              "existing_sha256": existing_sha256 if target_path.exists() else None,
+              "existing_sha256": existing_sha256 if canonical_path.exists() else None,
           }
           result_path = Path(os.environ["GITHUB_OUTPUT"])
           with result_path.open("a") as f:
@@ -225,12 +248,10 @@ jobs:
 
       - name: "Commit og push endret arbeidsbok"
         if: steps.download.outputs.changed == 'true'
-        env:
-          TARGET_PATH: ${{ steps.parse.outputs.target_path }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$TARGET_PATH"
+          git add "$CANONICAL_PATH"
           git commit -m "[bot] Importer aktivitetsarbeidsbok fra SharePoint" -m "source=sharepoint drive_id=${{ steps.parse.outputs.drive_id || 'ukjent' }} drive_item_id=${{ steps.parse.outputs.drive_item_id || 'ukjent' }} version=${{ steps.parse.outputs.version || 'ukjent' }}"
           git push origin HEAD:main
 

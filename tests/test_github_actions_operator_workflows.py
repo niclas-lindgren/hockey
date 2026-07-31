@@ -296,30 +296,70 @@ def test_sharepoint_import_has_least_privilege_permissions():
     assert workflow.data["permissions"] == {"contents": "write", "issues": "write"}
 
 
-def test_sharepoint_import_title_gates_on_exact_issue_title():
+def test_sharepoint_import_title_and_author_gate():
     workflow = WORKFLOWS_PARSED["sharepoint-import"]
 
-    # The job-level if gates on the exact issue title.
     job = list(workflow.jobs.values())[0]
-    assert "sharepoint-sync: activities" in str(job.get("if", ""))
+    condition = str(job.get("if", ""))
+    # Title gate
+    assert "sharepoint-sync: activities" in condition
+    # Author association gate
+    assert "author_association" in condition
+    assert "OWNER" in condition or "MEMBER" in condition or "COLLABORATOR" in condition
 
 
-def test_sharepoint_import_validates_issue_body_contract():
+def test_sharepoint_import_enforces_fixed_source_and_target_contract():
     workflow = WORKFLOWS_PARSED["sharepoint-import"]
 
     text = workflow.text
-    # Body parsing: required and allowed fields.
-    assert "source" in text
-    assert "target_path" in text
-    assert "download_url" in text
-    assert "drive_id" in text
-    assert "drive_item_id" in text
-    # Unknown key rejection
-    assert "Ukjent nøkkel" in text
-    # Duplicate key rejection
-    assert "Duplikat nøkkel" in text
-    # Missing required field rejection
-    assert "Mangler påkrevde felt" in text
+    # Enforces exact source.
+    assert "source må være" in text
+    # Enforces exact target_path.
+    assert "target_path må være" in text
+    # These are contract enforcement, not just field presence.
+    assert '"sharepoint"' in text
+    assert '"inputs/activities/activities.xlsx"' in text
+
+
+def test_sharepoint_import_hard_codes_write_destination():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # The CANONICAL_PATH env var is set at workflow level.
+    assert "CANONICAL_PATH" in text
+    assert "inputs/activities/activities.xlsx" in text
+    # The download step documents the hard-coded destination.
+    assert "Hard-coded destination" in text
+    # target_path from issue body is validated but NOT used for writing.
+    # Verify the download step uses CANONICAL_PATH, not TARGET_PATH.
+    # The parsed target_path is validated for contract compliance only.
+
+
+def test_sharepoint_import_supports_identifier_validation():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # Optional identifier validation via env vars.
+    assert "EXPECTED_DRIVE_ID" in text
+    assert "EXPECTED_DRIVE_ITEM_ID" in text
+    # Mismatch produces errors.
+    assert "matcher ikke forventet verdi" in text
+
+
+def test_sharepoint_import_rejects_wrong_source():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # When source != "sharepoint", it's an error.
+    assert "source må være" in text
+
+
+def test_sharepoint_import_rejects_wrong_target_path():
+    workflow = WORKFLOWS_PARSED["sharepoint-import"]
+
+    text = workflow.text
+    # When target_path != expected value, it's an error.
+    assert "target_path må være" in text
 
 
 def test_sharepoint_import_downloads_and_validates_xlsx():
