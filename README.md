@@ -1,64 +1,115 @@
 # RVV Miniputt
 
-📅 **Published season plan:** https://niclas-lindgren.github.io/hockey/latest/
+**Public season overview:** https://niclas-lindgren.github.io/hockey/latest/
 
-RVV Miniputt is an **AI-operated season-planning system** for RVV hockey clubs.
+RVV Miniputt is the operational and technical system used to collect team registrations, maintain the activity calendar, generate the miniputt season plan, review the result, and publish approved information for Region Viken Vest.
 
-The intended workflow is goal-oriented: a human supervisor asks an LLM harness to produce the best trustworthy season plan, and the AI operator validates inputs, gathers calendar data, recovers from routine problems, generates and evaluates plans, and exports the result. The human is involved when credentials, authorization, incomplete source data, or genuine hockey-policy decisions require judgment.
+The project is not only a scheduling program. Its complete operating model spans:
 
-Underneath the operator experience is a deterministic, checkpointed four-stage pipeline that:
+- Microsoft Forms for club submissions
+- Power Automate for validation and routing
+- SharePoint Lists and files for reviewed operational data
+- `input.xlsx` as the controlled planning input
+- deterministic Python scheduling and export code
+- GitHub Actions and local Make commands
+- GitHub Pages for generated public views
+- WordPress for the public website and navigation
+- Spond for communication and event distribution
 
-1. validates season input (`input.xlsx` workbook + roster data)
-2. scrapes club calendars and caches results
-3. builds a season plan
-4. exports Excel, CSV, iCal, HTML, and Spond files
+This README is the starting point for a new season coordinator or technical maintainer. Detailed implementation documentation remains under [`docs/`](docs/).
 
-The current AI-operator direction, ordered implementation backlog, and operational ownership guidance are documented in:
+## Core principles
 
-- [AI operator product direction](docs/ai-operator-product-direction.md)
-- [AI operator implementation roadmap](docs/ai-operator-roadmap.md)
-- [AI operator run manifest schema](docs/run-manifest-schema.md)
-- [Ownership and handover guide](docs/ownership-and-handover.md)
+1. **SharePoint is the reviewed registration store.** Microsoft Forms is an intake channel, not the planning source of truth.
+2. **`input.xlsx` is the controlled input to the season planner.** Form responses must not replace administrative sheets or planning settings directly.
+3. **Generated files are not edited manually.** Correct the source data or code, then regenerate.
+4. **Generation, review, publication, and rollback are separate actions.** Public publication always requires explicit approval.
+5. **Only public-safe fields are published.** Contact details, comments, internal statuses, credentials, paths, and audit data stay private.
+6. **The system must be transferable.** Critical Microsoft 365, GitHub, WordPress, and Spond assets should have club-controlled ownership and at least one backup owner.
 
-## Current operator workflow
+## End-to-end operating model
 
-For humans working outside an LLM harness, the root `Makefile` is the concise operator menu. Run `make help` to discover every deterministic or explicitly human-controlled operation. Each Make target is a thin wrapper over the canonical scripts/CLI commands; it does not reimplement planning, publishing, release, or safety logic.
-
-Common Make targets and their direct equivalents:
-
-| Workflow | Make target | Direct command |
-|---|---|---|
-| Full operator run | `make operator-run` | `scripts/rvv-miniputt operator run` |
-| Forced operator rerun | `make operator-run-force` | `scripts/rvv-miniputt operator run --force` |
-| Raw four-stage pipeline | `make run ARGS='--input input.xlsx'` | `scripts/rvv-miniputt run --input input.xlsx` |
-| Status/log inspection | `make status`, `make logs` | `scripts/rvv-miniputt status`, `scripts/rvv-miniputt logs list` |
-| Calendar report | `make calendars`, `make calendars-refresh` | `scripts/rvv-miniputt calendars`, `scripts/rvv-miniputt calendars --refresh` |
-| Påmeldte lag page | `make registered-teams CSV=downloads/Miniputt-26-27.csv` | `scripts/rvv-miniputt registered-teams --csv downloads/Miniputt-26-27.csv` |
-| Publish Påmeldte lag | `make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt registered-teams --csv downloads/Miniputt-26-27.csv --publish --confirm-public` |
-| Source health | `make sources-status` | `scripts/rvv-miniputt sources status` |
-| Pending questions | `make questions`, `make questions-all` | `scripts/rvv-miniputt operator questions [--all]` |
-| Record a decision | `make answer ID=<id> ANSWER='<answer>'` | `scripts/rvv-miniputt operator answer <id> '<answer>'` |
-| Promote a decision | `make promote ID=<id> SCOPE=workspace` | `scripts/rvv-miniputt operator promote <id> workspace` |
-| Publication preview | `make publish-preview` | `scripts/rvv-miniputt operator publish --dry-run` |
-| Public publish | `make publish CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt operator publish --confirm-public` |
-| Publish verification/history | `make verify-publish`, `make publish-history` | `scripts/rvv-miniputt operator verify`, `scripts/rvv-miniputt operator publish-history` |
-| Roll back latest | `make rollback RUN_ID=<id> CONFIRM_PUBLIC=1` | `scripts/rvv-miniputt operator rollback <id> --confirm-public` |
-| Local verification | `make check` | `scripts/check` |
-| Dependency lock freshness | `make dependency-lock` | `scripts/check dependency-lock` |
-| Guarded release | `make release-dry-run TAG=vX.Y.Z`, `make release TAG=vX.Y.Z` | `scripts/release --dry-run vX.Y.Z`, `scripts/release vX.Y.Z` |
-
-`ARGS='...'` is appended to the relevant underlying CLI command for normal option forwarding. Mutating targets retain explicit gates: `make publish` and `make rollback` require `CONFIRM_PUBLIC=1`, and release creation goes through `scripts/release` rather than raw `git tag`/`git push`. `make`, `make help`, `make run`, and `make operator-run` never publish publicly.
-
-Reviewed registrations from Microsoft Forms/Power Automate/SharePoint can also be published as a standalone **Påmeldte lag** page without generating a season plan or changing `input.xlsx`:
-
-```bash
-make registered-teams CSV=downloads/Miniputt-26-27.csv
-make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1
+```text
+Club representative
+        |
+        v
+Microsoft Form
+        |
+        v
+Power Automate
+  - validate registration code
+  - normalize submitted data
+  - reject or route invalid submissions
+  - write accepted data to SharePoint
+  - notify the responsible team/channel
+        |
+        v
+Reviewed SharePoint List
+        |
+        +------------------------------+
+        |                              |
+        v                              v
+Public "Påmeldte lag" export     Controlled planning import
+                                      |
+                                      v
+                                  input.xlsx
+                                      |
+                                      v
+                          Four-stage planning pipeline
+                          1. validate configuration
+                          2. collect calendar data
+                          3. generate season plan
+                          4. create review/public exports
+                                      |
+                                      v
+                              Human review and approval
+                                      |
+                       +--------------+---------------+
+                       |                              |
+                       v                              v
+                 GitHub Pages                     Spond import
+                       |
+                       v
+                WordPress links/iframes
 ```
 
-This validates a SharePoint CSV with `club,label,age_group`, writes review artifacts under `registered-teams/` (`pameldte-lag.html`, public `pameldte-lag.json`, and a private validation report), stages it on top of the current GitHub Pages `/latest/` snapshot, and publishes only after the same public-confirmation/sanitization safeguards as other Pages updates. Extra SharePoint columns such as contact details, IDs, internal statuses, and comments are ignored by default and are not included in the public page or JSON. The public link for WordPress is `https://niclas-lindgren.github.io/hockey/latest/registered-teams/pameldte-lag.html`.
+## Responsibilities by system
 
-Reviewed registrations from Microsoft Forms/Power Automate/SharePoint should be exported as CSV/XLSX and converted into a controlled workbook snapshot before planning:
+| System | Purpose | Source-of-truth status | Important boundary |
+|---|---|---|---|
+| Microsoft Forms | Collect club and team submissions | No | Treat responses as unreviewed input. |
+| Power Automate | Validate and route form responses | No | Invalid registration codes must not create accepted registration records. |
+| SharePoint List | Store reviewed registrations and workflow status | Yes, for registrations | Keep contact and internal workflow fields private. |
+| `input.xlsx` | Controlled season-planning configuration | Yes, for planner input | Only the `Lag` sheet is rebuilt from approved registrations. |
+| Calendar sources | Supply availability and activity data | Yes, per external source | Review stale or suspiciously sparse sources before trusting a plan. |
+| Python pipeline | Validate, schedule, evaluate, and export | Derived | Do not put policy or hard constraints only in an LLM prompt. |
+| GitHub Pages | Serve generated read-only output | No | Never manually edit generated Pages files. |
+| WordPress | Public navigation and explanatory content | Yes, for editorial website text | Link/embed generated output instead of duplicating it manually. |
+| Spond | Operational communication and event distribution | Yes, for group communication | Import only after the season plan is approved. |
+
+## Annual season workflow
+
+### 1. Before registration opens
+
+- Confirm Microsoft Form ownership, questions, registration code, confirmation text, and destination flow.
+- Confirm the Power Automate flow and all Microsoft 365 connections have club-controlled owners and a backup owner.
+- Verify the SharePoint List schema and remove obsolete test rows.
+- Update `input.xlsx` administrative sheets: `Innstillinger`, `Aldersgrupper`, `Kilder`, and optional `Datopreferanser`/activity sheets.
+- Review GitHub, Pages, WordPress, Spond, and calendar-source access.
+- Run `make check` and a dry planning run before clubs start submitting.
+
+### 2. During registration
+
+- Clubs submit one or more teams through Microsoft Forms.
+- Power Automate validates the submitted registration code before treating the submission as accepted.
+- Accepted submissions are normalized and written to the private SharePoint List.
+- Rejected, duplicate, incomplete, or withdrawn registrations retain an explicit non-active status and are excluded from planning.
+- The season coordinator reviews club name, team label, age group, duplicates, and status.
+- Publish the standalone **Påmeldte lag** view when a refreshed public overview is needed; this does not require regenerating the season plan.
+
+### 3. Freeze and import registrations
+
+Export the reviewed SharePoint List as CSV or XLSX. Validate it before changing the planning workbook:
 
 ```bash
 scripts/rvv-miniputt registrations validate registrations.csv --input input.xlsx
@@ -66,229 +117,391 @@ scripts/rvv-miniputt registrations export registrations.csv --input input.xlsx -
 scripts/rvv-miniputt registrations export registrations.csv --input input.xlsx --output input.updated.xlsx
 ```
 
-This replaces only the `Lag` sheet, preserves administrative workbook sheets, writes an audit sidecar with source fingerprint and SharePoint item IDs, and excludes contact/comment fields from the generated workbook. See [RVV Miniputt input formats](docs/rvv-miniputt-input-formats.md#reviewed-sharepoint-registration-exports).
+The import:
 
-Browser-only operation is available through manual GitHub Actions workflows when a volunteer should not run local commands:
+- includes only approved/current/active registrations
+- replaces only the `Lag` sheet
+- preserves all controlled administrative sheets
+- rejects unknown clubs, age groups, duplicate IDs, and duplicate teams
+- excludes contact/comment fields
+- writes an audit sidecar containing the source fingerprint and included SharePoint item IDs
 
-| Browser workflow | Purpose | Safety boundary |
-|---|---|---|
-| `Sesong: valider inndata` | Validate a workbook and upload input fingerprint, status, logs, manifest, and validation artifacts. | Read-only; never publishes. |
-| `Sesong: lag vurderingspakke` | Generate a candidate plan/review bundle and upload HTML exports, logs, manifest, publish preview, and privacy report. | Read-only; never publishes. |
-| `Sesong: publiser godkjent pakke` | Download an approved review artifact, verify the exact `bundle_fingerprint`, and publish through `operator publish --confirm-public`. | Requires the protected `pages-publication` environment plus `PUBLISER`. |
-| `Sesong: rull tilbake publisering` | Restore `/latest/` to a prior immutable run. | Requires the protected `pages-publication` environment plus `RULL_TILBAKE`. |
+Review `input.updated.xlsx`, then deliberately promote it to the active `input.xlsx` through the normal repository process.
 
-Use these workflows from GitHub's **Actions** tab; they call the same `scripts/rvv-miniputt` operator commands as the Make targets and keep generation, approval, publication, and rollback separated.
+### 4. Update activities and source calendars
 
-LLM-harness-only conveniences such as `/rvv-miniputt guide`, extension-managed browser recovery, and agent-callable Pi tools are intentionally excluded from Make. Use the Pi/Claude/OpenCode/Codex adapters when that harness capability is required.
+Activity information belongs in a supported workbook sheet such as `Aktiviteter`, `Aktivitetsplan`, or `Årshjul`. The export can generate:
 
-The goal-oriented entry point is `operator run`. It inspects workspace state, resumes from the earliest stage that is missing, incomplete, or stale, and reports a structured summary — no manual stage coordination required:
+- `activities.json`
+- `activities/index.html`
+
+Keep these fields structured where possible: date, age group, category, title, location, description, and URL. Dates for player-development gatherings and regional gatherings may change; WordPress should state this editorially. Tournament and championship dates should be published when confirmed.
+
+Calendar source definitions belong in the `Kilder` sheet. Before planning, inspect source health:
 
 ```bash
+make sources-status
+make calendars
+# Force a refresh when required:
+make calendars-refresh
+```
+
+A source returning very few events may not be technically blocked but can still be untrustworthy. Investigate sparse-event warnings before approval.
+
+### 5. Generate and review the season plan
+
+The normal human entry point is the root Makefile:
+
+```bash
+make help
 make operator-run
-# direct equivalent:
-scripts/rvv-miniputt operator run
-# or
-python3 -m tournament_scheduler.cli.rvv_cli operator run --objective "Produce the best trustworthy season plan"
+make status
+make logs
 ```
 
-Run it again after an interruption and it resumes automatically; run it again with nothing pending and it reports that the plan is already complete instead of redoing work. Pass `--force` to rerun everything from stage 1 regardless of state.
+The deterministic pipeline has four checkpointed stages:
 
-When something needs a human decision (missing credentials, incomplete source data, an ambiguous policy call), the operator raises a question instead of guessing:
+1. validate `input.xlsx`
+2. collect and cache calendar events
+3. generate and evaluate a season plan
+4. export Excel, CSV, iCal, HTML, report, activity, input overview, and Spond files
+
+A resumed run starts from the earliest missing or stale stage. Force a complete rebuild only when required:
 
 ```bash
-rvv-miniputt operator questions                        # list what's blocking, with context and a recommendation
-rvv-miniputt operator answer <id> "<answer>"            # record a durable decision
-rvv-miniputt operator run                               # resume — the same question, in the same context, is never asked twice
-rvv-miniputt operator promote <id> workspace             # turn a one-off answer into a standing policy decision
+make operator-run-force
 ```
 
-Decisions are scoped (run / input_version / season / workspace, see [`docs/run-manifest-schema.md`](docs/run-manifest-schema.md#decision-scoping-issue-12)) so an answer tied to one workbook doesn't get silently reused after a new one is uploaded — it's marked stale instead, and `operator questions --all` shows the full history.
+Review at least:
 
-Once an export looks good, publish it to a shareable GitHub Pages URL without running anything in GitHub Actions:
+- validation errors and warnings
+- source health and missing/sparse calendars
+- hosting distribution
+- team participation counts before and after Christmas
+- date conflicts and known activities
+- generated HTML report and workbook
+- public privacy report
+- pending operator questions
+
+Human hockey-policy decisions must be answered explicitly rather than guessed:
 
 ```bash
-rvv-miniputt operator publish                           # preview: sanitizes, shows what would change, asks for approval
-rvv-miniputt operator publish --confirm-public           # actually publish this exact bundle right now
-rvv-miniputt operator run --publish                      # fold publishing into the run — still only previews, never auto-confirms
+make questions
+make answer ID=<id> ANSWER='<answer>'
+make operator-run
 ```
 
-Before anything is written to `gh-pages`, the raw export is sanitized into a separate public bundle (see [issue #18](docs/ai-operator-roadmap.md#18-create-a-sanitized-public-pages-bundle-and-privacy-report)): the public HTML/ICS views plus the downloadable workbook/CSV exports are copied by default (while Spond exports and per-club review packets stay out), probable secrets block publication outright, local paths/contact info are redacted, and links inside included HTML that point at excluded files are disabled or removed. Inspect what would go public in `<work-dir>/pages_privacy_report.json`.
+### 6. Publish approved output
 
-Publishing itself never happens just because `--publish` was passed somewhere upstream (see [issue #19](docs/ai-operator-roadmap.md#19-require-explicit-approval-before-public-pages-publication)): without `--confirm-public` on the exact invocation, `operator publish` only previews what would change under `/latest/` and raises a durable `external_publication` question tied to that exact bundle's content and target. Answer it once and reruns for the *same* bundle/target reuse that approval automatically; any change to the exported content (or the target repo/branch/run) needs a fresh approval:
+Preview publication first:
 
 ```bash
-rvv-miniputt operator questions                         # shows the pending publication approval, with the file diff
-rvv-miniputt operator answer <id> "godkjenn"             # durable approval — the next 'operator publish' actually pushes
+make publish-preview
 ```
 
-Publishing is idempotent per run and never force-pushes history. A successful push isn't the last word either (see [issue #20](docs/ai-operator-roadmap.md#20-verify-github-pages-publication-and-support-rollback)): `operator publish` polls the published URL afterward and reports `warning` instead of `ok` if the expected content isn't confirmed reachable within a bounded window. If a publish turns out to be bad, roll `/latest/` back to any previously published run without losing history:
+Only publish the exact reviewed bundle:
 
 ```bash
-rvv-miniputt operator verify                            # re-check the last publish is actually reachable
-rvv-miniputt operator publish-history                   # list every publish/rollback on the Pages branch
-rvv-miniputt operator rollback <run-id> --confirm-public # restore /latest/ to that run (immutable /runs/ untouched)
+make publish CONFIRM_PUBLIC=1
+make verify-publish
 ```
 
-In Pi, start the workflow with:
+Publication sanitizes a separate public bundle, blocks probable secrets, removes or disables links to excluded private files, and updates `/latest/` without force-pushing history.
+
+Useful public paths include:
+
+- main overview: `https://niclas-lindgren.github.io/hockey/latest/`
+- registered teams: `https://niclas-lindgren.github.io/hockey/latest/registered-teams/pameldte-lag.html`
+- activity calendar: normally under the generated `activities/` path in the latest bundle
+
+WordPress should link to or iframe these generated views. Do not paste generated tables into WordPress unless there is a deliberate editorial reason, because copied data becomes stale.
+
+### 7. Distribute through Spond
+
+The pipeline creates Spond-oriented exports such as `season_plan_spond.xlsx`. Import or recreate events only after approval. Keep at least one backup Spond administrator, and document how to remove or correct imported events if a rollback is needed.
+
+### 8. Handle mid-season changes
+
+For a late registration, withdrawal, changed activity, or calendar correction:
+
+1. update and review the authoritative source
+2. export/rebuild `input.xlsx` if team registrations changed
+3. regenerate the affected outputs
+4. review the diff and privacy report
+5. publish with explicit confirmation
+6. update Spond and WordPress only where necessary
+7. communicate the change through the established Spond group
+
+Never patch the generated HTML, CSV, Excel, Pages branch, or Spond import file by hand as the permanent fix.
+
+### 9. End of season
+
+- Keep the immutable published run/history needed for audit and rollback.
+- Archive the final approved workbook and reviewed registration export in club-controlled storage.
+- Export a backup of the Microsoft Form and Power Automate solution where supported.
+- Review owner/admin lists and remove departed volunteers.
+- Rotate credentials and update the private ownership record.
+- Create the next season from controlled templates rather than copying unknown local files.
+
+## Registration and Power Automate runbook
+
+The repository cannot inspect or version the live Power Automate flow, so the following behavior is an operational contract that must be checked in Microsoft 365 after changes.
+
+### Expected flow
+
+1. Trigger when a new Microsoft Forms response is submitted.
+2. Retrieve the full response details.
+3. Normalize the submitted registration code and compare it with the configured valid value.
+4. When invalid:
+   - do not create an accepted SharePoint registration item
+   - optionally notify the submitter or internal coordinator without exposing the valid code
+   - terminate the accepted-registration branch
+5. When valid:
+   - parse one or more submitted team lines
+   - create one SharePoint item per team, or a consistently structured item that the export tooling supports
+   - populate club, label, age group, workflow status, response ID, and audit timestamps
+   - keep contact details and comments in private fields only
+   - notify the responsible Teams channel or mailbox
+6. A coordinator reviews the records and changes status to an accepted or rejected vocabulary supported by the importer.
+
+### SharePoint fields needed by the repository
+
+The reviewed export must resolve these canonical values:
+
+| Canonical field | Typical source names | Requirement |
+|---|---|---|
+| `sharepoint_id` | `ID`, `SharePoint ID`, `Item ID`, `list_item_id` | Stable and unique |
+| `club` | `Klubb`, `Forening`, `club` | Must exist in controlled workbook data |
+| `label` | `Lag`, `Lagnavn`, `team_name`, `label` | Unique within its age group |
+| `age_group` | `Aldergruppe`, `klasse`, `age group` | Must be declared when `Aldersgrupper` exists |
+| `status` | `Status`, `Godkjenningsstatus`, `approval_state` | Determines inclusion |
+
+Accepted active statuses include `approved`, `current`, `active`, `accepted`, `godkjent`, `aktiv`, and `gjeldende`. Rejected statuses include `rejected`, `withdrawn`, `duplicate`, `incomplete`, `avvist`, `trukket`, `duplikat`, and `ufullstendig`.
+
+### Power Automate handover checklist
+
+- [ ] Flow is owned by a club Microsoft 365 group, solution, or service account rather than only a personal account.
+- [ ] At least one backup co-owner can edit and repair it.
+- [ ] Form, SharePoint, Teams, and notification connections are documented privately.
+- [ ] Invalid registration codes cannot reach the accepted SharePoint branch.
+- [ ] The valid code is not printed in public help text, error messages, logs, or notifications.
+- [ ] Multiple team lines are parsed deterministically and errors are visible.
+- [ ] Duplicate retries do not silently create duplicate active teams.
+- [ ] SharePoint item IDs and Forms response IDs are retained for audit.
+- [ ] Contact details cannot leak into public CSV, JSON, HTML, GitHub artifacts, or Pages.
+- [ ] The flow or solution is exported after major changes and before handover.
+
+## Standalone registered-team publication
+
+A reviewed SharePoint export can update the public team list without changing `input.xlsx` or regenerating season/activity output:
 
 ```bash
-/rvv-miniputt run
+make registered-teams CSV=downloads/Miniputt-26-27.csv
+make registered-teams-publish CSV=downloads/Miniputt-26-27.csv CONFIRM_PUBLIC=1
 ```
 
-The portable pipeline stages and recovery commands remain available directly for debugging or advanced workflows:
+This writes review artifacts under `registered-teams/`, stages them on top of the current `/latest/` Pages snapshot, and preserves unrelated published files. Extra contact, ID, status, and comment columns are ignored in the public output.
 
-```bash
-scripts/rvv-miniputt run
-# or
-python3 -m tournament_scheduler.cli.rvv_cli run
-```
+## Browser-only GitHub workflow
 
-Useful inspection and recovery commands include:
+Volunteers who should not run local commands can use manual workflows under **GitHub → Actions**:
 
-- `/rvv-miniputt status` or `scripts/rvv-miniputt status`
-- `/rvv-miniputt logs` or `scripts/rvv-miniputt logs list`
-- `/rvv-miniputt calendars` or `scripts/rvv-miniputt calendars`
-- `/rvv-miniputt calendars --refresh` or `scripts/rvv-miniputt calendars --refresh`
-- `scripts/rvv-miniputt sources status` — per-source health (reachability, event counts, cache age, suggested recovery actions)
+| Workflow | Purpose | Public write? |
+|---|---|---|
+| `Sesong: valider inndata` | Validate workbook and upload evidence | No |
+| `Sesong: lag vurderingspakke` | Generate a candidate review bundle and publish preview | No |
+| `Sesong: publiser godkjent pakke` | Publish an exact reviewed artifact and fingerprint | Yes, through protected environment |
+| `Sesong: rull tilbake publisering` | Restore `/latest/` to a prior published run | Yes, through protected environment |
 
-## Product architecture
+Generation and publication must remain separate. The review workflow must never contain a hidden public confirmation.
 
-```text
-Human supervisor
-      |
-      v
-AI operator
-      |
-      +-- workbook and input validation
-      +-- calendar collection and recovery
-      +-- deterministic scheduling engine
-      +-- plan evaluation and comparison
-      +-- export and audit artifacts
-```
+## Common commands
 
-Hard constraints and baseline scoring belong in deterministic, testable code. AI assistance may investigate failures, interpret evidence, compare alternatives, and recommend adjustments, but it should not be required to guarantee schedule validity.
+| Task | Command |
+|---|---|
+| Show available operations | `make help` |
+| Install locked dependencies | `make install` |
+| Run canonical checks | `make check` |
+| Full resumable operator run | `make operator-run` |
+| Force complete rerun | `make operator-run-force` |
+| Raw four-stage run | `make run ARGS='--input input.xlsx'` |
+| Inspect status/logs | `make status`, `make logs` |
+| Inspect/refresh calendars | `make calendars`, `make calendars-refresh` |
+| Inspect source health | `make sources-status` |
+| List/answer questions | `make questions`, `make answer ID=<id> ANSWER='<answer>'` |
+| Preview publication | `make publish-preview` |
+| Publish reviewed bundle | `make publish CONFIRM_PUBLIC=1` |
+| Verify publication | `make verify-publish` |
+| Show publication history | `make publish-history` |
+| Roll back | `make rollback RUN_ID=<id> CONFIRM_PUBLIC=1` |
+| Generate public registered-team page | `make registered-teams CSV=<file>` |
+| Publish registered-team page | `make registered-teams-publish CSV=<file> CONFIRM_PUBLIC=1` |
 
-Harness-specific adapters remain thin layers over the portable Python and CLI capabilities:
+Mutating commands retain explicit gates. `make`, `make help`, `make run`, and `make operator-run` do not publish publicly.
 
-- Claude: `.claude/commands/rvv-miniputt/`
-- OpenCode: `.opencode/commands/rvv-miniputt/`
-- Codex: `.codex/commands/rvv-miniputt/` plus `CODEX.md`
-- Pi: slash commands and agent-callable `rvv_miniputt_*` tools
+## Inputs and generated outputs
 
-## Desktop supervisor prototype
+### Controlled input workbook
 
-The Electron scaffold in `apps/desktop/` is now considered a possible future **supervisor console**, not a separate scheduling implementation.
+`input.xlsx` is the only supported primary planning input.
 
-It may eventually show operator progress, source health, pending questions, candidate comparisons, approvals, and generated artifacts while using the same underlying capabilities as the CLI and LLM harnesses.
+Required sheets:
 
-See [`docs/desktop-app.md`](docs/desktop-app.md) for current development and packaging steps.
+- `Innstillinger`
+- `Lag`
 
-## Installation
+Common optional sheets:
 
-Prerequisites:
+- `Aldersgrupper`
+- `Kilder`
+- `Datopreferanser`
+- an activity sheet such as `Aktiviteter`, `Aktivitetsplan`, or `Årshjul`
 
-- Python 3.10+
-- `python3 -m venv`
-- access to `pip`
+See [`docs/rvv-miniputt-input-formats.md`](docs/rvv-miniputt-input-formats.md) for exact columns, aliases, and validation rules.
 
-Fast path on macOS/Linux:
+### Common generated output
 
-```sh
-git clone <repo-url>
-cd hockey
-make install
-# or
-sh scripts/install.sh
-```
-
-Run `sh scripts/install.sh --help` for installer options. The installer uses the committed hash-checked `requirements.lock` dependency set and then installs the local project in editable mode with `--no-deps`, so operator installs do not re-resolve broad dependency ranges.
-
-For Playwright browser binaries used by scraping:
-
-```sh
-INSTALL_PLAYWRIGHT=1 make install
-# or
-INSTALL_PLAYWRIGHT=1 sh scripts/install.sh
-```
-
-Manual locked install:
-
-```sh
-python3 -m venv venv
-venv/bin/python3 -m pip install --upgrade pip
-venv/bin/python3 -m pip install --require-hashes -r requirements.lock
-venv/bin/python3 -m pip install --no-deps -e .
-```
-
-`pyproject.toml` remains the canonical direct dependency declaration. `requirements.txt` is a human-readable list of broad runtime inputs for maintainers, but deterministic CI/operator/packaging installs use `requirements.lock`. Refresh the lock intentionally after changing Python dependencies:
-
-```sh
-python3 -m venv /tmp/rvv-pip-tools
-/tmp/rvv-pip-tools/bin/python -m pip install --upgrade 'pip<26' 'pip-tools==7.6.0'
-PIP_COMPILE_BIN=/tmp/rvv-pip-tools/bin/pip-compile scripts/refresh-python-lock.sh
-make dependency-lock
-```
-
-The lock is generated from `pyproject.toml` with all optional dependency groups so quick tests, canonical checks, and desktop packaging use exact package versions. Playwright browser binaries are still installed separately with `INSTALL_PLAYWRIGHT=1` because browser downloads are not Python packages.
-
-## Inputs
-
-Pipeline runs start from the standard Excel workbook `input.xlsx`.
-
-See [the pipeline guide](docs/rvv-miniputt-pipeline.md) for workbook sheets, source formats, recovery flows, and examples.
-
-Per-age-group participation targets can be set in the `Aldersgrupper` sheet with optional `deltakelser_per_lag_før_jul` and `deltakelser_per_lag_etter_jul` values. The English aliases `target_tournament_count_before_christmas` and `target_tournament_count_after_christmas` are also accepted.
-
-## Outputs
-
-A successful run writes exports under `export/` by default:
+A successful run may produce:
 
 - `season_plan.xlsx`
 - `season_plan.csv`
 - `season_plan_overview.csv`
 - `season_plan.ics`
 - `season_plan.html`
+- `season_plan_report.html`
 - `season_plan_spond.xlsx`
 - `calendars.html`
+- `input.html`
+- `activities.json`
+- `activities/index.html`
+- registered-team HTML/JSON review artifacts
+- run manifests, checkpoints, logs, fingerprints, privacy reports, and audit files
 
-With `--timestamped-export`, exports are written to a timestamped subfolder for diffable runs.
+With timestamped export enabled, one run is written to one timestamped folder. Do not create or rely on nested `export/<timestamp>/<timestamp>` paths.
 
-## Advanced CLI and debugging commands
+## Troubleshooting
 
-- `scripts/rvv-miniputt run` — run the complete pipeline
-- `scripts/rvv-miniputt status` — inspect stage and checkpoint status
-- `scripts/rvv-miniputt logs ...` — inspect structured run logs
-- `scripts/rvv-miniputt registrations validate|export ...` — validate reviewed SharePoint exports and rebuild the controlled `Lag` sheet
-- `scripts/rvv-miniputt calendars` — regenerate calendar HTML from cache
-- `scripts/rvv-miniputt calendars --refresh` — refresh sources before rebuilding calendar HTML
-- `rvv-miniputt recovery-inject` — inject recovered source data
-- `rvv-miniputt scrape-merge` — normalize recovered Stage 2 data
+### A valid registration is missing
 
-The native `/rvv-miniputt guide` setup wizard remains Pi-specific.
+1. Find the Forms response ID and Power Automate run.
+2. Confirm the code-validation branch succeeded.
+3. Confirm the SharePoint item exists and has an accepted status.
+4. Export the List again.
+5. Run registration validation and inspect rejected rows.
+6. Check club/age-group spelling and duplicate identity rules.
 
-## Secret scanning
+### Invalid submissions are stored as accepted
 
-Run locally with:
+Treat this as a Power Automate defect. Disable or repair the accepted branch before relying on new registrations. The repository import is a second safety layer, not a substitute for correct intake validation.
+
+### Duplicate teams appear
+
+Check for repeated Power Automate runs, duplicate SharePoint IDs, multiple active records for the same team, inconsistent labels, and retries without idempotency. The import should block duplicate IDs or duplicate team identities rather than guessing.
+
+### Activities are missing from the website
+
+Confirm that the activity sheet name is supported, fields are valid, Stage 4 regenerated `activities.json` and `activities/index.html`, the exact reviewed bundle was published, and WordPress points at the current `/latest/activities/` path.
+
+### Calendar data looks incomplete
+
+Run `make sources-status` and inspect sparse-event warnings. Refresh the source, repair credentials, inject a reviewed recovery file where needed, then resume the pipeline. Do not approve a schedule solely because Stage 2 technically completed.
+
+### A run stopped halfway
+
+Run:
 
 ```bash
-./scripts/secret-scan.sh
+make status
+make logs
+make operator-run
 ```
 
-Or, with `gitleaks` installed:
+The pipeline is checkpointed and normally resumes from the earliest incomplete or stale stage.
+
+### The public result is wrong
+
+Stop further publication, identify the last known-good run, and use:
 
 ```bash
-gitleaks detect --source . --config .gitleaks.toml --redact
+make publish-history
+make rollback RUN_ID=<id> CONFIRM_PUBLIC=1
+make verify-publish
 ```
 
-## More documentation
+Then correct the source data/code and generate a new reviewed bundle.
 
+### Power Automate is unavailable
+
+Use the Forms response export as a temporary recovery source, manually review it in private club storage, transform it into the documented SharePoint interchange columns, validate it with the repository tooling, and record the recovery. Do not copy unreviewed contact data into `input.xlsx` or publish it.
+
+### The primary maintainer is unavailable
+
+Follow [`docs/ownership-and-handover.md`](docs/ownership-and-handover.md). Recover through club-owned accounts, rotate credentials, freeze publication until current output is reviewed, and have a second person complete the documented dry run.
+
+## Repository map
+
+| Path | Purpose |
+|---|---|
+| `input.xlsx` | Controlled season-planning workbook |
+| `tournament_scheduler/` | Canonical Python validation, scraping, scheduling, export, and operator logic |
+| `scripts/rvv-miniputt` | Portable repository-local CLI launcher |
+| `scripts/check` | Canonical local/CI verification entry point |
+| `Makefile` | Human-discoverable thin command menu |
+| `.github/workflows/` | CI and manual validation/review/publish/rollback workflows |
+| `.pipeline/` | Local checkpoints, logs, decisions, and run state; generated, not authoritative source data |
+| `export/` | Generated review/export output |
+| `registered-teams/` | Standalone registered-team review artifacts |
+| `docs/` | Detailed architecture, input, pipeline, security, and handover documentation |
+| `apps/desktop/` | Experimental supervisor UI; not a separate planner |
+| `.claude/`, `.opencode/`, `.codex/`, `.pi/` | Thin harness-specific adapters over canonical commands |
+
+## Installation and development
+
+Prerequisites:
+
+- Python 3.10+
+- `python3 -m venv`
+- `pip`
+
+```bash
+git clone https://github.com/region-viken-vest-hockey/hockey.git
+cd hockey
+make install
+make check
+```
+
+Install Playwright browser binaries where calendar scraping requires them:
+
+```bash
+INSTALL_PLAYWRIGHT=1 make install
+```
+
+`pyproject.toml` is the canonical direct dependency declaration. Deterministic installs and CI use the committed hash-checked `requirements.lock`. Refresh dependencies intentionally and verify lock freshness rather than installing unpinned packages ad hoc.
+
+## Documentation
+
+- [Pipeline and operator guide](docs/rvv-miniputt-pipeline.md)
+- [Input formats and SharePoint registration export](docs/rvv-miniputt-input-formats.md)
+- [Ownership and handover](docs/ownership-and-handover.md)
+- [Run manifest and durable decisions](docs/run-manifest-schema.md)
+- [Security](docs/security.md)
 - [AI operator product direction](docs/ai-operator-product-direction.md)
-- [AI operator implementation roadmap](docs/ai-operator-roadmap.md)
-- [AI operator run manifest schema](docs/run-manifest-schema.md)
-- [Ownership and handover guide](docs/ownership-and-handover.md)
-- [Pipeline guide](docs/rvv-miniputt-pipeline.md)
-- [Rules report](docs/rvv-miniputt-rules-report.md)
-- [Desktop app prototype](docs/desktop-app.md)
-- [CI: required checks and branch protection](docs/ci.md)
-- `./scripts/rules-report.sh` or `make rules-report` — regenerate the report and run sync tests
-- [Kampveileder 3 mot 3](https://www.hockey.no/contentassets/9f67f790b75f4362a8bb2fb1524923fc/kampveileder-for-3-mot-3-spill---u7ju7---u11ju11.pdf)
+- [AI operator roadmap](docs/ai-operator-roadmap.md)
+
+## Handover acceptance test
+
+A new volunteer should be able to complete the following without the original maintainer's personal account:
+
+- [ ] access the club-owned Form, Power Automate flow, SharePoint List, repository, protected publication environment, WordPress, and Spond
+- [ ] explain which system is authoritative for registrations, planning input, public editorial text, and communication
+- [ ] validate a reviewed SharePoint export
+- [ ] rebuild the `Lag` sheet without changing administrative workbook sheets
+- [ ] update or verify activity and calendar sources
+- [ ] generate a review bundle without publishing
+- [ ] inspect warnings, plan quality, and privacy output
+- [ ] publish through explicit approval or rehearse the protected workflow
+- [ ] verify the public URL
+- [ ] find publication history and perform a controlled rollback
+- [ ] recover temporarily when Power Automate or a calendar source is unavailable
+
+When any step still depends on undocumented personal knowledge, update this README or the linked operational documentation before the handover is considered complete.
