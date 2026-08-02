@@ -15,48 +15,31 @@ The project spans Microsoft Forms, Power Automate, SharePoint, Excel, determinis
 
 ## End-to-end operating model
 
-```text
-Club representative
-        |
-        v
-Microsoft Form
-        |
-        v
-Power Automate
-  - validate registration code
-  - normalize submitted data
-  - reject or route invalid submissions
-  - write accepted data to SharePoint
-  - notify the responsible team/channel
-        |
-        v
-Reviewed SharePoint List
-        |
-        +------------------------------+
-        |                              |
-        v                              v
-Public "Påmeldte lag" export     Controlled planning import
-                                      |
-                                      v
-                                  input.xlsx
-                                      |
-                                      v
-                          Four-stage planning pipeline
-                          1. validate configuration
-                          2. collect calendar data
-                          3. generate season plan
-                          4. create review/public exports
-                                      |
-                                      v
-                              Human review and approval
-                                      |
-                       +--------------+---------------+
-                       |                              |
-                       v                              v
-                 GitHub Pages                     Spond import
-                       |
-                       v
-                WordPress links/iframes
+```mermaid
+flowchart TD
+    club[Club representative] --> form[Microsoft Form]
+    form --> flow[Power Automate]
+
+    flow --> validate[Validate registration code]
+    validate -->|Invalid| reject[Reject or route submission]
+    validate -->|Valid| normalize[Normalize submitted data]
+    normalize --> sharepoint[Write accepted data to reviewed SharePoint List]
+    sharepoint --> notify[Notify responsible team or channel]
+
+    sharepoint --> registered[Public "Påmeldte lag" export]
+    sharepoint --> import[Controlled planning import]
+    import --> workbook[input.xlsx]
+    workbook --> pipeline[Four-stage planning pipeline]
+
+    pipeline --> config[1. Validate configuration]
+    config --> calendars[2. Collect calendar data]
+    calendars --> plan[3. Generate season plan]
+    plan --> exports[4. Create review and public exports]
+
+    exports --> review[Human review and approval]
+    review --> pages[GitHub Pages]
+    review --> spond[Spond import]
+    pages --> wordpress[WordPress links or iframes]
 ```
 
 ## Responsibilities by system
