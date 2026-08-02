@@ -1,6 +1,6 @@
 """Standalone public registered-team overview generation.
 
-The SharePoint export used here may contain private/internal columns.  This
+The SharePoint export used here may contain private/internal columns. This
 module intentionally projects only ``club``, ``label`` and ``age_group`` into
 public artifacts; validation/source metadata stays in the private validation
 report.
@@ -58,13 +58,7 @@ def build_registered_teams_payload(
     config_path: str | Path | None = None,
     generated_at: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Return ``(public_payload, validation_report)`` for a SharePoint CSV.
-
-    Public output contains only ``club``, ``label`` and ``age_group`` plus
-    aggregate counts.  Extra CSV columns are ignored and recorded in the
-    validation report.  A header-only CSV is valid and produces an empty page
-    payload.
-    """
+    """Return ``(public_payload, validation_report)`` for a SharePoint CSV."""
     source = Path(csv_path)
     if not source.exists():
         report = _base_report(source, [], [], [], [], config_path=config_path)
@@ -75,8 +69,7 @@ def build_registered_teams_payload(
 
     raw_bytes = source.read_bytes()
     source_fingerprint = hashlib.sha256(raw_bytes).hexdigest()
-    text = raw_bytes.decode("utf-8-sig")
-    reader = csv.DictReader(text.splitlines())
+    reader = csv.DictReader(raw_bytes.decode("utf-8-sig").splitlines())
     raw_headers = list(reader.fieldnames or [])
     header_by_canonical = {_canonical_header(header): header for header in raw_headers}
     included_columns = [header_by_canonical[column] for column in PUBLIC_COLUMNS if column in header_by_canonical]
@@ -85,26 +78,19 @@ def build_registered_teams_payload(
     errors: list[str] = []
     warnings: list[str] = []
     missing_columns = [column for column in PUBLIC_COLUMNS if column not in header_by_canonical]
-    for column in missing_columns:
-        errors.append(f"Mangler påkrevd kolonne: {column}")
+    errors.extend(f"Mangler påkrevd kolonne: {column}" for column in missing_columns)
 
     configured_age_groups = _load_configured_age_groups(config_path)
     rows: list[dict[str, str]] = []
     seen: dict[tuple[str, str, str], int] = {}
-
     if not missing_columns:
         for index, raw_row in enumerate(reader, start=2):
-            row = {
-                column: _normalize_value(raw_row.get(header_by_canonical[column], ""))
-                for column in PUBLIC_COLUMNS
-            }
+            row = {column: _normalize_value(raw_row.get(header_by_canonical[column], "")) for column in PUBLIC_COLUMNS}
             for column, value in row.items():
                 if not value:
                     errors.append(f"Rad {index}: '{column}' mangler verdi.")
             if configured_age_groups and row["age_group"] and row["age_group"] not in configured_age_groups:
-                errors.append(
-                    f"Rad {index}: aldersgruppen '{row['age_group']}' finnes ikke i konfigurert age_groups."
-                )
+                errors.append(f"Rad {index}: aldersgruppen '{row['age_group']}' finnes ikke i konfigurert age_groups.")
             if all(row.values()):
                 key = tuple(_dedupe_key(row[column]) for column in PUBLIC_COLUMNS)
                 if key in seen:
@@ -117,32 +103,24 @@ def build_registered_teams_payload(
                 rows.append(row)
 
     if excluded_columns:
-        warnings.append(
-            "Ignorerte ekstra kolonner som ikke publiseres: " + ", ".join(sorted(excluded_columns, key=str.casefold))
-        )
+        warnings.append("Ignorerte ekstra kolonner som ikke publiseres: " + ", ".join(sorted(excluded_columns, key=str.casefold)))
 
-    report = _base_report(
-        source,
-        raw_headers,
-        included_columns,
-        excluded_columns,
-        warnings,
-        config_path=config_path,
-    )
+    report = _base_report(source, raw_headers, included_columns, excluded_columns, warnings, config_path=config_path)
     report.update(
-        {
-            "source_sha256": source_fingerprint,
-            "row_count": len(rows),
-            "configured_age_groups": configured_age_groups,
-            "errors": errors,
-            "error_count": len(errors),
-        }
+        source_sha256=source_fingerprint,
+        row_count=len(rows),
+        configured_age_groups=configured_age_groups,
+        errors=errors,
+        error_count=len(errors),
     )
     if errors:
         raise RegisteredTeamsValidationError(errors, report)
 
-    generated = generated_at or _utc_now()
-    payload = _build_public_payload(rows, configured_age_groups=configured_age_groups, generated_at=generated)
+    payload = _build_public_payload(
+        rows,
+        configured_age_groups=configured_age_groups,
+        generated_at=generated_at or _utc_now(),
+    )
     return payload, report
 
 
@@ -193,22 +171,16 @@ def generate_registered_team_artifacts(
     generated_at: str | None = None,
 ) -> dict[str, str]:
     """Validate *csv_path* and write public/review registered-team artifacts."""
-    payload, report = build_registered_teams_payload(
-        csv_path,
-        config_path=config_path,
-        generated_at=generated_at,
-    )
+    payload, report = build_registered_teams_payload(csv_path, config_path=config_path, generated_at=generated_at)
     target_dir = Path(export_dir) / DEFAULT_REGISTERED_TEAMS_DIR
     target_dir.mkdir(parents=True, exist_ok=True)
 
     json_path = target_dir / REGISTERED_TEAMS_JSON
     validation_path = target_dir / REGISTERED_TEAMS_VALIDATION_REPORT
     html_path = target_dir / REGISTERED_TEAMS_HTML
-
     json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     validation_path.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     html_path.write_text(render_registered_teams_html(payload), encoding="utf-8")
-
     return {
         "registered_teams_html": str(html_path),
         "registered_teams_json": str(json_path),
@@ -232,19 +204,12 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
 
     def age_sort_key(value: str) -> tuple[int, int | str, str]:
         match = re.fullmatch(r"(J?U)(\d+)", value, flags=re.IGNORECASE)
-        if match:
-            return (0, int(match.group(2)), match.group(1).upper())
-        return (1, value.casefold(), value)
+        return (0, int(match.group(2)), match.group(1).upper()) if match else (1, value.casefold(), value)
 
     sections: list[str] = []
     for club_name in sorted(clubs, key=str.casefold):
-        teams = sorted(
-            clubs[club_name],
-            key=lambda team: (age_sort_key(team["age_group"]), team["label"].casefold()),
-        )
-        searchable = " ".join(
-            [club_name, *[f"{team['age_group']} {team['label']}" for team in teams]]
-        ).casefold()
+        teams = sorted(clubs[club_name], key=lambda team: (age_sort_key(team["age_group"]), team["label"].casefold()))
+        searchable = " ".join([club_name, *[f"{team['age_group']} {team['label']}" for team in teams]]).casefold()
         team_items = "".join(
             '<li>'
             f'<span class="age-badge">{_e(team["age_group"])}</span>'
@@ -256,7 +221,7 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
             f'<section class="club" data-search="{_e(searchable)}">'
             '<div class="club-heading">'
             f'<h2>{_e(club_name)}</h2>'
-            f'<span>{len(teams)} {"lag" if len(teams) == 1 else "lag"}</span>'
+            f'<span>{len(teams)} lag</span>'
             '</div>'
             f'<ul>{team_items}</ul>'
             '</section>'
@@ -266,12 +231,7 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
         content = "\n".join(sections)
         empty_hidden = '<p class="no-results" id="no-results" hidden>Ingen klubber eller lag matcher søket.</p>'
     else:
-        content = (
-            '<section class="empty-state">'
-            '<h2>Ingen lag er registrert ennå</h2>'
-            '<p>Oversikten oppdateres når påmeldinger er godkjent.</p>'
-            '</section>'
-        )
+        content = '<section class="empty-state"><h2>Ingen lag er registrert ennå</h2><p>Oversikten oppdateres når påmeldinger er godkjent.</p></section>'
         empty_hidden = ""
 
     return f"""<!doctype html>
@@ -282,58 +242,56 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
 <meta name="color-scheme" content="light">
 <title>Påmeldte lag</title>
 <style>
-  :root {{
-    --page:#f5f7fa;
-    --surface:#ffffff;
-    --ink:#172536;
-    --muted:#64748b;
-    --line:#dbe3ec;
-    --accent:#0d5fa8;
-    --accent-soft:#eaf3fb;
-    --focus:#1d76c5;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
-  }}
+  :root {{ --page:#f5f7fa; --surface:#fff; --ink:#172536; --muted:#64748b; --line:#dbe3ec; --accent:#0d5fa8; --accent-soft:#eaf3fb; --focus:#1d76c5; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif; }}
   * {{ box-sizing:border-box; }}
   body {{ margin:0; background:var(--page); color:var(--ink); line-height:1.45; }}
   .wrap {{ width:min(820px,100%); margin:0 auto; padding:clamp(18px,4vw,40px); }}
-  header {{ margin-bottom:20px; }}
+  header {{ margin-bottom:18px; }}
   .eyebrow {{ margin:0 0 4px; color:var(--accent); font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }}
   h1 {{ margin:0; font-size:clamp(30px,6vw,46px); line-height:1.05; letter-spacing:-.035em; }}
   .intro {{ margin:10px 0 0; max-width:680px; color:var(--muted); font-size:16px; }}
-  .updated {{ display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; margin:14px 0 0; color:var(--muted); font-size:14px; }}
+  .updated {{ display:flex; flex-wrap:wrap; gap:5px 14px; align-items:center; margin:14px 0 0; color:var(--muted); font-size:14px; }}
   .updated strong {{ color:var(--ink); }}
-  .toolbar {{ position:sticky; top:0; z-index:5; margin:0 0 16px; padding:10px 0; background:linear-gradient(var(--page) 74%,rgba(245,247,250,0)); }}
+  .toolbar {{ position:sticky; top:0; z-index:5; margin:0 0 14px; padding:10px 0; background:linear-gradient(var(--page) 74%,rgba(245,247,250,0)); }}
   .search {{ position:relative; }}
   .search svg {{ position:absolute; left:14px; top:50%; width:20px; height:20px; transform:translateY(-50%); color:var(--muted); pointer-events:none; }}
-  .search input {{ width:100%; min-height:48px; padding:12px 46px 12px 44px; border:1px solid #bcc9d6; border-radius:12px; background:var(--surface); color:var(--ink); font:inherit; box-shadow:0 2px 8px rgba(15,23,42,.05); }}
+  .search input {{ width:100%; min-height:46px; padding:11px 46px 11px 44px; border:1px solid #bcc9d6; border-radius:10px; background:var(--surface); color:var(--ink); font:inherit; box-shadow:0 2px 8px rgba(15,23,42,.05); }}
   .search input:focus {{ outline:3px solid rgba(29,118,197,.22); border-color:var(--focus); }}
-  .clear {{ position:absolute; right:8px; top:50%; min-width:34px; min-height:34px; transform:translateY(-50%); border:0; border-radius:9px; background:transparent; color:var(--muted); font-size:22px; cursor:pointer; }}
+  .clear {{ position:absolute; right:8px; top:50%; min-width:34px; min-height:34px; transform:translateY(-50%); border:0; border-radius:8px; background:transparent; color:var(--muted); font-size:22px; cursor:pointer; }}
   .clear:hover {{ background:#eef2f6; color:var(--ink); }}
   .results-meta {{ margin:6px 2px 0; color:var(--muted); font-size:13px; }}
-  main {{ overflow:hidden; border:1px solid var(--line); border-radius:14px; background:var(--surface); box-shadow:0 8px 24px rgba(15,23,42,.06); }}
-  .club {{ padding:17px 20px 18px; }}
+  main {{ overflow:hidden; border:1px solid var(--line); border-radius:12px; background:var(--surface); box-shadow:0 6px 18px rgba(15,23,42,.05); }}
+  .club {{ padding:16px 18px 17px; }}
   .club + .club {{ border-top:1px solid var(--line); }}
-  .club-heading {{ display:flex; justify-content:space-between; gap:14px; align-items:baseline; margin-bottom:9px; }}
+  .club-heading {{ display:flex; justify-content:space-between; gap:14px; align-items:baseline; margin-bottom:8px; }}
   .club h2 {{ margin:0; font-size:20px; letter-spacing:-.015em; }}
   .club-heading span {{ color:var(--muted); font-size:13px; white-space:nowrap; }}
   .club ul {{ display:grid; gap:5px; margin:0; padding:0; list-style:none; }}
   .club li {{ display:grid; grid-template-columns:52px minmax(0,1fr); gap:10px; align-items:baseline; min-height:28px; }}
   .age-badge {{ display:inline-flex; justify-content:center; align-items:center; min-width:44px; padding:3px 7px; border-radius:999px; background:var(--accent-soft); color:#084d87; font-size:12px; font-weight:800; line-height:1.4; }}
   .team-name {{ min-width:0; overflow-wrap:anywhere; }}
-  .no-results, .empty-state {{ margin:0; padding:34px 20px; text-align:center; color:var(--muted); }}
+  .no-results,.empty-state {{ margin:0; padding:34px 20px; text-align:center; color:var(--muted); }}
   .empty-state h2 {{ margin:0 0 6px; color:var(--ink); font-size:20px; }}
   .empty-state p {{ margin:0; }}
-  footer {{ margin-top:18px; color:var(--muted); font-size:13px; }}
+  footer {{ margin-top:16px; color:var(--muted); font-size:13px; }}
   footer a {{ color:var(--accent); }}
-  [hidden] {{ display:none !important; }}
+  [hidden] {{ display:none!important; }}
+  body.is-embed {{ background:transparent; }}
+  .is-embed .wrap {{ width:100%; max-width:none; padding:0; }}
+  .is-embed header {{ margin:0 0 12px; }}
+  .is-embed header > :not(.updated) {{ display:none; }}
+  .is-embed .updated {{ margin:0; }}
+  .is-embed .toolbar {{ position:static; margin:0 0 12px; padding:0; background:transparent; }}
+  .is-embed main {{ box-shadow:none; }}
+  .is-embed footer {{ display:none; }}
   @media (max-width:520px) {{
     .wrap {{ padding:18px 12px 28px; }}
-    .toolbar {{ padding-top:6px; }}
-    .club {{ padding:15px 14px 16px; }}
+    .is-embed .wrap {{ padding:0; }}
+    .club {{ padding:14px 13px 15px; }}
     .club-heading {{ align-items:flex-start; }}
     .club li {{ grid-template-columns:48px minmax(0,1fr); gap:8px; }}
   }}
-  @media (prefers-reduced-motion:reduce) {{ * {{ scroll-behavior:auto !important; }} }}
+  @media (prefers-reduced-motion:reduce) {{ * {{ scroll-behavior:auto!important; }} }}
 </style>
 </head>
 <body>
@@ -344,7 +302,6 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
     <p class="intro">Lag som meldes på via påmeldingsskjemaet, blir publisert her etter automatisk kontroll. Dersom påmeldingen ikke kan behandles automatisk, blir den kontrollert manuelt først.</p>
     <p class="updated"><span><strong>{total_teams}</strong> registrerte lag</span><span>Sist oppdatert: <time datetime="{_e(generated_raw)}">{_e(generated_at)}</time></span></p>
   </header>
-
   <div class="toolbar">
     <label class="search" for="team-search">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
@@ -353,49 +310,61 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
     </label>
     <p class="results-meta" id="results-meta" aria-live="polite"></p>
   </div>
-
-  <main id="club-list">
-    {content}
-    {empty_hidden}
-  </main>
-
-  <footer>
-    Oversikten oppdateres automatisk når godkjente påmeldinger behandles.
-    <a href="pameldte-lag.json">Åpne offentlig JSON</a>.
-  </footer>
+  <main id="club-list">{content}{empty_hidden}</main>
+  <footer>Oversikten oppdateres automatisk når godkjente påmeldinger behandles. <a href="pameldte-lag.json">Åpne offentlig JSON</a>.</footer>
 </div>
 <script>
 (() => {{
+  const HEIGHT_MESSAGE_NAMESPACE = 'rvv.registered-teams';
+  const HEIGHT_MESSAGE_TYPE = 'rvv-registered-teams-height';
+  const HEIGHT_MESSAGE_SCHEMA_VERSION = 1;
+  const DEFAULT_IFRAME_ID = 'rvv-registered-teams-frame';
+  const ALLOWED_PARENT_ORIGINS = ['https://www.rvvhockey.no','https://rvvhockey.no'];
+  const MIN_EMBED_HEIGHT = 240;
+  const MAX_EMBED_HEIGHT = 6000;
+  const body = document.body;
+  const embedded = window.self !== window.top;
+  if (embedded) body.classList.add('is-embed');
+
+  const iframeId = () => new URLSearchParams(window.location.search).get('frame') || DEFAULT_IFRAME_ID;
+  const parentTargetOrigin = () => {{
+    try {{ const origin = document.referrer ? new URL(document.referrer).origin : ''; if (ALLOWED_PARENT_ORIGINS.includes(origin)) return origin; }} catch (error) {{}}
+    try {{ const origin = Array.from(window.location.ancestorOrigins || []).find(item => ALLOWED_PARENT_ORIGINS.includes(item)); if (origin) return origin; }} catch (error) {{}}
+    return window.location.origin;
+  }};
+  const announceHeight = reason => {{
+    if (!embedded) return;
+    requestAnimationFrame(() => {{
+      const height = Math.max(MIN_EMBED_HEIGHT, Math.min(MAX_EMBED_HEIGHT, Math.ceil(Math.max(document.documentElement.scrollHeight, document.body.scrollHeight))));
+      window.parent.postMessage({{ type:HEIGHT_MESSAGE_TYPE, namespace:HEIGHT_MESSAGE_NAMESPACE, schema_version:HEIGHT_MESSAGE_SCHEMA_VERSION, iframe_id:iframeId(), height, reason:reason || 'layout', source_path:window.location.pathname }}, parentTargetOrigin());
+    }});
+  }};
+
   const input = document.getElementById('team-search');
   const clearButton = document.getElementById('clear-search');
   const clubs = Array.from(document.querySelectorAll('.club'));
   const noResults = document.getElementById('no-results');
   const resultsMeta = document.getElementById('results-meta');
-  if (!input || clubs.length === 0) return;
-
-  const normalize = value => value.toLocaleLowerCase('nb-NO').trim();
-  const render = () => {{
-    const query = normalize(input.value);
-    let visible = 0;
-    clubs.forEach(club => {{
-      const match = !query || club.dataset.search.includes(query);
-      club.hidden = !match;
-      if (match) visible += 1;
-    }});
-    clearButton.hidden = !query;
-    if (noResults) noResults.hidden = visible !== 0;
-    resultsMeta.textContent = query
-      ? `${{visible}} av ${{clubs.length}} klubber vises`
-      : `${{clubs.length}} klubber`;
-  }};
-
-  input.addEventListener('input', render);
-  clearButton.addEventListener('click', () => {{
-    input.value = '';
-    input.focus();
+  if (input && clubs.length) {{
+    const normalize = value => value.toLocaleLowerCase('nb-NO').trim();
+    const render = () => {{
+      const query = normalize(input.value);
+      let visible = 0;
+      clubs.forEach(club => {{ const match = !query || club.dataset.search.includes(query); club.hidden = !match; if (match) visible += 1; }});
+      clearButton.hidden = !query;
+      if (noResults) noResults.hidden = visible !== 0;
+      resultsMeta.textContent = query ? `${{visible}} av ${{clubs.length}} klubber vises` : `${{clubs.length}} klubber`;
+      announceHeight('filter');
+    }};
+    input.addEventListener('input', render);
+    clearButton.addEventListener('click', () => {{ input.value=''; input.focus(); render(); }});
     render();
-  }});
-  render();
+  }} else {{
+    announceHeight('initial');
+  }}
+  if ('ResizeObserver' in window) new ResizeObserver(() => announceHeight('resize-observer')).observe(document.documentElement);
+  window.addEventListener('load', () => announceHeight('load'));
+  window.addEventListener('resize', () => announceHeight('window-resize'));
 }})();
 </script>
 </body>
@@ -424,8 +393,7 @@ def _build_public_payload(
             return (0, age_order[age_group], age_group.casefold())
         match = re.fullmatch(r"(J?U)(\d+)", age_group, flags=re.IGNORECASE)
         if match:
-            prefix = match.group(1).upper()
-            return (1, int(match.group(2)), prefix)
+            return (1, int(match.group(2)), match.group(1).upper())
         return (2, age_group.casefold(), age_group)
 
     age_groups = []
@@ -436,14 +404,7 @@ def _build_public_payload(
             teams = sorted(grouped[age_group][club], key=str.casefold)
             team_count += len(teams)
             club_entries.append({"club": club, "team_count": len(teams), "teams": teams})
-        age_groups.append(
-            {
-                "age_group": age_group,
-                "team_count": team_count,
-                "club_count": len(club_entries),
-                "clubs": club_entries,
-            }
-        )
+        age_groups.append({"age_group": age_group, "team_count": team_count, "club_count": len(club_entries), "clubs": club_entries})
 
     return {
         "schema_version": _SCHEMA_VERSION,
@@ -508,20 +469,7 @@ def _format_generated_at(value: str) -> str:
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=timezone.utc)
     moment = moment.astimezone()
-    months = (
-        "januar",
-        "februar",
-        "mars",
-        "april",
-        "mai",
-        "juni",
-        "juli",
-        "august",
-        "september",
-        "oktober",
-        "november",
-        "desember",
-    )
+    months = ("januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember")
     return f"{moment.day}. {months[moment.month - 1]} {moment.year} kl. {moment:%H:%M}"
 
 
