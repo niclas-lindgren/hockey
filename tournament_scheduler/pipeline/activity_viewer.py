@@ -148,7 +148,7 @@ _HTML = r"""<!doctype html>
   <header>
     <div class="eyebrow">RVV Hockey</div>
     <h1>Aktivitetskalender</h1>
-    <p class="lead">Sesongsløp og aktivitetsliste for Region Viken Vest. Sammenlign aldersgrupper, stabile aktivitetstyper og perioder med høy eller lav aktivitet.</p>
+    <p class="lead">Sesongsløp og aktivitetsliste for Region Viken Vest.</p>
   </header>
 
   <div class="toolbar" aria-label="Visningsvalg og filtre">
