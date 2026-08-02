@@ -26,7 +26,7 @@ flowchart TD
     normalize --> sharepoint[Write accepted data to reviewed SharePoint List]
     sharepoint --> notify[Notify responsible team or channel]
 
-    sharepoint --> registered[Public "Påmeldte lag" export]
+    sharepoint --> registered[Public Påmeldte lag export]
     sharepoint --> import[Controlled planning import]
     import --> workbook[input.xlsx]
     workbook --> pipeline[Four-stage planning pipeline]
