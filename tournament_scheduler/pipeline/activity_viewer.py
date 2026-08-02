@@ -465,7 +465,7 @@ _HTML = r"""<!doctype html>
     timelineContainer.innerHTML = `
       <div class="timeline-shell">
         <div class="timeline-head">
-          <div><h2 id="timelineHeading">Sesongsløp ${timelineYear}</h2><p class="timeline-help">Markører viser punktdatoer. Fullt navn, sted og beskrivelse ligger i detaljer og i listen.</p>${renderLegend(activeTypes)}</div>
+          <div><h2 id="timelineHeading">Sesongsløp ${timelineYear}</h2><p class="timeline-help">Markører viser punktdatoer. Trykk på en aktivitet for å se detaljer.</p>${renderLegend(activeTypes)}</div>
           ${nextSummary()}
         </div>
         <div class="timeline-track" role="region" aria-label="Sesongsløp med aldersgrupper som rader og dato gjennom året som vannrett akse" tabindex="0">
