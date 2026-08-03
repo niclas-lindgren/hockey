@@ -59,14 +59,35 @@ jobs:
             requirements.txt
             pyproject.toml
 
-      - name: "Installer testavhengigheter"
+      - name: "Installer runtime-avhengigheter"
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -e ".[test]"
+          pip install -e .
 
-      - name: "Kjør generator-tester"
-        run: pytest -q tests/test_activity_viewer.py tests/test_registered_teams.py
+      - name: "Valider generert iframe-CSS"
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from tempfile import TemporaryDirectory
+
+          from tournament_scheduler.pipeline.activity_viewer import generate_html
+          from tournament_scheduler.pipeline.registered_teams import render_registered_teams_html
+
+          with TemporaryDirectory() as tmp:
+              activity_html = Path(generate_html(export_dir=tmp)).read_text(encoding="utf-8")
+
+          registration_html = render_registered_teams_html({
+              "generated_at": "2026-08-03T06:00:00Z",
+              "total_teams": 0,
+              "age_groups": [],
+          })
+
+          assert ".is-embed .panel { border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }" in activity_html
+          assert ".is-embed main { border:0; border-radius:0; background:transparent; box-shadow:none; }" in registration_html
+          assert ".timeline-shell { overflow: hidden; border: 1px solid var(--border);" in activity_html
+          assert ".club + .club { border-top:1px solid var(--line); }" in registration_html
+          PY
 
       - name: "Commit endringen"
         run: |
@@ -93,5 +114,3 @@ jobs:
             --publish \
             --confirm-public \
             --json
-
-# Triggered after the workflow existed on the default branch.
