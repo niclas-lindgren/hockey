@@ -1,0 +1,175 @@
+name: "One-time fix: activity overview wording and today label"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/one-time-fix-activity-overview-91.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: one-time-fix-activity-overview-91
+  cancel-in-progress: false
+
+jobs:
+  update-test-publish-close:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: "Hent kode"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Oppdater aktivitetsoversikten"
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          source_path = Path("tournament_scheduler/pipeline/activity_viewer.py")
+          source = source_path.read_text(encoding="utf-8")
+
+          old_today = r'''    const today = new Date();
+              const todayLine = today.getFullYear() === timelineYear ? `<div class=\"timeline-today\" style=\"left:${dateToPercent(today.toISOString().slice(0, 10), timelineYear).toFixed(4)}%\"><span>I dag</span></div>` : '';
+              const laneRows = lanes.map(group => {'''
+          new_today = r'''    const today = new Date();
+              const todayPosition = today.getFullYear() === timelineYear
+                ? dateToPercent(today.toISOString().slice(0, 10), timelineYear).toFixed(4)
+                : null;
+              const laneRows = lanes.map((group, laneIndex) => {'''
+          if source.count(old_today) != 1:
+              raise SystemExit("Fant ikke forventet today-blokk nøyaktig én gang")
+          source = source.replace(old_today, new_today, 1)
+
+          old_lane = r'''      return `<div class=\"timeline-lane-label\">${escapeHtml(laneLabel(group))}</div><div class=\"timeline-lane\">${todayLine}${laneItems || '<div class=\"timeline-empty\">Ingen aktiviteter i valgt filter.</div>'}</div>`;'''
+          new_lane = r'''      const todayLine = todayPosition === null
+                ? ''
+                : `<div class=\"timeline-today\" aria-hidden=\"true\" style=\"left:${todayPosition}%\">${laneIndex === 0 ? '<span>I dag</span>' : ''}</div>`;
+              return `<div class=\"timeline-lane-label\">${escapeHtml(laneLabel(group))}</div><div class=\"timeline-lane\">${todayLine}${laneItems || '<div class=\"timeline-empty\">Ingen aktiviteter i valgt filter.</div>'}</div>`;'''
+          if source.count(old_lane) != 1:
+              raise SystemExit("Fant ikke forventet lane-retur nøyaktig én gang")
+          source = source.replace(old_lane, new_lane, 1)
+
+          exact_replacements = {
+              "Standalone public activity calendar page generation (issues #33/#38/#40).":
+                  "Standalone public activity calendar page generation (issues #33/#38/#40/#91).",
+              "<h2 id=\"timelineHeading\">Sesongsløp ${timelineYear}</h2>":
+                  "<h2 id=\"timelineHeading\">Aktivitetsoversikt ${timelineYear}</h2>",
+              "aria-label=\"Sesongsløp med aldersgrupper som rader og dato gjennom året som vannrett akse\"":
+                  "aria-label=\"Aktivitetsoversikt med aldersgrupper som rader og dato gjennom året som vannrett akse\"",
+          }
+          for old, new in exact_replacements.items():
+              if source.count(old) != 1:
+                  raise SystemExit(f"Fant ikke forventet tekst nøyaktig én gang: {old}")
+              source = source.replace(old, new, 1)
+
+          source = source.replace("Sesongsløp", "Sesongoversikt")
+          source = source.replace("sesongsløp", "sesongoversikt")
+          if "Sesongsløp" in source or "sesongsløp" in source:
+              raise SystemExit("Gammel brukerrettet betegnelse finnes fortsatt i generatoren")
+          if source.count("<span>I dag</span>") != 1:
+              raise SystemExit("I dag-merket skal finnes nøyaktig én gang i malen")
+          source_path.write_text(source, encoding="utf-8")
+
+          test_path = Path("tests/test_activity_viewer.py")
+          tests = test_path.read_text(encoding="utf-8")
+          tests = tests.replace(
+              '"""Tests for the standalone activity calendar page (issues #33, #38, and #40)."""',
+              '"""Tests for the standalone activity calendar page (issues #33, #38, #40, and #91)."""',
+          )
+          old_view_assert = '        assert "Sesongsløp" in html\n'
+          new_view_assert = (
+              '        assert "Sesongoversikt" in html\n'
+              '        assert "Aktivitetsoversikt ${timelineYear}" in html\n'
+              '        assert "Sesongsløp" not in html\n'
+          )
+          if tests.count(old_view_assert) != 1:
+              raise SystemExit("Fant ikke forventet visningsassert i testen")
+          tests = tests.replace(old_view_assert, new_view_assert, 1)
+
+          marker_assert = '        assert "class=\\\"timeline-marker" in html\n'
+          today_asserts = (
+              '        assert html.count("<span>I dag</span>") == 1\n'
+              '        assert "lanes.map((group, laneIndex) =>" in html\n'
+              '        assert "laneIndex === 0" in html\n'
+              '        assert "aria-hidden=\\\"true\\\"" in html\n'
+              + marker_assert
+          )
+          if tests.count(marker_assert) != 1:
+              raise SystemExit("Fant ikke forventet markørassert i testen")
+          tests = tests.replace(marker_assert, today_asserts, 1)
+          tests = tests.replace('        assert "Sesongsløp" in docs\n', '        assert "Sesongoversikt" in docs\n        assert "Sesongsløp" not in docs\n')
+          test_path.write_text(tests, encoding="utf-8")
+
+          docs_path = Path("docs/rvv-miniputt-pipeline.md")
+          docs = docs_path.read_text(encoding="utf-8")
+          docs = docs.replace("Sesongsløp", "Sesongoversikt")
+          docs = docs.replace("sesongsløp", "sesongoversikt")
+          docs_path.write_text(docs, encoding="utf-8")
+          PY
+
+      - name: "Kontroller endringene"
+        run: |
+          ! grep -R -n -E 'Sesongsløp|sesongsløp' \
+            tournament_scheduler/pipeline/activity_viewer.py \
+            tests/test_activity_viewer.py \
+            docs/rvv-miniputt-pipeline.md
+          test "$(grep -o '<span>I dag</span>' tournament_scheduler/pipeline/activity_viewer.py | wc -l)" -eq 1
+          git diff --check
+
+      - name: "Sett opp Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
+
+      - name: "Installer testavhengigheter"
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e ".[test]"
+
+      - name: "Kjør fokuserte tester"
+        run: pytest -q tests/test_activity_viewer.py tests/test_activity_export.py
+
+      - name: "Commit endringen direkte på main"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            tournament_scheduler/pipeline/activity_viewer.py \
+            tests/test_activity_viewer.py \
+            docs/rvv-miniputt-pipeline.md
+          git commit -m "Fix activity overview wording and today label (#91)"
+          git push origin HEAD:main
+
+      - name: "Publiser oppdatert aktivitetsoversikt"
+        run: |
+          scripts/rvv-miniputt activities \
+            --input inputs/activities/activities.json \
+            --work-dir .pipeline/activity-overview-91 \
+            --publish \
+            --confirm-public \
+            --json
+
+      - name: "Lukk issue 91"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue close 91 \
+            --repo "$GITHUB_REPOSITORY" \
+            --comment "Rettet direkte på main: bare øverste rad viser «I dag», visningen heter nå «Sesongoversikt», og overskriften er «Aktivitetsoversikt <år>». Fokuserte tester besto og aktivitetsoversikten er publisert på nytt."
+
+      - name: "Fjern engangs-workflowen"
+        run: |
+          git rm .github/workflows/one-time-fix-activity-overview-91.yml
+          git commit -m "Remove one-time activity overview fix workflow"
+          git push origin HEAD:main
