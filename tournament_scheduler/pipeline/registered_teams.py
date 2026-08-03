@@ -282,7 +282,7 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
   .is-embed header > :not(.updated) {{ display:none; }}
   .is-embed .updated {{ margin:0; }}
   .is-embed .toolbar {{ position:static; margin:0 0 12px; padding:0; background:transparent; }}
-  .is-embed main {{ box-shadow:none; }}
+  .is-embed main {{ border:0; border-radius:0; background:transparent; box-shadow:none; }}
   .is-embed footer {{ display:none; }}
   @media (max-width:520px) {{
     .wrap {{ padding:18px 12px 28px; }}

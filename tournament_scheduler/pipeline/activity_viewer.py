@@ -135,7 +135,7 @@ _HTML = r"""<!doctype html>
   .is-embed .wrap { width: 100%; max-width: none; padding: 0; }
   .is-embed header { display: none; }
   .is-embed .toolbar { margin: 0 0 12px; box-shadow: none; background: #f5f7f9; }
-  .is-embed .panel { box-shadow: none; padding: 10px; }
+  .is-embed .panel { border: 0; border-radius: 0; background: transparent; box-shadow: none; padding: 0; }
   @media (max-width: 900px) {
     .toolbar { grid-template-columns: 1fr 1fr; }
     .segmented, .status { grid-column: 1 / -1; }
