@@ -46,6 +46,10 @@ from .capability_result import CapabilityResult
 
 _GIT_TIMEOUT_SECONDS = 120
 
+# These assets are published independently from the season-plan bundle.
+# A season-plan publish must never delete them from /latest/.
+_PRESERVED_LATEST_PATHS = ("activities", "activities.json", "registered-teams")
+
 _ROOT_INDEX_HTML = """<!doctype html>
 <html lang="en">
 <head>
@@ -119,16 +123,51 @@ def _branch_exists_on_remote(repo_root: str, remote: str, branch: str) -> bool:
     return proc.returncode == 0
 
 
-def _copy_bundle(export_dir: Path, dest_dir: Path) -> None:
-    """Copy *export_dir*'s contents into *dest_dir*, overwriting it wholesale.
+def _copy_path(source: Path, destination: Path) -> None:
+    """Copy one file or directory, creating its destination parent."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_dir():
+        shutil.copytree(source, destination)
+    else:
+        shutil.copyfile(source, destination)
+
+
+def _copy_bundle(
+    export_dir: Path,
+    dest_dir: Path,
+    *,
+    preserve_existing: tuple[str, ...] = (),
+) -> None:
+    """Replace *dest_dir* with *export_dir*, preserving independent assets.
+
+    Entries named by *preserve_existing* survive when they already exist in
+    *dest_dir* and the new bundle does not contain a replacement. This keeps
+    independently published activity and registration pages available when a
+    season-plan bundle is published.
 
     Adds an ``index.html`` when the bundle doesn't already have one (falling
     back to a copy of ``season_plan.html``) so the directory resolves on its
     own as a Pages URL.
     """
-    if dest_dir.exists():
-        shutil.rmtree(dest_dir)
-    shutil.copytree(export_dir, dest_dir)
+    preserved_root = Path(tempfile.mkdtemp(prefix="rvv-pages-preserved-"))
+    try:
+        if dest_dir.exists():
+            for relative_name in preserve_existing:
+                source = dest_dir / relative_name
+                if not source.exists() or (export_dir / relative_name).exists():
+                    continue
+                _copy_path(source, preserved_root / relative_name)
+            shutil.rmtree(dest_dir)
+
+        shutil.copytree(export_dir, dest_dir)
+
+        for relative_name in preserve_existing:
+            source = preserved_root / relative_name
+            if source.exists():
+                _copy_path(source, dest_dir / relative_name)
+    finally:
+        shutil.rmtree(preserved_root, ignore_errors=True)
+
     index_path = dest_dir / "index.html"
     if not index_path.exists():
         season_html = dest_dir / "season_plan.html"
@@ -258,7 +297,19 @@ def diff_latest(bundle_dir: str, *, repo_dir: str = ".", branch: str = "gh-pages
             update.append(rel)
 
     bundle_rels = {f"latest/{name}" for name in bundle_contents}
-    remove = sorted(existing - bundle_rels)
+    preserved_roots = tuple(
+        root
+        for root in _PRESERVED_LATEST_PATHS
+        if not any(name == root or name.startswith(f"{root}/") for name in bundle_contents)
+    )
+    remove = sorted(
+        path
+        for path in existing - bundle_rels
+        if not any(
+            path == f"latest/{root}" or path.startswith(f"latest/{root}/")
+            for root in preserved_roots
+        )
+    )
 
     return {"add": sorted(add), "update": sorted(update), "remove": remove}
 
@@ -364,10 +415,14 @@ def publish(
 
         branch_root = Path(tmp_dir)
         _write_root_index(branch_root)
-        _copy_bundle(export_path, branch_root / "latest")
+        _copy_bundle(
+            export_path,
+            branch_root / "latest",
+            preserve_existing=_PRESERVED_LATEST_PATHS,
+        )
         run_dir = branch_root / "runs" / run_id
         is_new_run_snapshot = not run_dir.exists()
-        _copy_bundle(export_path, run_dir)
+        _copy_bundle(branch_root / "latest", run_dir)
 
         if bundle_fingerprint is not None:
             meta_payload = json.dumps(
@@ -516,9 +571,11 @@ def rollback_to_run(
             )
 
         latest_dir = Path(tmp_dir) / "latest"
-        if latest_dir.exists():
-            shutil.rmtree(latest_dir)
-        shutil.copytree(run_dir, latest_dir)
+        _copy_bundle(
+            run_dir,
+            latest_dir,
+            preserve_existing=_PRESERVED_LATEST_PATHS,
+        )
 
         _git(["add", "-A"], cwd=tmp_dir)
         status_proc = _git(["status", "--porcelain"], cwd=tmp_dir)
