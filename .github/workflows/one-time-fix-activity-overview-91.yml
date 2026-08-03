@@ -31,45 +31,49 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: forventet 1 treff, fant {count}")
+              return text.replace(old, new, 1)
+
           source_path = Path("tournament_scheduler/pipeline/activity_viewer.py")
           source = source_path.read_text(encoding="utf-8")
-
-          old_today = r'''    const today = new Date();
-              const todayLine = today.getFullYear() === timelineYear ? `<div class=\"timeline-today\" style=\"left:${dateToPercent(today.toISOString().slice(0, 10), timelineYear).toFixed(4)}%\"><span>I dag</span></div>` : '';
-              const laneRows = lanes.map(group => {'''
-          new_today = r'''    const today = new Date();
+          source = replace_once(
+              source,
+              r'''    const today = new Date();
+              const todayLine = today.getFullYear() === timelineYear ? `<div class="timeline-today" style="left:${dateToPercent(today.toISOString().slice(0, 10), timelineYear).toFixed(4)}%"><span>I dag</span></div>` : '';
+              const laneRows = lanes.map(group => {'''.replace('\\"', '"'),
+              r'''    const today = new Date();
               const todayPosition = today.getFullYear() === timelineYear
                 ? dateToPercent(today.toISOString().slice(0, 10), timelineYear).toFixed(4)
                 : null;
-              const laneRows = lanes.map((group, laneIndex) => {'''
-          if source.count(old_today) != 1:
-              raise SystemExit("Fant ikke forventet today-blokk nøyaktig én gang")
-          source = source.replace(old_today, new_today, 1)
-
-          old_lane = r'''      return `<div class=\"timeline-lane-label\">${escapeHtml(laneLabel(group))}</div><div class=\"timeline-lane\">${todayLine}${laneItems || '<div class=\"timeline-empty\">Ingen aktiviteter i valgt filter.</div>'}</div>`;'''
-          new_lane = r'''      const todayLine = todayPosition === null
+              const laneRows = lanes.map((group, laneIndex) => {''',
+              "today-blokk",
+          )
+          source = replace_once(
+              source,
+              r'''      return `<div class="timeline-lane-label">${escapeHtml(laneLabel(group))}</div><div class="timeline-lane">${todayLine}${laneItems || '<div class="timeline-empty">Ingen aktiviteter i valgt filter.</div>'}</div>`;'''.replace('\\"', '"'),
+              r'''      const todayLine = todayPosition === null
                 ? ''
-                : `<div class=\"timeline-today\" aria-hidden=\"true\" style=\"left:${todayPosition}%\">${laneIndex === 0 ? '<span>I dag</span>' : ''}</div>`;
-              return `<div class=\"timeline-lane-label\">${escapeHtml(laneLabel(group))}</div><div class=\"timeline-lane\">${todayLine}${laneItems || '<div class=\"timeline-empty\">Ingen aktiviteter i valgt filter.</div>'}</div>`;'''
-          if source.count(old_lane) != 1:
-              raise SystemExit("Fant ikke forventet lane-retur nøyaktig én gang")
-          source = source.replace(old_lane, new_lane, 1)
-
-          exact_replacements = {
-              "Standalone public activity calendar page generation (issues #33/#38/#40).":
-                  "Standalone public activity calendar page generation (issues #33/#38/#40/#91).",
-              "<h2 id=\"timelineHeading\">Sesongsløp ${timelineYear}</h2>":
-                  "<h2 id=\"timelineHeading\">Aktivitetsoversikt ${timelineYear}</h2>",
-              "aria-label=\"Sesongsløp med aldersgrupper som rader og dato gjennom året som vannrett akse\"":
-                  "aria-label=\"Aktivitetsoversikt med aldersgrupper som rader og dato gjennom året som vannrett akse\"",
-          }
-          for old, new in exact_replacements.items():
-              if source.count(old) != 1:
-                  raise SystemExit(f"Fant ikke forventet tekst nøyaktig én gang: {old}")
-              source = source.replace(old, new, 1)
-
-          source = source.replace("Sesongsløp", "Sesongoversikt")
-          source = source.replace("sesongsløp", "sesongoversikt")
+                : `<div class="timeline-today" aria-hidden="true" style="left:${todayPosition}%">${laneIndex === 0 ? '<span>I dag</span>' : ''}</div>`;
+              return `<div class="timeline-lane-label">${escapeHtml(laneLabel(group))}</div><div class="timeline-lane">${todayLine}${laneItems || '<div class="timeline-empty">Ingen aktiviteter i valgt filter.</div>'}</div>`;'''.replace('\\"', '"'),
+              "lane-retur",
+          )
+          source = replace_once(
+              source,
+              "Standalone public activity calendar page generation (issues #33/#38/#40).",
+              "Standalone public activity calendar page generation (issues #33/#38/#40/#91).",
+              "moduldokumentasjon",
+          )
+          source = replace_once(source, "Sesongsløp ${timelineYear}", "Aktivitetsoversikt ${timelineYear}", "overskrift")
+          source = replace_once(
+              source,
+              "Sesongsløp med aldersgrupper som rader og dato gjennom året som vannrett akse",
+              "Aktivitetsoversikt med aldersgrupper som rader og dato gjennom året som vannrett akse",
+              "tilgjengelig navn",
+          )
+          source = source.replace("Sesongsløp", "Sesongoversikt").replace("sesongsløp", "sesongoversikt")
           if "Sesongsløp" in source or "sesongsløp" in source:
               raise SystemExit("Gammel brukerrettet betegnelse finnes fortsatt i generatoren")
           if source.count("<span>I dag</span>") != 1:
@@ -82,34 +86,37 @@ jobs:
               '"""Tests for the standalone activity calendar page (issues #33, #38, and #40)."""',
               '"""Tests for the standalone activity calendar page (issues #33, #38, #40, and #91)."""',
           )
-          old_view_assert = '        assert "Sesongsløp" in html\n'
-          new_view_assert = (
+          tests = replace_once(
+              tests,
+              '        assert "Sesongsløp" in html\n',
               '        assert "Sesongoversikt" in html\n'
               '        assert "Aktivitetsoversikt ${timelineYear}" in html\n'
-              '        assert "Sesongsløp" not in html\n'
+              '        assert "Sesongsløp" not in html\n',
+              "visningstest",
           )
-          if tests.count(old_view_assert) != 1:
-              raise SystemExit("Fant ikke forventet visningsassert i testen")
-          tests = tests.replace(old_view_assert, new_view_assert, 1)
-
-          marker_assert = '        assert "class=\\\"timeline-marker" in html\n'
-          today_asserts = (
-              '        assert html.count("<span>I dag</span>") == 1\n'
-              '        assert "lanes.map((group, laneIndex) =>" in html\n'
-              '        assert "laneIndex === 0" in html\n'
-              '        assert "aria-hidden=\\\"true\\\"" in html\n'
-              + marker_assert
+          anchor = '        assert "daysInYear(targetYear) - 1" in html\n'
+          tests = replace_once(
+              tests,
+              anchor,
+              anchor
+              + '        assert html.count("<span>I dag</span>") == 1\n'
+              + '        assert "lanes.map((group, laneIndex) =>" in html\n'
+              + '        assert "laneIndex === 0" in html\n'
+              + "        assert 'aria-hidden=\"true\"' in html\n",
+              "today-tester",
           )
-          if tests.count(marker_assert) != 1:
-              raise SystemExit("Fant ikke forventet markørassert i testen")
-          tests = tests.replace(marker_assert, today_asserts, 1)
-          tests = tests.replace('        assert "Sesongsløp" in docs\n', '        assert "Sesongoversikt" in docs\n        assert "Sesongsløp" not in docs\n')
+          tests = replace_once(
+              tests,
+              '        assert "Sesongsløp" in docs\n',
+              '        assert "Sesongoversikt" in docs\n'
+              '        assert "Sesongsløp" not in docs\n',
+              "dokumentasjonstest",
+          )
           test_path.write_text(tests, encoding="utf-8")
 
           docs_path = Path("docs/rvv-miniputt-pipeline.md")
           docs = docs_path.read_text(encoding="utf-8")
-          docs = docs.replace("Sesongsløp", "Sesongoversikt")
-          docs = docs.replace("sesongsløp", "sesongoversikt")
+          docs = docs.replace("Sesongsløp", "Sesongoversikt").replace("sesongsløp", "sesongoversikt")
           docs_path.write_text(docs, encoding="utf-8")
           PY
 
@@ -117,7 +124,6 @@ jobs:
         run: |
           ! grep -R -n -E 'Sesongsløp|sesongsløp' \
             tournament_scheduler/pipeline/activity_viewer.py \
-            tests/test_activity_viewer.py \
             docs/rvv-miniputt-pipeline.md
           test "$(grep -o '<span>I dag</span>' tournament_scheduler/pipeline/activity_viewer.py | wc -l)" -eq 1
           git diff --check
@@ -144,10 +150,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            tournament_scheduler/pipeline/activity_viewer.py \
-            tests/test_activity_viewer.py \
-            docs/rvv-miniputt-pipeline.md
+          git add tournament_scheduler/pipeline/activity_viewer.py tests/test_activity_viewer.py docs/rvv-miniputt-pipeline.md
           git commit -m "Fix activity overview wording and today label (#91)"
           git push origin HEAD:main
 
