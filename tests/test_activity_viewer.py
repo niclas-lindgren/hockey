@@ -1,4 +1,4 @@
-"""Tests for the standalone activity calendar page (issues #33, #38, and #40)."""
+"""Tests for the standalone activity calendar page (issues #33, #38, #40, and #91)."""
 
 from __future__ import annotations
 
@@ -60,7 +60,9 @@ class TestActivityViewer:
         html = html_path.read_text(encoding="utf-8")
 
         assert 'body class="view-overview"' in html
-        assert "Sesongsløp" in html
+        assert "Sesongoversikt" in html
+        assert "Aktivitetsoversikt ${timelineYear}" in html
+        assert "Sesongsløp" not in html
         assert "Liste" in html
         assert "Årshjul" not in html
         assert "yearWheel" not in html
@@ -83,9 +85,14 @@ class TestActivityViewer:
         assert "? 366 : 365" in html
         assert "function dateToPercent(iso, year)" in html
         assert "daysInYear(targetYear) - 1" in html
+        assert html.count("<span>I dag</span>") == 1
+        assert "const todayPosition = today.getFullYear() === timelineYear" in html
+        assert "const todayAxis = todayPosition === null" in html
+        assert "const todayLine = todayPosition === null" in html
+        assert "Den røde linjen viser dagens dato." in html
         assert "class=\"timeline-marker" in html
-        assert "width: 32px" in html
-        assert "Fullt navn, sted og beskrivelse ligger i detaljer og i listen" in html
+        assert "width: 40px" in html
+        assert "Trykk på en aktivitet for å se detaljer" in html
 
     def test_page_derives_lanes_handles_multi_age_all_age_and_collisions(self, tmp_path):
         html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")
@@ -135,7 +142,7 @@ class TestActivityViewer:
         assert "postMessage({ type: 'rvv-activities-height', height: document.documentElement.scrollHeight }, '*')" not in html
         assert "overflow-x: hidden" in html
         assert "window.addEventListener('resize', () => { renderTimeline(); announceHeight('window-resize'); })" in html
-        assert "window.addEventListener('orientationchange', () => announceHeight('orientation-change'))" in html
+        assert "window.addEventListener('orientationchange', syncResponsiveMode)" in html
 
     def test_page_debounces_clamps_and_observes_height_changes(self, tmp_path):
         html = Path(generate_html(export_dir=str(tmp_path / "export"))).read_text(encoding="utf-8")

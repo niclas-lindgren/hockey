@@ -1,4 +1,4 @@
-"""Standalone public activity calendar page generation (issues #33/#38/#40)."""
+"""Standalone public activity calendar page generation (issues #33/#38/#40/#91)."""
 
 from __future__ import annotations
 
@@ -164,12 +164,12 @@ _HTML = r"""<!doctype html>
   <header>
     <div class="eyebrow">RVV Hockey</div>
     <h1>Aktivitetskalender</h1>
-    <p class="lead">Sesongsløp og aktivitetsliste for Region Viken Vest.</p>
+    <p class="lead">Sesongoversikt og aktivitetsliste for Region Viken Vest.</p>
   </header>
 
   <div class="toolbar" aria-label="Visningsvalg og filtre">
     <div class="segmented" role="group" aria-label="Velg visning">
-      <button type="button" id="overviewView" aria-pressed="true">Sesongsløp</button>
+      <button type="button" id="overviewView" aria-pressed="true">Sesongoversikt</button>
       <button type="button" id="listView" aria-pressed="false">Liste</button>
     </div>
     <label for="ageFilter">Aldersgruppe
@@ -475,7 +475,7 @@ _HTML = r"""<!doctype html>
       return;
     }
     if (!lanes.length) {
-      timelineContainer.innerHTML = '<div class="timeline-empty">Ingen aktiviteter har en konkret aldersgruppe å vise i sesongsløpet. Bruk listen for aktiviteter som gjelder alle eller mangler aldersgruppe.</div>';
+      timelineContainer.innerHTML = '<div class="timeline-empty">Ingen aktiviteter har en konkret aldersgruppe å vise i sesongoversikten. Bruk listen for aktiviteter som gjelder alle eller mangler aldersgruppe.</div>';
       return;
     }
     const entries = buildLaneEntries(filteredActivities, lanes);
@@ -484,7 +484,12 @@ _HTML = r"""<!doctype html>
       return `<div class="month-tick" style="left:${left.toFixed(4)}%"><span>${month}</span></div>`;
     }).join('');
     const today = new Date();
-    const todayLine = today.getFullYear() === timelineYear ? `<div class="timeline-today" style="left:${dateToPercent(today.toISOString().slice(0, 10), timelineYear).toFixed(4)}%"><span>I dag</span></div>` : '';
+    const todayPosition = today.getFullYear() === timelineYear
+      ? dateToPercent(today.toISOString().slice(0, 10), timelineYear).toFixed(4)
+      : null;
+    const todayLine = todayPosition === null ? '' : `<div class="timeline-today" aria-hidden="true" style="left:${todayPosition}%"></div>`;
+    const todayAxis = todayPosition === null ? '' : `<div class="timeline-today" style="left:${todayPosition}%"><span>I dag</span></div>`;
+    const todayHelp = todayPosition === null ? '' : ' Den røde linjen viser dagens dato.';
     const laneRows = lanes.map(group => {
       const laneItems = entries.filter(entry => entry.group === group).map(entry => {
         const activity = entry.activity;
@@ -498,13 +503,13 @@ _HTML = r"""<!doctype html>
     timelineContainer.innerHTML = `
       <div class="timeline-shell">
         <div class="timeline-head">
-          <div><h2 id="timelineHeading">Sesongsløp ${timelineYear}</h2><p class="timeline-help">Markører viser punktdatoer. Trykk på en aktivitet for å se detaljer.</p>${renderLegend(activeTypes)}</div>
+          <div><h2 id="timelineHeading">Aktivitetsoversikt ${timelineYear}</h2><p class="timeline-help">Markører viser punktdatoer.${todayHelp} Trykk på en aktivitet for å se detaljer.</p>${renderLegend(activeTypes)}</div>
           ${nextSummary()}
         </div>
-        <div class="timeline-track" role="region" aria-label="Sesongsløp med aldersgrupper som rader og dato gjennom året som vannrett akse" tabindex="0">
+        <div class="timeline-track" role="region" aria-label="Aktivitetsoversikt med aldersgrupper som rader og dato gjennom året som vannrett akse" tabindex="0">
           <div class="timeline-grid">
             <div class="corner-cell">Aldersgruppe</div>
-            <div class="axis-cell">${monthTicks}</div>
+            <div class="axis-cell">${monthTicks}${todayAxis}</div>
             ${laneRows}
           </div>
         </div>
@@ -661,7 +666,7 @@ _HTML = r"""<!doctype html>
     });
 })();
 </script>
-<noscript><p class="wrap">Aktivitetskalenderen krever JavaScript for filtrering og sesongsløpvisning. Åpne activities.json for rådata.</p></noscript>
+<noscript><p class="wrap">Aktivitetskalenderen krever JavaScript for filtrering og sesongoversiktsvisning. Åpne activities.json for rådata.</p></noscript>
 </body>
 </html>
 """
