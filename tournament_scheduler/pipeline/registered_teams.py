@@ -209,19 +209,18 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
     sections: list[str] = []
     for club_name in sorted(clubs, key=str.casefold):
         teams = sorted(clubs[club_name], key=lambda team: (age_sort_key(team["age_group"]), team["label"].casefold()))
-        searchable = " ".join([club_name, *[f"{team['age_group']} {team['label']}" for team in teams]]).casefold()
         team_items = "".join(
-            '<li>'
+            f'<li class="team" data-search="{_e((team["age_group"] + " " + team["label"]).casefold())}">'
             f'<span class="age-badge">{_e(team["age_group"])}</span>'
             f'<span class="team-name">{_e(team["label"])}</span>'
             '</li>'
             for team in teams
         )
         sections.append(
-            f'<section class="club" data-search="{_e(searchable)}">'
+            f'<section class="club" data-club-search="{_e(club_name.casefold())}">'
             '<div class="club-heading">'
             f'<h2>{_e(club_name)}</h2>'
-            f'<span>{len(teams)} lag</span>'
+            f'<span class="club-count">{len(teams)} lag</span>'
             '</div>'
             f'<ul>{team_items}</ul>'
             '</section>'
@@ -347,13 +346,31 @@ def render_registered_teams_html(payload: dict[str, Any]) -> str:
   const resultsMeta = document.getElementById('results-meta');
   if (input && clubs.length) {{
     const normalize = value => value.toLocaleLowerCase('nb-NO').trim();
+    const allTeams = clubs.reduce((count, club) => count + club.querySelectorAll('.team').length, 0);
     const render = () => {{
       const query = normalize(input.value);
-      let visible = 0;
-      clubs.forEach(club => {{ const match = !query || club.dataset.search.includes(query); club.hidden = !match; if (match) visible += 1; }});
+      let visibleClubs = 0;
+      let visibleTeams = 0;
+      clubs.forEach(club => {{
+        const clubMatch = Boolean(query) && normalize(club.dataset.clubSearch || '').includes(query);
+        const teams = Array.from(club.querySelectorAll('.team'));
+        let clubVisibleTeams = 0;
+        teams.forEach(team => {{
+          const teamMatch = !query || clubMatch || normalize(team.dataset.search || '').includes(query);
+          team.hidden = !teamMatch;
+          if (teamMatch) {{ clubVisibleTeams += 1; visibleTeams += 1; }}
+        }});
+        const showClub = !query || clubMatch || clubVisibleTeams > 0;
+        club.hidden = !showClub;
+        const count = club.querySelector('.club-count');
+        if (count) count.textContent = query ? `${{clubVisibleTeams}} av ${{teams.length}} lag` : `${{teams.length}} lag`;
+        if (showClub) visibleClubs += 1;
+      }});
       clearButton.hidden = !query;
-      if (noResults) noResults.hidden = visible !== 0;
-      resultsMeta.textContent = query ? `${{visible}} av ${{clubs.length}} klubber vises` : `${{clubs.length}} klubber`;
+      if (noResults) noResults.hidden = visibleTeams !== 0;
+      resultsMeta.textContent = query
+        ? `${{visibleTeams}} av ${{allTeams}} lag i ${{visibleClubs}} av ${{clubs.length}} klubber vises`
+        : `${{allTeams}} lag i ${{clubs.length}} klubber`;
       announceHeight('filter');
     }};
     input.addEventListener('input', render);
