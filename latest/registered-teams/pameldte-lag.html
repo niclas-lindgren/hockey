@@ -35,8 +35,6 @@
   .age-badge { display:inline-flex; justify-content:center; align-items:center; min-width:44px; padding:3px 7px; border-radius:999px; background:var(--accent-soft); color:#084d87; font-size:12px; font-weight:800; line-height:1.4; }
   .team-name { min-width:0; overflow-wrap:anywhere; }
   .no-results,.empty-state { margin:0; padding:34px 20px; text-align:center; color:var(--muted); }
-  .empty-state h2 { margin:0 0 6px; color:var(--ink); font-size:20px; }
-  .empty-state p { margin:0; }
   footer { margin-top:16px; color:var(--muted); font-size:13px; }
   footer a { color:var(--accent); }
   [hidden] { display:none!important; }
@@ -74,7 +72,7 @@
     </label>
     <p class="results-meta" id="results-meta" aria-live="polite"></p>
   </div>
-  <main id="club-list"><section class="club" data-search="sandefjord penguins ishockeyklubb u7 sandefjord u8 sandefjord u9 sandefjord u11 sandefjord"><div class="club-heading"><h2>Sandefjord Penguins Ishockeyklubb</h2><span>4 lag</span></div><ul><li><span class="age-badge">U7</span><span class="team-name">Sandefjord</span></li><li><span class="age-badge">U8</span><span class="team-name">Sandefjord</span></li><li><span class="age-badge">U9</span><span class="team-name">Sandefjord</span></li><li><span class="age-badge">U11</span><span class="team-name">Sandefjord</span></li></ul></section><p class="no-results" id="no-results" hidden>Ingen klubber eller lag matcher søket.</p></main>
+  <main id="club-list"><section class="club" data-club-search="sandefjord penguins ishockeyklubb"><div class="club-heading"><h2>Sandefjord Penguins Ishockeyklubb</h2><span class="club-count">4 lag</span></div><ul><li class="team" data-search="u7 sandefjord"><span class="age-badge">U7</span><span class="team-name">Sandefjord</span></li><li class="team" data-search="u8 sandefjord"><span class="age-badge">U8</span><span class="team-name">Sandefjord</span></li><li class="team" data-search="u9 sandefjord"><span class="age-badge">U9</span><span class="team-name">Sandefjord</span></li><li class="team" data-search="u11 sandefjord"><span class="age-badge">U11</span><span class="team-name">Sandefjord</span></li></ul></section><p class="no-results" id="no-results" hidden>Ingen klubber eller lag matcher søket.</p></main>
   <footer>Oversikten oppdateres automatisk når godkjente påmeldinger behandles. <a href="pameldte-lag.json">Åpne offentlig JSON</a>.</footer>
 </div>
 <script>
@@ -111,13 +109,31 @@
   const resultsMeta = document.getElementById('results-meta');
   if (input && clubs.length) {
     const normalize = value => value.toLocaleLowerCase('nb-NO').trim();
+    const allTeams = clubs.reduce((count, club) => count + club.querySelectorAll('.team').length, 0);
     const render = () => {
       const query = normalize(input.value);
-      let visible = 0;
-      clubs.forEach(club => { const match = !query || club.dataset.search.includes(query); club.hidden = !match; if (match) visible += 1; });
+      let visibleClubs = 0;
+      let visibleTeams = 0;
+      clubs.forEach(club => {
+        const clubMatch = Boolean(query) && normalize(club.dataset.clubSearch || '').includes(query);
+        const teams = Array.from(club.querySelectorAll('.team'));
+        let clubVisibleTeams = 0;
+        teams.forEach(team => {
+          const teamMatch = !query || clubMatch || normalize(team.dataset.search || '').includes(query);
+          team.hidden = !teamMatch;
+          if (teamMatch) { clubVisibleTeams += 1; visibleTeams += 1; }
+        });
+        const showClub = !query || clubMatch || clubVisibleTeams > 0;
+        club.hidden = !showClub;
+        const count = club.querySelector('.club-count');
+        if (count) count.textContent = query ? `${clubVisibleTeams} av ${teams.length} lag` : `${teams.length} lag`;
+        if (showClub) visibleClubs += 1;
+      });
       clearButton.hidden = !query;
-      if (noResults) noResults.hidden = visible !== 0;
-      resultsMeta.textContent = query ? `${visible} av ${clubs.length} klubber vises` : `${clubs.length} klubber`;
+      if (noResults) noResults.hidden = visibleTeams !== 0;
+      resultsMeta.textContent = query
+        ? `${visibleTeams} av ${allTeams} lag i ${visibleClubs} av ${clubs.length} klubber vises`
+        : `${allTeams} lag i ${clubs.length} klubber`;
       announceHeight('filter');
     };
     input.addEventListener('input', render);
