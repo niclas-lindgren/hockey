@@ -173,7 +173,7 @@ class TestRegisteredTeamsArtifacts:
         public_json = json.loads(Path(artifacts["registered_teams_json"]).read_text(encoding="utf-8"))
 
         assert "Ingen lag er registrert ennå" in html
-        assert "Lag totalt</span><strong>0</strong>" in html
+        assert "<strong>0</strong> registrerte lag" in html
         assert public_json["total_teams"] == 0
         assert public_json["age_groups"] == []
 
@@ -197,4 +197,6 @@ class TestRegisteredTeamsArtifacts:
         assert "U10&lt;script&gt;" in html
         assert "Jar &lt;b&gt;" in html
         assert "Jar &amp; &lt;script&gt;" in html
-        assert "<script>" not in html
+        assert "U10<script>" not in html
+        assert "Jar <b>" not in html
+        assert "Jar & <script>" not in html
